@@ -29,7 +29,8 @@ import {
   EyeOff,
   Shield,
   Users,
-  Check
+  Check,
+  ChevronDown
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { UserV2, Role, Coordinacion } from '../types';
@@ -416,6 +417,11 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
   const [userGroups, setUserGroups] = useState<string[]>([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   
+  // Estados para dropdowns (MUST be at top level for Rules of Hooks)
+  const [isRoleOpen, setIsRoleOpen] = useState(false);
+  const [isCoordOpen, setIsCoordOpen] = useState(false);
+  const [isGroupsOpen, setIsGroupsOpen] = useState(false);
+  
   // Form data
   const [formData, setFormData] = useState<FormData>({
     email: user.email || '',
@@ -557,10 +563,12 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
           formData_coordinacion_id: formData.coordinacion_id
         });
       } else if (selectedRole?.name === 'coordinador') {
-        updates.coordinaciones_ids = formData.coordinaciones_ids;
+        // FIX 2026-01-22: Asegurar que siempre sea un array, nunca undefined
+        updates.coordinaciones_ids = formData.coordinaciones_ids || [];
         console.log('📋 [USER EDIT] Asignando coordinaciones_ids:', {
           role: selectedRole?.name,
-          coordinaciones_ids: updates.coordinaciones_ids
+          coordinaciones_ids: updates.coordinaciones_ids,
+          length: updates.coordinaciones_ids.length
         });
       }
 
@@ -589,6 +597,13 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
       if (success) {
         setIsEditingPassword(false);
         setFormData(prev => ({ ...prev, password: '' }));
+        
+        // FIX 2026-01-22: Cerrar modal y refrescar lista después de guardar exitosamente
+        toast.success('Usuario actualizado correctamente');
+        onRefresh(); // Recargar lista de usuarios
+        onClose(); // Cerrar el modal de edición
+      } else {
+        setError('Error al guardar los cambios');
       }
     } catch (err) {
       console.error('Error saving user:', err);
@@ -596,7 +611,7 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     } finally {
       setIsSaving(false);
     }
-  }, [formData, user.id, selectedRole, isEditingPassword, onSave, currentUserId]);
+  }, [formData, user.id, selectedRole, isEditingPassword, onSave, currentUserId, onRefresh, onClose]);
 
   const handleUnblock = useCallback(async () => {
     setIsUnblocking(true);
@@ -1036,29 +1051,109 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                   </h4>
                 </div>
 
-                {/* Role Selector */}
+                {/* Role Selector - Custom Dropdown */}
                 <div className="group">
                   <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                     <Key className="w-4 h-4 text-gray-400" />
                     <span>Rol *</span>
                   </label>
-                  <select
-                    required
-                    value={formData.role_id}
-                    onChange={(e) => setFormData(prev => ({ ...prev, role_id: e.target.value, analysis_sources: [] }))}
-                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
-                  >
-                    <option value="">Seleccionar rol...</option>
-                    {availableRoles.map(role => (
-                      <option key={role.id} value={role.id}>
-                        {role.display_name}
-                      </option>
-                    ))}
-                  </select>
+
+                  <div className="relative">
+                    {/* Trigger Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsRoleOpen(!isRoleOpen)}
+                      className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all bg-white dark:bg-gray-800/50"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {selectedRole ? (
+                          <>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-500 to-pink-500">
+                              <Shield className="w-4 h-4 text-white" />
+                            </div>
+                            <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {selectedRole.display_name}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-200 dark:bg-gray-700">
+                              <Shield className="w-4 h-4 text-gray-400" />
+                            </div>
+                            <span className="text-sm text-gray-500 dark:text-gray-400">
+                              Seleccionar rol...
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      <motion.div
+                        animate={{ rotate: isRoleOpen ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="flex-shrink-0"
+                      >
+                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                      </motion.div>
+                    </button>
+
+                    {/* Dropdown Menu */}
+                    <AnimatePresence>
+                      {isRoleOpen && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          transition={{ duration: 0.15 }}
+                          className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-xl max-h-64 overflow-y-auto scrollbar-none"
+                        >
+                          {availableRoles.map(role => {
+                            const isSelected = role.id === formData.role_id;
+                            return (
+                              <button
+                                key={role.id}
+                                type="button"
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, role_id: role.id, analysis_sources: [] }));
+                                  setIsRoleOpen(false);
+                                }}
+                                className={`w-full flex items-center gap-3 p-3 transition-all ${
+                                  isSelected
+                                    ? 'bg-purple-50 dark:bg-purple-900/20'
+                                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                }`}
+                              >
+                                {/* Icon */}
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  isSelected
+                                    ? 'bg-gradient-to-br from-purple-500 to-pink-500'
+                                    : 'bg-gradient-to-br from-gray-500 to-gray-600'
+                                }`}>
+                                  <Shield className="w-4 h-4 text-white" />
+                                </div>
+                                
+                                {/* Text */}
+                                <span className={`text-sm font-medium flex-1 text-left truncate ${
+                                  isSelected
+                                    ? 'text-purple-700 dark:text-purple-300'
+                                    : 'text-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {role.display_name}
+                                </span>
+
+                                {/* Check */}
+                                {isSelected && (
+                                  <Check className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                                )}
+                              </button>
+                            );
+                          })}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
-                {/* Coordinaciones for Coordinador/Supervisor (Multiple) */}
-                {(selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && (
+                {/* Coordinaciones for Coordinador ONLY (Multiple) */}
+                {selectedRole?.name === 'coordinador' && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -1109,50 +1204,120 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
             </motion.div>
           )}
 
-          {/* Coordinación for Ejecutivo y Supervisor (Single) */}
+          {/* Coordinación for Ejecutivo y Supervisor (Single) - Custom Dropdown */}
           {(selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
+              className="space-y-3"
             >
-              <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+              <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400">
                 <Building2 className="w-4 h-4 text-gray-400" />
                 <span>Coordinación *</span>
               </label>
-              <select
-                required
-                value={formData.coordinacion_id}
-                onChange={(e) => {
-                  console.log('📝 [SELECT] Coordinación seleccionada:', {
-                    new_value: e.target.value,
-                    old_value: formData.coordinacion_id
-                  });
-                  setFormData(prev => ({ ...prev, coordinacion_id: e.target.value }));
-                }}
-                className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
-              >
-                <option value="">Seleccionar coordinación...</option>
-                {activeCoordinaciones.map(coord => {
-                  console.log('🏢 [SELECT] Opción coordinación:', {
-                    id: coord.id,
-                    codigo: coord.codigo,
-                    nombre: coord.nombre,
-                    is_selected: coord.id === formData.coordinacion_id
-                  });
-                  return (
-                    <option key={coord.id} value={coord.id}>
-                      {coord.codigo} - {coord.nombre}
-                    </option>
-                  );
-                })}
-              </select>
+
+              <div className="relative">
+                {/* Trigger Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsCoordOpen(!isCoordOpen)}
+                  className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all bg-white dark:bg-gray-800/50"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    {(() => {
+                      const selectedCoord = activeCoordinaciones.find(c => c.id === formData.coordinacion_id);
+                      return selectedCoord ? (
+                        <>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br from-purple-500 to-pink-500">
+                            <Building2 className="w-4 h-4 text-white" />
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                            {selectedCoord.codigo} - {selectedCoord.nombre}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gray-200 dark:bg-gray-700">
+                            <Building2 className="w-4 h-4 text-gray-400" />
+                          </div>
+                          <span className="text-sm text-gray-500 dark:text-gray-400">
+                            Seleccionar coordinación...
+                          </span>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <motion.div
+                    animate={{ rotate: isCoordOpen ? 180 : 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex-shrink-0"
+                  >
+                    <ChevronDown className="w-5 h-5 text-gray-400" />
+                  </motion.div>
+                </button>
+
+                {/* Dropdown Menu */}
+                <AnimatePresence>
+                  {isCoordOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-xl max-h-64 overflow-y-auto scrollbar-none"
+                    >
+                      {activeCoordinaciones.map(coord => {
+                        const isSelected = coord.id === formData.coordinacion_id;
+                        return (
+                          <button
+                            key={coord.id}
+                            type="button"
+                            onClick={() => {
+                              setFormData(prev => ({ ...prev, coordinacion_id: coord.id }));
+                              setIsCoordOpen(false);
+                            }}
+                            className={`w-full flex items-center gap-3 p-3 transition-all ${
+                              isSelected
+                                ? 'bg-purple-50 dark:bg-purple-900/20'
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                            }`}
+                          >
+                            {/* Icon */}
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                              isSelected
+                                ? 'bg-gradient-to-br from-purple-500 to-pink-500'
+                                : 'bg-gradient-to-br from-gray-500 to-gray-600'
+                            }`}>
+                              <Building2 className="w-4 h-4 text-white" />
+                            </div>
+                            
+                            {/* Text */}
+                            <span className={`text-sm font-medium flex-1 text-left truncate ${
+                              isSelected
+                                ? 'text-purple-700 dark:text-purple-300'
+                                : 'text-gray-700 dark:text-gray-300'
+                            }`}>
+                              {coord.codigo} - {coord.nombre}
+                            </span>
+
+                            {/* Check */}
+                            {isSelected && (
+                              <Check className="w-5 h-5 text-purple-500 flex-shrink-0" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
             </motion.div>
           )}
 
-                {/* Section: Grupos de Permisos */}
+                {/* Section: Grupos de Permisos - Custom Dropdown con Multiselect */}
                 {filteredGroups.length > 0 && (
-                  <div className="space-y-4 mt-6">
+                  <div className="space-y-3 mt-6">
                     <div className="flex items-center gap-2">
                       <div className="w-1 h-5 bg-gradient-to-b from-indigo-500 to-blue-500 rounded-full" />
                       <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -1165,73 +1330,127 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                       Asigna grupos de permisos predefinidos para este usuario
                     </p>
 
-                    <div className="space-y-2 max-h-60 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-                      {filteredGroups.map(group => {
-                        const isAssigned = userGroups.includes(group.id);
-                        const isMatchingRole = group.base_role === user.role_name;
-                        
-                        return (
-                          <label
-                            key={group.id}
-                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all group ${
-                              isAssigned
-                                ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20'
-                                : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600'
-                            }`}
-                          >
-                            <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                              isAssigned 
-                                ? 'bg-indigo-500 border-indigo-500' 
-                                : 'border-gray-300 dark:border-gray-600 group-hover:border-indigo-400'
-                            }`}>
-                              {isAssigned && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                            <input
-                              type="checkbox"
-                              className="sr-only"
-                              checked={isAssigned}
-                              onChange={() => handleToggleGroup(group.id)}
-                            />
-                            
-                            {/* Group Icon */}
-                            <div 
-                              className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${group.color || 'from-gray-500 to-gray-600'}`}
-                            >
-                              <Shield className="w-4 h-4 text-white" />
-                            </div>
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-sm font-medium truncate ${
-                                  isAssigned
-                                    ? 'text-indigo-700 dark:text-indigo-300'
-                                    : 'text-gray-700 dark:text-gray-300'
+                    <div className="relative">
+                      {/* Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={() => setIsGroupsOpen(!isGroupsOpen)}
+                        className="w-full flex items-center justify-between gap-3 p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all bg-white dark:bg-gray-800/50"
+                      >
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {(() => {
+                            const assignedCount = userGroups.length;
+                            return (
+                              <>
+                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                                  assignedCount > 0 
+                                    ? 'bg-gradient-to-br from-indigo-500 to-blue-500'
+                                    : 'bg-gray-200 dark:bg-gray-700'
                                 }`}>
-                                  {group.display_name}
+                                  <Shield className={`w-4 h-4 ${assignedCount > 0 ? 'text-white' : 'text-gray-400'}`} />
+                                </div>
+                                <span className={`text-sm font-medium truncate ${
+                                  assignedCount > 0 
+                                    ? 'text-gray-900 dark:text-white'
+                                    : 'text-gray-500 dark:text-gray-400'
+                                }`}>
+                                  {assignedCount > 0 
+                                    ? `${assignedCount} grupo${assignedCount > 1 ? 's' : ''} seleccionado${assignedCount > 1 ? 's' : ''}`
+                                    : 'Seleccionar grupos...'
+                                  }
                                 </span>
-                                {isMatchingRole && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded flex items-center gap-1 flex-shrink-0">
-                                    <Users className="w-3 h-3" />
-                                    Recomendado
-                                  </span>
-                                )}
-                                {group.is_system && (
-                                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded flex-shrink-0">
-                                    Sistema
-                                  </span>
-                                )}
-                              </div>
-                              {group.description && (
-                                <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
-                                  {group.description}
-                                </p>
-                              )}
+                              </>
+                            );
+                          })()}
+                        </div>
+                        <motion.div
+                          animate={{ rotate: isGroupsOpen ? 180 : 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="flex-shrink-0"
+                        >
+                          <ChevronDown className="w-5 h-5 text-gray-400" />
+                        </motion.div>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      <AnimatePresence>
+                        {isGroupsOpen && (
+                          <motion.div
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.15 }}
+                            className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl border-2 border-gray-200 dark:border-gray-700 shadow-xl max-h-80 overflow-y-auto scrollbar-none"
+                          >
+                            <div className="p-2 space-y-1">
+                              {filteredGroups.map(group => {
+                                const isAssigned = userGroups.includes(group.id);
+                                const isMatchingRole = group.base_role === user.role_name;
+                                
+                                return (
+                                  <button
+                                    key={group.id}
+                                    type="button"
+                                    onClick={() => handleToggleGroup(group.id)}
+                                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
+                                      isAssigned
+                                        ? 'bg-indigo-50 dark:bg-indigo-900/20'
+                                        : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                                    }`}
+                                  >
+                                    {/* Checkbox */}
+                                    <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                                      isAssigned 
+                                        ? 'bg-indigo-500 border-indigo-500' 
+                                        : 'border-gray-300 dark:border-gray-600'
+                                    }`}>
+                                      {isAssigned && (
+                                        <Check className="w-3 h-3 text-white" />
+                                      )}
+                                    </div>
+                                    
+                                    {/* Group Icon */}
+                                    <div 
+                                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 bg-gradient-to-br ${group.color || 'from-gray-500 to-gray-600'}`}
+                                    >
+                                      <Shield className="w-4 h-4 text-white" />
+                                    </div>
+                                    
+                                    {/* Info */}
+                                    <div className="flex-1 min-w-0 text-left">
+                                      <div className="flex items-center gap-2">
+                                        <span className={`text-sm font-medium truncate ${
+                                          isAssigned
+                                            ? 'text-indigo-700 dark:text-indigo-300'
+                                            : 'text-gray-700 dark:text-gray-300'
+                                        }`}>
+                                          {group.display_name}
+                                        </span>
+                                        {isMatchingRole && (
+                                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded flex items-center gap-1 flex-shrink-0">
+                                            <Users className="w-3 h-3" />
+                                            Recomendado
+                                          </span>
+                                        )}
+                                        {group.is_system && (
+                                          <span className="px-1.5 py-0.5 text-[10px] font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded flex-shrink-0">
+                                            Sistema
+                                          </span>
+                                        )}
+                                      </div>
+                                      {group.description && (
+                                        <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                                          {group.description}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </button>
+                                );
+                              })}
                             </div>
-                          </label>
-                        );
-                      })}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   </div>
                 )}

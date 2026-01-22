@@ -254,9 +254,26 @@ export function useUserManagement(): UseUserManagementReturn {
       // Los coordinadores pueden tener múltiples coordinaciones asignadas
       // en la tabla intermedia auth_user_coordinaciones
       
+      // FIX 2026-01-22: Identificar coordinadores por role_name también (por si auth_roles no está disponible)
       const coordinadorIds = (data || [])
-        .filter(u => u.auth_roles?.name === 'coordinador')
+        .filter(u => {
+          const isCoordByRole = u.auth_roles?.name === 'coordinador';
+          const isCoordByName = u.role_name === 'coordinador';
+          const isCoordByFlag = u.is_coordinator === true;
+          return isCoordByRole || isCoordByName || isCoordByFlag;
+        })
         .map(u => u.id);
+      
+      console.log('🔍 [LOAD USERS] Coordinadores encontrados:', {
+        total: coordinadorIds.length,
+        ids: coordinadorIds,
+        usuarios: (data || []).filter(u => {
+          const isCoordByRole = u.auth_roles?.name === 'coordinador';
+          const isCoordByName = u.role_name === 'coordinador';
+          const isCoordByFlag = u.is_coordinator === true;
+          return isCoordByRole || isCoordByName || isCoordByFlag;
+        }).map(u => ({ id: u.id, email: u.email, role_name: u.role_name, auth_roles_name: u.auth_roles?.name }))
+      });
       
       const userCoordinacionesMap: Record<string, string[]> = {};
       
@@ -266,6 +283,13 @@ export function useUserManagement(): UseUserManagementReturn {
           .select('user_id, coordinacion_id')
           .in('user_id', coordinadorIds);
         
+        console.log('🔍 [LOAD USERS] Consulta auth_user_coordinaciones:', {
+          coordinadorIds,
+          relacionesEncontradas: relaciones?.length || 0,
+          relaciones,
+          error: relError
+        });
+        
         if (!relError && relaciones) {
           relaciones.forEach(rel => {
             if (!userCoordinacionesMap[rel.user_id]) {
@@ -273,7 +297,15 @@ export function useUserManagement(): UseUserManagementReturn {
             }
             userCoordinacionesMap[rel.user_id].push(rel.coordinacion_id);
           });
+          
+          console.log('✅ [LOAD USERS] Mapa de coordinaciones construido:', userCoordinacionesMap);
+        } else if (relError) {
+          console.error('❌ [LOAD USERS] Error cargando coordinaciones:', relError);
+        } else {
+          console.warn('⚠️ [LOAD USERS] No se encontraron relaciones en auth_user_coordinaciones para coordinadores');
         }
+      } else {
+        console.warn('⚠️ [LOAD USERS] No se encontraron coordinadores en la lista de usuarios');
       }
 
       // Cargar TODAS las coordinaciones para poder mapear nombres (para coordinadores)
@@ -319,8 +351,29 @@ export function useUserManagement(): UseUserManagementReturn {
         const coord = user.coordinacion_id ? (allCoordMap[user.coordinacion_id] || coordMap[user.coordinacion_id]) : null;
         const warningInfo = warningCounters[user.id];
         const systemUserId = user.email ? emailToSystemUserIdMap[user.email] : undefined;
-        const isCoordinador = user.auth_roles?.name === 'coordinador';
+        // FIX 2026-01-22: Identificar coordinadores por múltiples campos (igual que en el filtro)
+        const isCoordinador = 
+          user.auth_roles?.name === 'coordinador' || 
+          user.role_name === 'coordinador' || 
+          user.is_coordinator === true;
+        // FIX 2026-01-22: Asegurar que coordinadores siempre tengan array (nunca undefined)
         const coordIds = isCoordinador ? (userCoordinacionesMap[user.id] || []) : undefined;
+        
+        // Debug para el usuario específico
+        if (user.email === 'paolamaldonado@vidavacations.com') {
+          console.log('🔍 [LOAD USERS] Usuario específico:', {
+            userId: user.id,
+            email: user.email,
+            isCoordinador,
+            auth_roles_name: user.auth_roles?.name,
+            role_name: user.role_name,
+            is_coordinator_flag: user.is_coordinator,
+            userCoordinacionesMap: userCoordinacionesMap[user.id],
+            coordIds,
+            coordinacion_id_from_user: user.coordinacion_id,
+            userCoordinacionesMap_completo: userCoordinacionesMap
+          });
+        }
         
         // Para coordinadores: obtener nombres de sus coordinaciones
         let coordinacionesNombres: string[] | undefined;
@@ -345,7 +398,8 @@ export function useUserManagement(): UseUserManagementReturn {
           warning_count: warningInfo?.total_warnings || 0,
           system_ui_user_id: warningInfo?.system_ui_user_id || systemUserId,
           // Coordinaciones para coordinadores (desde tabla intermedia)
-          coordinaciones_ids: coordIds,
+          // FIX 2026-01-22: Coordinadores siempre tienen array (vacío si no hay coordinaciones)
+          coordinaciones_ids: isCoordinador ? coordIds : undefined,
           // Último login desde auth_login_logs (más confiable que auth_users.last_login)
           last_login: lastLoginMap[user.id] || user.last_login || null
         };
@@ -880,14 +934,17 @@ export function useUserManagement(): UseUserManagementReturn {
           .eq('user_id', userId);
       };
       
-      if (newRole?.name === 'coordinador' && updates.coordinaciones_ids) {
+      if (newRole?.name === 'coordinador') {
         // Solo coordinadores usan múltiples coordinaciones
         // Limpiar todas las relaciones existentes primero
         await cleanAllCoordinadorRelations(userId);
 
         // Insertar nuevas relaciones en auth_user_coordinaciones
-        if (updates.coordinaciones_ids.length > 0) {
-          const relaciones = updates.coordinaciones_ids.map(coordId => ({
+        // FIX 2026-01-22: Asegurar que coordinaciones_ids siempre sea un array
+        const coordinacionesIds = updates.coordinaciones_ids || [];
+        
+        if (coordinacionesIds.length > 0) {
+          const relaciones = coordinacionesIds.map(coordId => ({
             user_id: userId,
             coordinacion_id: coordId,
             assigned_by: currentUserId || null
@@ -898,17 +955,27 @@ export function useUserManagement(): UseUserManagementReturn {
             .insert(relaciones);
 
           if (relacionesError) {
-            console.error('Error actualizando coordinaciones:', relacionesError);
+            console.error('❌ [COORDINACION] Error actualizando coordinaciones:', relacionesError);
+            throw new Error(`Error al actualizar coordinaciones: ${relacionesError.message}`);
+          } else {
+            console.log('✅ [COORDINACION] Coordinaciones actualizadas exitosamente:', {
+              userId,
+              coordinacionesIds,
+              relacionesInsertadas: relaciones.length
+            });
           }
           
           // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Ya no se necesita escritura dual
           // permissionsService ahora usa auth_user_coordinaciones
+        } else {
+          console.log('⚠️ [COORDINACION] Coordinador sin coordinaciones asignadas (se limpiaron todas)');
         }
 
         // Actualizar flags del usuario
         updates.is_coordinator = true;
         updates.is_ejecutivo = false;
-        updates.coordinacion_id = undefined; // Limpiar coordinacion_id individual
+        // FIX 2026-01-22: Limpiar coordinacion_id individual de los metadatos (coordinadores usan tabla intermedia)
+        updates.coordinacion_id = null; // null en lugar de undefined para que se limpie en BD
       } else if (newRole?.name === 'ejecutivo' || newRole?.name === 'supervisor') {
         // Ejecutivos y supervisores usan coordinacion_id único (no array)
         console.log('🔍 [COORDINACION] Procesando rol ejecutivo/supervisor:', {
@@ -986,8 +1053,12 @@ export function useUserManagement(): UseUserManagementReturn {
       
       const metadataUpdates: Record<string, unknown> = {};
       for (const key of metadataFields) {
+        // FIX 2026-01-22: Incluir null explícitamente para limpiar coordinacion_id de coordinadores
         if (filteredUpdates[key] !== undefined) {
           metadataUpdates[key] = filteredUpdates[key];
+        } else if (key === 'coordinacion_id' && newRole?.name === 'coordinador') {
+          // Para coordinadores, asegurar que coordinacion_id sea null en metadatos
+          metadataUpdates[key] = null;
         }
       }
 

@@ -2,6 +2,55 @@
 
 ## [Unreleased]
 
+### 🗓️ v2.5.39 - Fix Coordinaciones Múltiples + Actualización Usuarios Vidanta [22-01-2026]
+
+#### 🐛 Correcciones de Bugs
+
+**Problema: Coordinadores perdían coordinaciones al recargar**
+- **Síntoma:** Coordinadores con coordinaciones asignadas las perdían después de recargar la página
+- **Causa:** 
+  - Condición de guardado requería `coordinaciones_ids` truthy (fallaba con `undefined`)
+  - Detección de coordinadores solo verificaba `auth_roles?.name`
+  - `coordinacion_id` no se limpiaba correctamente de metadatos
+- **Fix:** 
+  - Siempre procesar coordinadores (sin verificar `coordinaciones_ids`)
+  - Convertir `undefined` a array vacío `[]`
+  - Detección mejorada por múltiples campos (`auth_roles`, `role_name`, `is_coordinator`)
+  - Limpieza explícita de `coordinacion_id` como `null` en metadatos
+
+#### ✨ Mejoras de UX
+
+**Cierre automático del modal de edición:**
+- Modal se cierra automáticamente después de guardar exitosamente
+- Lista de usuarios se refresca inmediatamente
+- Toast de confirmación al guardar
+
+#### 📊 Actualización Masiva de Usuarios
+
+**Usuarios Vidanta actualizados (9 usuarios):**
+- Teléfonos, coordinaciones y roles actualizados vía REST API
+- Scripts SQL y Node.js creados para futuras actualizaciones
+- Verificación post-actualización completada
+
+#### 📁 Archivos Modificados
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/components/admin/UserManagementV2/hooks/useUserManagement.ts` | Fix guardado/carga coordinaciones múltiples |
+| `src/components/admin/UserManagementV2/components/UserEditPanel.tsx` | Cierre automático modal + fix array coordinaciones |
+| `scripts/update_vidanta_users.sql` | Script SQL para actualización masiva |
+| `scripts/execute_update_vidanta_users.mjs` | Script Node.js para ejecución vía REST API |
+| `docs/FIX_COORDINADOR_COORDINACIONES_MULTIPLES_2026-01-22.md` | Documentación del fix |
+| `docs/UPDATE_USUARIOS_VIDANTA_2026-01-22.md` | Documentación de actualización masiva |
+
+#### 🔍 Logging Mejorado
+
+- Logs detallados para debugging de coordinaciones
+- Identificación de coordinadores por múltiples campos
+- Tracking de carga y guardado de coordinaciones
+
+---
+
 ### 🗓️ v2.5.38 - Fix Módulo Programación + Optimización [23-01-2026]
 
 #### 🐛 Correcciones de Bugs
