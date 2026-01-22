@@ -495,6 +495,7 @@ curl -X POST "https://glsmifhkoaifvaegsozd.supabase.co/functions/v1/auth-admin-p
 - [FIX_USER_MANAGEMENT_ARCH_AUTH.md](FIX_USER_MANAGEMENT_ARCH_AUTH.md) - Corrección de arquitectura
 - [ACTUALIZACION_VISTA_USER_PROFILES_V2.md](ACTUALIZACION_VISTA_USER_PROFILES_V2.md) - Actualización de vista
 - [VERIFICACION_VISTA_USER_PROFILES_V2.md](VERIFICACION_VISTA_USER_PROFILES_V2.md) - Verificación de estructura
+- [VALIDACION_FINAL_REFACTOR_AUTH_ADMIN_PROXY.md](VALIDACION_FINAL_REFACTOR_AUTH_ADMIN_PROXY.md) - **Validación ejecutiva completa**
 
 ### Guías de Seguridad
 - [security-rules.mdc](.cursor/rules/security-rules.mdc) - Reglas de seguridad

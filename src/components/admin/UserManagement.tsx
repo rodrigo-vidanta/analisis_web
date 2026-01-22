@@ -905,8 +905,8 @@ const UserManagement: React.FC = () => {
         }
       }
 
-      // Si es ejecutivo, asignar una sola coordinación
-      if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
+      // Si es ejecutivo o supervisor, asignar una sola coordinación
+      if ((selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && formData.coordinacion_id) {
         try {
           const { error: relacionError } = await supabaseSystemUI
             .from('auth_user_coordinaciones')
@@ -1248,28 +1248,14 @@ const UserManagement: React.FC = () => {
       if (selectedRole?.name === 'coordinador') {
         try {
           // Actualizar flags del usuario en auth.users
-          const coordMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({
-              operation: 'updateUserMetadata',
-              params: {
-                userId: selectedUser.id,
-                metadata: {
-                  is_coordinator: true,
-                  is_ejecutivo: false,
-                  coordinacion_id: null, // Limpiar coordinacion_id si existe
-                }
-              }
-            })
+          const coordSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
+            is_coordinator: true,
+            is_ejecutivo: false,
+            coordinacion_id: null, // Limpiar coordinacion_id si existe
           });
 
-          const coordMetadataResult = await coordMetadataResponse.json();
-          if (!coordMetadataResponse.ok || !coordMetadataResult.success) {
-            console.error('Error actualizando flags del coordinador:', coordMetadataResult.error);
+          if (!coordSuccess) {
+            console.error('Error actualizando flags del coordinador');
           }
 
           // Eliminar relaciones existentes (nueva tabla)
@@ -1297,9 +1283,9 @@ const UserManagement: React.FC = () => {
         } catch (coordError) {
           console.error('Error actualizando coordinaciones:', coordError);
         }
-      } else if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
-        // Si es ejecutivo, actualizar una sola coordinación
-        // ⚠️ DOWNGRADE A EJECUTIVO: Limpiar TODAS las relaciones de coordinador
+      } else if ((selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && formData.coordinacion_id) {
+        // Si es ejecutivo o supervisor, actualizar una sola coordinación
+        // ⚠️ DOWNGRADE A EJECUTIVO/SUPERVISOR: Limpiar TODAS las relaciones de coordinador
         try {
           // Limpiar relaciones de auth_user_coordinaciones si existían
           await supabaseSystemUI
@@ -1311,33 +1297,19 @@ const UserManagement: React.FC = () => {
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           // Actualizar flags del usuario en auth.users
-          const ejecutivoMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({
-              operation: 'updateUserMetadata',
-              params: {
-                userId: selectedUser.id,
-                metadata: {
-                  coordinacion_id: formData.coordinacion_id,
-                  is_coordinator: false,
-                  is_ejecutivo: true,
-                }
-              }
-            })
+          const ejecutivoSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
+            coordinacion_id: formData.coordinacion_id,
+            is_coordinator: false,
+            is_ejecutivo: selectedRole?.name === 'ejecutivo',
           });
 
-          const ejecutivoMetadataResult = await ejecutivoMetadataResponse.json();
-          if (!ejecutivoMetadataResponse.ok || !ejecutivoMetadataResult.success) {
-            console.error('Error actualizando coordinación del ejecutivo:', ejecutivoMetadataResult.error);
+          if (!ejecutivoSuccess) {
+            console.error(`Error actualizando coordinación del ${selectedRole?.name}`);
           }
         } catch (coordError) {
           console.error('Error actualizando coordinación:', coordError);
         }
-      } else if (selectedRole && selectedRole.name !== 'coordinador' && selectedRole.name !== 'ejecutivo') {
+      } else if (selectedRole && selectedRole.name !== 'coordinador' && selectedRole.name !== 'ejecutivo' && selectedRole.name !== 'supervisor') {
         // Si cambió a otro rol que no es coordinador ni ejecutivo, limpiar todo
         try {
           // Limpiar relaciones de auth_user_coordinaciones (nueva tabla)
@@ -1350,28 +1322,14 @@ const UserManagement: React.FC = () => {
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
 
           // Actualizar flags del usuario en auth.users
-          const clearMetadataResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${anonKey}`,
-            },
-            body: JSON.stringify({
-              operation: 'updateUserMetadata',
-              params: {
-                userId: selectedUser.id,
-                metadata: {
-                  coordinacion_id: null,
-                  is_coordinator: false,
-                  is_ejecutivo: false,
-                }
-              }
-            })
+          const clearSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
+            coordinacion_id: null,
+            is_coordinator: false,
+            is_ejecutivo: false,
           });
 
-          const clearMetadataResult = await clearMetadataResponse.json();
-          if (!clearMetadataResponse.ok || !clearMetadataResult.success) {
-            console.error('Error limpiando coordinación:', clearMetadataResult.error);
+          if (!clearSuccess) {
+            console.error('Error limpiando coordinación');
           }
         } catch (coordError) {
           console.error('Error limpiando coordinación:', coordError);
@@ -2763,8 +2721,9 @@ const UserManagement: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Selector de Coordinación para Ejecutivos (Una sola) */}
-              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' && (
+              {/* Selector de Coordinación para Ejecutivos y Supervisores (Una sola) */}
+              {(permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' || 
+                permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'supervisor') && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -3390,8 +3349,9 @@ const UserManagement: React.FC = () => {
                 </motion.div>
               )}
 
-              {/* Selector de Coordinación para Ejecutivos (Una sola) - Modal Edición */}
-              {permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' && (
+              {/* Selector de Coordinación para Ejecutivos y Supervisores (Una sola) - Modal Edición */}
+              {(permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'ejecutivo' || 
+                permissionGroups.find(g => g.id === selectedGroupId)?.base_role === 'supervisor') && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
