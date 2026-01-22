@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.40: Fix persistencia coordinación supervisores
-  const version = 'B10.1.40N2.5.40';
+  // Versión actual - v2.5.41: Fix completo coordinación/inbound supervisores
+  const version = 'B10.1.41N2.5.41';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
