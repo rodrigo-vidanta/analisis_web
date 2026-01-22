@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-22', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '9402dda', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Sistema control versiones forzado + actualización automática BD', isRelease: true },
   { hash: '9cda4d9', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Fix coordinaciones múltiples coordinadores + cierre automático modal + actualización usuarios Vidanta', isRelease: true },
   { hash: 'x1y2z3a', date: '2026-01-22', author: 'Team', message: 'v2.5.37: B10.1.37N2.5.37 - Auditoría Documentación + Handover Format + Deploy Workflow Fix', isRelease: true },
@@ -475,6 +476,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-887', date: '22/01/2026, 16:29', version: 'B10.1.42N2.5.43', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-129', date: '2026-01-22 20:00', version: 'B10.1.39N2.5.39', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-128', date: '2026-01-21 19:30', version: 'B10.1.34N2.5.34', status: 'success', duration: '30s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-127', date: '2026-01-21 18:45', version: 'B10.1.33N2.5.33', status: 'success', duration: '29s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -602,10 +604,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.39', highlight: true },
-  { label: 'Release', value: 'B10.1.39N2.5.39', highlight: false },
+  { label: 'Version', value: 'v2.5.43', highlight: true },
+  { label: 'Release', value: 'B10.1.42N2.5.43', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '22 Ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '22 ene 2026', highlight: false },
 ];
 
 // ============================================

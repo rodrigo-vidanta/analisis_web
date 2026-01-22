@@ -39,10 +39,8 @@ const ForceUpdateModal: React.FC<ForceUpdateModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.3 }}
-          className="fixed inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 z-[9999] flex items-center justify-center p-4"
+          className="fixed inset-0 bg-black/80 backdrop-blur-md z-[9999] flex items-center justify-center p-4"
         >
-          {/* Overlay con patrón */}
-          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
           
           {/* Contenedor principal */}
           <motion.div
