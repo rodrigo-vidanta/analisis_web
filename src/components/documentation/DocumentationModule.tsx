@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
+  { hash: '7e7bcd7', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
   { hash: '8213ca3', date: '2026-01-22', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '9402dda', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Sistema control versiones forzado + actualización automática BD', isRelease: true },
   { hash: '9cda4d9', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Fix coordinaciones múltiples coordinadores + cierre automático modal + actualización usuarios Vidanta', isRelease: true },
