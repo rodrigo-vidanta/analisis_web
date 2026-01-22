@@ -124,6 +124,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
     </svg>
   ),
+  clipboard: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+    </svg>
+  ),
 };
 
 // ============================================
@@ -146,6 +151,8 @@ const documentationSections: DocSection[] = [
     icon: Icons.architecture,
     docs: [
       { id: 'diagrams', name: 'Diagramas de Arquitectura', path: '/docs/ARCHITECTURE_DIAGRAMS.md', description: 'Diagramas del sistema AWS' },
+      { id: 'arch-seguridad', name: 'Arquitectura de Seguridad 2026', path: '/docs/ARQUITECTURA_SEGURIDAD_2026.md', description: 'Arquitectura de seguridad actual (RLS-OFF)' },
+      { id: 'arch-bd-unificada', name: 'BD Unificada PQNC_AI', path: '/docs/NUEVA_ARQUITECTURA_BD_UNIFICADA.md', description: 'Arquitectura de base de datos unificada' },
     ]
   }, 
   {
@@ -162,11 +169,7 @@ const documentationSections: DocSection[] = [
     title: 'Analisis IA',
     icon: Icons.features,
     docs: [
-      { id: 'readme-analisis', name: 'README Analisis IA', path: '/docs/README_ANALISIS_IA.md', description: 'Documentacion del modulo de Analisis IA' },
-      { id: 'changelog-analisis', name: 'Changelog Analisis IA', path: '/docs/CHANGELOG_ANALISIS_IA.md', description: 'Historial de cambios del modulo' },
-      { id: 'readme-livemonitor', name: 'README Live Monitor', path: '/docs/README_LIVEMONITOR.md', description: 'Documentacion del Live Monitor' },
-      { id: 'changelog-livemonitor', name: 'Changelog Live Monitor', path: '/docs/CHANGELOG_LIVEMONITOR.md', description: 'Historial de cambios Live Monitor' },
-      { id: 'optimizaciones-analisis', name: 'Optimizaciones Rendimiento', path: '/docs/OPTIMIZACIONES_RENDIMIENTO.md', description: 'Guia de optimizacion de rendimiento' },
+      { id: 'readme-livemonitor', name: 'README Live Monitor', path: '/docs/LIVE_MONITOR_VIEW_DOCUMENTATION.md', description: 'Documentacion del Live Monitor' },
     ]
   },
   {
@@ -174,11 +177,8 @@ const documentationSections: DocSection[] = [
     title: 'Live Chat',
     icon: Icons.integrations,
     docs: [
-      { id: 'readme-chat', name: 'README Live Chat', path: '/docs/README.md', description: 'Documentacion del modulo de chat' },
-      { id: 'changelog-chat', name: 'Changelog Live Chat', path: '/docs/CHANGELOG_LIVECHAT.md', description: 'Historial de cambios del chat' },
       { id: 'roadmap-livechat', name: 'Roadmap Escalabilidad v7.0', path: '/docs/LIVECHAT_ESCALABILITY_ROADMAP.md', description: 'Plan de virtualizacion y escalabilidad para >10k conversaciones' },
-      { id: 'optimizaciones-chat', name: 'Optimizaciones V4', path: '/docs/OPTIMIZACIONES_RENDIMIENTO_V4.md', description: 'Optimizaciones de rendimiento v4' },
-      { id: 'cache-imagenes', name: 'Cache de Imagenes', path: '/docs/OPTIMIZACION_CACHE_IMAGENES.md', description: 'Sistema de cache de imagenes' },
+      { id: 'whatsapp-labels', name: 'WhatsApp Labels Sistema', path: '/docs/WHATSAPP_LABELS_FINAL_DOCUMENTATION.md', description: 'Sistema de etiquetas WhatsApp' },
     ]
   },
   {
@@ -186,8 +186,7 @@ const documentationSections: DocSection[] = [
     title: 'Prospectos',
     icon: Icons.database,
     docs: [
-      { id: 'readme-prospectos', name: 'README Prospectos', path: '/docs/README_PROSPECTOS.md', description: 'Documentacion del modulo de prospectos' },
-      { id: 'changelog-prospectos', name: 'Changelog Prospectos', path: '/docs/CHANGELOG_PROSPECTOS.md', description: 'Historial de cambios de prospectos' },
+      { id: 'guia-asignacion', name: 'Guía Asignación Manual', path: '/docs/GUIA_ASIGNACION_MANUAL_PROSPECTOS.md', description: 'Guía de asignación manual de prospectos' },
     ]
   },
   {
@@ -195,8 +194,8 @@ const documentationSections: DocSection[] = [
     title: 'PQNC Humans',
     icon: Icons.security,
     docs: [
-      { id: 'readme-humans', name: 'README PQNC Humans', path: '/docs/README_PQNC_HUMANS.md', description: 'Documentacion del modulo de evaluacion' },
-      { id: 'changelog-humans', name: 'Changelog PQNC Humans', path: '/docs/CHANGELOG_PQNC_HUMANS.md', description: 'Historial de cambios de evaluacion' },
+      { id: 'permisos', name: 'Sistema de Permisos', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos' },
+      { id: 'permission-groups', name: 'Grupos de Permisos', path: '/docs/PERMISSION_GROUPS_SYSTEM.md', description: 'Sistema de grupos tipo Active Directory' },
     ]
   },
   {
@@ -204,8 +203,8 @@ const documentationSections: DocSection[] = [
     title: 'AWS Manager',
     icon: Icons.aws,
     docs: [
-      { id: 'readme-aws', name: 'README AWS Manager', path: '/docs/README_AWS_MANAGER.md', description: 'Documentacion del gestor AWS' },
-      { id: 'changelog-aws', name: 'Changelog AWS Manager', path: '/docs/CHANGELOG_AWS_MANAGER.md', description: 'Historial de cambios AWS' },
+      { id: 'aws-services', name: 'Catálogo Servicios AWS', path: '/docs/AWS_SERVICES_CATALOG.md', description: 'Catálogo completo de servicios AWS' },
+      { id: 'aws-changelog', name: 'Changelog AWS', path: '/docs/AWS_CHANGELOG.md', description: 'Historial de cambios AWS' },
     ]
   },
   {
@@ -213,8 +212,7 @@ const documentationSections: DocSection[] = [
     title: 'Campañas WhatsApp',
     icon: Icons.integrations,
     docs: [
-      { id: 'readme-campanas', name: 'README Campañas', path: '/docs/README_CAMPANAS.md', description: 'Documentación del módulo de campañas broadcast' },
-      { id: 'changelog-campanas', name: 'Changelog Campañas', path: '/docs/CHANGELOG_CAMPANAS.md', description: 'Historial de cambios de campañas' },
+      { id: 'whatsapp-templates', name: 'WhatsApp Templates API', path: '/docs/WHATSAPP_TEMPLATES_API.md', description: 'Gestión de plantillas WhatsApp' },
     ]
   },
   {
@@ -223,8 +221,7 @@ const documentationSections: DocSection[] = [
     icon: Icons.bell,
     docs: [
       { id: 'notifications-complete', name: 'Sistema de Notificaciones Completo', path: '/docs/NOTIFICATIONS_SYSTEM_COMPLETE.md', description: 'Documentación exhaustiva del sistema final migrado a PQNC_AI' },
-      { id: 'readme-notifications', name: 'README Notificaciones', path: '/docs/README_NOTIFICATIONS.md', description: 'Documentacion completa del sistema de notificaciones realtime' },
-      { id: 'changelog-notifications', name: 'Changelog Notificaciones', path: '/docs/CHANGELOG_NOTIFICATIONS.md', description: 'Historial de cambios del sistema de notificaciones' },
+      { id: 'notification-sound', name: 'Guía de Sonidos', path: '/docs/NOTIFICATION_SOUND_GUIDE.md', description: 'Implementación de sonidos de notificación' },
     ]
   },
   {
@@ -232,7 +229,7 @@ const documentationSections: DocSection[] = [
     title: 'Llamadas Programadas',
     icon: Icons.history,
     docs: [
-      { id: 'changelog-scheduled', name: 'Changelog Scheduled Calls', path: '/docs/CHANGELOG_SCHEDULED_CALLS.md', description: 'Historial de cambios llamadas' },
+      { id: 'guia-insertar-lead', name: 'Guía Insertar Lead desde N8N', path: '/docs/GUIA_INSERTAR_LEAD_ASIGNADO_N8N.md', description: 'Integración con N8N para insertar leads' },
     ]
   },
   {
@@ -240,8 +237,7 @@ const documentationSections: DocSection[] = [
     title: 'Sistema de Tickets',
     icon: Icons.clipboard,
     docs: [
-      { id: 'readme-tickets', name: '🎫 README Tickets', path: '/docs/README_TICKETS.md', description: 'Documentación técnica del sistema de tickets' },
-      { id: 'changelog-tickets', name: 'Changelog Tickets', path: '/docs/CHANGELOG_TICKETS.md', description: 'Historial de cambios del módulo de soporte' },
+      { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Anti-duplicación mensajes' },
     ]
   },
   {
@@ -251,13 +247,8 @@ const documentationSections: DocSection[] = [
     docs: [
       { id: 'security-architecture-2026', name: '🔒 Arquitectura Seguridad 2026', path: '/docs/ARQUITECTURA_SEGURIDAD_2026.md', description: 'ACTUAL: RLS deshabilitado, solo anon_key, clientes Admin eliminados' },
       { id: 'native-auth-2026', name: '🔐 Arquitectura Auth Nativa 2026', path: '/docs/ARQUITECTURA_AUTH_NATIVA_2026.md', description: 'Detalle técnico de migración a Supabase Auth nativo para Backend' },
-      { id: 'enterprise-security', name: 'Seguridad Enterprise (Legacy)', path: '/docs/SEGURIDAD_ENTERPRISE_IMPLEMENTADA.md', description: 'Arquitectura anterior RLS + Edge Functions + AWS WAF' },
-      { id: 'security-timeline', name: 'Timeline Implementación', path: '/docs/SEGURIDAD_ENTERPRISE_TIMELINE.md', description: 'Historial de iteraciones técnicas' },
-      { id: 'architecture-diagram', name: 'Diagrama Arquitectura', path: '/docs/DIAGRAMA_ARQUITECTURA_SEGURIDAD.md', description: 'Flujos de datos y capas de defensa' },
-      { id: 'pentesting-report', name: 'Reporte Pentesting', path: '/docs/REPORTE_PENTESTING_FINAL.md', description: 'Validación de seguridad' },
-      { id: 'permission-groups', name: 'Sistema de Grupos de Permisos', path: '/docs/PERMISSION_GROUPS_SYSTEM.md', description: 'Sistema de grupos tipo Active Directory' },
-      { id: 'permissions', name: 'Sistema de Permisos', path: '/docs/PERMISSIONS_SYSTEM_README.md', description: 'Sistema de roles y permisos' },
-      { id: 'duplicate-prevention', name: 'Prevención de Duplicados', path: '/docs/DUPLICATE_MESSAGE_PREVENTION.md', description: 'Anti-duplicación mensajes' },
+      { id: 'pentesting-report', name: 'Reporte Pentesting Final', path: '/docs/PENTESTING_FINAL_2026-01-18.md', description: 'Validación de seguridad completa' },
+      { id: 'ninja-mode', name: '🥷 Modo Ninja', path: '/docs/NINJA_MODE_TECHNICAL.md', description: 'Suplantación de usuarios para administradores' },
     ]
   },
   {
@@ -268,6 +259,8 @@ const documentationSections: DocSection[] = [
       { id: 'edge-functions', name: 'Catálogo Edge Functions', path: '/docs/EDGE_FUNCTIONS_CATALOG.md', description: 'Documentación completa de Edge Functions (proxies N8N/APIs)' },
       { id: 'whatsapp', name: 'WhatsApp API', path: '/docs/WHATSAPP_TEMPLATES_API.md', description: 'API de plantillas de WhatsApp' },
       { id: 'webhooks-n8n', name: 'Inventario Webhooks N8N', path: '/docs/INVENTARIO_WEBHOOKS_N8N.md', description: 'Lista de webhooks consumidos desde N8N' },
+      { id: 'n8n-workflows', name: 'N8N Workflows Index', path: '/docs/N8N_WORKFLOWS_INDEX.md', description: 'Índice de workflows N8N' },
+      { id: 'mcp-catalog', name: 'Catálogo MCP', path: '/docs/MCP_CATALOG.md', description: 'Model Context Protocol servers' },
     ]
   },
   {
@@ -277,6 +270,7 @@ const documentationSections: DocSection[] = [
     docs: [
       { id: 'error-logging', name: 'Guia de Logs', path: '/docs/ERROR_LOGGING_GUIDE.md', description: 'Sistema de logging de errores' },
       { id: 'markdown-styling', name: 'Estilos Markdown', path: '/docs/MARKDOWN_VIEWER_STYLING_GUIDE.md', description: 'Guia de estilos para visor Markdown' },
+      { id: 'design-guide', name: 'Guía de Diseño Modales', path: '/docs/DESIGN_GUIDE_MODALS_V2.md', description: 'Estándares de diseño para modales' },
     ]
   },
   {
@@ -284,8 +278,19 @@ const documentationSections: DocSection[] = [
     title: 'Servicios',
     icon: Icons.integrations,
     docs: [
-      { id: 'readme-services', name: 'README Servicios', path: '/docs/README_SERVICES.md', description: 'Documentacion de servicios del sistema' },
-      { id: 'readme-config', name: 'README Configuracion', path: '/docs/README_CONFIG.md', description: 'Configuracion de bases de datos' },
+      { id: 'db-connection', name: 'Conexión a BD', path: '/docs/GUIA_CONEXION_BASES_DATOS.md', description: 'Guía de conexión a bases de datos' },
+      { id: 'log-monitor', name: 'Log Monitor Database', path: '/docs/LOG_MONITOR_DATABASE.md', description: 'Base de datos de monitoreo de logs' },
+    ]
+  },
+  {
+    id: 'migrations',
+    title: 'Migraciones',
+    icon: Icons.database,
+    docs: [
+      { id: 'migration-index', name: 'Índice de Migraciones', path: '/docs/MIGRATION_INDEX.md', description: 'Índice general de todas las migraciones' },
+      { id: 'migration-systemui', name: 'Migración System_UI → PQNC_AI', path: '/docs/MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md', description: 'Documentación completa de unificación BD' },
+      { id: 'migration-auth', name: 'Migración Auth Nativa', path: '/docs/MIGRACION_AUTH_USERS_NATIVO_2026-01-20.md', description: 'Migración a Supabase Auth nativo' },
+      { id: 'migration-coordinaciones', name: 'Migración Coordinaciones', path: '/docs/MIGRATION_COORDINADOR_COORDINACIONES.md', description: 'Tabla coordinador_coordinaciones → auth_user_coordinaciones' },
     ]
   },
 ];
@@ -295,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'x1y2z3a', date: '2026-01-22', author: 'Team', message: 'v2.5.37: B10.1.37N2.5.37 - Auditoría Documentación + Handover Format + Deploy Workflow Fix', isRelease: true },
   { hash: 'h5i9j0k', date: '2026-01-21', author: 'Team', message: 'v2.5.35: B10.1.35N2.5.35 - Modo Ninja para Admin (suplantación de usuarios, permisos efectivos, UI ninja)', isRelease: true },
   { hash: 'g4h8i9j', date: '2026-01-21', author: 'Team', message: 'v2.5.34: B10.1.34N2.5.34 - Reasignación Masiva Paralela (10x slots) + Seleccionar todos (100)', isRelease: true },
   { hash: 'f3g7h8i', date: '2026-01-21', author: 'Team', message: 'v2.5.33: B10.1.33N2.5.33 - Fix RPC get_user_permissions retornaba estructura incompleta', isRelease: true },
@@ -593,10 +599,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.35', highlight: true },
-  { label: 'Release', value: 'B10.1.35N2.5.35', highlight: false },
-  { label: 'Documentos', value: documentationSections.reduce((acc, s) => acc + s.docs.length, 0).toString(), highlight: true },
-  { label: 'Ultima actualizacion', value: '21 Ene 2026', highlight: false },
+  { label: 'Version', value: 'v2.5.37', highlight: true },
+  { label: 'Release', value: 'B10.1.37N2.5.37', highlight: false },
+  { label: 'Documentos', value: '32', highlight: true },
+  { label: 'Ultima actualizacion', value: '22 Ene 2026', highlight: false },
 ];
 
 // ============================================

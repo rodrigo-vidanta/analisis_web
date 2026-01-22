@@ -1,0 +1,210 @@
+# Guía de Selección de Modelos
+
+> **Descripción:** Reglas para seleccionar el modelo correcto según la tarea.
+> **Aplicación:** Always (Siempre activa)
+> **Objetivo:** Minimizar costos mientras se mantiene calidad.
+
+---
+
+## Principio Base
+
+```
+Usar el modelo MÁS ECONÓMICO que pueda completar la tarea correctamente.
+```
+
+**Default:** Claude Sonnet 4 (sin thinking)
+
+---
+
+## Matriz de Selección
+
+### Por Tipo de Tarea
+
+| Tarea | Modelo | Thinking | Costo |
+|-------|--------|----------|-------|
+| Código rutinario | Sonnet | OFF | Bajo |
+| Fix de bugs simples | Sonnet | OFF | Bajo |
+| Refactoring pequeño | Sonnet | OFF | Bajo |
+| Queries de BD | Sonnet | OFF | Bajo |
+| Componentes UI | Sonnet | OFF | Bajo |
+| Feature nueva (simple) | Sonnet | OFF | Bajo |
+| Debugging complejo | Sonnet | ON | Medio |
+| Feature nueva (compleja) | Sonnet | ON | Medio |
+| Lógica de negocio intrincada | Sonnet | ON | Medio |
+| Arquitectura de sistema | Opus | ON | Alto |
+| Decisiones críticas | Opus | ON | Alto |
+| Análisis profundo de código | Opus | ON | Alto |
+
+### Por Complejidad
+
+```
+Nivel 1 (Simple):     Sonnet sin thinking
+├── Cambios de 1-3 archivos
+├── Lógica directa
+└── Patrones existentes
+
+Nivel 2 (Moderado):   Sonnet con thinking
+├── Múltiples dependencias
+├── Lógica condicional compleja
+└── Integración de servicios
+
+Nivel 3 (Complejo):   Opus (solo si necesario)
+├── Arquitectura nueva
+├── Decisiones de diseño críticas
+└── Debugging imposible
+```
+
+---
+
+## Cuándo Escalar Modelo
+
+### De Sonnet a Sonnet+Thinking
+
+Escalar cuando:
+- El modelo comete errores repetidos
+- La lógica requiere razonamiento paso a paso
+- Hay múltiples caminos posibles a evaluar
+
+### De Sonnet a Opus
+
+Escalar SOLO cuando:
+- Usuario lo solicita explícitamente
+- Problema imposible de resolver con Sonnet
+- Decisión arquitectónica crítica
+- Análisis de código muy grande
+
+---
+
+## Cuándo NO Usar Opus
+
+❌ **NUNCA usar Opus para:**
+
+- Código boilerplate
+- Cambios de estilos (Tailwind)
+- Agregar/modificar imports
+- Crear componentes similares a existentes
+- Queries de BD simples
+- Fix de typos o errores obvios
+
+---
+
+## Costo Aproximado por Modelo
+
+| Modelo | Costo Relativo | Tokens por $1 |
+|--------|----------------|---------------|
+| Sonnet (sin thinking) | 1x | ~200K |
+| Sonnet (con thinking) | 3-5x | ~50K |
+| Opus (sin thinking) | 5x | ~40K |
+| Opus (con thinking) | 10-15x | ~15K |
+
+### Impacto en Facturación
+
+```
+Sesión de 1 hora:
+
+Con Sonnet (sin thinking): ~$2-5
+Con Sonnet (thinking):     ~$10-20
+Con Opus (thinking):       ~$50-100+
+```
+
+---
+
+## Composer vs Chat
+
+### Usar Composer cuando:
+
+- Cambios en múltiples archivos
+- Refactoring estructurado
+- Creación de múltiples componentes relacionados
+- Tareas con pasos claros y secuenciales
+
+### Usar Chat cuando:
+
+- Preguntas conceptuales
+- Debugging paso a paso
+- Exploración de opciones
+- Una sola modificación
+
+---
+
+## Configuración Recomendada
+
+### Settings de Cursor:
+
+```
+Default Model: Claude Sonnet 4
+Extended Thinking: OFF (por defecto)
+Max Mode: OFF (por defecto)
+```
+
+### Activar thinking solo cuando:
+
+```
+1. Tarea claramente compleja
+2. Primer intento sin thinking falló
+3. Usuario lo solicita
+```
+
+---
+
+## Flujo de Decisión
+
+```
+Nueva tarea
+    │
+    ▼
+¿Es simple/rutinaria?
+    │
+┌───┴───┐
+│       │
+Sí      No
+│       │
+▼       ▼
+Sonnet  ¿Requiere razonamiento profundo?
+OFF     │
+        ┌───┴───┐
+        │       │
+        Sí      No
+        │       │
+        ▼       ▼
+     ¿Es crítico/   Sonnet
+     arquitectónico? ON
+        │
+    ┌───┴───┐
+    │       │
+    Sí      No
+    │       │
+    ▼       ▼
+   Opus    Sonnet
+   ON      ON
+```
+
+---
+
+## Monitoreo de Uso
+
+### Revisar periódicamente:
+
+1. **Settings > Usage** en Cursor
+2. **Facturas** en dashboard de Cursor
+3. **Patrones** de uso por modelo
+
+### Alertas a observar:
+
+```
+⚠️ Si Opus representa >10% de tokens → Revisar uso
+⚠️ Si thinking está siempre ON → Evaluar necesidad
+⚠️ Si costos suben >$50/semana → Ajustar hábitos
+```
+
+---
+
+## Recordatorio para el Agente
+
+```
+ANTES de usar modelo costoso, preguntar:
+"¿Puedo resolver esto con Sonnet sin thinking?"
+
+Si la respuesta es SÍ → Usar Sonnet
+Si la respuesta es NO → Justificar por qué
+```

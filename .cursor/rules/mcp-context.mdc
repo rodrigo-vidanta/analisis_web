@@ -1,0 +1,107 @@
+# Contexto de MCPs
+
+> **Descripción:** Cuándo usar cada MCP de Supabase y servicios.
+> **Aplicación:** Auto Attached (cuando se trabaja con BD o servicios externos)
+
+---
+
+## MCPs Disponibles
+
+| MCP | Proyecto | URL | Uso |
+|-----|----------|-----|-----|
+| `Supa_PQNC_AI` | PQNC_AI (UNIFICADO) | glsmifhkoaifvaegsozd | TODO: prospectos, llamadas, WhatsApp, auth, permisos |
+| `SystemUI_AuthDB` | System_UI (BACKUP) | zbylezfyagwrxoecioup | Solo backup/auditoría |
+| `aws-infrastructure` | AWS us-west-2 | - | ECS, RDS, S3, CloudWatch |
+| `N8N` | Railway | primary-dev-d75a | Workflows, ejecuciones |
+
+---
+
+## MCP Prohibido
+
+```
+⛔ NUNCA usar SupaClever (rnhejbuubpbnojalljso)
+   - Es de otro proyecto
+   - Contamina datos
+   - Removido de configuración
+```
+
+---
+
+## Cuándo Usar Cada MCP
+
+### Supa_PQNC_AI (Principal)
+
+```
+Análisis de llamadas     → Supa_PQNC_AI
+Live Monitor             → Supa_PQNC_AI
+Prospectos               → Supa_PQNC_AI
+Conversaciones WhatsApp  → Supa_PQNC_AI
+Usuarios del sistema     → Supa_PQNC_AI
+Sesiones y auth          → Supa_PQNC_AI
+Permisos y roles         → Supa_PQNC_AI
+Coordinaciones           → Supa_PQNC_AI
+Configuración            → Supa_PQNC_AI
+```
+
+### aws-infrastructure
+
+```
+ECS Services             → aws-infrastructure
+RDS Instances            → aws-infrastructure
+S3 Buckets               → aws-infrastructure
+CloudWatch Metrics       → aws-infrastructure
+```
+
+### N8N
+
+```
+Workflows                → N8N
+Ejecuciones              → N8N
+```
+
+---
+
+## Herramientas de Supa_PQNC_AI
+
+```
+mcp_Supa_PQNC_AI_pqnc_query_table          # Consultar tabla
+mcp_Supa_PQNC_AI_pqnc_insert_data          # Insertar datos
+mcp_Supa_PQNC_AI_pqnc_update_data          # Actualizar datos
+mcp_Supa_PQNC_AI_pqnc_delete_data          # Eliminar datos (⚠️)
+mcp_Supa_PQNC_AI_pqnc_execute_sql          # SQL arbitrario
+mcp_Supa_PQNC_AI_pqnc_get_database_schema  # Ver esquema
+mcp_Supa_PQNC_AI_pqnc_get_table_info       # Info de tabla
+mcp_Supa_PQNC_AI_pqnc_backup_table         # Backup
+```
+
+---
+
+## Operaciones de Alto Riesgo
+
+```
+⚠️ BACKUP ANTES de:
+- DELETE
+- DROP
+- TRUNCATE
+- UPDATE masivo (sin WHERE específico)
+
+Usar: mcp_Supa_PQNC_AI_pqnc_backup_table
+```
+
+---
+
+## Tablas Deprecadas (NO USAR)
+
+| Tabla/View | Estado | Reemplazo |
+|------------|--------|-----------|
+| coordinador_coordinaciones | ELIMINADA | auth_user_coordinaciones |
+| coordinador_coordinaciones_legacy | ELIMINADA | auth_user_coordinaciones |
+| auth_user_profiles | ELIMINADA | user_profiles_v2 |
+
+---
+
+## Documentación MCP
+
+- Catálogo: `docs/MCP_CATALOG.md`
+- AWS: `docs/AWS_SERVICES_CATALOG.md`
+- Reglas detalladas: `.cursor/rules/mcp-rules.mdc`

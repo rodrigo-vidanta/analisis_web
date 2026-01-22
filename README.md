@@ -144,6 +144,27 @@ Cada módulo incluye README específico con:
 
 Ver `/src/components/[modulo]/README.md` para detalles específicos.
 
+## 📚 Documentación Completa
+
+### Índice Principal
+- 📋 [`docs/INDEX.md`](docs/INDEX.md) - Índice completo de documentación
+- 📖 [`docs/GLOSARIO.md`](docs/GLOSARIO.md) - Glosario de términos técnicos
+- 🏛️ [`ARCHITECTURE.md`](ARCHITECTURE.md) - Arquitectura general del sistema
+- 📝 [`CONVENTIONS.md`](CONVENTIONS.md) - Convenciones de código
+- 🔒 [`docs/ARQUITECTURA_SEGURIDAD_2026.md`](docs/ARQUITECTURA_SEGURIDAD_2026.md) - Arquitectura de seguridad
+
+### Cursor y Desarrollo
+- 📋 [`.cursor/CODEBASE_INDEX.md`](.cursor/CODEBASE_INDEX.md) - Índice del codebase
+- 🎯 [`.cursor/rules/handover-format.mdc`](.cursor/rules/handover-format.mdc) - Formato de handovers con REF
+- 🔧 [`.cursor/rules/documentation-maintenance.mdc`](.cursor/rules/documentation-maintenance.mdc) - Mantenimiento de docs
+
+### Handovers
+Para crear o citar handovers, usar formato:
+```
+REF: HANDOVER-YYYY-MM-DD-SLUG
+```
+Ver [`.cursor/rules/handover-format.mdc`](.cursor/rules/handover-format.mdc) para detalles.
+
 ## 🚨 Reglas de Desarrollo y Despliegue
 
 **⚠️ ESTE ES UN ENTORNO DE PRODUCCIÓN**

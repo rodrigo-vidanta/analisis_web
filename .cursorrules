@@ -1,539 +1,110 @@
-# ============================================
-# REGLAS DEL PROYECTO - PQNC QA AI PLATFORM
-# ============================================
-# 
-# ESTADO: PRODUCCION ACTIVA
-# VERSION: v2.1.26
-# FECHA ULTIMA ACTUALIZACION: 15 de Diciembre 2025
-#
-# ============================================
+# PQNC QA AI Platform - Reglas Principales
 
-## REGLAS CRITICAS DE PRODUCCION
-
-### PROHIBIDO SIN AUTORIZACION EXPLICITA
-
-1. **DESPLIEGUES AUTOMATICOS**
-   - NUNCA hacer push a Git sin autorizacion explicita del usuario
-   - NUNCA hacer deploy a AWS sin solicitud explicita del usuario
-   - NUNCA ejecutar scripts de despliegue automaticamente
-   - SOLO hacer commits/push cuando el usuario lo solicite explicitamente
-   - SOLO hacer deploy cuando el usuario lo solicite explicitamente
-
-2. **CODIGO DE PRUEBA Y MOCKS**
-   - NUNCA generar codigo con funciones mock o de prueba
-   - NUNCA crear datos de prueba hardcodeados
-   - NUNCA dejar TODOs o placeholders sin implementar
-   - NUNCA crear funciones "de ejemplo" o "temporales"
-   - TODO el codigo debe ser codigo de produccion funcional
-   - TODAS las funciones deben estar completamente implementadas
-   - TODOS los datos deben venir de fuentes reales (APIs, BD, etc.)
-
-3. **ENTORNO DE PRODUCCION**
-   - Este es un entorno 100% productivo
-   - Cualquier cambio afecta usuarios reales
-   - Todos los servicios estan en produccion (AWS, Supabase, etc.)
-   - Verificar impacto antes de cualquier cambio
-   - Probar cambios localmente antes de sugerir despliegue
+> **Estado:** Producción Activa
+> **Versión:** v2.1.26+
+> **Última actualización:** Enero 2026
 
 ---
 
-## REGLAS GENERALES DE DESARROLLO
+## Resumen Ejecutivo
 
-### Principios de Codigo
-
-1. **TypeScript Estricto**
-   - Usar TypeScript para todo el codigo nuevo
-   - Tipar todas las funciones, props, y estados
-   - No usar `any` a menos que sea absolutamente necesario
-   - Validar tipos en runtime cuando sea necesario
-
-2. **React 19 Best Practices**
-   - Componentes funcionales con hooks
-   - Usar `useState`, `useEffect`, `useCallback`, `useMemo` apropiadamente
-   - Evitar re-renders innecesarios
-   - Manejar errores con boundaries y try-catch
-
-3. **TailwindCSS Exclusivo**
-   - NO crear archivos CSS adicionales
-   - NO usar estilos inline (excepto dinamicos)
-   - Usar clases de Tailwind y utilidades existentes
-   - Seguir patrones de diseno establecidos
-
-4. **Estado y Servicios**
-   - Usar Zustand para estado global cuando sea necesario
-   - Reutilizar servicios existentes (supabaseService, n8nService, etc.)
-   - NO crear nuevos servicios sin verificar si existe uno similar
-   - Mantener separacion de responsabilidades
+Este proyecto es una **plataforma de producción activa** para QA de call centers.
+Usuarios reales dependen de esta aplicación.
 
 ---
 
-## ARQUITECTURA DEL PROYECTO
+## Reglas Críticas (SIEMPRE APLICAR)
 
-### Estructura de Carpetas
-
+### 1. NO Deploy Automático
 ```
-src/
-  components/        # Componentes React organizados por modulo
-  services/         # Servicios de negocio (Supabase, N8N, VAPI, etc.)
-  hooks/            # Custom hooks reutilizables
-  contexts/         # Context providers (Auth, etc.)
-  stores/           # Zustand stores
-  config/           # Configuraciones (Supabase, AWS, etc.)
-  utils/            # Utilidades y helpers
-docs/               # Documentacion tecnica (FUENTE)
-public/docs/        # Documentacion servida para la UI
+❌ NUNCA push a Git sin autorización explícita
+❌ NUNCA deploy a AWS sin solicitud explícita
+✅ SOLO cuando el usuario lo pida
 ```
 
-### Servicios Principales
-
-- `supabaseService` - Cliente Supabase principal
-- `pqncSupabase` - Cliente Supabase para PQNC
-- `n8nDeploymentServiceV3` - Servicio de despliegue N8N
-- `intelligentImportService` - Servicio de importacion inteligente
-- `vapiService` - Integracion con VAPI
-- `awsDiagramService` - Gestion de diagramas AWS
-
----
-
-## SEGURIDAD Y CREDENCIALES
-
-### PROHIBIDO
-
-- Hardcodear credenciales en el codigo
-- Exponer API keys o secrets
-- Commitear archivos `.env` o con credenciales
-- Usar credenciales de produccion en desarrollo
-
-### CORRECTO
-
-- Usar variables de entorno (`import.meta.env.VITE_*`)
-- Usar servicios de configuracion existentes
-- Validar permisos antes de operaciones sensibles
-- Usar autenticacion y autorizacion apropiadas
-
----
-
-## MCP (MODEL CONTEXT PROTOCOL) - CONEXIONES A SERVICIOS
-
-### MCPs DISPONIBLES
-
-| MCP | Proyecto/Servicio | Cuándo usar |
-|-----|-------------------|-------------|
-| `SupaVidanta` | Analysis DB (glsmifhkoaifvaegsozd) | Llamadas, prospectos, Live Monitor, WhatsApp |
-| `SupaSystemUI` | System UI DB (zbylezfyagwrxoecioup) | Usuarios, auth, config, bot pause |
-| `SupaPQNC` | PQNC DB (hmmfuhqgvsehkizlfzga) | Ejecutivos, roles, feedback PQNC |
-| `aws-infrastructure` | AWS us-west-2 | ECS, RDS, S3, CloudWatch |
-| `N8N` | Railway N8N | Workflows, ejecuciones |
-| `vapi` | VAPI | Agentes de voz |
-
-### ⛔ MCP PROHIBIDO
-
-**NUNCA usar `SupaClever`** - Es de otro proyecto (clever-ideas-ai-platform)
-- Proyecto: rnhejbuubpbnojalljso
-- Contamina datos y documentación
-- Ha sido removido de la configuración
-
-### REGLAS DE USO POR CONTEXTO
-
+### 2. NO Código Mock
 ```
-Análisis de llamadas     → SupaVidanta
-Live Monitor             → SupaVidanta
-Prospectos               → SupaVidanta
-Conversaciones WhatsApp  → SupaVidanta
-
-Usuarios del sistema     → SupaSystemUI
-Sesiones y auth          → SupaSystemUI
-Mensajes admin           → SupaSystemUI
-Bot pause status         → SupaSystemUI
-
-Ejecutivos PQNC          → SupaPQNC
-Roles y permisos         → SupaPQNC
-Feedback de calidad      → SupaPQNC
-
-ECS/RDS/S3               → aws-infrastructure
-Workflows                → N8N
-Agentes de voz           → vapi
+❌ NUNCA funciones mock o de prueba
+❌ NUNCA datos hardcodeados
+✅ TODO código debe ser de producción
 ```
 
-### DOCUMENTACIÓN MCP
-
-- Catálogo completo: `docs/MCP_CATALOG.md`
-- Servicios AWS: `docs/AWS_SERVICES_CATALOG.md`
-- Changelog AWS: `docs/AWS_CHANGELOG.md`
-
-### ARCHIVOS DE SERVIDORES MCP
-
+### 3. NO Clientes Admin
 ```
-mcp-supavidanta-server.ts      → SupaVidanta
-mcp-supa-system-ui-server.ts   → SupaSystemUI
-mcp-supa-pqnc-server.ts        → SupaPQNC
-~/.cursor/mcp.json             → Configuración global
+❌ NUNCA usar supabaseSystemUIAdmin (eliminado)
+❌ NUNCA usar analysisSupabaseAdmin (eliminado)
+✅ USAR analysisSupabase o supabaseSystemUI
 ```
 
 ---
 
-## PROCESO DE DESPLIEGUE (GIT + AWS)
+## Stack Tecnológico
 
-### Cuando el usuario solicite PUSH A GIT y/o DEPLOY A AWS, ejecutar:
-
-#### PASO 1: Sincronizar Documentacion
-```bash
-# Copiar documentacion tecnica a /public/docs/
-cp docs/*.md public/docs/ 2>/dev/null || true
-cp CHANGELOG.md public/docs/
-cp VERSIONS.md public/docs/
-```
-
-#### PASO 2: Actualizar Modulo de Documentacion y Footer
-
-**ARCHIVO 1: `src/components/documentation/DocumentationModule.tsx`**
-
-1. **Actualizar stats** (línea ~367):
-   ```typescript
-   const stats = [
-     { label: 'Version', value: 'vX.X.X', highlight: true },  // ← ACTUALIZAR versión
-     { label: 'Release', value: 'BX.X.XNX.X.X', highlight: false },  // ← ACTUALIZAR release
-     { label: 'Documentos', value: '...', highlight: true },
-     { label: 'Ultima actualizacion', value: 'DD Mes YYYY', highlight: false },  // ← ACTUALIZAR fecha
-   ];
-   ```
-
-2. **Agregar commits a gitCommits[]** (línea ~256, AL INICIO del array):
-   ```typescript
-   const gitCommits: GitCommit[] = [
-     { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripción', isRelease: true/false },  // ← AGREGAR AQUÍ
-     // ... commits existentes
-   ];
-   ```
-
-3. **Si es deploy AWS, agregar a awsDeployments[]** (línea ~321, AL INICIO del array):
-   ```typescript
-   const awsDeployments: AWSDeployment[] = [
-     { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'BX.X.XNX.X.X', status: 'success', duration: 'XXs', triggeredBy: 'Samuel Rosales', environment: 'Production' },  // ← AGREGAR AQUÍ
-     // ... deployments existentes
-   ];
-   ```
-
-4. **Si hay nuevos documentos, agregarlos al catálogo** (línea ~128):
-   - Buscar la sección correspondiente en `documentationSections[]`
-   - Agregar entrada nueva:
-   ```typescript
-   { id: 'unique-id', name: 'Nombre Visible', path: '/docs/ARCHIVO.md', description: 'Descripción' }
-   ```
-
-**ARCHIVO 2: `src/components/Footer.tsx`**
-
-5. **Actualizar version** (línea ~8):
-   ```typescript
-   const version = 'BX.X.XNX.X.X';  // Formato: Backend.Patch.MinorN+FrontendVersion
-   ```
-
-#### PASO 3: Actualizar package.json
-- Incrementar version en `package.json` si es release
-
-#### PASO 4: Git Commit y Push
-```bash
-git add -A
-git status  # Verificar cambios
-git commit -m "vX.X.X: Descripcion clara del cambio"
-git push origin main
-```
-
-#### PASO 5: Deploy a AWS (si se solicita)
-```bash
-./update-frontend.sh
-```
-
-#### PASO 6: Informar Resultado
-- Confirmar que el push fue exitoso
-- Si es deploy AWS, informar estado del despliegue
-- Mencionar archivos modificados principales
-
-### Formato de Mensajes de Commit
-
-```
-# Para releases:
-vX.X.X: BX.X.XNX.X.X - Descripcion breve del release
-
-# Para fixes:
-fix: Descripcion del bug corregido
-
-# Para features:
-feat: Descripcion de la nueva funcionalidad
-
-# Para refactors:
-refactor: Descripcion del cambio de estructura
-
-# Para documentacion:
-docs: Descripcion de actualizacion de docs
-```
-
-### Versionamiento
-
-```
-Version Formato: vMAJOR.MINOR.PATCH
-Nomenclatura interna: BBACKEND.NNX.NFRONTEND
-
-Ejemplo: v2.1.26 = B6.0.3N6.0.0
-- B6.0.3 = Backend version 6.0.3
-- N6.0.0 = N8N/Frontend version 6.0.0
-```
+| Capa | Tecnología |
+|------|------------|
+| Frontend | React 19, TypeScript, Vite, TailwindCSS |
+| Estado | Zustand, React Context |
+| Backend | Supabase (PostgreSQL + Edge Functions) |
+| BD Principal | PQNC_AI (glsmifhkoaifvaegsozd) |
 
 ---
 
-## DOCUMENTACION
-
-### COMANDO RAPIDO: "documenta y actualiza"
-
-Cuando el usuario diga **"documenta y actualiza"**, **"push a git y aws"**, o **"de acuerdo a la regla"**, ejecutar TODO este proceso COMPLETO:
-
-#### PASO 1: Sincronizar TODA la documentacion de modulos a /public/docs/
-```bash
-# Documentacion raiz
-cp CHANGELOG.md public/docs/
-cp VERSIONS.md public/docs/
-
-# Documentacion general en /docs/
-cp docs/*.md public/docs/ 2>/dev/null || true
-
-# Documentacion de MODULOS (muy importante)
-cp src/components/analysis/*.md public/docs/
-cp src/components/chat/*.md public/docs/
-cp src/components/prospectos/*.md public/docs/
-cp src/components/admin/*.md public/docs/
-cp src/components/aws/*.md public/docs/
-cp src/components/scheduled-calls/*.md public/docs/
-
-# Documentacion de servicios y config
-cp src/services/README.md public/docs/README_SERVICES.md
-cp src/config/README.md public/docs/README_CONFIG.md
-```
-
-#### PASO 2: Actualizar DocumentationModule.tsx
-Archivo: `src/components/documentation/DocumentationModule.tsx`
-
-1. **Actualizar stats** (linea ~300):
-   ```typescript
-   const stats = [
-     { label: 'Version', value: 'vX.X.X', highlight: true },  // <- ACTUALIZAR
-     { label: 'Ultima actualizacion', value: 'DD Mes YYYY', highlight: false },  // <- ACTUALIZAR
-     ...
-   ];
-   ```
-
-2. **Agregar commit a gitCommits[]** (linea ~253):
-   ```typescript
-   { hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripcion', isRelease: true },
-   ```
-
-3. **Si es deploy AWS, agregar a awsDeployments[]** (linea ~281):
-   ```typescript
-   { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'vX.X.X', status: 'success', duration: 'Xm Xs', triggeredBy: 'Samuel Rosales', environment: 'Production' },
-   ```
-
-#### PASO 2.5: Actualizar Footer.tsx
-Archivo: `src/components/Footer.tsx`
-
-**Actualizar la version interna** (linea ~8):
-```typescript
-const version = 'BX.X.XNX.X.X';  // Formato: Backend.Patch.MinorN+FrontendVersion
-// Ejemplo: 'B6.0.3N6.0.0' para v2.1.26
-```
-
-#### PASO 3: Actualizar package.json si es release
-```json
-"version": "X.X.X"
-```
-
-#### PASO 4: Git commit y push
-```bash
-git add -A
-git commit -m "vX.X.X: Descripcion del cambio"
-git push origin main
-```
-
-#### PASO 5: Deploy a AWS
-```bash
-./update-frontend.sh
-```
-
----
-
-### MAPA COMPLETO DE DOCUMENTACION
-
-#### Archivos FUENTE -> Archivos PUBLICADOS (UI)
-
-| Fuente | Destino en /public/docs/ | Seccion UI |
-|--------|-------------------------|------------|
-| `/CHANGELOG.md` | `CHANGELOG.md` | Versiones |
-| `/VERSIONS.md` | `VERSIONS.md` | Versiones |
-| `/docs/ARCHITECTURE_DIAGRAMS.md` | `ARCHITECTURE_DIAGRAMS.md` | Arquitectura |
-| `/docs/DATABASE_README.md` | `DATABASE_README.md` | Base de Datos |
-| `/docs/PERMISSIONS_SYSTEM_README.md` | `PERMISSIONS_SYSTEM_README.md` | Seguridad |
-| `/docs/WHATSAPP_TEMPLATES_API.md` | `WHATSAPP_TEMPLATES_API.md` | Integraciones |
-| `/docs/ERROR_LOGGING_GUIDE.md` | `ERROR_LOGGING_GUIDE.md` | Operaciones |
-| `/docs/MARKDOWN_VIEWER_STYLING_GUIDE.md` | `MARKDOWN_VIEWER_STYLING_GUIDE.md` | Operaciones |
-
-#### Documentacion de MODULOS
-
-| Modulo | Archivos Fuente | Destino |
-|--------|----------------|---------|
-| **Analysis** | `src/components/analysis/README_ANALISIS_IA.md` | `README_ANALISIS_IA.md` |
-| | `src/components/analysis/CHANGELOG_ANALISIS_IA.md` | `CHANGELOG_ANALISIS_IA.md` |
-| | `src/components/analysis/README_LIVEMONITOR.md` | `README_LIVEMONITOR.md` |
-| | `src/components/analysis/CHANGELOG_LIVEMONITOR.md` | `CHANGELOG_LIVEMONITOR.md` |
-| | `src/components/analysis/OPTIMIZACIONES_RENDIMIENTO.md` | `OPTIMIZACIONES_RENDIMIENTO.md` |
-| **Chat** | `src/components/chat/README.md` | `README.md` |
-| | `src/components/chat/CHANGELOG_LIVECHAT.md` | `CHANGELOG_LIVECHAT.md` |
-| | `src/components/chat/OPTIMIZACIONES_RENDIMIENTO_V4.md` | `OPTIMIZACIONES_RENDIMIENTO_V4.md` |
-| | `src/components/chat/OPTIMIZACION_CACHE_IMAGENES.md` | `OPTIMIZACION_CACHE_IMAGENES.md` |
-| **Prospectos** | `src/components/prospectos/README_PROSPECTOS.md` | `README_PROSPECTOS.md` |
-| | `src/components/prospectos/CHANGELOG_PROSPECTOS.md` | `CHANGELOG_PROSPECTOS.md` |
-| **Admin** | `src/components/admin/README_PQNC_HUMANS.md` | `README_PQNC_HUMANS.md` |
-| | `src/components/admin/CHANGELOG_PQNC_HUMANS.md` | `CHANGELOG_PQNC_HUMANS.md` |
-| **AWS** | `src/components/aws/README_AWS_MANAGER.md` | `README_AWS_MANAGER.md` |
-| | `src/components/aws/CHANGELOG_AWS_MANAGER.md` | `CHANGELOG_AWS_MANAGER.md` |
-| **Scheduled** | `src/components/scheduled-calls/CHANGELOG_SCHEDULED_CALLS.md` | `CHANGELOG_SCHEDULED_CALLS.md` |
-| **Services** | `src/services/README.md` | `README_SERVICES.md` |
-| **Config** | `src/config/README.md` | `README_CONFIG.md` |
-
----
-
-### QUE DOCUMENTAR SEGUN EL TIPO DE CAMBIO
-
-| Tipo de Cambio | Documentos a Actualizar |
-|----------------|------------------------|
-| **Cambio en Analysis** | `CHANGELOG_ANALISIS_IA.md` o `CHANGELOG_LIVEMONITOR.md` |
-| **Cambio en Chat** | `CHANGELOG_LIVECHAT.md` |
-| **Cambio en Prospectos** | `CHANGELOG_PROSPECTOS.md` |
-| **Cambio en Admin/PQNC** | `CHANGELOG_PQNC_HUMANS.md` |
-| **Cambio en AWS Manager** | `CHANGELOG_AWS_MANAGER.md` |
-| **Cambio en Scheduled Calls** | `CHANGELOG_SCHEDULED_CALLS.md` |
-| **Bug Fix general** | `CHANGELOG.md` (si es significativo) |
-| **Nueva Feature** | `CHANGELOG.md` + doc del modulo afectado |
-| **Release** | `CHANGELOG.md`, `VERSIONS.md`, `package.json` |
-| **Troubleshooting resuelto** | Crear doc en `/docs/` con solucion |
-
----
-
-### CATALOGO UI - DocumentationModule.tsx
-
-El catalogo en la UI (linea ~130 de DocumentationModule.tsx) tiene estas secciones:
+## Convenciones Rápidas
 
 ```typescript
-documentationSections = [
-  { id: 'versioning', title: 'Versiones', docs: [...] },
-  { id: 'architecture', title: 'Arquitectura', docs: [...] },
-  { id: 'database', title: 'Base de Datos', docs: [...] },
-  { id: 'analysis', title: 'Analisis IA', docs: [...] },
-  { id: 'chat', title: 'Live Chat', docs: [...] },
-  { id: 'prospectos', title: 'Prospectos', docs: [...] },
-  { id: 'admin', title: 'PQNC Humans', docs: [...] },
-  { id: 'aws-module', title: 'AWS Manager', docs: [...] },
-  { id: 'scheduled', title: 'Llamadas Programadas', docs: [...] },
-  { id: 'security', title: 'Seguridad', docs: [...] },
-  { id: 'integrations', title: 'Integraciones', docs: [...] },
-  { id: 'operations', title: 'Operaciones', docs: [...] },
-  { id: 'services', title: 'Servicios', docs: [...] },
-]
-```
+// Componentes: PascalCase
+UserProfile.tsx
 
-Para agregar un nuevo documento, agregar entrada en la seccion correspondiente:
-```typescript
-{ id: 'unique-id', name: 'Nombre Visible', path: '/docs/ARCHIVO.md', description: 'Descripcion' }
+// Servicios: camelCase
+prospectsService.ts
+
+// Handlers: handle + Acción
+handleSubmit, handleClick
+
+// Boolean: is/has/can
+isLoading, hasError
 ```
 
 ---
 
-### REGLAS DE DOCUMENTACION
+## Reglas Detalladas
 
-1. **SIEMPRE** sincronizar docs de modulos cuando se hace push
-2. **SIEMPRE** actualizar el CHANGELOG del modulo afectado
-3. **SIEMPRE** actualizar gitCommits[] en DocumentationModule.tsx
-4. **SIEMPRE** actualizar awsDeployments[] si se hace deploy a AWS
-5. **NUNCA** crear documentos duplicados - fusionar si es necesario
-6. **NUNCA** dejar documentacion desactualizada despues de un cambio
+Para instrucciones completas, consultar las reglas modulares en `.cursor/rules/`:
 
----
-
-## UI/UX
-
-### Principios de Diseno
-
-- Seguir guia de diseno de modales (ver workspace rules)
-- Mantener consistencia visual
-- Usar animaciones sutiles (framer-motion)
-- Accesibilidad basica (aria-labels, keyboard navigation)
-- Dark mode compatible
-
-### Componentes Reutilizables
-
-- Usar componentes existentes antes de crear nuevos
-- Verificar si hay componentes similares en el proyecto
-- Mantener componentes pequenos y enfocados
-- Props tipadas con TypeScript
+| Regla | Propósito |
+|-------|-----------|
+| `core-production.mdc` | Prohibiciones y seguridad |
+| `anti-hallucination.mdc` | Prevenir invenciones |
+| `session-limits.mdc` | Control de tokens |
+| `workflow.mdc` | Flujo de desarrollo |
+| `gold-standards.mdc` | Archivos ejemplares |
+| `model-selection.mdc` | Selección de modelos |
+| `deploy-workflow.mdc` | Proceso de deploy |
+| `mcp-context.mdc` | Uso de MCPs |
+| `arquitectura-bd-unificada.mdc` | Base de datos |
+| `security-rules.mdc` | Seguridad detallada |
 
 ---
 
-## INTEGRACIONES
+## Archivos Clave
 
-### Supabase
-
-- Usar clientes configurados (`pqncSupabase`, `supabaseService`)
-- Manejar errores de Supabase apropiadamente
-- Usar RPCs cuando sea necesario
-- Validar permisos antes de operaciones
-
-### AWS
-
-- Usar servicios AWS existentes
-- No crear recursos AWS sin autorizacion
-- Verificar costos antes de crear recursos
-- Usar scripts de despliegue existentes
-- **SIEMPRE** documentar cambios en `docs/AWS_CHANGELOG.md`
-- Consultar `docs/AWS_SERVICES_CATALOG.md` para comandos disponibles
-- Operaciones de ALTO RIESGO: delete_*, stop_instance
-- Operaciones SEGURAS: list_*, describe_*, get_*, create_snapshot
-
-### N8N
-
-- Usar `n8nDeploymentServiceV3` para despliegues
-- No modificar workflows sin verificar impacto
-- Validar configuracion antes de desplegar
+| Necesitas... | Consulta... |
+|--------------|-------------|
+| Rutas | `src/components/MainApp.tsx` |
+| Auth | `src/contexts/AuthContext.tsx` |
+| Estado | `src/stores/appStore.ts` |
+| Supabase | `src/config/analysisSupabase.ts` |
+| Índice código | `.cursor/CODEBASE_INDEX.md` |
+| Arquitectura | `ARCHITECTURE.md` |
+| Convenciones | `CONVENTIONS.md` |
 
 ---
 
-## ADVERTENCIAS FINALES
+## Recordatorio
 
-1. **Este es un entorno de PRODUCCION**
-   - Usuarios reales dependen de esta aplicacion
-   - Cualquier cambio puede afectar operaciones
-   - Verificar impacto antes de cambios
-
-2. **NO hacer despliegues automaticos**
-   - Siempre esperar autorizacion explicita
-   - Verificar que el usuario quiere desplegar
-   - Informar del resultado del despliegue
-
-3. **NO generar codigo de prueba**
-   - Todo debe ser codigo de produccion
-   - Funciones completas y funcionales
-   - Sin mocks ni datos de ejemplo
-
-4. **Mantener calidad de codigo**
-   - TypeScript estricto
-   - Manejo de errores apropiado
-   - Codigo limpio y mantenible
-
----
-
-## CONTACTO Y SOPORTE
-
-- **Proyecto**: PQNC QA AI Platform
-- **Version**: v2.1.25
-- **Estado**: Produccion Activa
-- **Ultima Actualizacion**: 15 de Diciembre 2025
-
----
-
-**RECUERDA: Este es un entorno de PRODUCCION. Actua con precaucion y siempre solicita autorizacion antes de desplegar cambios.**
+```
+VERIFICAR antes de actuar
+PREGUNTAR antes de asumir
+COMMIT frecuente
+NUEVO CHAT cada 50 mensajes
+```

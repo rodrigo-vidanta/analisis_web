@@ -1,0 +1,33 @@
+# =====================================================
+# CURSOR IGNORE
+# Archivos que Cursor NO debe leer ni modificar
+# =====================================================
+
+# === DEPENDENCIAS ===
+node_modules/
+
+# === BUILD ===
+dist/
+dist-mcp/
+
+# === LOGS LOCALES ===
+*.local.md
+*.local.json
+MCP_CHANGELOG.local.md
+MCP_SCHEMAS.local.md
+
+# === BACKUPS ===
+backups/
+aws-backup/
+
+# === BINARIOS ===
+*.pdf
+*.png
+*.jpg
+*.jpeg
+
+# === ARCHIVOS SENSIBLES ===
+.env
+.env.local
+.env.production
+.supabase/access_token

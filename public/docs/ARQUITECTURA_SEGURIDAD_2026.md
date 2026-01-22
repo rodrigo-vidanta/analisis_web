@@ -6,6 +6,20 @@
 
 ---
 
+## 📋 Índice
+
+1. [Cambio Arquitectónico Crítico](#⚠️-cambio-arquitectónico-crítico---enero-2026)
+2. [Arquitectura Actual](#🏗️-arquitectura-actual)
+3. [Gestión de Keys](#🔑-gestión-de-keys)
+4. [Modelo de Seguridad](#🛡️-modelo-de-seguridad)
+5. [Edge Functions](#📦-edge-functions)
+6. [Reglas Obligatorias](#⛔-reglas-obligatorias-para-desarrollo)
+7. [Checklist Pre-Deploy](#📋-checklist-pre-deploy)
+8. [Reportes de Pentesting](#📊-reportes-de-pentesting)
+9. [Ver También](#ver-también)
+
+---
+
 ## ⚠️ CAMBIO ARQUITECTÓNICO CRÍTICO - ENERO 2026
 
 A partir del **16 de Enero 2026**, la arquitectura de seguridad cambió significativamente:
@@ -253,13 +267,25 @@ echo "✅ Bundle seguro - solo anon_keys"
 
 ---
 
-## 📚 Referencias
+## 📚 Ver También
 
-- [Documentación de Migración](./MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md)
-- [Catálogo de Edge Functions](./EDGE_FUNCTIONS_CATALOG.md)
-- [Deploy Multi-DB Proxy](./DEPLOY_MULTI_DB_PROXY.md)
+### Documentación Relacionada
+- [Reglas de Seguridad](.cursor/rules/security-rules.mdc) - Reglas obligatorias de desarrollo
+- [Arquitectura BD Unificada](NUEVA_ARQUITECTURA_BD_UNIFICADA.md) - Estructura de base de datos
+- [Migración System_UI](MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md) - Detalles de migración
+- [Edge Functions Catalog](EDGE_FUNCTIONS_CATALOG.md) - Funciones serverless seguras
+- [Deploy Multi-DB Proxy](DEPLOY_MULTI_DB_PROXY.md) - Configuración de proxies
+
+### Reportes de Pentesting
+- [Pentesting Final 2026-01-18](PENTESTING_FINAL_2026-01-18.md) - Auditoría más reciente
+- [Pentesting Profundo 2026-01-17](PENTESTING_PROFUNDO_2026-01-17.md) - Análisis detallado
+- [Pentesting 2026-01-16](PENTESTING_2026-01-16_FINAL.md) - Reporte inicial
+
+### Guías de Configuración
+- [Variables de Entorno](ENV_VARIABLES_REQUIRED.md) - Configuración segura
+- [CloudFront Security Headers](AWS_CLOUDFRONT_SECURITY_HEADERS.md) - Headers HTTP
 
 ---
 
-**Última Actualización:** 16 de Enero 2026  
-**Autor:** Sistema de Documentación Automática
+**Última Actualización:** 22 de Enero 2026  
+**Revisado por:** Auditoría de Documentación

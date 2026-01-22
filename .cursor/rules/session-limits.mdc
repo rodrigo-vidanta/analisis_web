@@ -1,0 +1,276 @@
+# Límites de Sesión y Prevención de Overflow
+
+> **Descripción:** Reglas para prevenir exceder límites de tokens y costos adicionales.
+> **Aplicación:** Always (Siempre activa)
+> **Prioridad:** CRÍTICA - Afecta costos directamente
+
+---
+
+## El Problema
+
+```
+Ventana de Contexto Sonnet: 200K tokens
+Si excedes 200K → Costo x2 por token
+Si sigues → 300K, 400K... → Costos se disparan exponencialmente
+```
+
+**No hay alerta automática.** Debes monitorear manualmente.
+
+---
+
+## Reglas de Límites
+
+### Regla de los 50 Mensajes
+
+```
+Máximo: 50 intercambios (mensajes) por chat
+Después de 50 → NUEVO CHAT obligatorio
+```
+
+### Regla de la 1 Hora
+
+```
+Sesión máxima: 1-2 horas de trabajo continuo
+Después → Crear resumen → Nuevo chat
+```
+
+### Regla de la Tarea
+
+```
+1 feature = 1 chat
+1 bug fix = 1 chat
+Completar → Commit → Nuevo chat
+```
+
+---
+
+## Señales de Overflow Inminente
+
+### Síntomas de Contexto Saturado:
+
+| Señal | Significado | Acción |
+|-------|-------------|--------|
+| Respuestas más lentas | Cerca del límite | Preparar nuevo chat |
+| Respuestas menos precisas | Contexto saturado | Nuevo chat YA |
+| "Olvida" cosas mencionadas | Overflow | Nuevo chat URGENTE |
+| Chat se siente "pesado" | Muchos tokens | Nuevo chat |
+| Errores que ya corrigió | Contexto perdido | Nuevo chat |
+
+---
+
+## Protocolo de Sesión Segura
+
+### Al Iniciar Chat:
+
+```
+1. Definir tarea específica (1 sola)
+2. Cargar solo archivos necesarios (@Files)
+3. Revisar si hay handover previo
+4. Establecer objetivo claro
+```
+
+### Durante el Chat:
+
+```
+Cada 15-20 mensajes:
+1. ¿Estoy avanzando?
+2. ¿El agente sigue coherente?
+3. ¿Necesito un checkpoint?
+
+Si algo falla → Nuevo chat con resumen
+```
+
+### Al Completar Tarea:
+
+```
+1. Verificar cambios funcionan
+2. Hacer commit
+3. Si hay más trabajo → Nuevo chat
+4. Guardar handover si es necesario
+```
+
+---
+
+## Cómo Crear Nuevo Chat Eficientemente
+
+### Paso 1: Guardar Contexto Crítico
+
+```markdown
+// Copiar esto antes de cerrar:
+
+## Estado Actual:
+- Archivo: src/components/X.tsx
+- Línea: ~150
+- Cambio: Implementando función Y
+
+## Lo que funciona:
+- [Lista de lo completado]
+
+## Pendiente:
+- [Lo que falta]
+```
+
+### Paso 2: Iniciar Nuevo Chat
+
+```
+Mensaje inicial:
+"Continúo trabajo de sesión anterior.
+
+Estado: [pegar resumen]
+Archivo principal: [archivo]
+Próximo paso: [lo que sigue]"
+```
+
+### Paso 3: Cargar Contexto Mínimo
+
+```
+@src/components/X.tsx (archivo principal)
+@src/services/Y.ts (solo si necesario)
+
+NO cargar todo el proyecto
+```
+
+---
+
+## Estimación de Tokens
+
+### Aproximados por Tipo de Interacción:
+
+| Tipo | Tokens Estimados |
+|------|------------------|
+| Mensaje simple | 500-1K |
+| Respuesta con código | 2-5K |
+| read_file (archivo mediano) | 5-20K |
+| read_file (archivo grande) | 20-50K |
+| grep (resultados extensos) | 5-15K |
+| codebase_search | 10-30K |
+
+### Presupuesto por Sesión:
+
+```
+Límite seguro: 150K tokens (75% de 200K)
+Margen de seguridad: 50K tokens
+
+Sesión típica de 1 hora: ~50-100K tokens
+Sesión con muchos archivos: ~100-150K tokens
+```
+
+---
+
+## Workflow Anti-Overflow
+
+```
+┌─────────────────┐
+│  Inicio Chat    │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐
+│ Tarea Específica│
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐     ┌─────────────────┐
+│ ~20 mensajes    │────►│ Checkpoint      │
+└────────┬────────┘     └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│ ¿Tarea completa?│
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    ▼         ▼
+  [Sí]      [No]
+    │         │
+    ▼         ▼
+┌───────┐  ┌─────────────┐
+│Commit │  │>40 mensajes?│
+└───┬───┘  └──────┬──────┘
+    │             │
+    ▼         ┌───┴───┐
+┌───────┐     ▼       ▼
+│Nuevo  │   [Sí]    [No]
+│Chat   │     │       │
+└───────┘     ▼       ▼
+         ┌───────┐ ┌────────┐
+         │Handover│ │Continuar│
+         │+ Nuevo│ └────────┘
+         │Chat   │
+         └───────┘
+```
+
+---
+
+## Recordatorios Proactivos del Agente
+
+### OBLIGATORIO: Detectar y Avisar
+
+El agente DEBE monitorear y avisar proactivamente cuando detecte:
+
+1. **Muchas herramientas usadas** (>15 llamadas a read_file, grep, etc.)
+2. **Múltiples archivos distintos** referenciados (>10 archivos)
+3. **Conversación extensa** (estimado >30 intercambios)
+4. **Cambio de tema/tarea** dentro del mismo chat
+
+### Mensaje de Aviso (usar cuando aplique):
+
+```
+📊 **Aviso de Sesión**
+
+Esta sesión tiene bastante contexto acumulado.
+Para mantener precisión y evitar costos extras, recomiendo:
+
+1. Hacer commit de cambios actuales
+2. Crear handover con estado actual
+3. Continuar en nuevo chat
+
+¿Deseas que prepare el handover ahora?
+```
+
+### Al completar una feature/tarea:
+
+```
+✅ **Tarea completada**
+
+Recomiendo:
+1. Verificar que los cambios funcionan
+2. Hacer commit
+3. Iniciar nuevo chat para siguiente tarea
+
+¿Procedemos con el commit?
+```
+
+### Al detectar que el usuario cambia de tema:
+
+```
+💡 **Sugerencia**
+
+Veo que vamos a trabajar en algo diferente.
+Para mejor contexto, ¿prefieres continuar aquí o abrir nuevo chat?
+```
+
+### Cada ~20-25 intercambios:
+
+El agente debe hacer un "checkpoint mental" y si hay mucho contexto acumulado, sugerir:
+
+```
+🔄 **Checkpoint de Sesión**
+
+Llevamos un buen rato trabajando. Estado actual:
+- Archivos modificados: [lista]
+- Pendiente: [lista]
+
+¿Continuamos o prefieres nuevo chat con handover?
+```
+
+---
+
+## Comandos Rápidos
+
+### Para el Usuario:
+
+- **"nuevo chat"** → Crear resumen y recomendar nuevo chat
+- **"checkpoint"** → Generar resumen del estado actual
+- **"cuántos mensajes"** → Estimar mensajes en sesión actual
+- **"handover"** → Crear documento de handover completo

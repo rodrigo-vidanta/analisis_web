@@ -1,0 +1,205 @@
+# Workflow de Despliegue
+
+> **Descripción:** Proceso de deploy a Git y AWS.
+> **Aplicación:** Agent Requested (cuando usuario solicita deploy)
+> **Trigger:** Usuario dice "push", "deploy", "documenta y actualiza"
+
+---
+
+## Cuándo Aplicar Esta Regla
+
+Cuando el usuario diga:
+- "documenta y actualiza"
+- "push a git"
+- "push a git y aws"
+- "deploy"
+- "de acuerdo a la regla"
+
+**⚠️ IMPORTANTE:** "documenta y actualiza" implica:
+1. ✅ Sincronizar documentación
+2. ✅ Actualizar versiones en componentes
+3. ✅ Git commit y push
+4. ✅ Deploy a AWS (ejecutar `./update-frontend.sh`)
+5. ✅ Crear handover final con REF
+
+**Flujo automático:**
+```
+"documenta y actualiza"
+    ↓
+Sincronizar docs (PASO 1)
+    ↓
+Actualizar DocumentationModule.tsx (PASO 2)
+    ↓
+Actualizar Footer.tsx (PASO 3)
+    ↓
+Actualizar package.json si es release (PASO 4)
+    ↓
+Git commit y push (PASO 5)
+    ↓
+Deploy AWS con ./update-frontend.sh (PASO 6)
+    ↓
+Crear handover con REF (PASO 7)
+    ↓
+Imprimir REF + resumen en chat (PASO 8)
+```
+
+---
+
+## Proceso Completo
+
+### PASO 1: Sincronizar Documentación
+
+```bash
+# Documentación raíz
+cp CHANGELOG.md public/docs/
+cp VERSIONS.md public/docs/
+
+# Documentación general
+cp docs/*.md public/docs/ 2>/dev/null || true
+
+# Documentación de módulos
+cp src/components/analysis/*.md public/docs/
+cp src/components/chat/*.md public/docs/
+cp src/components/prospectos/*.md public/docs/
+cp src/components/admin/*.md public/docs/
+cp src/components/aws/*.md public/docs/
+cp src/components/scheduled-calls/*.md public/docs/
+
+# Servicios y config
+cp src/services/README.md public/docs/README_SERVICES.md
+cp src/config/README.md public/docs/README_CONFIG.md
+```
+
+### PASO 2: Actualizar DocumentationModule.tsx
+
+**Archivo:** `src/components/documentation/DocumentationModule.tsx`
+
+1. **Actualizar stats** (~línea 367):
+```typescript
+const stats = [
+  { label: 'Version', value: 'vX.X.X', highlight: true },
+  { label: 'Release', value: 'BX.X.XNX.X.X', highlight: false },
+  { label: 'Ultima actualizacion', value: 'DD Mes YYYY', highlight: false },
+];
+```
+
+2. **Agregar commit a gitCommits[]** (~línea 256):
+```typescript
+{ hash: 'XXXXXXX', date: 'YYYY-MM-DD', author: 'Team', message: 'vX.X.X: Descripción', isRelease: true },
+```
+
+3. **Si es deploy AWS, agregar a awsDeployments[]** (~línea 321):
+```typescript
+{ id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'BX.X.XNX.X.X', status: 'success', duration: 'XXs', triggeredBy: 'Samuel Rosales', environment: 'Production' },
+```
+
+### PASO 3: Actualizar Footer.tsx
+
+**Archivo:** `src/components/Footer.tsx` (~línea 8):
+```typescript
+const version = 'BX.X.XNX.X.X';
+```
+
+### PASO 4: Actualizar package.json (si es release)
+
+```json
+"version": "X.X.X"
+```
+
+### PASO 5: Git Commit y Push
+
+```bash
+git add -A
+git status  # Verificar cambios
+git commit -m "vX.X.X: Descripción clara del cambio"
+git push origin main
+```
+
+### PASO 6: Deploy a AWS (si se solicita)
+
+```bash
+./update-frontend.sh
+```
+
+### PASO 7: Crear Handover Final
+
+**Formato:**
+```markdown
+REF: HANDOVER-YYYY-MM-DD-DEPLOY-vX.X.X
+```
+
+**Contenido mínimo:**
+- Versión desplegada
+- Archivos principales modificados
+- Commits realizados
+- Estado del deploy AWS
+- Próximos pasos (si aplica)
+
+Ver `.cursor/rules/handover-format.mdc` para estructura completa.
+
+### PASO 8: Informar Resultado
+
+**En el chat, imprimir solo:**
+
+```markdown
+✅ Deploy completado
+
+**REF**: `HANDOVER-YYYY-MM-DD-DEPLOY-vX.X.X`  
+**Ubicación**: `.cursor/handovers/YYYY-MM-DD-deploy-vX-X-X.md`
+
+**Resumen rápido**:
+- ✅ Documentación sincronizada (N archivos)
+- ✅ Versión actualizada: vX.X.X
+- ✅ Git push: commit XXXXXXX
+- ✅ AWS deploy: exitoso (XXs)
+- Próximo: [acción si aplica]
+```
+
+**⚠️ NO repetir el handover completo en el chat** - Solo REF + resumen.
+
+---
+
+## Formato de Commits
+
+```
+# Releases
+vX.X.X: BX.X.XNX.X.X - Descripción breve
+
+# Fixes
+fix: Descripción del bug corregido
+
+# Features
+feat: Descripción de nueva funcionalidad
+
+# Refactors
+refactor: Descripción del cambio
+
+# Documentación
+docs: Descripción de actualización
+```
+
+---
+
+## Versionamiento
+
+```
+Formato público: vMAJOR.MINOR.PATCH
+Formato interno: BBACKEND.NNX.NFRONTEND
+
+Ejemplo: v2.1.26 = B6.0.3N6.0.0
+```
+
+---
+
+## Qué Documentar Según el Cambio
+
+| Tipo | Documentos |
+|------|------------|
+| Cambio en Analysis | CHANGELOG_ANALISIS_IA.md o CHANGELOG_LIVEMONITOR.md |
+| Cambio en Chat | CHANGELOG_LIVECHAT.md |
+| Cambio en Prospectos | CHANGELOG_PROSPECTOS.md |
+| Cambio en Admin | CHANGELOG_PQNC_HUMANS.md |
+| Cambio en AWS | CHANGELOG_AWS_MANAGER.md |
+| Bug Fix general | CHANGELOG.md (si significativo) |
+| Nueva Feature | CHANGELOG.md + doc del módulo |
+| Release | CHANGELOG.md, VERSIONS.md, package.json |

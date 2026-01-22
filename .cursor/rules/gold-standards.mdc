@@ -1,0 +1,234 @@
+# Gold Standard Files - Archivos Ejemplares
+
+> **Descripción:** Referencias a archivos del proyecto que ejemplifican el estilo y patrones correctos.
+> **Aplicación:** Always (Siempre activa)
+> **Uso:** Consultar estos archivos antes de crear código nuevo similar.
+
+---
+
+## Propósito
+
+Cuando crees código nuevo, **PRIMERO** consulta estos archivos como referencia.
+Esto asegura consistencia de estilo, patrones y convenciones.
+
+---
+
+## Componentes React
+
+### Módulo Completo (con tabs, filtros, estado)
+
+**Referencia:** `src/components/prospectos/ProspectosModule.tsx`
+
+Características a imitar:
+- Estructura de estado con useState
+- Manejo de loading/error
+- Tabs y navegación interna
+- Filtros y búsqueda
+- Integración con servicios
+- Dark mode compatible
+
+### Componente de Lista con Cards
+
+**Referencia:** `src/components/analysis/CallList.tsx`
+
+Características a imitar:
+- Renderizado de lista
+- Cards con información
+- Estados vacíos
+- Paginación
+
+### Modal Complejo
+
+**Referencia:** `src/components/admin/UserManagement.tsx`
+
+Características a imitar:
+- Modal con form
+- Validación de campos
+- Submit con loading
+- Animaciones framer-motion
+- Estilos de inputs/buttons
+
+---
+
+## Servicios
+
+### Servicio CRUD Completo
+
+**Referencia:** `src/services/prospectsService.ts`
+
+Características a imitar:
+- Estructura de objeto con métodos
+- Tipado de retornos
+- Manejo de errores
+- Uso de analysisSupabase
+
+```typescript
+// Patrón a seguir:
+export const miServicio = {
+  async obtenerTodos(): Promise<MiTipo[]> {
+    const { data, error } = await analysisSupabase
+      .from('mi_tabla')
+      .select('*');
+    if (error) throw error;
+    return data || [];
+  },
+  // ... más métodos
+};
+```
+
+### Servicio con Cache/Optimización
+
+**Referencia:** `src/services/liveMonitorOptimizedService.ts`
+
+Características a imitar:
+- Cache de datos
+- Debounce/throttle
+- Manejo de conexiones realtime
+
+---
+
+## Hooks
+
+### Hook de Datos con Estado
+
+**Referencia:** `src/hooks/useEffectivePermissions.ts`
+
+Características a imitar:
+- useState para estado
+- useEffect para carga
+- Retorno tipado
+- Manejo de loading/error
+
+```typescript
+// Patrón a seguir:
+export function useMiHook(param: string) {
+  const [data, setData] = useState<MiTipo | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch data
+  }, [param]);
+
+  return { data, loading };
+}
+```
+
+### Hook de Permisos
+
+**Referencia:** `src/hooks/useAnalysisPermissions.ts`
+
+Características a imitar:
+- Integración con AuthContext
+- Verificación de permisos
+- Memoización
+
+---
+
+## Stores (Zustand)
+
+### Store Global
+
+**Referencia:** `src/stores/appStore.ts`
+
+Características a imitar:
+- Estructura con create()
+- Acciones como métodos
+- Estado tipado
+- Persistencia (si aplica)
+
+```typescript
+// Patrón a seguir:
+interface MiStore {
+  value: string;
+  setValue: (v: string) => void;
+}
+
+export const useMiStore = create<MiStore>((set) => ({
+  value: '',
+  setValue: (v) => set({ value: v }),
+}));
+```
+
+---
+
+## Configuración
+
+### Cliente Supabase
+
+**Referencia:** `src/config/analysisSupabase.ts`
+
+Características a imitar:
+- Uso de variables de entorno
+- Export del cliente
+- NO usar service_role_key
+
+---
+
+## Estilos y UI
+
+### Tailwind Classes Comunes
+
+```typescript
+// Contenedor principal
+className="p-4 bg-white dark:bg-gray-900 rounded-xl"
+
+// Cards
+className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+
+// Botones primarios
+className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+
+// Inputs
+className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-500"
+
+// Títulos
+className="text-xl font-bold text-gray-900 dark:text-white"
+
+// Texto secundario
+className="text-sm text-gray-500 dark:text-gray-400"
+```
+
+### Animaciones (Framer Motion)
+
+```typescript
+// Fade in
+initial={{ opacity: 0 }}
+animate={{ opacity: 1 }}
+
+// Slide up
+initial={{ opacity: 0, y: 20 }}
+animate={{ opacity: 1, y: 0 }}
+
+// Modal
+initial={{ opacity: 0, scale: 0.95 }}
+animate={{ opacity: 1, scale: 1 }}
+exit={{ opacity: 0, scale: 0.95 }}
+```
+
+---
+
+## Antes de Crear Código Nuevo
+
+### Checklist:
+
+1. [ ] ¿Existe algo similar? → Buscar en el módulo correspondiente
+2. [ ] ¿Hay un servicio que pueda usar? → Revisar `src/services/`
+3. [ ] ¿Hay un hook que pueda usar? → Revisar `src/hooks/`
+4. [ ] ¿Cómo lo hacen otros archivos? → Consultar gold standards
+
+### Si necesitas crear algo nuevo:
+
+1. Abrir archivo gold standard similar
+2. Copiar estructura base
+3. Adaptar a tu necesidad
+4. Mantener convenciones
+
+---
+
+## Archivos a NO Imitar
+
+Los siguientes archivos tienen código legacy o patrones desactualizados:
+
+- Archivos con `*Admin` imports (ya eliminados)
+- Archivos con CSS custom (migrar a Tailwind)
+- Archivos sin TypeScript estricto

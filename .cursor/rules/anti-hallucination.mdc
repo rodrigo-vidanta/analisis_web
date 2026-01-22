@@ -1,0 +1,164 @@
+# Reglas Anti-Alucinación
+
+> **Descripción:** Reglas para prevenir que el agente invente código, funciones o rutas inexistentes.
+> **Aplicación:** Always (Siempre activa)
+> **Prioridad:** CRÍTICA
+
+---
+
+## ANTES de Escribir Código
+
+### 1. Verificar Existencia
+
+```
+ANTES de usar cualquier función, servicio, o componente:
+1. Usar grep o codebase_search para verificar que existe
+2. Usar read_file para ver su implementación real
+3. NO asumir que algo existe porque "debería existir"
+```
+
+### 2. Verificar Imports
+
+```typescript
+// ❌ NUNCA hacer esto (asumir que existe)
+import { miServicio } from '../services/miServicio';
+
+// ✅ SIEMPRE verificar primero
+// 1. grep "miServicio" src/services/
+// 2. Si no existe → informar al usuario
+// 3. Si existe → usar el import correcto del archivo real
+```
+
+### 3. Verificar Rutas de API
+
+```typescript
+// ❌ NUNCA inventar endpoints
+const response = await fetch('/api/prospectos/update');
+
+// ✅ SIEMPRE buscar endpoints existentes
+// 1. Revisar src/services/ para ver qué endpoints usa el proyecto
+// 2. Revisar Edge Functions en supabase/functions/
+// 3. Si no existe → crear explícitamente o preguntar
+```
+
+---
+
+## Prohibiciones Absolutas
+
+### NO Inventar:
+
+1. **Nombres de funciones** que no existen en el codebase
+2. **Nombres de tablas** de Supabase sin verificar schema
+3. **Rutas de archivos** sin confirmar con list_dir
+4. **Tipos/Interfaces** que no están definidos
+5. **Variables de entorno** que no están documentadas
+6. **Endpoints de API** sin verificar servicios existentes
+
+### NO Asumir:
+
+1. Que un servicio tiene cierto método sin verificar
+2. Que un hook existe porque el nombre suena lógico
+3. Que una tabla tiene ciertas columnas sin verificar schema
+4. Que un componente acepta ciertas props sin leer su interfaz
+
+---
+
+## Protocolo de Verificación
+
+### Antes de Cada Cambio:
+
+```
+PASO 1: ¿Qué archivos voy a modificar?
+        → Verificar que existen con read_file
+
+PASO 2: ¿Qué funciones/servicios voy a usar?
+        → grep para confirmar existencia
+        → read_file para ver implementación
+
+PASO 3: ¿Qué tipos/interfaces necesito?
+        → Buscar en src/types/ o en el archivo del componente
+        → NO crear tipos duplicados
+
+PASO 4: ¿Qué imports necesito?
+        → Copiar imports de archivos similares existentes
+        → NO inventar rutas de import
+```
+
+---
+
+## Cuando NO Estés Seguro
+
+### Si no encuentras algo:
+
+```
+1. DECIR: "No encontré [X] en el codebase"
+2. PREGUNTAR: "¿Deseas que lo cree o existe en otra ubicación?"
+3. ESPERAR: Confirmación antes de crear algo nuevo
+```
+
+### Si hay múltiples opciones:
+
+```
+1. LISTAR: Las opciones encontradas
+2. PREGUNTAR: Cuál usar
+3. ESPERAR: Confirmación antes de proceder
+```
+
+---
+
+## Ejemplos de Verificación Correcta
+
+### Ejemplo 1: Usar un Servicio
+
+```typescript
+// PASO 1: Verificar que existe
+// grep "prospectsService" src/services/
+
+// PASO 2: Leer implementación
+// read_file src/services/prospectsService.ts
+
+// PASO 3: Ahora sí, usar métodos REALES del servicio
+import { prospectsService } from '../services/prospectsService';
+const data = await prospectsService.obtenerTodos(); // Método que EXISTE
+```
+
+### Ejemplo 2: Usar un Hook
+
+```typescript
+// PASO 1: Verificar que existe
+// ls src/hooks/ 
+// grep "useEffectivePermissions"
+
+// PASO 2: Leer qué retorna
+// read_file src/hooks/useEffectivePermissions.ts
+
+// PASO 3: Usar con valores REALES
+const { hasPermission, permissions } = useEffectivePermissions();
+```
+
+### Ejemplo 3: Consultar Base de Datos
+
+```typescript
+// PASO 1: Verificar tabla existe
+// mcp_Supa_PQNC_AI_pqnc_get_table_info({ table: 'prospectos' })
+
+// PASO 2: Ver columnas reales
+// Ahora sé que tiene: id, nombre, telefono, email, status, etc.
+
+// PASO 3: Query con columnas REALES
+const { data } = await supabase
+  .from('prospectos')
+  .select('id, nombre, telefono, status'); // Columnas verificadas
+```
+
+---
+
+## Consecuencias de Alucinar
+
+Si el agente inventa algo que no existe:
+1. El código no compilará
+2. Se perderá tiempo debuggeando
+3. Se consumirán tokens innecesariamente
+4. Se pierde confianza del usuario
+
+**Mejor preguntar que inventar.**

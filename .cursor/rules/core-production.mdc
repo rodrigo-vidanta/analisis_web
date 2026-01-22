@@ -1,0 +1,111 @@
+# Reglas Core de Producción
+
+> **Descripción:** Reglas críticas que SIEMPRE deben aplicarse. Entorno de producción activo.
+> **Aplicación:** Always (Siempre activa)
+> **Prioridad:** MÁXIMA
+
+---
+
+## Estado del Proyecto
+
+```
+ESTADO: PRODUCCIÓN ACTIVA
+VERSIÓN: v2.1.26+
+ÚLTIMA ACTUALIZACIÓN: Enero 2026
+```
+
+---
+
+## Prohibiciones Absolutas
+
+### 1. Despliegues Automáticos
+
+```
+❌ NUNCA hacer push a Git sin autorización explícita
+❌ NUNCA hacer deploy a AWS sin solicitud explícita
+❌ NUNCA ejecutar scripts de despliegue automáticamente
+✅ SOLO commits/push cuando el usuario lo solicite
+✅ SOLO deploy cuando el usuario lo solicite
+```
+
+### 2. Código de Prueba
+
+```
+❌ NUNCA generar código con funciones mock
+❌ NUNCA crear datos de prueba hardcodeados
+❌ NUNCA dejar TODOs o placeholders sin implementar
+❌ NUNCA crear funciones "de ejemplo" o "temporales"
+✅ TODO el código debe ser código de producción funcional
+✅ TODAS las funciones deben estar completamente implementadas
+✅ TODOS los datos deben venir de fuentes reales (APIs, BD)
+```
+
+### 3. Seguridad
+
+```
+❌ NUNCA hardcodear credenciales
+❌ NUNCA exponer API keys o secrets
+❌ NUNCA usar clientes *Admin (eliminados)
+❌ NUNCA usar service_role_key en frontend
+✅ Usar variables de entorno (import.meta.env.VITE_*)
+✅ Usar credentialsService para tokens de API
+✅ Usar Edge Functions para operaciones privilegiadas
+```
+
+---
+
+## Principios de Código
+
+### TypeScript Estricto
+
+```typescript
+// ✅ CORRECTO
+const [data, setData] = useState<MiTipo[]>([]);
+function process(item: MiTipo): ResultType { }
+
+// ❌ INCORRECTO
+const [data, setData] = useState([]);
+function process(item: any) { }
+```
+
+### React 19 Best Practices
+
+```typescript
+// Componentes funcionales con hooks
+// useState, useEffect, useCallback, useMemo
+// Evitar re-renders innecesarios
+// Manejar errores con try-catch
+```
+
+### TailwindCSS Exclusivo
+
+```
+❌ NO crear archivos CSS adicionales
+❌ NO usar estilos inline (excepto dinámicos)
+✅ Usar clases de Tailwind
+✅ Dark mode: dark:* prefix
+```
+
+---
+
+## Entorno de Producción
+
+```
+⚠️ Este es un entorno 100% productivo
+⚠️ Usuarios reales dependen de esta aplicación
+⚠️ Cualquier cambio afecta operaciones
+⚠️ Verificar impacto antes de cualquier cambio
+```
+
+---
+
+## Recordatorio Final
+
+```
+ANTES de cualquier cambio:
+1. ¿Es código de producción completo?
+2. ¿Tiene manejo de errores?
+3. ¿Usa servicios existentes?
+4. ¿Sigue las convenciones?
+5. ¿Usuario autorizó el deploy?
+```

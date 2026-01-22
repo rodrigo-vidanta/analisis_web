@@ -1,0 +1,142 @@
+# =====================================================
+# CURSOR INDEXING IGNORE
+# Archivos excluidos del índice para optimizar Composer
+# =====================================================
+
+# === DEPENDENCIAS (NO INDEXAR) ===
+node_modules/
+.pnpm-store/
+
+# === BUILD ARTIFACTS ===
+dist/
+dist-mcp/
+build/
+.next/
+out/
+
+# === LOGS Y TEMPORALES ===
+*.log
+*.local.md
+*.local.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === ARCHIVOS GRANDES DE CONFIGURACIÓN ===
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# === BACKUPS Y MIGRACIONES ANTIGUAS ===
+backups/
+aws-backup/
+migrations/
+*.backup-*
+*.bak
+
+# === SQL GRANDES ===
+*.sql
+
+# === PDFs Y BINARIOS ===
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# === ARCHIVOS DE AUDITORÍA/REPORTES (ya procesados) ===
+AUDITORIA_*.md
+REPORTE_*.md
+RESUMEN_*.md
+PENTESTING_*.md
+ESTADO_*.md
+PLAN_*.md
+DIAGNOSTICO_*.md
+VERIFICACION_*.md
+BLINDAJE_*.md
+INFRAESTRUCTURA_*.md
+IMPLEMENTACION_*.md
+CORRECIONES_*.md
+CRITICAS_*.md
+ERRORES_*.md
+
+# === CONFIGURACIONES DE SERVICIOS EXTERNOS ===
+pgmeta-*.json
+studio-*.json
+postgres-*.json
+postgrest-*.json
+gotrue-*.json
+test-*.json
+plantilla_*.json
+
+# === CLOUDFRONT/LAMBDA ===
+cloudfront-functions/
+lambda-edge/
+
+# === ARCHIVOS DE DEPLOY ESPECÍFICOS ===
+deploy-*.sh
+setup-*.sh
+
+# === SUPABASE LOCAL ===
+supabase/.branches/
+supabase/.temp/
+
+# === IDE/EDITOR ===
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# === GIT ===
+.git/
+
+# === COVERAGE/TESTS ===
+coverage/
+.nyc_output/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+
+# === CACHE ===
+.cache/
+.parcel-cache/
+.turbo/
+
+# === DOCUMENTACIÓN PROCESADA (ya está en rules) ===
+docs/MIGRACION_*.md
+docs/ARQUITECTURA_*.md
+docs/DEPLOY_*.md
+docs/GUIA_*.md
+
+# === ARCHIVOS MCP (se referencian por rules) ===
+mcp-*.ts
+mcp-*.js
+
+# === HERRAMIENTAS EXTERNAS ===
+linearapp/
+AWS_Project/
+
+# === SCRIPTS SHELL ===
+*.sh
+
+# === ARCHIVOS DE CONFIGURACIÓN RAÍZ ===
+*.toml
+Procfile
+nixpacks.json
+buildspec.yml
+
+# === CHANGELOGS ANTIGUOS EN RAÍZ ===
+*_CHANGELOG.md
+*_README.md
+
+# === HANDOVERS ANTIGUOS ===
+.cursor/handovers/*.md

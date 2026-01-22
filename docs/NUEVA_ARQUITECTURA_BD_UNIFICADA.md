@@ -6,6 +6,21 @@
 
 ---
 
+## 📋 Índice
+
+1. [Resumen](#resumen)
+2. [Base de Datos Única: PQNC_AI](#base-de-datos-única-pqnc_ai)
+3. [System_UI: SOLO BACKUP](#system_ui-solo-backup)
+4. [Edge Functions](#edge-functions)
+5. [Variables de Entorno](#variables-de-entorno)
+6. [Clientes de Supabase en el Código](#clientes-de-supabase-en-el-código)
+7. [Diagrama de Arquitectura](#diagrama-de-arquitectura)
+8. [Reglas de Uso](#reglas-de-uso)
+9. [Migración Completada](#migración-completada)
+10. [Ver También](#ver-también)
+
+---
+
 ## Resumen
 
 Desde el 13 de Enero 2025, **TODA la base de datos** vive en un solo proyecto de Supabase: **PQNC_AI** (glsmifhkoaifvaegsozd.supabase.co).
@@ -241,4 +256,21 @@ Proyecto ajeno (hmmfuhqgvsehkizlfzga) - Está en reglas PROHIBIDAS
 
 ---
 
-**Última actualización:** 13 de Enero 2025
+---
+
+## 📚 Ver También
+
+### Documentación Relacionada
+- [Reglas de Arquitectura BD](.cursor/rules/arquitectura-bd-unificada.mdc) - Reglas actualizadas para desarrollo
+- [Seguridad de BD](ARQUITECTURA_SEGURIDAD_2026.md) - Políticas RLS y vistas seguras
+- [Migración Completa](MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md) - Detalles técnicos de la migración
+- [Catálogo MCP](MCP_CATALOG.md) - Herramientas para conectarse a BD
+- [Edge Functions Catalog](EDGE_FUNCTIONS_CATALOG.md) - Funciones desplegadas
+
+### Guías de Uso
+- [Variables de Entorno](ENV_VARIABLES_REQUIRED.md) - Configuración completa
+- [Optimizaciones con JOINs](PLAN_OPTIMIZACIONES_JOINS.md) - Aprovecha la BD unificada
+
+---
+
+**Última actualización:** 22 de Enero 2026

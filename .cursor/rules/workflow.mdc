@@ -1,0 +1,262 @@
+# Workflow Obligatorio de Desarrollo
+
+> **Descripción:** Flujo de trabajo obligatorio para todas las tareas de desarrollo.
+> **Aplicación:** Always (Siempre activa)
+> **Prioridad:** Alta
+
+---
+
+## Flujo Principal
+
+```
+PLANIFICAR → VERIFICAR → IMPLEMENTAR → PROBAR → DOCUMENTAR
+```
+
+---
+
+## Fase 1: PLANIFICAR
+
+### Antes de escribir código:
+
+1. **Entender la tarea completamente**
+   - ¿Qué se necesita exactamente?
+   - ¿Cuál es el resultado esperado?
+   - ¿Hay restricciones o requisitos especiales?
+
+2. **Identificar archivos involucrados**
+   - ¿Qué archivos necesito modificar?
+   - ¿Qué archivos necesito consultar?
+   - ¿Hay servicios/hooks existentes que deba usar?
+
+3. **Generar plan de acción**
+   ```
+   Para tareas complejas (>3 pasos):
+   1. Listar pasos específicos
+   2. Confirmar plan con usuario
+   3. Solo entonces ejecutar
+   ```
+
+---
+
+## Fase 2: VERIFICAR
+
+### Antes de cada modificación:
+
+1. **Verificar existencia de dependencias**
+   ```
+   grep o read_file para confirmar:
+   - Servicios que voy a usar
+   - Hooks que voy a importar
+   - Componentes que voy a extender
+   ```
+
+2. **Verificar estructura actual**
+   ```
+   read_file del archivo a modificar:
+   - Ver imports existentes
+   - Ver patrones usados
+   - Ver convenciones del archivo
+   ```
+
+3. **Verificar tipos y schemas**
+   ```
+   Para operaciones de BD:
+   - Confirmar nombres de tablas
+   - Confirmar nombres de columnas
+   - Usar MCP para verificar schema
+   ```
+
+---
+
+## Fase 3: IMPLEMENTAR
+
+### Reglas de implementación:
+
+1. **Un cambio a la vez**
+   - Máximo 3 archivos por interacción
+   - Si necesitas más, dividir en pasos
+   - Commit frecuentes
+
+2. **Seguir patrones existentes**
+   - Copiar estilo de archivos similares
+   - Reutilizar servicios existentes
+   - No reinventar la rueda
+
+3. **Código limpio desde el inicio**
+   - TypeScript estricto (no `any`)
+   - Manejo de errores
+   - Nombres descriptivos
+
+### Orden de cambios:
+
+```
+1. Tipos/Interfaces (si es necesario)
+2. Servicios (si es necesario)
+3. Hooks (si es necesario)
+4. Componentes
+5. Estilos (solo Tailwind)
+```
+
+---
+
+## Fase 4: PROBAR
+
+### Después de cada cambio:
+
+1. **Verificar compilación**
+   ```
+   El código debe compilar sin errores
+   Verificar: npm run build o revisar lints
+   ```
+
+2. **Verificar funcionalidad**
+   ```
+   ¿El cambio hace lo que se esperaba?
+   ¿Hay efectos secundarios?
+   ```
+
+3. **Verificar consistencia**
+   ```
+   ¿El código sigue las convenciones?
+   ¿Los imports son correctos?
+   ¿Los tipos están definidos?
+   ```
+
+---
+
+## Fase 5: DOCUMENTAR
+
+### Cuándo documentar:
+
+| Tipo de Cambio | Documentación Requerida |
+|----------------|------------------------|
+| Bug fix menor | Solo commit message |
+| Feature nueva | CHANGELOG del módulo |
+| API/Servicio nuevo | JSDoc + README |
+| Cambio arquitectónico | docs/ + CHANGELOG |
+
+### Formato de commits:
+
+```
+feat: Descripción de nueva funcionalidad
+fix: Descripción del bug corregido
+refactor: Descripción del refactor
+docs: Actualización de documentación
+style: Cambios de estilo (sin lógica)
+```
+
+---
+
+## Tamaño de Cambios
+
+### Regla del "Pequeño y Frecuente":
+
+```
+✅ CORRECTO:
+- 1-3 archivos por commit
+- 50-200 líneas modificadas
+- Cambio atómico y reversible
+
+❌ INCORRECTO:
+- 10+ archivos en un commit
+- 1000+ líneas modificadas
+- Múltiples features mezcladas
+```
+
+### Dividir tareas grandes:
+
+```
+Tarea grande: "Implementar módulo de reportes"
+
+Dividir en:
+1. Crear estructura básica del componente
+2. Implementar servicio de datos
+3. Agregar visualización de datos
+4. Agregar filtros
+5. Agregar exportación
+6. Agregar tests (si aplica)
+```
+
+---
+
+## Manejo de Errores Durante Desarrollo
+
+### Si algo no compila:
+
+```
+1. Leer el error completo
+2. Identificar archivo y línea
+3. Verificar imports y tipos
+4. Corregir antes de continuar
+```
+
+### Si algo no funciona como esperado:
+
+```
+1. Verificar lógica paso a paso
+2. Agregar console.log si necesario
+3. Revisar datos de entrada
+4. Comparar con código similar que funciona
+```
+
+### Si no encuentras la causa:
+
+```
+1. Crear checkpoint (resumen de estado)
+2. Informar al usuario
+3. Proponer alternativas o pedir ayuda
+```
+
+---
+
+## Checklist Pre-Commit
+
+Antes de sugerir commit:
+
+- [ ] Código compila sin errores
+- [ ] No hay imports de clientes `*Admin`
+- [ ] No hay `any` en TypeScript nuevo
+- [ ] Estilos solo con Tailwind (no CSS)
+- [ ] Servicios existentes reutilizados
+- [ ] Nombres siguen convenciones
+- [ ] Manejo de errores presente
+- [ ] Documentación actualizada (si aplica)
+
+---
+
+## Comunicación con Usuario
+
+### Informar progreso:
+
+```
+"Paso 1/3: Creando servicio..."
+"Paso 2/3: Implementando componente..."
+"Paso 3/3: Conectando con UI..."
+```
+
+### Pedir confirmación:
+
+```
+Para cambios significativos:
+"¿Procedo con este enfoque?"
+"¿Prefieres la opción A o B?"
+```
+
+### Reportar problemas:
+
+```
+"Encontré un problema: [descripción]"
+"Opciones: [A, B, C]"
+"¿Cuál prefieres?"
+```
+
+---
+
+## Recordatorio Final
+
+```
+NO ASUMIR → VERIFICAR
+NO INVENTAR → BUSCAR
+NO ACUMULAR → COMMIT FRECUENTE
+NO IGNORAR ERRORES → CORREGIR ANTES DE CONTINUAR
+```

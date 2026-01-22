@@ -1,0 +1,216 @@
+# Regla de Handovers Optimizados
+
+**Fecha de creación:** 22 de Enero 2026  
+**Versión:** 1.0.0  
+**Propósito:** Estandarizar formato de handovers con REF para citación posterior
+
+---
+
+## 📋 Formato Estándar de Handover
+
+### 1. Encabezado Obligatorio
+
+```markdown
+# Handover - [Título Descriptivo] [YYYY-MM-DD]
+
+**REF**: `HANDOVER-YYYY-MM-DD-SLUG`  
+**Fecha**: DD de Mes YYYY  
+**Contexto**: [1-2 líneas de contexto]
+```
+
+**Reglas del REF:**
+- Formato: `HANDOVER-YYYY-MM-DD-SLUG`
+- SLUG: 2-4 palabras clave en MAYÚSCULAS separadas por guiones
+- Ejemplos:
+  - `HANDOVER-2026-01-22-DOC-AUDIT`
+  - `HANDOVER-2026-01-15-RLS-MIGRATION`
+  - `HANDOVER-2026-01-10-VAPI-INTEGRATION`
+
+### 2. Estructura Obligatoria
+
+```markdown
+## 🎯 Objetivo Cumplido
+[1 párrafo resumiendo qué se logró]
+
+## ✅ Tareas Completadas
+[Lista con checkboxes de lo completado]
+
+## 📊 Métricas/Resultados (si aplica)
+[Tabla o bullets con números concretos]
+
+## 🎯 Próximos Pasos Críticos (si aplica)
+[Solo 2-3 pasos más importantes]
+
+## 📂 Archivos Clave Creados/Modificados
+[Lista concisa de archivos tocados]
+
+## 📚 Documentos de Referencia (si aplica)
+[Links a docs relacionados]
+
+## ⚠️ Notas Importantes (si aplica)
+[Advertencias o consideraciones especiales]
+
+---
+
+**Estado Final**: [Emoji + resumen de 1 línea]  
+**Para citar en otro chat**: `REF: HANDOVER-YYYY-MM-DD-SLUG`
+```
+
+---
+
+## 🎯 Optimización de Tokens
+
+### Qué INCLUIR en el Chat
+
+Al finalizar una sesión, el agent debe imprimir en el chat:
+
+```markdown
+✅ Handover creado
+
+**REF**: `HANDOVER-YYYY-MM-DD-SLUG`  
+**Ubicación**: `.cursor/handovers/YYYY-MM-DD-descripcion.md`
+
+Para citar en otro chat:
+"Continúo desde REF: HANDOVER-YYYY-MM-DD-SLUG"
+
+**Resumen rápido** (2-3 líneas):
+- [Tarea completada 1]
+- [Tarea completada 2]
+- Próximo: [acción inmediata]
+```
+
+### Qué NO INCLUIR en el Chat
+
+❌ **NO repetir** el contenido completo del handover en el chat  
+❌ **NO enumerar** todos los archivos modificados  
+❌ **NO explicar** cada cambio en detalle  
+❌ **NO copiar** secciones completas del handover
+
+**Razón**: El handover YA está guardado en `.cursor/handovers/`. El chat solo necesita el REF para citarlo después.
+
+---
+
+## 📝 Ejemplos de Uso
+
+### Ejemplo 1: Finalizar Sesión
+
+**Agent imprime en chat:**
+
+```
+✅ Handover creado
+
+**REF**: `HANDOVER-2026-01-22-DOC-AUDIT`  
+**Ubicación**: `.cursor/handovers/2026-01-22-auditoria-documentacion-final.md`
+
+Para citar en otro chat:
+"Continúo desde REF: HANDOVER-2026-01-22-DOC-AUDIT"
+
+**Resumen rápido**:
+- ✅ Auditoría completa de 527 archivos .md
+- ✅ Validación BD y código frontend
+- ✅ Creado glosario + regla de mantenimiento
+- Próximo: Limpieza de 32 grupos de duplicados
+```
+
+### Ejemplo 2: Citar Handover en Nuevo Chat
+
+**Usuario en nuevo chat:**
+
+```
+Continúo desde REF: HANDOVER-2026-01-22-DOC-AUDIT
+
+Quiero ejecutar la limpieza de duplicados que quedó pendiente.
+```
+
+**Agent busca el handover:**
+
+```bash
+# Busca en .cursor/handovers/ el archivo con REF: HANDOVER-2026-01-22-DOC-AUDIT
+# Lee la sección "Próximos Pasos Críticos"
+# Continúa desde ahí
+```
+
+---
+
+## 🔍 Comandos para el Agent
+
+### Cuando el usuario dice "handover":
+
+```typescript
+// 1. Crear archivo en .cursor/handovers/YYYY-MM-DD-slug.md
+// 2. Usar estructura estándar con REF
+// 3. Imprimir en chat SOLO:
+//    - REF
+//    - Ubicación del archivo
+//    - Resumen de 2-3 líneas
+//    - Próximo paso inmediato
+```
+
+### Cuando el usuario cita un REF:
+
+```typescript
+// 1. Buscar en .cursor/handovers/ el archivo que contiene ese REF
+// 2. Leer la sección "Próximos Pasos Críticos"
+// 3. Continuar desde ahí
+// 4. NO repetir todo el handover en el chat
+```
+
+---
+
+## 📂 Convenciones de Nombres de Archivo
+
+### Formato: `YYYY-MM-DD-slug-descriptivo.md`
+
+**Ejemplos:**
+- `2026-01-22-auditoria-documentacion-final.md`
+- `2026-01-15-rls-migration-completada.md`
+- `2026-01-10-vapi-integration-finished.md`
+
+**Reglas:**
+- Fecha en formato ISO (YYYY-MM-DD)
+- Slug en minúsculas con guiones
+- Sufijo descriptivo del estado (final, completada, wip, etc.)
+
+---
+
+## 🎯 Beneficios
+
+| Antes | Después |
+|-------|---------|
+| Agent repite todo el handover en chat | Agent imprime solo REF + resumen |
+| 500-1000 tokens por handover en chat | 50-100 tokens en chat |
+| Difícil de citar después | Citar con `REF: HANDOVER-...` |
+| Handovers perdidos en chat | Handovers en `.cursor/handovers/` |
+
+**Ahorro estimado**: 80-90% de tokens por handover
+
+---
+
+## ⚠️ Reglas Críticas
+
+1. **SIEMPRE** incluir REF en encabezado del handover
+2. **SIEMPRE** imprimir REF en el chat (no todo el contenido)
+3. **NUNCA** repetir el handover completo en el chat
+4. **SIEMPRE** usar formato estandarizado de REF
+5. **SIEMPRE** incluir "Para citar en otro chat" al final
+
+---
+
+## 📚 Archivos Relacionados
+
+- **Template completo**: `.cursor/templates/session-handover.md`
+- **Template checkpoint**: `.cursor/templates/checkpoint.md`
+- **Carpeta de handovers**: `.cursor/handovers/`
+
+---
+
+## 📅 Mantenimiento
+
+- Revisar `.cursor/handovers/` mensualmente
+- Archivar handovers >3 meses en `.cursor/handovers/archive/`
+- Actualizar esta regla si se detectan mejoras
+
+---
+
+**Última actualización:** 22 de Enero 2026  
+**Próxima revisión:** 22 de Febrero 2026

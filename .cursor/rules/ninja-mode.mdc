@@ -1,0 +1,170 @@
+# Reglas del Módulo Modo Ninja
+
+## Descripción
+Sistema de suplantación de usuarios para administradores. Permite visualizar la UI exactamente como la vería un usuario específico (ejecutivo, supervisor, coordinador).
+
+---
+
+## Arquitectura
+
+### Store Principal
+**Archivo:** `src/stores/ninjaStore.ts`
+
+```typescript
+interface NinjaStore {
+  isNinjaMode: boolean;
+  targetUser: NinjaTargetUser | null;
+  targetUserPermissions: NinjaPermission[];
+  targetUserCoordinaciones: string[];
+  originalAdminId: string | null;
+}
+```
+
+**Acciones:**
+- `activateNinjaMode(user, permissions, coordinaciones, adminId)`
+- `deactivateNinjaMode()`
+- `getEffectiveRole()` → retorna rol del usuario suplantado
+
+---
+
+## Hook Principal
+
+**Archivo:** `src/hooks/useNinjaAwarePermissions.ts`
+
+**Uso obligatorio** en componentes que verifican permisos:
+
+```typescript
+const { 
+  isNinjaMode,
+  effectiveUser,
+  effectiveRoleName,
+  isEffectiveAdmin,
+  canAccessModule,
+  hasPermission 
+} = useNinjaAwarePermissions();
+
+// ID para queries de datos
+const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+```
+
+---
+
+## Componentes
+
+| Componente | Archivo | Función |
+|---|---|---|
+| `NinjaButton` | `src/components/ninja/NinjaButton.tsx` | Botón header con estrellas animadas |
+| `NinjaModeModal` | `src/components/ninja/NinjaModeModal.tsx` | Modal selección usuario |
+| `NinjaModeIndicator` | `src/components/ninja/NinjaButton.tsx` | Badge cuando modo activo |
+| `NinjaAvatar` | `src/components/ninja/NinjaButton.tsx` | Avatar ninja en header |
+
+---
+
+## Integración en Módulos
+
+### Patrón obligatorio para filtrar datos:
+
+```typescript
+import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
+import { useAuth } from '../../contexts/AuthContext';
+
+const MiComponente = () => {
+  const { user } = useAuth();
+  const { isNinjaMode, effectiveUser } = useNinjaAwarePermissions();
+  
+  // ✅ CORRECTO: Usar queryUserId para todas las queries
+  const queryUserId = isNinjaMode && effectiveUser ? effectiveUser.id : user?.id;
+  
+  // Usar queryUserId en:
+  // - permissionsService.getEjecutivoFilter(queryUserId)
+  // - permissionsService.getCoordinacionesFilter(queryUserId)
+  // - Cualquier servicio que filtre por usuario
+};
+```
+
+### Módulos ya integrados:
+- `ProspectosManager.tsx`
+- `LiveChatCanvas.tsx`
+- `OperativeDashboard.tsx` + widgets
+- `LiveMonitor.tsx`
+- `AnalysisIAComplete.tsx`
+- `ScheduledCallsManager.tsx`
+- `Sidebar.tsx`
+
+---
+
+## Tema Visual
+
+**Archivo:** `src/index.css`
+
+Cuando `body.ninja-theme`:
+- Fondo más oscuro
+- Iconos sidebar rojos
+- Borde superior rojo pulsante
+- Scrollbar rojo
+
+---
+
+## AuthContext
+
+**Cambio crítico:** Expone `isRealAdmin` para distinguir admin real vs suplantado.
+
+```typescript
+const { isRealAdmin } = useAuth();
+// true = usuario logueado es admin (sin importar ninja mode)
+```
+
+---
+
+## Reglas de Desarrollo
+
+### ✅ CORRECTO
+```typescript
+// Usar hook ninja para permisos
+const { canAccessModule } = useNinjaAwarePermissions();
+
+// Usar queryUserId para datos
+const data = await service.getData(queryUserId);
+
+// Recargar datos al cambiar modo ninja
+useEffect(() => {
+  loadData();
+}, [isNinjaMode, effectiveUser?.id]);
+```
+
+### ❌ INCORRECTO
+```typescript
+// NO usar user.id directamente para queries
+const data = await service.getData(user.id); // ❌
+
+// NO usar useAuth para verificar permisos en ninja mode
+const { canAccessModule } = useAuth(); // ❌ No considera ninja
+```
+
+---
+
+## Flujo de Activación
+
+1. Admin hace clic en `NinjaButton`
+2. Se abre `NinjaModeModal`
+3. Búsqueda directa o selección por coordinación
+4. Se carga: permisos, coordinaciones del usuario objetivo
+5. `activateNinjaMode()` actualiza store
+6. `body.ninja-theme` se aplica
+7. Todos los módulos recargan con `queryUserId` del suplantado
+
+---
+
+## Archivos Relacionados
+
+```
+src/stores/ninjaStore.ts
+src/hooks/useNinjaAwarePermissions.ts
+src/components/ninja/NinjaButton.tsx
+src/components/ninja/NinjaModeModal.tsx
+src/components/ninja/index.ts
+src/utils/ninjaContext.ts
+src/index.css (sección .ninja-theme)
+src/components/Header.tsx (integración)
+src/components/Sidebar.tsx (integración)
+```

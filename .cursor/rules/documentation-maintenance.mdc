@@ -1,0 +1,299 @@
+---
+alwaysApply: true
+---
+
+# Reglas de Mantenimiento de Documentación
+
+**Fecha de creación:** 22 de Enero 2026  
+**Versión:** 1.0.0  
+**Estado:** Activo
+
+---
+
+## 📋 Propósito
+
+Estas reglas garantizan que la documentación se mantenga actualizada, organizada y fácil de navegar. Son **obligatorias** para todos los agents que modifiquen documentación.
+
+---
+
+## 📝 Al Crear Nuevo Documento
+
+### 1. Agregar Índice (si >200 líneas)
+
+```markdown
+## 📋 Índice
+
+1. [Sección 1](#sección-1)
+2. [Sección 2](#sección-2)
+3. [Ver También](#ver-también)
+```
+
+**Ejemplo:** Ver `docs/NUEVA_ARQUITECTURA_BD_UNIFICADA.md`
+
+### 2. Incluir Sección "Ver También"
+
+```markdown
+## 📚 Ver También
+
+### Documentación Relacionada
+- [Doc Relacionado 1](DOC1.md) - Descripción breve
+- [Doc Relacionado 2](DOC2.md) - Descripción breve
+
+### Guías de Uso
+- [Guía 1](GUIA1.md)
+```
+
+**Reglas de referencias:**
+- Docs de arquitectura → Referencia a security y migraciones
+- Docs de seguridad → Referencia a arquitectura BD y Edge Functions
+- Docs de MCPs → Referencia a arquitectura BD y tablas
+- Docs de migraciones → Referencia a arquitectura antes/después
+
+### 3. Agregar Entrada en docs/INDEX.md
+
+Ubicar la sección apropiada y agregar link con descripción:
+
+```markdown
+### Sección Apropiada
+- [NUEVO_DOCUMENTO.md](NUEVO_DOCUMENTO.md) - Descripción breve
+```
+
+### 4. Actualizar CHANGELOG.md
+
+```markdown
+## vX.Y.Z - YYYY-MM-DD
+
+### 📚 Documentación
+- ✅ Creado NUEVO_DOCUMENTO.md - [descripción]
+```
+
+---
+
+## ✏️ Al Modificar Documento Existente
+
+### 1. Actualizar Fecha "Última actualización"
+
+```markdown
+**Última actualización:** 22 de Enero 2026
+```
+
+### 2. Si Cambia Estructura, Actualizar Índice
+
+Si agregas/eliminas secciones principales, actualiza el índice del documento.
+
+### 3. Verificar Links Internos
+
+Después de modificar, verifica que todos los links internos sigan válidos:
+
+```bash
+# Buscar links rotos (manual)
+grep -r "\[.*\](.*\.md)" docs/ | grep "ARCHIVO_MODIFICADO"
+```
+
+### 4. Actualizar Referencias Cruzadas
+
+Si el cambio afecta información referenciada en otros docs, actualiza esas referencias.
+
+---
+
+## 🗑️ Al Eliminar Documento
+
+### 1. Remover de docs/INDEX.md
+
+Busca y elimina la entrada del documento en INDEX.md.
+
+### 2. Buscar Referencias en Otros Docs
+
+```bash
+# Buscar referencias al documento
+grep -r "DOCUMENTO_A_ELIMINAR.md" docs/
+grep -r "DOCUMENTO_A_ELIMINAR.md" .cursor/rules/
+```
+
+### 3. Actualizar Links Rotos
+
+Reemplaza links rotos por:
+- Link al documento que lo reemplaza (si aplica)
+- Eliminar el link si ya no es relevante
+- Agregar nota de deprecación si es temporal
+
+### 4. Documentar en CHANGELOG.md
+
+```markdown
+## vX.Y.Z - YYYY-MM-DD
+
+### 📚 Documentación
+- ❌ Eliminado DOCUMENTO.md - Razón: [deprecado/consolidado/obsoleto]
+```
+
+---
+
+## 🔍 Validación Mensual
+
+### Scripts de Auditoría
+
+```bash
+# 1. Ejecutar auditoría de documentación
+npx tsx scripts/audit-documentation.ts
+
+# 2. Revisar reporte
+cat AUDIT_REPORT.md
+
+# 3. Ver inventario JSON (conteo de archivos)
+cat AUDIT_INVENTORY.json | jq '.files | length'
+```
+
+### Checklist de Validación
+
+- [ ] Ejecutar `scripts/audit-documentation.ts`
+- [ ] Verificar duplicados con MD5 (no debe haber)
+- [ ] Validar que `docs/INDEX.md` esté completo
+- [ ] Revisar fechas de "Última actualización"
+- [ ] Buscar links rotos (grep "docs/.*\.md")
+- [ ] Verificar que glosario tenga términos actuales
+
+---
+
+## 📂 Estructura de Directorios
+
+### Directorio Principal: docs/
+
+**Estructura plana** (NO crear subdirectorios innecesarios)
+
+```
+docs/
+├── INDEX.md                          # Punto de entrada
+├── GLOSARIO.md                       # Términos técnicos
+├── NUEVA_ARQUITECTURA_BD_UNIFICADA.md
+├── ARQUITECTURA_SEGURIDAD_2026.md
+├── MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md
+├── EDGE_FUNCTIONS_CATALOG.md
+└── [otros documentos...]
+```
+
+**Razones:**
+- ✅ Búsqueda más rápida (sin jerarquías)
+- ✅ Links más simples (no "../../../")
+- ✅ Indexación de Cursor más eficiente
+- ✅ Navegación via INDEX.md (no por carpetas)
+
+### Excepciones (Subdirectorios Permitidos)
+
+```
+docs/
+├── sql/              # Scripts SQL específicos
+└── [documentos principales en raíz]
+```
+
+---
+
+## 🎯 Nombres de Archivos
+
+### Convenciones
+
+| Tipo | Formato | Ejemplo |
+|------|---------|---------|
+| Arquitectura | `ARQUITECTURA_*.md` | `ARQUITECTURA_SEGURIDAD_2026.md` |
+| Migración | `MIGRACION_*.md` | `MIGRACION_SYSTEM_UI_A_PQNC_AI_COMPLETA.md` |
+| Guía | `GUIA_*.md` | `GUIA_CONEXION_BASES_DATOS.md` |
+| Reporte | `REPORTE_*.md` o `PENTESTING_*.md` | `REPORTE_OPTIMIZACIONES_BD_UNIFICADA.md` |
+| Plan | `PLAN_*.md` | `PLAN_OPTIMIZACIONES_JOINS.md` |
+| Catálogo | `*_CATALOG.md` | `EDGE_FUNCTIONS_CATALOG.md`, `MCP_CATALOG.md` |
+
+**Reglas:**
+- Usar UPPERCASE con underscores
+- Ser descriptivo pero conciso
+- Incluir fecha si es reporte temporal (PENTESTING_2026-01-18.md)
+
+---
+
+## 🔗 Enlaces y Referencias
+
+### Formato de Links
+
+```markdown
+<!-- ✅ CORRECTO - Path relativo desde docs/ -->
+[Arquitectura BD](NUEVA_ARQUITECTURA_BD_UNIFICADA.md)
+
+<!-- ✅ CORRECTO - Path relativo a .cursor/rules desde docs/ -->
+[Reglas de Seguridad](.cursor/rules/security-rules.mdc)
+
+<!-- ❌ INCORRECTO - Path absoluto -->
+[Arquitectura BD](/docs/NUEVA_ARQUITECTURA_BD_UNIFICADA.md)
+
+<!-- ❌ INCORRECTO - Path con ../.. complejo -->
+[Reglas](../../.cursor/rules/security-rules.mdc)
+```
+
+### Verificar Links
+
+Después de crear/modificar, verificar links:
+
+```bash
+# Desde raíz del proyecto
+grep -r "\[.*\](.*\.md)" docs/NUEVO_DOC.md
+```
+
+---
+
+## 📊 Métricas de Calidad
+
+### Indicadores Saludables
+
+| Métrica | Objetivo | Estado Actual (2026-01-22) |
+|---------|----------|----------------------------|
+| Archivos .md en docs/ | ~130-150 | ✅ 138 |
+| Duplicados | 0 | ✅ 0 (limpieza 2026-01-22) |
+| Docs con índice (>200 líneas) | 100% | ✅ ~95% |
+| Docs con "Ver También" | 80% | ⚠️ 60% (en mejora) |
+| Links rotos | 0 | ✅ 0 |
+
+### Señales de Alerta
+
+⚠️ **Requiere acción si:**
+- Más de 5 duplicados detectados por MD5
+- Más de 200 archivos .md (posible acumulación)
+- Fechas de actualización >6 meses en docs críticos
+- INDEX.md desactualizado (faltan >10 archivos)
+
+---
+
+## 🛠️ Herramientas Disponibles
+
+### Scripts de Mantenimiento
+
+| Script | Propósito | Uso |
+|--------|-----------|-----|
+| `scripts/audit-documentation.ts` | Auditoría automatizada | `npx tsx scripts/audit-documentation.ts` |
+| `scripts/clean-documentation.ts` | Limpieza segura | `npx tsx scripts/clean-documentation.ts --dry-run` |
+
+**Archivos generados:**
+- `AUDIT_REPORT.md` - Reporte legible
+- `AUDIT_INVENTORY.json` - Inventario en JSON
+- `CLEANUP_REPORT.md` - Log de limpieza
+
+---
+
+## 📚 Documentos de Referencia
+
+### Para Entender Esta Rule
+
+- [Handover de Limpieza](.cursor/handovers/2026-01-22-auditoria-limpieza-final.md) - Contexto de limpieza
+- [INDEX.md](docs/INDEX.md) - Estructura actual
+- [AUDIT_REPORT.md](AUDIT_REPORT.md) - Última auditoría
+- [GLOSARIO.md](docs/GLOSARIO.md) - Términos a mantener actualizados
+
+---
+
+## ⚠️ Reglas Críticas (NUNCA Violar)
+
+1. **NUNCA** eliminar archivos sin buscar referencias primero
+2. **NUNCA** crear subdirectorios en docs/ sin justificación
+3. **SIEMPRE** actualizar INDEX.md cuando agregas/eliminas docs
+4. **SIEMPRE** agregar índice a docs >200 líneas
+5. **SIEMPRE** incluir sección "Ver También" con links relevantes
+
+---
+
+**Última actualización:** 22 de Enero 2026  
+**Revisión:** Auditoría de Documentación

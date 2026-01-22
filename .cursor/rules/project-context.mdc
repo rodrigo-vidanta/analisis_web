@@ -1,0 +1,297 @@
+# Contexto Maestro del Proyecto - PQNC QA AI Platform
+
+> **Descripción:** Regla maestra que proporciona contexto completo del proyecto para Composer y agentes de IA.
+> **Aplicación:** Siempre activa (Always Apply)
+> **Última actualización:** Enero 2026
+
+---
+
+## 🎯 Resumen Ejecutivo del Proyecto
+
+**PQNC QA AI Platform** es una plataforma empresarial de Quality Assurance para call centers que usa IA para analizar llamadas de ventas, gestionar prospectos y automatizar comunicaciones WhatsApp.
+
+### Stack Tecnológico Principal
+
+| Capa | Tecnología |
+|------|------------|
+| **Frontend** | React 19, TypeScript, Vite, TailwindCSS |
+| **Estado** | Zustand (stores), React Context (Auth) |
+| **Backend** | Supabase (PostgreSQL + Edge Functions) |
+| **AI/ML** | Anthropic Claude, OpenAI, VAPI (voz) |
+| **Mensajería** | WhatsApp Business API via N8N |
+| **Infra** | AWS (ECS, RDS, S3, CloudFront) |
+| **Automatización** | N8N (Railway) |
+
+---
+
+## 📁 Estructura de Carpetas Crítica
+
+```
+src/
+├── components/           # Componentes React por módulo
+│   ├── analysis/        # 📊 Análisis de llamadas, Live Monitor
+│   ├── chat/            # 💬 WhatsApp Live Chat
+│   ├── prospectos/      # 👥 Gestión de prospectos
+│   ├── admin/           # 👤 Administración de usuarios
+│   ├── campaigns/       # 📢 Campañas de llamadas
+│   ├── scheduled-calls/ # 📅 Llamadas programadas
+│   ├── citas/           # 📆 Sistema de citas Vidanta
+│   ├── aws/             # ☁️ AWS Infrastructure Manager
+│   ├── notifications/   # 🔔 Sistema de notificaciones
+│   ├── support/         # 🎫 Sistema de tickets
+│   └── shared/          # 🔧 Componentes compartidos
+│
+├── services/            # Servicios de negocio
+│   ├── supabase*.ts     # Clientes y queries Supabase
+│   ├── n8n*.ts          # Integración N8N
+│   ├── vapi*.ts         # Integración VAPI (voz)
+│   ├── whatsapp*.ts     # Servicios WhatsApp
+│   └── aws*.ts          # Servicios AWS
+│
+├── stores/              # Zustand stores
+│   ├── appStore.ts      # Estado global de app
+│   ├── notificationStore.ts
+│   └── ninjaStore.ts
+│
+├── hooks/               # Custom hooks
+├── config/              # Configuraciones Supabase
+├── contexts/            # React Context (AuthContext)
+├── utils/               # Utilidades
+└── types/               # TypeScript types
+```
+
+---
+
+## 🗄️ Arquitectura de Base de Datos
+
+### Base de Datos UNIFICADA: PQNC_AI
+
+**URL:** `glsmifhkoaifvaegsozd.supabase.co`
+
+| Dominio | Tablas Principales |
+|---------|-------------------|
+| **Auth** | `auth_users`, `auth_roles`, `auth_sessions`, `auth_user_coordinaciones` |
+| **Permisos** | `permissions`, `permission_groups`, `auth_role_permissions` |
+| **Prospectos** | `prospectos`, `prospect_assignments`, `prospect_history` |
+| **Llamadas** | `llamadas_ventas`, `call_analysis_summary`, `call_recordings` |
+| **WhatsApp** | `conversaciones_whatsapp`, `mensajes_whatsapp`, `whatsapp_templates` |
+| **Coordinaciones** | `coordinaciones`, `auth_user_coordinaciones` |
+| **Config** | `system_config`, `api_auth_tokens`, `app_themes` |
+
+### Clientes Supabase en Código
+
+```typescript
+// ✅ USAR SIEMPRE
+import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
+
+// ❌ NUNCA USAR (eliminados por seguridad)
+// supabaseSystemUIAdmin, analysisSupabaseAdmin, pqncSupabase
+```
+
+---
+
+## 🔐 Seguridad (CRÍTICO)
+
+### Reglas de Seguridad Absolutas
+
+1. **NUNCA** usar clientes `*Admin` (eliminados del codebase)
+2. **NUNCA** exponer `service_role_key` en frontend
+3. **SOLO** usar `anon_key` en bundle de producción
+4. **SIEMPRE** usar Edge Functions para operaciones privilegiadas
+
+### Edge Functions Disponibles
+
+| Función | Uso |
+|---------|-----|
+| `multi-db-proxy` | Acceso a PQNC_QA y LOGMONITOR |
+| `auth-admin-proxy` | Operaciones admin de auth |
+| `secure-query` | Consultas seguras |
+| `anthropic-proxy` | API de Claude |
+| `send-img-proxy` | Envío de imágenes WhatsApp |
+
+---
+
+## 🧩 Patrones de Código
+
+### Componentes React
+
+```typescript
+// Patrón estándar de componente
+import { useState, useEffect, useCallback } from 'react';
+import { motion } from 'framer-motion';
+import { analysisSupabase } from '../config/analysisSupabase';
+
+interface Props {
+  id: string;
+  onComplete?: () => void;
+}
+
+export const MiComponente: React.FC<Props> = ({ id, onComplete }) => {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<MiTipo | null>(null);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await analysisSupabase
+        .from('tabla')
+        .select('*')
+        .eq('id', id);
+      if (error) throw error;
+      setData(data);
+    } catch (err) {
+      console.error('Error:', err);
+      toast.error('Error al cargar');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  if (loading) return <LoadingSpinner />;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0 }} 
+      animate={{ opacity: 1 }}
+      className="p-4 bg-white dark:bg-gray-900 rounded-xl"
+    >
+      {/* Contenido */}
+    </motion.div>
+  );
+};
+```
+
+### Servicios
+
+```typescript
+// Patrón estándar de servicio
+import { analysisSupabase } from '../config/analysisSupabase';
+
+export const miServicio = {
+  async obtenerTodos(): Promise<MiTipo[]> {
+    const { data, error } = await analysisSupabase
+      .from('tabla')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) throw new Error(`Error: ${error.message}`);
+    return data || [];
+  },
+
+  async crear(item: Omit<MiTipo, 'id'>): Promise<MiTipo> {
+    const { data, error } = await analysisSupabase
+      .from('tabla')
+      .insert(item)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+};
+```
+
+---
+
+## 📋 Convenciones de Código
+
+### Nomenclatura
+
+| Tipo | Convención | Ejemplo |
+|------|------------|---------|
+| Componentes | PascalCase | `UserProfile.tsx` |
+| Hooks | camelCase, prefix `use` | `useProspectos.ts` |
+| Servicios | camelCase + Service | `prospectoService.ts` |
+| Stores | camelCase + Store | `appStore.ts` |
+| Handlers | prefix `handle` | `handleSubmit`, `handleClick` |
+| Boolean | prefix `is/has/can` | `isLoading`, `hasError` |
+
+### Estilos
+
+- **SOLO TailwindCSS** (no CSS custom)
+- Dark mode: `dark:` prefix
+- Animaciones: `framer-motion`
+- Iconos: `lucide-react`
+- Toast: `react-hot-toast`
+
+---
+
+## 🔗 Integraciones Externas
+
+### N8N (Automatización)
+
+```typescript
+// Usar credentialsService para obtener tokens
+import { credentialsService } from '../services/credentialsService';
+
+const { apiKey, baseUrl } = await credentialsService.getN8NCredentials();
+```
+
+**Workflows Críticos (PROD):**
+- Guardrail agentic logic
+- Lógica de llamadas programadas
+- VAPI transfer tool
+- WhatsApp templates
+
+### VAPI (Voz)
+
+```typescript
+import { vapiService } from '../services/vapiService';
+```
+
+### AWS
+
+```typescript
+import { awsDiagramService } from '../services/awsDiagramService';
+```
+
+---
+
+## ⚡ Tips para Composer
+
+### Para Menos Errores:
+
+1. **Siempre verificar imports** antes de usar funciones
+2. **Usar servicios existentes** en `src/services/`
+3. **Revisar stores** antes de crear estado nuevo
+4. **Seguir patrones** de componentes similares
+
+### Archivos Clave a Consultar:
+
+| Necesitas... | Consulta... |
+|--------------|-------------|
+| Rutas de la app | `src/components/MainApp.tsx` |
+| Auth/Login | `src/contexts/AuthContext.tsx` |
+| Estado global | `src/stores/appStore.ts` |
+| Config Supabase | `src/config/analysisSupabase.ts` |
+| Tipos de datos | `src/types/` |
+
+### Antes de Crear Algo Nuevo:
+
+1. ¿Existe un servicio similar? → Revisar `src/services/`
+2. ¿Existe un hook similar? → Revisar `src/hooks/`
+3. ¿Existe un componente similar? → Revisar módulo correspondiente
+
+---
+
+## 📚 Documentación Adicional
+
+- **Arquitectura BD:** `.cursor/rules/arquitectura-bd-unificada.mdc`
+- **Seguridad:** `.cursor/rules/security-rules.mdc`
+- **MCPs:** `.cursor/rules/mcp-rules.mdc`
+- **N8N:** `.cursor/rules/n8n-rules.mdc`
+- **Estilos/Modales:** `.cursor/rules/style.mdc`
+
+---
+
+## 🚫 Prohibiciones
+
+1. **NO** hacer push/deploy sin autorización
+2. **NO** crear código mock o de prueba
+3. **NO** usar clientes Admin de Supabase
+4. **NO** hardcodear credenciales
+5. **NO** crear archivos CSS (solo Tailwind)
+6. **NO** usar `any` en TypeScript

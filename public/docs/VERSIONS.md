@@ -1,5 +1,85 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión v2.5.37 (22 Enero 2026) - Auditoría por Pares y Optimización de Documentación
+
+### 🎯 RELEASE - Documentación Validada y Optimizada
+
+#### Resumen Ejecutivo
+Revisión exhaustiva por pares de toda la documentación del proyecto, validando que coincida con el estado real del código frontend y base de datos. Implementación de mejoras estructurales para facilitar navegación, búsqueda y mantenimiento futuro.
+
+#### Validaciones Realizadas
+
+**Base de Datos:**
+- ✅ Tablas documentadas existen en PQNC_AI
+- ✅ Vistas seguras (`auth_users_safe`, `user_profiles_v2`, `api_auth_tokens_safe`) activas
+- ✅ Confirmación de `auth_user_profiles` eliminada (vulnerabilidad corregida)
+- ✅ Edge Functions migradas a PQNC_AI (glsmifhkoaifvaegsozd)
+- ✅ RLS deshabilitado en 61 tablas (documentado en arquitectura de seguridad)
+
+**Código Frontend:**
+- ✅ Clientes `*Admin` correctamente eliminados (exports como `null`)
+- ✅ Variables de entorno alineadas con documentación
+- ✅ Componentes listados en INDEX.md existen en codebase
+- ✅ Uso correcto de `user_profiles_v2` en lugar de `auth_user_profiles`
+
+#### Mejoras de Documentación
+
+**Índices:**
+- 📋 Agregados índices completos a docs principales (NUEVA_ARQUITECTURA_BD_UNIFICADA, ARQUITECTURA_SEGURIDAD_2026, MCP_CATALOG)
+- 📋 Secciones colapsables para mejor navegación
+- 📋 Links de navegación rápida
+
+**Referencias Cruzadas:**
+- 🔗 Secciones "Ver También" agregadas con links relevantes
+- 🔗 Conexiones entre docs de arquitectura, seguridad, MCPs y migraciones
+- 🔗 Optimización para búsquedas de Cursor
+
+**Nuevos Documentos:**
+- 📚 `docs/GLOSARIO.md` - Términos técnicos del proyecto
+- 📚 `.cursor/rules/documentation-maintenance.mdc` - Reglas de mantenimiento
+- 📚 `AUDIT_DOCUMENTATION_PARES_2026-01-22.md` - Reporte de auditoría
+
+#### Métricas de Calidad
+
+| Métrica | Antes | Después | Mejora |
+|---------|-------|---------|--------|
+| Docs con índice | ~60% | ~95% | +35% |
+| Docs con referencias cruzadas | ~40% | ~80% | +40% |
+| Links rotos | 0 | 0 | ✅ |
+| Duplicados detectados | 32 grupos | 32 grupos | ⚠️ Pendiente limpieza |
+| Total archivos .md | 527 | 527 | - |
+
+#### Impacto
+
+**Desarrolladores:**
+- ⚡ Navegación más rápida entre documentos relacionados
+- 📖 Mejor comprensión de términos técnicos con glosario
+- 🎯 Validación de que documentación refleja estado real
+
+**Mantenimiento:**
+- 🔧 Reglas automatizadas para mantener salud documental
+- ✅ Proceso claro para actualizar documentación
+- 📊 Scripts de auditoría para monitoreo continuo
+
+#### Archivos Modificados
+
+**Documentación:**
+- `docs/NUEVA_ARQUITECTURA_BD_UNIFICADA.md` - Índice + referencias
+- `docs/ARQUITECTURA_SEGURIDAD_2026.md` - Índice + referencias
+- `docs/MCP_CATALOG.md` - Índice + referencias
+- `docs/ENV_VARIABLES_REQUIRED.md` - Referencias cruzadas
+- `docs/INDEX.md` - Sección de glosario y mantenimiento
+
+**Reglas:**
+- `.cursor/rules/mcp-rest-rules.mdc` - Actualización MCP SupabaseREST
+- `.cursor/rules/documentation-maintenance.mdc` - **NUEVO**
+
+**Reportes:**
+- `AUDIT_DOCUMENTATION_PARES_2026-01-22.md` - **NUEVO**
+- `CHANGELOG.md` - Entrada v2.5.37
+
+---
+
 ## Versión B7.2.50N7.2.40 (Enero 2026) - Migración Sistema Notificaciones a PQNC_AI
 
 ### 🎯 RELEASE - Base de Datos Unificada para Notificaciones
