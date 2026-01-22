@@ -21,8 +21,8 @@ interface AIDivisionMember {
 }
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.38: Refactor authAdminProxyService + Fix DIDs ejecutivos
-  const version = 'B10.1.39N2.5.39';
+  // Versión actual - v2.5.40: Fix persistencia coordinación supervisores
+  const version = 'B10.1.40N2.5.40';
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {
