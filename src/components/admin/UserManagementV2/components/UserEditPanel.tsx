@@ -434,6 +434,14 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
 
   // Reset form when user changes
   useEffect(() => {
+    console.log('🔄 [USER EDIT] Cargando usuario en formulario:', {
+      user_id: user.id,
+      role_name: user.role_name,
+      coordinacion_id: user.coordinacion_id,
+      coordinaciones_ids: user.coordinaciones_ids,
+      coordinacion_nombre: user.coordinacion_nombre
+    });
+    
     setFormData({
       email: user.email ?? '',
       first_name: user.first_name ?? '',
@@ -541,11 +549,22 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
       };
 
       // Agregar coordinación según el rol
-      if (selectedRole?.name === 'ejecutivo') {
+      if (selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') {
         updates.coordinacion_id = formData.coordinacion_id || undefined;
-      } else if (selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') {
+        console.log('📋 [USER EDIT] Asignando coordinacion_id:', {
+          role: selectedRole?.name,
+          coordinacion_id: updates.coordinacion_id,
+          formData_coordinacion_id: formData.coordinacion_id
+        });
+      } else if (selectedRole?.name === 'coordinador') {
         updates.coordinaciones_ids = formData.coordinaciones_ids;
+        console.log('📋 [USER EDIT] Asignando coordinaciones_ids:', {
+          role: selectedRole?.name,
+          coordinaciones_ids: updates.coordinaciones_ids
+        });
       }
+
+      console.log('💾 [USER EDIT] Updates completos antes de enviar:', updates);
 
       // Agregar password si se está editando (con validación de complejidad)
       if (isEditingPassword && formData.password) {
@@ -1090,8 +1109,8 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
             </motion.div>
           )}
 
-          {/* Coordinación for Ejecutivo (Single) */}
-          {selectedRole?.name === 'ejecutivo' && (
+          {/* Coordinación for Ejecutivo y Supervisor (Single) */}
+          {(selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -1104,15 +1123,29 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
               <select
                 required
                 value={formData.coordinacion_id}
-                onChange={(e) => setFormData(prev => ({ ...prev, coordinacion_id: e.target.value }))}
+                onChange={(e) => {
+                  console.log('📝 [SELECT] Coordinación seleccionada:', {
+                    new_value: e.target.value,
+                    old_value: formData.coordinacion_id
+                  });
+                  setFormData(prev => ({ ...prev, coordinacion_id: e.target.value }));
+                }}
                 className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 hover:border-gray-300 dark:hover:border-gray-600 appearance-none bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEyIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDFMNiA2TDExIDEiIHN0cm9rZT0iY3VycmVudENvbG9yIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K')] bg-[length:12px_8px] bg-[right_1rem_center] bg-no-repeat"
               >
                 <option value="">Seleccionar coordinación...</option>
-                {activeCoordinaciones.map(coord => (
-                  <option key={coord.id} value={coord.id}>
-                    {coord.codigo} - {coord.nombre}
-                  </option>
-                ))}
+                {activeCoordinaciones.map(coord => {
+                  console.log('🏢 [SELECT] Opción coordinación:', {
+                    id: coord.id,
+                    codigo: coord.codigo,
+                    nombre: coord.nombre,
+                    is_selected: coord.id === formData.coordinacion_id
+                  });
+                  return (
+                    <option key={coord.id} value={coord.id}>
+                      {coord.codigo} - {coord.nombre}
+                    </option>
+                  );
+                })}
               </select>
             </motion.div>
           )}

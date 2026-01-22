@@ -173,14 +173,14 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       return;
     }
 
-    // Validar coordinación para ejecutivos
-    if (selectedRole?.name === 'ejecutivo' && !formData.coordinacion_id) {
-      toast.error('Debes seleccionar una coordinación para el ejecutivo');
+    // Validar coordinación para ejecutivos y supervisores
+    if ((selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && !formData.coordinacion_id) {
+      toast.error('Debes seleccionar una coordinación para el ' + (selectedRole?.name === 'supervisor' ? 'supervisor' : 'ejecutivo'));
       return;
     }
 
-    // Validar coordinaciones para coordinadores y supervisores
-    if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length === 0) {
+    // Validar coordinaciones para coordinadores (múltiples)
+    if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length === 0) {
       toast.error('Debes seleccionar al menos una coordinación');
       return;
     }
@@ -245,8 +245,8 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       // ASIGNAR COORDINACIONES (tabla auxiliar)
       // ============================================
       
-      // Si es coordinador o supervisor, asignar múltiples coordinaciones
-      if ((selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && formData.coordinaciones_ids.length > 0) {
+      // Solo coordinadores usan múltiples coordinaciones
+      if (selectedRole?.name === 'coordinador' && formData.coordinaciones_ids.length > 0) {
         // Insertar relaciones en tabla intermedia (auth_user_coordinaciones)
         const relaciones = formData.coordinaciones_ids.map(coordId => ({
           user_id: userId,
@@ -263,8 +263,8 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
         }
       }
 
-      // Si es ejecutivo, asignar una sola coordinación
-      if (selectedRole?.name === 'ejecutivo' && formData.coordinacion_id) {
+      // Ejecutivos y supervisores usan coordinacion_id único
+      if ((selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && formData.coordinacion_id) {
         const { error: relacionError } = await supabaseSystemUI
           .from('auth_user_coordinaciones')
           .insert({
@@ -538,7 +538,7 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
 
                 {/* Coordinación para Ejecutivos */}
                 <AnimatePresence>
-                  {selectedRole?.name === 'ejecutivo' && (
+                  {(selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}
@@ -569,9 +569,9 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
                   )}
                 </AnimatePresence>
 
-                {/* Coordinaciones para Coordinadores/Supervisores (múltiples) */}
+                {/* Coordinaciones para Coordinadores (múltiples) */}
                 <AnimatePresence>
-                  {(selectedRole?.name === 'coordinador' || selectedRole?.name === 'supervisor') && (
+                  {selectedRole?.name === 'coordinador' && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: 'auto' }}

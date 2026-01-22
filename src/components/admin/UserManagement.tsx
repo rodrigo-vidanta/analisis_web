@@ -1,6 +1,32 @@
 /**
  * ============================================
- * GESTIÓN DE USUARIOS - MÓDULO PQNC HUMANS
+ * ⚠️ DEPRECADO - NO USAR ESTE COMPONENTE
+ * ============================================
+ * 
+ * 🚫 ESTE COMPONENTE ESTÁ DEPRECADO DESDE: 22 de Enero 2026
+ * 
+ * ✅ USAR EN SU LUGAR: UserManagementV2
+ * 📁 UBICACIÓN: src/components/admin/UserManagementV2/
+ * 
+ * ❌ RAZÓN DE DEPRECACIÓN:
+ * - Este componente (UserManagement.tsx) NO se usa en producción
+ * - El flag USE_NEW_USER_MANAGEMENT = true activa UserManagementV2
+ * - Mantener dos componentes causa confusión y errores
+ * 
+ * 🔧 SI NECESITAS EDITAR GESTIÓN DE USUARIOS:
+ * - Edita: src/components/admin/UserManagementV2/
+ * - Hook principal: UserManagementV2/hooks/useUserManagement.ts
+ * - Tipos: UserManagementV2/types.ts
+ * 
+ * 📋 HISTORIAL:
+ * - 2024: Versión original (UserManagement.tsx)
+ * - 2025: Nueva versión enterprise (UserManagementV2)
+ * - 2026-01-22: Deprecado oficialmente
+ * 
+ * ⚠️ NO REALIZAR CAMBIOS EN ESTE ARCHIVO
+ * 
+ * ============================================
+ * GESTIÓN DE USUARIOS - MÓDULO PQNC HUMANS (LEGACY)
  * ============================================
  *
  * ⚠️ REGLAS DE ORO PARA DESARROLLADORES:
@@ -53,9 +79,10 @@ interface User {
   is_blocked?: boolean; // Estado de bloqueo por moderación
   warning_count?: number; // Número de warnings
   system_ui_user_id?: string; // ID del usuario en System_UI (para desbloquear cuando los IDs no coinciden)
-  coordinacion_id?: string; // Para ejecutivos
+  coordinacion_id?: string; // Para ejecutivos y supervisores
   coordinaciones_ids?: string[]; // Para coordinadores
   id_dynamics?: string; // ID de Dynamics CRM (requerido para habilitar operativo en ejecutivos)
+  inbound?: boolean; // Usuario recibe mensajes inbound de WhatsApp
 }
 
 interface Role {
@@ -1138,7 +1165,25 @@ const UserManagement: React.FC = () => {
         role_id: formData.role_id,
         is_active: formData.is_active,
         is_operativo: formData.is_operativo,
+        inbound: formData.inbound || false, // Campo inbound
+        id_dynamics: formData.id_dynamics?.trim() || null, // ID Dynamics
       };
+
+      // Agregar coordinacion_id al metadata si el rol lo requiere
+      if (selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') {
+        metadata.coordinacion_id = formData.coordinacion_id || null;
+        metadata.is_coordinator = false;
+        metadata.is_ejecutivo = selectedRole?.name === 'ejecutivo';
+      } else if (selectedRole?.name === 'coordinador') {
+        metadata.coordinacion_id = null; // Coordinadores no tienen coordinacion_id único
+        metadata.is_coordinator = true;
+        metadata.is_ejecutivo = false;
+      } else {
+        // Otros roles
+        metadata.coordinacion_id = null;
+        metadata.is_coordinator = false;
+        metadata.is_ejecutivo = false;
+      }
 
       // Si es admin o administrador_operativo y el email cambió, actualizarlo
       if ((isAdmin || isAdminOperativo) && formData.email && formData.email !== selectedUser.email) {
@@ -1247,17 +1292,6 @@ const UserManagement: React.FC = () => {
       // Si es coordinador, actualizar múltiples coordinaciones usando tabla intermedia
       if (selectedRole?.name === 'coordinador') {
         try {
-          // Actualizar flags del usuario en auth.users
-          const coordSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
-            is_coordinator: true,
-            is_ejecutivo: false,
-            coordinacion_id: null, // Limpiar coordinacion_id si existe
-          });
-
-          if (!coordSuccess) {
-            console.error('Error actualizando flags del coordinador');
-          }
-
           // Eliminar relaciones existentes (nueva tabla)
           await supabaseSystemUI
             .from('auth_user_coordinaciones')
@@ -1284,7 +1318,7 @@ const UserManagement: React.FC = () => {
           console.error('Error actualizando coordinaciones:', coordError);
         }
       } else if ((selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') && formData.coordinacion_id) {
-        // Si es ejecutivo o supervisor, actualizar una sola coordinación
+        // Si es ejecutivo o supervisor, limpiar tabla intermedia (solo tienen una coordinacion_id directa)
         // ⚠️ DOWNGRADE A EJECUTIVO/SUPERVISOR: Limpiar TODAS las relaciones de coordinador
         try {
           // Limpiar relaciones de auth_user_coordinaciones si existían
@@ -1295,22 +1329,12 @@ const UserManagement: React.FC = () => {
           
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
-
-          // Actualizar flags del usuario en auth.users
-          const ejecutivoSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
-            coordinacion_id: formData.coordinacion_id,
-            is_coordinator: false,
-            is_ejecutivo: selectedRole?.name === 'ejecutivo',
-          });
-
-          if (!ejecutivoSuccess) {
-            console.error(`Error actualizando coordinación del ${selectedRole?.name}`);
-          }
+          // El coordinacion_id ya está en metadata y se actualizó en línea 1190
         } catch (coordError) {
-          console.error('Error actualizando coordinación:', coordError);
+          console.error('Error limpiando relaciones de coordinaciones:', coordError);
         }
       } else if (selectedRole && selectedRole.name !== 'coordinador' && selectedRole.name !== 'ejecutivo' && selectedRole.name !== 'supervisor') {
-        // Si cambió a otro rol que no es coordinador ni ejecutivo, limpiar todo
+        // Si cambió a otro rol que no es coordinador ni ejecutivo ni supervisor, limpiar todo
         try {
           // Limpiar relaciones de auth_user_coordinaciones (nueva tabla)
           await supabaseSystemUI
@@ -1320,17 +1344,7 @@ const UserManagement: React.FC = () => {
           
           // ⚠️ 2026-01-14: Tabla legacy coordinador_coordinaciones ELIMINADA del código
           // Solo se usa auth_user_coordinaciones como fuente única de verdad
-
-          // Actualizar flags del usuario en auth.users
-          const clearSuccess = await authAdminProxyService.updateUserMetadata(selectedUser.id, {
-            coordinacion_id: null,
-            is_coordinator: false,
-            is_ejecutivo: false,
-          });
-
-          if (!clearSuccess) {
-            console.error('Error limpiando coordinación');
-          }
+          // El coordinacion_id null ya está en metadata y se actualizó en línea 1190
         } catch (coordError) {
           console.error('Error limpiando coordinación:', coordError);
         }
@@ -1739,6 +1753,8 @@ const UserManagement: React.FC = () => {
     // Cargar coordinaciones del usuario desde System_UI
     let coordinacionId = '';
     let coordinacionesIds: string[] = [];
+    let inboundValue = user.inbound || false;
+    let idDynamicsValue = user.id_dynamics || '';
     
     if (user.role_name === 'coordinador') {
       // Para coordinadores: cargar desde tabla intermedia (nueva tabla)
@@ -1765,7 +1781,7 @@ const UserManagement: React.FC = () => {
         // Primero cargar datos del usuario para obtener coordinacion_id directo
         const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('user_profiles_v2')
-          .select('coordinacion_id, id_dynamics')
+          .select('coordinacion_id, id_dynamics, inbound')
           .eq('id', user.id)
           .single();
         
@@ -1774,9 +1790,15 @@ const UserManagement: React.FC = () => {
           if (systemUser.coordinacion_id) {
             coordinacionId = systemUser.coordinacion_id;
           }
-          // Actualizar id_dynamics en el usuario seleccionado
+          // Actualizar valores locales
+          idDynamicsValue = systemUser.id_dynamics || '';
+          inboundValue = systemUser.inbound || false;
+          
+          // Actualizar id_dynamics e inbound en el usuario seleccionado
           if (systemUser.id_dynamics) {
-            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics });
+            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics, inbound: systemUser.inbound });
+          } else {
+            setSelectedUser({ ...user, inbound: systemUser.inbound });
           }
         }
         
@@ -1801,15 +1823,21 @@ const UserManagement: React.FC = () => {
       try {
         const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('user_profiles_v2')
-          .select('coordinacion_id, id_dynamics')
+          .select('coordinacion_id, id_dynamics, inbound')
           .eq('id', user.id)
           .single();
         
         if (!systemError && systemUser) {
           coordinacionId = systemUser.coordinacion_id || '';
-          // Actualizar id_dynamics en el usuario seleccionado
+          // Actualizar valores locales
+          idDynamicsValue = systemUser.id_dynamics || '';
+          inboundValue = systemUser.inbound || false;
+          
+          // Actualizar id_dynamics e inbound en el usuario seleccionado
           if (systemUser.id_dynamics) {
-            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics });
+            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics, inbound: systemUser.inbound });
+          } else {
+            setSelectedUser({ ...user, inbound: systemUser.inbound });
           }
         }
       } catch (error) {
@@ -1823,14 +1851,20 @@ const UserManagement: React.FC = () => {
       try {
         const { data: systemUser, error: systemError } = await supabaseSystemUI
           .from('user_profiles_v2')
-          .select('coordinacion_id, id_dynamics')
+          .select('coordinacion_id, id_dynamics, inbound')
           .eq('id', user.id)
           .single();
         
         if (!systemError && systemUser) {
           coordinacionId = systemUser.coordinacion_id || '';
+          // Actualizar valores locales
+          idDynamicsValue = systemUser.id_dynamics || '';
+          inboundValue = systemUser.inbound || false;
+          
           if (systemUser.id_dynamics) {
-            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics });
+            setSelectedUser({ ...user, id_dynamics: systemUser.id_dynamics, inbound: systemUser.inbound });
+          } else {
+            setSelectedUser({ ...user, inbound: systemUser.inbound });
           }
         }
       } catch (error) {
@@ -1851,6 +1885,8 @@ const UserManagement: React.FC = () => {
       coordinaciones_ids: coordinacionesIds,
       is_active: user.is_active,
       is_operativo: user.is_operativo !== undefined ? user.is_operativo : true,
+      inbound: inboundValue, // Usar valor cargado desde BD
+      id_dynamics: idDynamicsValue, // Usar valor cargado desde BD
       analysis_sources: []
     });
     
@@ -1898,11 +1934,35 @@ const UserManagement: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      {/* ⚠️ DEPRECATION WARNING */}
+      <div className="bg-orange-50 dark:bg-orange-900/20 border-2 border-orange-500 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <div className="flex-shrink-0">
+            <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-orange-900 dark:text-orange-200">
+              ⚠️ COMPONENTE DEPRECADO - NO EDITAR
+            </h3>
+            <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">
+              Este componente está deprecado desde el 22 de Enero 2026. 
+              Se mantiene solo por compatibilidad. 
+              <strong> Usa UserManagementV2 para nuevas funcionalidades.</strong>
+            </p>
+            <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
+              Flag activo: <code className="bg-orange-100 dark:bg-orange-800 px-1 rounded">USE_NEW_USER_MANAGEMENT = true</code>
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Gestión de Usuarios
+            Gestión de Usuarios (LEGACY)
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
             Administra usuarios, roles y permisos del sistema

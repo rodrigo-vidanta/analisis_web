@@ -50,6 +50,7 @@ export type RoleName =
   | 'admin'
   | 'administrador_operativo'
   | 'coordinador'
+  | 'supervisor'
   | 'ejecutivo'
   | 'evaluador'
   | 'developer';

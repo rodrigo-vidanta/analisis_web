@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, startTransition } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import UserManagement from './UserManagement';
-import UserManagementV2 from './UserManagementV2';
+import UserManagement from './UserManagement'; // ⚠️ DEPRECADO - Solo para compatibilidad (USE_NEW_USER_MANAGEMENT=false)
+import UserManagementV2 from './UserManagementV2'; // ✅ ACTIVO - Versión enterprise en producción
 import SystemPreferences from './SystemPreferences';
 import DatabaseConfiguration from './DatabaseConfiguration';
 import TokenManagement from './TokenManagement';
@@ -20,7 +20,20 @@ import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
 import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare } from 'lucide-react';
 
-// Feature flag para el nuevo módulo de usuarios
+// ============================================
+// FEATURE FLAG: NUEVO MÓDULO DE USUARIOS
+// ============================================
+// 
+// ✅ PRODUCCIÓN: UserManagementV2 (Enterprise, optimizado, jerarquías)
+// ❌ LEGACY: UserManagement.tsx (deprecado desde 2026-01-22)
+//
+// IMPORTANTE: NO cambiar este flag a false
+// UserManagement.tsx está deprecado y no se debe usar
+// 
+// Ubicación componentes:
+// - UserManagementV2: src/components/admin/UserManagementV2/
+// - UserManagement (legacy): src/components/admin/UserManagement.tsx
+//
 const USE_NEW_USER_MANAGEMENT = true;
 
 // Key para localStorage

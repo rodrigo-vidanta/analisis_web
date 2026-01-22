@@ -43,6 +43,7 @@ SELECT
   (au.raw_user_meta_data->>'coordinacion_id')::UUID as coordinacion_id,
   COALESCE((au.raw_user_meta_data->>'is_active')::BOOLEAN, true) as is_active,
   COALESCE((au.raw_user_meta_data->>'is_operativo')::BOOLEAN, false) as is_operativo,
+  COALESCE((au.raw_user_meta_data->>'inbound')::BOOLEAN, false) as inbound,
   -- Flags de conveniencia derivados del rol o metadata
   COALESCE((au.raw_user_meta_data->>'is_coordinator')::BOOLEAN, ar.name = 'coordinador') as is_coordinator,
   COALESCE((au.raw_user_meta_data->>'is_ejecutivo')::BOOLEAN, ar.name = 'ejecutivo') as is_ejecutivo,
@@ -74,8 +75,8 @@ COMMENT ON VIEW public.user_profiles_v2 IS
   'Vista segura de perfiles de usuario - Lee de auth.users + auth_roles. ' ||
   'NO incluye password_hash. Usada por scheduledCallsService y otros servicios. ' ||
   'Campos incluidos: email, full_name, first_name, last_name, phone, department, position, ' ||
-  'role_id, coordinacion_id, is_active, is_operativo, id_dynamics, etc. ' ||
-  'Creada: 2026-01-20. Actualizada: 2026-01-22 (fix permisos + department/position).';
+  'role_id, coordinacion_id, is_active, is_operativo, inbound, id_dynamics, etc. ' ||
+  'Creada: 2026-01-20. Actualizada: 2026-01-22 (fix permisos + department/position + inbound).';
 
 -- 5. Verificación
 DO $$

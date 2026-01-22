@@ -822,6 +822,14 @@ export function useUserManagement(): UseUserManagementReturn {
     updates: Partial<UserV2> & { password?: string; coordinaciones_ids?: string[] },
     currentUserId?: string
   ): Promise<boolean> => {
+    console.log('🚀 [UPDATE USER] Iniciando actualización:', {
+      userId,
+      updates,
+      coordinacion_id: updates.coordinacion_id,
+      coordinaciones_ids: updates.coordinaciones_ids,
+      role_id: updates.role_id
+    });
+    
     try {
       // 1. Manejar cambio de password (usa Edge Function, no RPC)
       if (updates.password && updates.password.length > 0) {
@@ -855,6 +863,12 @@ export function useUserManagement(): UseUserManagementReturn {
       // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Solo usar auth_user_coordinaciones
       // Limpieza de tabla legacy para compatibilidad durante transición
       const newRole = roles.find(r => r.id === updates.role_id);
+      console.log('🎭 [UPDATE USER] Rol identificado:', {
+        role_id: updates.role_id,
+        role_name: newRole?.name,
+        tiene_coordinacion_id: !!updates.coordinacion_id,
+        tiene_coordinaciones_ids: !!updates.coordinaciones_ids
+      });
       
       // Función helper para limpiar todas las relaciones de coordinador
       // FIX 2026-01-14: Solo usar auth_user_coordinaciones (tabla legacy eliminada del código)
@@ -866,7 +880,8 @@ export function useUserManagement(): UseUserManagementReturn {
           .eq('user_id', userId);
       };
       
-      if ((newRole?.name === 'coordinador' || newRole?.name === 'supervisor') && updates.coordinaciones_ids) {
+      if (newRole?.name === 'coordinador' && updates.coordinaciones_ids) {
+        // Solo coordinadores usan múltiples coordinaciones
         // Limpiar todas las relaciones existentes primero
         await cleanAllCoordinadorRelations(userId);
 
@@ -891,15 +906,47 @@ export function useUserManagement(): UseUserManagementReturn {
         }
 
         // Actualizar flags del usuario
-        updates.is_coordinator = newRole?.name === 'coordinador'; // true solo para coordinadores
+        updates.is_coordinator = true;
         updates.is_ejecutivo = false;
         updates.coordinacion_id = undefined; // Limpiar coordinacion_id individual
-      } else if (newRole?.name === 'ejecutivo') {
-        // ⚠️ DOWNGRADE A EJECUTIVO: Limpiar TODAS las relaciones de coordinador
+      } else if (newRole?.name === 'ejecutivo' || newRole?.name === 'supervisor') {
+        // Ejecutivos y supervisores usan coordinacion_id único (no array)
+        console.log('🔍 [COORDINACION] Procesando rol ejecutivo/supervisor:', {
+          role: newRole.name,
+          userId,
+          coordinacion_id: updates.coordinacion_id
+        });
+        
+        // ⚠️ DOWNGRADE: Limpiar TODAS las relaciones de coordinador si las tenía
         await cleanAllCoordinadorRelations(userId);
+        console.log('✅ [COORDINACION] Limpiadas relaciones previas');
+
+        // Insertar coordinación única en auth_user_coordinaciones
+        if (updates.coordinacion_id) {
+          console.log('📝 [COORDINACION] Insertando en auth_user_coordinaciones:', {
+            user_id: userId,
+            coordinacion_id: updates.coordinacion_id
+          });
+          
+          const { error: relacionError } = await supabaseSystemUI
+            .from('auth_user_coordinaciones')
+            .insert({
+              user_id: userId,
+              coordinacion_id: updates.coordinacion_id,
+              assigned_by: currentUserId || null
+            });
+
+          if (relacionError) {
+            console.error('❌ [COORDINACION] Error asignando coordinación:', relacionError);
+          } else {
+            console.log('✅ [COORDINACION] Coordinación insertada exitosamente');
+          }
+        } else {
+          console.warn('⚠️ [COORDINACION] No hay coordinacion_id para insertar');
+        }
 
         updates.is_coordinator = false;
-        updates.is_ejecutivo = true;
+        updates.is_ejecutivo = newRole?.name === 'ejecutivo';
       } else if (newRole && !['coordinador', 'supervisor', 'ejecutivo'].includes(newRole.name)) {
         // Otros roles (admin, admin_operativo, evaluador, etc.): limpiar todo
         await cleanAllCoordinadorRelations(userId);
@@ -919,7 +966,8 @@ export function useUserManagement(): UseUserManagementReturn {
         'email_verified',
         'coordinacion_id', 'is_coordinator', 'is_ejecutivo',
         'id_dynamics', 'must_change_password',
-        'failed_login_attempts', 'locked_until'
+        'failed_login_attempts', 'locked_until',
+        'inbound' // Usuario recibe mensajes inbound de WhatsApp
       ];
 
       // Filtrar solo campos válidos
@@ -934,7 +982,7 @@ export function useUserManagement(): UseUserManagementReturn {
       // Esta es la fuente de verdad para user_profiles_v2
       const metadataFields = ['full_name', 'first_name', 'last_name', 'phone', 'id_dynamics', 
         'is_active', 'is_operativo', 'is_coordinator', 'is_ejecutivo', 'coordinacion_id', 
-        'role_id', 'archivado', 'must_change_password'];
+        'role_id', 'archivado', 'must_change_password', 'inbound'];
       
       const metadataUpdates: Record<string, unknown> = {};
       for (const key of metadataFields) {
