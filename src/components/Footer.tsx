@@ -20,9 +20,11 @@ interface AIDivisionMember {
   avatar: string | null;
 }
 
+import { APP_VERSION } from '../config/appVersion';
+
 const Footer: React.FC = () => {
   // Versión actual - v2.5.39: Fix coordinaciones múltiples coordinadores + cierre automático modal
-  const version = 'B10.1.39N2.5.39';
+  const version = APP_VERSION;
   
   // Legacy feature flag check (deprecated)
   if (version.includes('legacy')) {

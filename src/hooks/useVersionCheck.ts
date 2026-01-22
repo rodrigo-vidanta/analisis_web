@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { analysisSupabase } from '../config/analysisSupabase';
+import { APP_VERSION } from '../config/appVersion';
 
 /**
  * Versión actual de la aplicación
- * Se obtiene de package.json via vite.config.ts (VITE_APP_VERSION)
- * Formato: "2.5.39" o "B10.1.39N2.5.39"
+ * Usa la misma versión que se muestra en el Footer.tsx
+ * Formato: "B10.1.39N2.5.39"
  */
-const CURRENT_VERSION = import.meta.env.VITE_APP_VERSION || '2.5.39';
+const CURRENT_VERSION = APP_VERSION;
 
 interface VersionCheckResult {
   requiresUpdate: boolean;

@@ -96,12 +96,24 @@ const stats = [
 { id: 'deploy-XXX', date: 'YYYY-MM-DD HH:mm', version: 'BX.X.XNX.X.X', status: 'success', duration: 'XXs', triggeredBy: 'Samuel Rosales', environment: 'Production' },
 ```
 
-### PASO 3: Actualizar Footer.tsx
+### PASO 3: Actualizar Versión de la Aplicación
 
-**Archivo:** `src/components/Footer.tsx` (~línea 8):
+**⚠️ IMPORTANTE:** Actualizar AMBOS archivos para mantener consistencia:
+
+1. **Archivo:** `src/config/appVersion.ts` (~línea 15):
 ```typescript
-const version = 'BX.X.XNX.X.X';
+export const APP_VERSION = 'BX.X.XNX.X.X';
 ```
+
+2. **Archivo:** `src/components/Footer.tsx` (~línea 25):
+```typescript
+// Ya usa APP_VERSION importado, no requiere cambios manuales
+// Pero verificar que el import esté presente:
+import { APP_VERSION } from '../config/appVersion';
+const version = APP_VERSION;
+```
+
+**Nota:** El Footer.tsx ya importa `APP_VERSION` desde `appVersion.ts`, así que solo necesitas actualizar `appVersion.ts`.
 
 ### PASO 4: Actualizar package.json (si es release)
 
@@ -134,10 +146,11 @@ El agente DEBE ejecutar automáticamente este paso usando el MCP `SupabaseREST` 
 
 #### Paso a Paso para el Agente:
 
-1. **Extraer versión del Footer.tsx:**
-   - Leer `src/components/Footer.tsx`
-   - Buscar línea con `const version = 'BX.X.XNX.X.X';`
+1. **Extraer versión de appVersion.ts:**
+   - Leer `src/config/appVersion.ts`
+   - Buscar línea con `export const APP_VERSION = 'BX.X.XNX.X.X';`
    - Extraer el valor completo (ej: `"B10.1.39N2.5.39"`)
+   - **Nota:** Este es el archivo fuente de verdad. Footer.tsx importa esta constante.
 
 2. **Verificar configuración existente:**
    ```typescript
