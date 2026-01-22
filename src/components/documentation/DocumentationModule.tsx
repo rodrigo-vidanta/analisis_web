@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '9cda4d9', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Fix coordinaciones múltiples coordinadores + cierre automático modal + actualización usuarios Vidanta', isRelease: true },
   { hash: 'x1y2z3a', date: '2026-01-22', author: 'Team', message: 'v2.5.37: B10.1.37N2.5.37 - Auditoría Documentación + Handover Format + Deploy Workflow Fix', isRelease: true },
   { hash: 'h5i9j0k', date: '2026-01-21', author: 'Team', message: 'v2.5.35: B10.1.35N2.5.35 - Modo Ninja para Admin (suplantación de usuarios, permisos efectivos, UI ninja)', isRelease: true },
   { hash: 'g4h8i9j', date: '2026-01-21', author: 'Team', message: 'v2.5.34: B10.1.34N2.5.34 - Reasignación Masiva Paralela (10x slots) + Seleccionar todos (100)', isRelease: true },
@@ -599,7 +600,7 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.37', highlight: true },
+  { label: 'Version', value: 'v2.5.39', highlight: true },
   { label: 'Release', value: 'B10.1.37N2.5.37', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '22 Ene 2026', highlight: false },

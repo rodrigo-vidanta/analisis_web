@@ -2,6 +2,117 @@
 
 ## [Unreleased]
 
+### 🗓️ v2.5.39 - Fix Coordinaciones Múltiples + Actualización Usuarios Vidanta [22-01-2026]
+
+#### 🐛 Correcciones de Bugs
+
+**Problema: Coordinadores perdían coordinaciones al recargar**
+- **Síntoma:** Coordinadores con coordinaciones asignadas las perdían después de recargar la página
+- **Causa:** 
+  - Condición de guardado requería `coordinaciones_ids` truthy (fallaba con `undefined`)
+  - Detección de coordinadores solo verificaba `auth_roles?.name`
+  - `coordinacion_id` no se limpiaba correctamente de metadatos
+- **Fix:** 
+  - Siempre procesar coordinadores (sin verificar `coordinaciones_ids`)
+  - Convertir `undefined` a array vacío `[]`
+  - Detección mejorada por múltiples campos (`auth_roles`, `role_name`, `is_coordinator`)
+  - Limpieza explícita de `coordinacion_id` como `null` en metadatos
+
+#### ✨ Mejoras de UX
+
+**Cierre automático del modal de edición:**
+- Modal se cierra automáticamente después de guardar exitosamente
+- Lista de usuarios se refresca inmediatamente
+- Toast de confirmación al guardar
+
+#### 📊 Actualización Masiva de Usuarios
+
+**Usuarios Vidanta actualizados (9 usuarios):**
+- Teléfonos, coordinaciones y roles actualizados vía REST API
+- Scripts SQL y Node.js creados para futuras actualizaciones
+- Verificación post-actualización completada
+
+#### 📁 Archivos Modificados
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/components/admin/UserManagementV2/hooks/useUserManagement.ts` | Fix guardado/carga coordinaciones múltiples |
+| `src/components/admin/UserManagementV2/components/UserEditPanel.tsx` | Cierre automático modal + fix array coordinaciones |
+| `scripts/update_vidanta_users.sql` | Script SQL para actualización masiva |
+| `scripts/execute_update_vidanta_users.mjs` | Script Node.js para ejecución vía REST API |
+| `docs/FIX_COORDINADOR_COORDINACIONES_MULTIPLES_2026-01-22.md` | Documentación del fix |
+| `docs/UPDATE_USUARIOS_VIDANTA_2026-01-22.md` | Documentación de actualización masiva |
+
+#### 🔍 Logging Mejorado
+
+- Logs detallados para debugging de coordinaciones
+- Identificación de coordinadores por múltiples campos
+- Tracking de carga y guardado de coordinaciones
+
+---
+
+### 🗓️ v2.5.38 - Fix Módulo Programación + Optimización [23-01-2026]
+
+#### 🐛 Correcciones de Bugs
+
+**Problema 1: Desfase de 1 día en calendario**
+- **Síntoma:** Al seleccionar día 19 mostraba día 18
+- **Causa:** `new Date("YYYY-MM-DD")` interpreta como UTC, causando desfase en Guadalajara (UTC-6)
+- **Fix:** Crear fechas con componentes locales `new Date(year, month-1, day)`
+
+**Problema 2: Llamadas no visibles (días 19-21)**
+- **Síntoma:** +1000 registros pero solo 1000 se cargaban
+- **Causa:** Límite por defecto de Supabase + filtros de permisos estrictos
+- **Fix:** Optimización de carga por día + límite aumentado
+
+**Problema 3: Loop infinito después de optimización**
+- **Síntoma:** "Maximum update depth exceeded" con miles de requests
+- **Causa:** `useEffect` con dependencias que cambiaban en cada render
+- **Fix:** Usar refs para trackear cambios reales + llamadas directas
+
+#### 🚀 Optimización de Rendimiento
+
+**Carga por día (vs cargar todo):**
+```typescript
+// Nuevo: getCallsCountByMonth() - Solo counts para calendario
+// Nuevo: getCallsByDate() - Llamadas filtradas por día
+// Nuevo: getCallsByWeek() - Llamadas filtradas por semana
+```
+
+**Beneficios:**
+- ✅ Carga inicial: ~10-50 registros (vs 1000+)
+- ✅ Navegación de meses: Solo counts, no data completa
+- ✅ Memoria reducida significativamente
+
+#### 🎨 Mejoras de UI
+
+- Calendario con navegación de meses (`<` `>`)
+- Badge de count ahora muestra hasta **99+** (antes 9+)
+- Click en título de mes va a "Hoy"
+
+#### 📁 Archivos Modificados
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/services/scheduledCallsService.ts` | +3 métodos optimizados |
+| `src/components/scheduled-calls/ScheduledCallsManager.tsx` | Carga por día, refs anti-loop |
+| `src/components/scheduled-calls/CalendarSidebar.tsx` | Counts precalculados, navegación, badge 99+ |
+| `src/components/scheduled-calls/views/WeeklyView.tsx` | Lógica de fechas corregida |
+| `src/services/permissionsService.ts` | Permisos simplificados para ejecutivos |
+
+#### 📚 Documentación
+
+- **Handover:** `.cursor/handovers/2026-01-22-fix-modulo-programacion.md`
+- **Doc técnico:** `docs/FIX_MODULO_PROGRAMACION_FINAL_2026-01-22.md`
+- **Doc N8N:** `docs/FIX_N8N_WORKFLOW_LLAMADAS_2026-01-22.md`
+
+#### ⚠️ Pendiente
+
+- Corregir nodo Code en N8N workflow "Lógica de llamadas programadas"
+- Verificar funcionamiento en producción
+
+---
+
 ### 🔍 v2.5.37 - Auditoría por Pares y Optimización Navegación [22-01-2026]
 
 #### 🎯 Auditoría Exhaustiva de Documentación vs Código/BD
