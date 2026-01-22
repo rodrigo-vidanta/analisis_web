@@ -14,11 +14,78 @@
 const EDGE_FUNCTIONS_URL = import.meta.env.VITE_EDGE_FUNCTIONS_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const EDGE_FUNCTIONS_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '';
 
+// ============================================
+// TYPES & INTERFACES
+// ============================================
+
+/**
+ * Metadata de usuario que se puede actualizar en auth.users
+ * Todos los campos son opcionales para permitir actualizaciones parciales
+ */
+export interface UserMetadataUpdate {
+  // Información básica
+  first_name?: string;
+  last_name?: string;
+  full_name?: string;
+  phone?: string;
+  department?: string;
+  position?: string;
+  
+  // Coordinaciones y asignaciones
+  coordinacion_id?: string | null;
+  id_dynamics?: string | null;
+  
+  // Estados y flags
+  is_operativo?: boolean;
+  is_active?: boolean;
+  is_coordinator?: boolean;
+  is_ejecutivo?: boolean;
+  archivado?: boolean;
+  inbound?: boolean;
+  
+  // Sistema de backup
+  backup_id?: string | null;
+  has_backup?: boolean;
+  telefono_original?: string | null;
+  
+  // Seguridad y autenticación
+  failed_login_attempts?: number;
+  locked_until?: string | null;
+  last_login?: string;
+  
+  // Permisos y roles
+  role_id?: string;
+  
+  // Auditoría
+  updated_at?: string;
+  updated_by?: string;
+}
+
+/**
+ * Respuesta de la Edge Function auth-admin-proxy
+ */
 interface ProxyResponse<T = any> {
   data?: T;
   success?: boolean;
   error?: string;
   warning?: string;
+}
+
+/**
+ * Parámetros para crear un nuevo usuario
+ */
+export interface CreateUserParams {
+  email: string;
+  password: string;
+  fullName: string;
+  roleId: string;
+  phone?: string | null;
+  isActive?: boolean;
+  isCoordinator?: boolean;
+  isEjecutivo?: boolean;
+  coordinacionId?: string | null;
+  department?: string;
+  position?: string;
 }
 
 /**
@@ -88,13 +155,27 @@ export async function getUserById(userId: string, select?: string): Promise<any 
 
 /**
  * Actualiza campos de un usuario (solo campos permitidos)
+ * @param userId - UUID del usuario
+ * @param metadata - Campos a actualizar (typed con UserMetadataUpdate)
+ * @returns Promise<boolean> - true si se actualizó correctamente
+ */
+export async function updateUserMetadata(
+  userId: string, 
+  metadata: UserMetadataUpdate
+): Promise<boolean> {
+  const result = await callAuthAdminProxy('updateUserMetadata', { userId, metadata });
+  return result.success === true;
+}
+
+/**
+ * Actualiza campos de un usuario (alias de updateUserMetadata para compatibilidad)
+ * @deprecated Usar updateUserMetadata en su lugar
  */
 export async function updateUserField(
   userId: string, 
-  updates: Record<string, any>
+  updates: UserMetadataUpdate
 ): Promise<boolean> {
-  const result = await callAuthAdminProxy('updateUserField', { userId, updates });
-  return result.success === true;
+  return updateUserMetadata(userId, updates);
 }
 
 /**
@@ -145,7 +226,8 @@ export const authAdminProxyService = {
   updateLastLogin,
   logLogin,
   getUserById,
-  updateUserField,
+  updateUserField, // Mantener para compatibilidad
+  updateUserMetadata, // Nueva función con types
   getExecutivesWithBackup,
   validateSession,
   updateIsOperativo,

@@ -49,6 +49,7 @@
 - [ARQUITECTURA_SEGURIDAD_2026.md](ARQUITECTURA_SEGURIDAD_2026.md) - Arquitectura de seguridad
 - [ARQUITECTURA_AUTH_NATIVA_2026.md](ARQUITECTURA_AUTH_NATIVA_2026.md) - Sistema de autenticación nativo
 - [VALIDACION_LECTURAS_ESCRITURAS_AUTH_USERS.md](VALIDACION_LECTURAS_ESCRITURAS_AUTH_USERS.md) - Validación de migración a auth.users nativo
+- [REFACTOR_AUTH_ADMIN_PROXY_SERVICE.md](REFACTOR_AUTH_ADMIN_PROXY_SERVICE.md) - Centralización de servicio auth admin
 
 ### Diseño UI/UX
 - [DESIGN_SYSTEM_SUMMARY.md](DESIGN_SYSTEM_SUMMARY.md) - Sistema de diseño

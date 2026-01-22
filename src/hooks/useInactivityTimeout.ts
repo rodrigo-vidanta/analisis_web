@@ -121,6 +121,9 @@ export const useInactivityTimeout = () => {
             } catch (error) {
               console.error(`Error actualizando ${currentUser.role_name} por inactividad:`, error);
             }
+          } catch (error) {
+            console.error(`Error general en actualización por inactividad:`, error);
+          }
         }
 
         // Hacer logout automático

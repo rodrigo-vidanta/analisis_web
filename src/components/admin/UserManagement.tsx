@@ -27,6 +27,7 @@ import AvatarCropModal from './AvatarCropModal';
 import ParaphraseLogService from '../../services/paraphraseLogService';
 import { coordinacionService, type Coordinacion } from '../../services/coordinacionService';
 import { groupsService, type PermissionGroup } from '../../services/groupsService';
+import { authAdminProxyService } from '../../services/authAdminProxyService';
 import { ShieldAlert, CheckCircle2, Loader2, User, Mail, Lock, Phone, Building2, Briefcase, Users, Key, Pencil, X, Search, ChevronLeft, ChevronRight, Filter, ChevronUp, ChevronDown, ArrowUpDown, Shield } from 'lucide-react';
 
 interface User {
@@ -2300,30 +2301,13 @@ const UserManagement: React.FC = () => {
                                 try {
                                   const nuevoEstado = e.target.checked;
                                   
-                                  // Usar Edge Function para actualizar
-                                  const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-                                  const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
-                                  
-                                  const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-                                    method: 'POST',
-                                    headers: {
-                                      'Content-Type': 'application/json',
-                                      'Authorization': `Bearer ${anonKey}`,
-                                    },
-                                    body: JSON.stringify({
-                                      operation: 'updateUserMetadata',
-                                      params: {
-                                        userId: user.id,
-                                        metadata: {
-                                          is_operativo: nuevoEstado
-                                        }
-                                      }
-                                    })
+                                  // Usar servicio centralizado (con type safety)
+                                  const success = await authAdminProxyService.updateUserMetadata(user.id, {
+                                    is_operativo: nuevoEstado
                                   });
                                   
-                                  const result = await response.json();
-                                  if (!response.ok || !result.success) {
-                                    throw new Error(result.error || 'Error al actualizar estado operativo');
+                                  if (!success) {
+                                    throw new Error('Error al actualizar estado operativo');
                                   }
                                   
                                   await loadUsers();

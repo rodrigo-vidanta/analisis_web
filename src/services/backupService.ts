@@ -13,9 +13,12 @@
  * - Las actualizaciones de backup ahora se hacen via update_user_metadata RPC
  * - Los campos backup_id, has_backup, etc. están en user_metadata
  * - Compatible con auth_users (legacy) y auth.users (Supabase Auth)
+ * 
+ * REFACTOR 2026-01-22: Uso de authAdminProxyService centralizado
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { authAdminProxyService } from './authAdminProxyService';
 import { coordinacionService } from './coordinacionService';
 import { permissionsService } from './permissionsService';
 
@@ -96,34 +99,17 @@ class BackupService {
         telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
       }
 
-      // Usar Edge Function para actualizar backup en auth.users
-      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          operation: 'updateUserMetadata',
-          params: {
-            userId: ejecutivoId,
-            metadata: {
-              backup_id: backupId,
-              telefono_original: telefonoOriginal,
-              phone: telefonoBackup,
-              has_backup: true,
-              updated_at: new Date().toISOString()
-            }
-          }
-        })
+      // Usar servicio centralizado para actualizar backup
+      const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, {
+        backup_id: backupId,
+        telefono_original: telefonoOriginal,
+        phone: telefonoBackup,
+        has_backup: true,
+        updated_at: new Date().toISOString()
       });
 
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al asignar backup');
+      if (!success) {
+        throw new Error('Error al asignar backup');
       }
 
       return { success: true };
@@ -165,34 +151,17 @@ class BackupService {
         }
       }
 
-      // Usar Edge Function para remover backup en auth.users
-      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          operation: 'updateUserMetadata',
-          params: {
-            userId: ejecutivoId,
-            metadata: {
-              backup_id: null,
-              phone: telefonoOriginal,
-              telefono_original: null,
-              has_backup: false,
-              updated_at: new Date().toISOString()
-            }
-          }
-        })
+      // Usar servicio centralizado para remover backup
+      const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, {
+        backup_id: null,
+        phone: telefonoOriginal,
+        telefono_original: null,
+        has_backup: false,
+        updated_at: new Date().toISOString()
       });
 
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al remover backup');
+      if (!success) {
+        throw new Error('Error al remover backup');
       }
 
       return { success: true };

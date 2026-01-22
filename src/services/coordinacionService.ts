@@ -15,9 +15,12 @@
  * - ✅ USAR: auth_user_coordinaciones (única fuente de verdad)
  * - ❌ NO USAR: coordinador_coordinaciones (VIEW eliminada)
  * - ❌ NO USAR: coordinador_coordinaciones_legacy (solo backup histórico)
+ * 
+ * REFACTOR 2026-01-22: Uso de authAdminProxyService centralizado
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { authAdminProxyService } from './authAdminProxyService';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -1167,31 +1170,14 @@ class CoordinacionService {
     assignedBy: string
   ): Promise<void> {
     try {
-      // Usar Edge Function para actualizar coordinacion_id en auth.users
-      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          operation: 'updateUserMetadata',
-          params: {
-            userId: ejecutivoId,
-            metadata: {
-              coordinacion_id: coordinacionId,
-              updated_at: new Date().toISOString()
-            }
-          }
-        })
+      // Usar servicio centralizado para actualizar coordinacion_id
+      const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, {
+        coordinacion_id: coordinacionId,
+        updated_at: new Date().toISOString()
       });
       
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al actualizar coordinación');
+      if (!success) {
+        throw new Error('Error al actualizar coordinación');
       }
 
       // Registrar en logs si existe la tabla
@@ -1349,28 +1335,11 @@ class CoordinacionService {
     }
   ): Promise<Ejecutivo> {
     try {
-      // Usar Edge Function para actualizar ejecutivo en auth.users
-      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      // Usar servicio centralizado para actualizar ejecutivo
+      const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, updates);
       
-      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          operation: 'updateUserMetadata',
-          params: {
-            userId: ejecutivoId,
-            metadata: updates
-          }
-        })
-      });
-      
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || 'Error al actualizar ejecutivo');
+      if (!success) {
+        throw new Error('Error al actualizar ejecutivo');
       }
       
       // Recargar ejecutivo actualizado

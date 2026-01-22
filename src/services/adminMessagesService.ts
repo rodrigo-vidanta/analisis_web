@@ -7,9 +7,11 @@
  * Base de datos: System UI (zbylezfyagwrxoecioup.supabase.co)
  * 
  * MEJORA 2026-01-20: Verificación de conexión antes de queries
+ * REFACTOR 2026-01-22: Uso de authAdminProxyService centralizado
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { authAdminProxyService } from './authAdminProxyService';
 import { isNetworkOnline } from '../hooks/useNetworkStatus';
 
 // Importar función MCP si está disponible (para uso futuro)
@@ -301,31 +303,14 @@ class AdminMessagesService {
         return false;
       }
 
-      // Desbloquear usuario: resetear intentos fallidos y locked_until
-      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
-      
-      const response = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({
-          operation: 'updateUserMetadata',
-          params: {
-            userId: user.id,
-            metadata: {
-              failed_login_attempts: 0,
-              locked_until: null
-            }
-          }
-        })
+      // Desbloquear usuario usando servicio centralizado
+      const success = await authAdminProxyService.updateUserMetadata(user.id, {
+        failed_login_attempts: 0,
+        locked_until: null
       });
 
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        console.error('Error desbloqueando usuario:', result.error);
+      if (!success) {
+        console.error('Error desbloqueando usuario');
         return false;
       }
 
