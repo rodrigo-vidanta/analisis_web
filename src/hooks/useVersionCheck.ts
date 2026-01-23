@@ -16,6 +16,10 @@ interface VersionCheckResult {
   isLoading: boolean;
 }
 
+interface UseVersionCheckOptions {
+  enabled?: boolean; // Si está deshabilitado, no hace ninguna verificación
+}
+
 /**
  * Hook para verificar si la aplicación requiere actualización forzada
  * 
@@ -24,13 +28,21 @@ interface VersionCheckResult {
  * - Compara con la versión actual del build
  * - Suscripción realtime para detectar cambios inmediatos
  * - Fallback a polling si realtime falla
+ * - Solo se activa después del login (enabled: true)
  */
-export const useVersionCheck = (): VersionCheckResult => {
+export const useVersionCheck = (options: UseVersionCheckOptions = {}): VersionCheckResult => {
+  const { enabled = true } = options;
   const [requiresUpdate, setRequiresUpdate] = useState(false);
   const [requiredVersion, setRequiredVersion] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const checkVersion = useCallback(async () => {
+    // No hacer nada si el hook está deshabilitado
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
 
@@ -42,14 +54,14 @@ export const useVersionCheck = (): VersionCheckResult => {
         .single();
 
       if (error) {
-        // Si no existe la configuración, no requiere actualización
-        if (error.code === 'PGRST116') {
-          console.debug('[VersionCheck] No hay versión requerida configurada');
+        // Si no existe la configuración o no tiene permisos, no requiere actualización
+        if (error.code === 'PGRST116' || error.code === '42501') {
+          // Silenciar el error (no autenticado o sin permisos)
           setRequiresUpdate(false);
           setRequiredVersion(null);
           return;
         }
-        console.error('[VersionCheck] Error al consultar versión:', error);
+        // Solo loggear otros errores inesperados
         setRequiresUpdate(false);
         return;
       }
@@ -65,54 +77,55 @@ export const useVersionCheck = (): VersionCheckResult => {
         return;
       }
 
-      // Extraer versión de ambos strings para comparación robusta
+      // Comparar versiones completas
       // Maneja formatos: "2.5.39" y "B10.1.39N2.5.39"
-      // IMPORTANTE: Usa la PRIMERA parte (antes de "N"), no la segunda
-      const extractVersion = (version: string): string => {
-        // Si tiene formato "B10.1.39N2.5.39", extraer la parte ANTES de "N"
-        if (version.includes('N')) {
-          const parts = version.split('N');
-          return parts[0]; // Primera parte antes de "N" (ej: "B10.1.39")
+      // IMPORTANTE: Compara la versión COMPLETA, no solo una parte
+      const compareVersions = (current: string, required: string): boolean => {
+        // Comparación exacta primero
+        if (current === required) {
+          return true;
         }
-        // Si es formato simple "2.5.39", retornar tal cual
-        return version;
+
+        // Si ambas tienen formato "B10.1.XNY.Z.W", comparar ambas partes
+        if (current.includes('N') && required.includes('N')) {
+          const currentParts = current.split('N');
+          const requiredParts = required.split('N');
+          
+          // Comparar primera parte (backend version)
+          const backendMatch = currentParts[0] === requiredParts[0];
+          
+          // Comparar segunda parte (frontend version)
+          const frontendMatch = currentParts[1] === requiredParts[1];
+          
+          // Solo coincide si ambas partes son iguales
+          return backendMatch && frontendMatch;
+        }
+
+        // Si solo una tiene formato con "N", comparar directamente
+        // Si la versión requerida es más nueva, requiere actualización
+        return false;
       };
 
-      const currentVersionExtracted = extractVersion(CURRENT_VERSION);
-      const requiredVersionExtracted = extractVersion(requiredVersionValue);
-
-      console.log('[VersionCheck] Comparando versiones:', {
-        current: CURRENT_VERSION,
-        currentExtracted: currentVersionExtracted,
-        required: requiredVersionValue,
-        requiredExtracted: requiredVersionExtracted,
-        forceUpdate
-      });
-
-      // Comparar versiones (usa primera parte antes de "N" si existe)
-      // Si las versiones no coinciden exactamente, requiere actualización
-      const versionsMatch = currentVersionExtracted === requiredVersionExtracted ||
-                           currentVersionExtracted.includes(requiredVersionExtracted) ||
-                           requiredVersionExtracted.includes(currentVersionExtracted);
-
+      const versionsMatch = compareVersions(CURRENT_VERSION, requiredVersionValue);
       const shouldRequireUpdate = !versionsMatch && forceUpdate;
-      
-      console.log('[VersionCheck] Resultado:', {
-        versionsMatch,
-        shouldRequireUpdate,
-        requiresUpdate: shouldRequireUpdate
-      });
 
+      // Forzar actualización si las versiones no coinciden
       setRequiresUpdate(shouldRequireUpdate);
     } catch (error) {
-      console.error('[VersionCheck] Error inesperado:', error);
+      // Silenciar errores para no exponer información
       setRequiresUpdate(false);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    // No hacer nada si el hook está deshabilitado
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
+    
     // Verificación inicial
     checkVersion();
 
@@ -127,7 +140,6 @@ export const useVersionCheck = (): VersionCheckResult => {
         clearInterval(pollingInterval);
       }
       pollingInterval = setInterval(() => {
-        console.debug('[VersionCheck] Polling: verificando versión...');
         checkVersion();
       }, interval);
     };
@@ -147,8 +159,7 @@ export const useVersionCheck = (): VersionCheckResult => {
             table: 'system_config',
             filter: `config_key=eq.app_version`
           },
-          (payload) => {
-            console.log('[VersionCheck] 🔔 Cambio detectado en versión requerida (realtime):', payload.new);
+          () => {
             checkVersion();
           }
         )
@@ -160,39 +171,31 @@ export const useVersionCheck = (): VersionCheckResult => {
             table: 'system_config',
             filter: `config_key=eq.app_version`
           },
-          (payload) => {
-            console.log('[VersionCheck] 🔔 Nueva versión requerida configurada (realtime):', payload.new);
+          () => {
             checkVersion();
           }
         )
         .subscribe((status) => {
-          console.log(`[VersionCheck] Estado de suscripción realtime: ${status}`);
-          
           if (status === 'SUBSCRIBED') {
             realtimeSubscribed = true;
-            console.log('[VersionCheck] ✅ Suscrito a cambios de versión (realtime activo)');
             // Reducir intervalo de polling a 60s si realtime funciona (solo como backup)
             setupPolling(60000);
           } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
-            console.warn(`[VersionCheck] ⚠️ Realtime no disponible (${status}), usando solo polling cada 30s`);
             realtimeSubscribed = false;
             // Asegurar que polling esté activo
             setupPolling(30000);
-          } else {
-            console.debug(`[VersionCheck] Estado de suscripción: ${status}`);
           }
         });
 
       // Verificar estado después de 2 segundos
       setTimeout(() => {
         if (channel && !realtimeSubscribed) {
-          console.warn('[VersionCheck] ⚠️ Realtime no se suscribió después de 2s, usando solo polling');
           setupPolling(30000);
         }
       }, 2000);
 
     } catch (error) {
-      console.warn('[VersionCheck] ⚠️ Error configurando realtime, usando solo polling:', error);
+      // Silenciar error
       realtimeSubscribed = false;
       setupPolling(30000);
     }
@@ -206,7 +209,7 @@ export const useVersionCheck = (): VersionCheckResult => {
         clearInterval(pollingInterval);
       }
     };
-  }, [checkVersion]);
+  }, [checkVersion, enabled]);
 
   return {
     requiresUpdate,

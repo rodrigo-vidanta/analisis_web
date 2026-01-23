@@ -93,8 +93,10 @@ function MainApp() {
   // Hook para detectar inactividad y hacer logout automático después de 2 horas
   useInactivityTimeout();
   
-  // Verificación de versión forzada
-  const { requiresUpdate, currentVersion, requiredVersion, isLoading: isVersionLoading } = useVersionCheck();
+  // Verificación de versión forzada (solo después del login)
+  const { requiresUpdate, currentVersion, requiredVersion, isLoading: isVersionLoading } = useVersionCheck({
+    enabled: isAuthenticated // Solo activar después del login
+  });
   
   // Actualizar el módulo activo en el servicio de logging cuando cambia
   useEffect(() => {
