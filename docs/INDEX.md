@@ -30,6 +30,7 @@
 | **Ver cambios recientes** | [CHANGELOG.md](../CHANGELOG.md) |
 | **Versiones detalladas** | [VERSIONS.md](../VERSIONS.md) |
 | **Configurar ambiente** | [ENV_VARIABLES_REQUIRED.md](ENV_VARIABLES_REQUIRED.md) |
+| **Hacer deploy completo** | [DEPLOY_QUICK_GUIDE.md](DEPLOY_QUICK_GUIDE.md) ⭐ NUEVO
 
 ---
 

@@ -1,41 +1,138 @@
 # Workflow de Despliegue Automatizado
 
 > **Descripción:** Proceso completo de deploy automatizado a Git y AWS.
-> **Aplicación:** Agent Requested (cuando usuario solicita deploy)
-> **Trigger:** Usuario dice "push", "deploy", "documenta y actualiza"
+> **Aplicación:** **ALWAYS APPLY** cuando usuario solicita deploy
+> **Trigger:** Usuario dice "push", "deploy", "documenta y actualiza", "deploy completo"
+
+---
+
+## 🚨 COMANDOS ESPECÍFICOS PARA INVOCAR (Usuario)
+
+Para garantizar ejecución completa, el usuario debe usar EXACTAMENTE uno de estos comandos:
+
+### ✅ Comando Recomendado #1 (Más Seguro)
+```
+@deploy-workflow.mdc deploy completo con mensaje: [tu mensaje aquí]
+```
+
+### ✅ Comando Recomendado #2 (Alternativo)
+```
+Ejecuta deploy-workflow.mdc completo: [tu mensaje]
+```
+
+### ✅ Comando Recomendado #3 (Corto)
+```
+deploy completo
+```
+
+**⚠️ EVITAR comandos ambiguos como:**
+- ❌ "documenta y actualiza" (puede interpretarse solo como docs)
+- ❌ "push a git" (solo git, no AWS ni BD)
+- ❌ "deploy" (ambiguo, puede no incluir BD)
+
+---
+
+## ⚡ MODO ESTRICTO (OBLIGATORIO)
+
+**El agente DEBE verificar ANTES de empezar:**
+
+```typescript
+// CHECKLIST PRE-EJECUCIÓN (El agente debe verificar TODOS estos puntos)
+const preChecks = {
+  1: "¿Existe scripts/deploy-complete.ts?",
+  2: "¿MCP Supa_PQNC_AI está disponible?",
+  3: "¿Hay cambios sin commitear? (git status)",
+  4: "¿Usuario confirmó el mensaje del deploy?",
+  5: "¿Tengo acceso a .cursor/handovers/?",
+};
+
+// Si CUALQUIERA falla → DETENER y pedir al usuario que lo resuelva
+```
+
+**El agente DEBE reportar al INICIO:**
+```
+🔍 Pre-checks:
+✅ Script deploy-complete.ts: OK
+✅ MCP Supa_PQNC_AI: Conectado
+✅ Git status: Clean (o X archivos sin commitear)
+✅ Handovers dir: Accesible
+⚠️ Mensaje deploy: [pendiente del usuario si no lo dio]
+
+¿Proceder con deploy? (Este mensaje es solo informativo, el agente procede automáticamente)
+```
 
 ---
 
 ## Cuándo Aplicar Esta Regla
 
-Cuando el usuario diga:
-- "documenta y actualiza"
-- "push a git"
-- "push a git y aws"
-- "deploy"
-- "de acuerdo a la regla"
+Cuando el usuario diga **EXACTAMENTE**:
+- "deploy completo"
+- "deploy completo con mensaje: [...]"
+- "@deploy-workflow.mdc deploy completo"
+- "Ejecuta deploy-workflow.mdc completo"
 
-**⚠️ IMPORTANTE:** "documenta y actualiza" ejecuta AUTOMÁTICAMENTE todas las tareas sin confirmación.
+**🚨 IMPORTANTE:** Con estos comandos específicos, el agente ejecuta AUTOMÁTICAMENTE todas las tareas sin pedir confirmación adicional.
 
 ---
 
 ## Flujo Automatizado Completo
 
 ```
-"documenta y actualiza"
+"deploy completo"
     ↓
-1. Ejecutar script deploy-complete.ts (PASO 1-5)
+PRE-CHECKS (5 verificaciones)
     ↓
-2. Actualizar BD vía MCP SupabaseREST (PASO 6)
+PASO 1: Ejecutar script deploy-complete.ts
     ↓
-3. Crear handover con REF (PASO 7)
+PASO 2: Verificar output del script
     ↓
-4. Imprimir resumen en chat (PASO 8)
+PASO 3: Actualizar BD vía MCP Supa_PQNC_AI
+    ↓
+PASO 4: Verificar actualización de BD
+    ↓
+PASO 5: Crear handover con REF
+    ↓
+PASO 6: Commit handover a Git
+    ↓
+PASO 7: Imprimir resumen COMPLETO en chat
+    ↓
+PASO 8: Auto-verificación final
 ```
 
 ---
 
 ## Proceso Completo para el Agente
+
+### PRE-CHECKS (OBLIGATORIO)
+
+**El agente DEBE ejecutar estos checks ANTES de empezar:**
+
+```bash
+# Check 1: Verificar script existe
+[ -f scripts/deploy-complete.ts ] && echo "✅ Script OK" || echo "❌ Script no encontrado"
+
+# Check 2: Verificar MCP (intentar conexión)
+# (El agente intenta listar tools del MCP)
+
+# Check 3: Verificar git status
+git status --short | wc -l  # Si >0, hay cambios sin commitear
+
+# Check 4: Verificar handovers dir
+[ -d .cursor/handovers ] && echo "✅ Dir OK" || echo "❌ Dir no existe"
+```
+
+**Si CUALQUIER check falla:**
+```
+❌ PRE-CHECK FALLIDO
+
+Check fallido: [nombre del check]
+Razón: [descripción]
+
+🔧 Acción requerida:
+[Instrucción específica para el usuario]
+
+⏸️ Deploy DETENIDO. Resuelve el issue y vuelve a ejecutar.
+```
 
 ### PASO 1: Determinar Versión y Ejecutar Script
 
@@ -202,86 +299,217 @@ REF: HANDOVER-YYYY-MM-DD-DEPLOY-vX.X.X
 
 Ver `.cursor/rules/handover-format.mdc` para estructura completa.
 
-### PASO 5: Informar Resultado
+### PASO 7: Auto-Verificación Final (OBLIGATORIO)
 
-**En el chat, imprimir solo:**
+**El agente DEBE verificar que TODO se completó:**
+
+```typescript
+const finalChecks = {
+  "✅ Script ejecutado": "¿Output del script mostró 'Deploy AWS completado'?",
+  "✅ BD actualizada": "¿MCP retornó 'Updated 1 record(s) successfully'?",
+  "✅ Handover creado": "¿Archivo .cursor/handovers/YYYY-MM-DD-deploy-vX-X-X.md existe?",
+  "✅ Handover commiteado": "¿Git push mostró 'main -> main'?",
+  "✅ Versión correcta": "¿system_config.config_value.version === nueva versión?",
+};
+
+// Si CUALQUIERA falla → REPORTAR ERROR CRÍTICO
+```
+
+**Output esperado:**
+```
+🔍 AUTO-VERIFICACIÓN FINAL:
+
+✅ Script deploy-complete.ts: Ejecutado (commit: XXXXXXX)
+✅ AWS deploy: Exitoso (34.42s)
+✅ Base de datos: Actualizada (version: BX.X.XNX.X.X)
+✅ Handover: Creado y commiteado
+✅ Git: 2 commits pusheados
+
+🎉 DEPLOY 100% COMPLETO - Sin errores
+```
+
+**Si algo falló:**
+```
+❌ AUTO-VERIFICACIÓN FALLIDA
+
+Pasos completados: X/5
+Paso fallido: [nombre del paso]
+Error: [descripción del error]
+
+🔧 Acción requerida:
+[Instrucción específica para corregir]
+
+⚠️ DEPLOY INCOMPLETO - Requiere intervención manual
+```
+
+---
+
+## 🎯 Resumen para el Usuario (FORMATO ESTÁNDAR)
+
+**El agente DEBE imprimir este resumen EXACTO al final:**
 
 ```markdown
-✅ Deploy completado
+## ✅ DEPLOY COMPLETO v[X.X.X]
 
 **REF**: `HANDOVER-YYYY-MM-DD-DEPLOY-vX.X.X`  
 **Ubicación**: `.cursor/handovers/YYYY-MM-DD-deploy-vX-X-X.md`
 
-**Resumen rápido**:
-- ✅ Documentación sincronizada (N archivos)
-- ✅ Versión actualizada: BX.X.XNX.X.X (appVersion.ts)
-- ✅ Git push: commit XXXXXXX
-- ✅ AWS deploy: exitoso (XXs)
-- ✅ Versión requerida actualizada en BD (vía MCP)
-- Próximo: [acción si aplica]
-```
+### 📊 Métricas
+- ⏱️ Tiempo total: [XX minutos]
+- 📦 Archivos modificados: [N archivos]
+- 🔨 Commits: [hash1, hash2]
+- 🚀 URLs:
+  - S3: http://pqnc-qa-ai-frontend.s3-website.us-west-2.amazonaws.com
+  - CloudFront: https://d3m6zgat40u0u1.cloudfront.net
 
-**⚠️ NO repetir el handover completo en el chat** - Solo REF + resumen.
+### ✅ Checklist Completado
+- [x] Documentación sincronizada
+- [x] Versión actualizada (BX.X.XNX.X.X)
+- [x] Git push exitoso
+- [x] AWS deploy exitoso
+- [x] Base de datos actualizada
+- [x] Handover creado y commiteado
 
----
-
-## Ejemplo Completo de Ejecución
-
-Cuando el usuario dice "documenta y actualiza":
-
-1. **Agente ejecuta script:**
-   ```bash
-   tsx scripts/deploy-complete.ts B10.1.43N2.5.43 "Fix modal + dropdowns"
-   ```
-
-2. **Script ejecuta automáticamente:**
-   - Sincroniza docs
-   - Actualiza appVersion.ts → `B10.1.43N2.5.43`
-   - Actualiza package.json → `2.5.43`
-   - Actualiza DocumentationModule.tsx
-   - Git commit y push
-   - Deploy AWS
-
-3. **Agente actualiza BD:**
-   ```typescript
-   mcp_Supa_PQNC_AI_pqnc_update_data({
-     table: "system_config",
-     filter: { config_key: "app_version" },
-     data: {
-       config_value: { version: "B10.1.43N2.5.43", force_update: true }
-     }
-   })
-   ```
-
-4. **Agente crea handover** con toda la información
-
-5. **Agente imprime resumen** en chat
+### ⏭️ Próximos Pasos
+1. Esperar 5-10 min (propagación CloudFront)
+2. Limpiar cache navegador (Cmd+Shift+R)
+3. Verificar versión en footer
+4. [Acción específica del deploy si aplica]
 
 ---
-
-## Ventajas del Script Automatizado
-
-✅ **Sin confirmaciones**: Ejecuta todo automáticamente  
-✅ **Consistencia**: Siempre actualiza los mismos archivos  
-✅ **Trazabilidad**: Logs claros de cada paso  
-✅ **Reutilizable**: Puede ejecutarse manualmente también  
-✅ **Completo**: Cubre todos los pasos excepto BD (que requiere MCP)  
-
----
-
-## Formato de Versiones
-
-```
-Formato completo: BX.X.XNX.X.X
-Ejemplo: B10.1.43N2.5.43
-
-- Primera parte (antes de "N"): Versión del backend/build
-- Segunda parte (después de "N"): Versión del frontend/package.json
+🔗 **Ver handover completo**: `.cursor/handovers/YYYY-MM-DD-deploy-vX-X-X.md`
 ```
 
 ---
 
-## Troubleshooting
+## 📝 Plantilla de Handover (OBLIGATORIA)
+
+**Nombre de archivo:** `.cursor/handovers/YYYY-MM-DD-deploy-vX-X-X.md`
+
+**Estructura mínima OBLIGATORIA:**
+
+```markdown
+# Handover: Deploy vX.X.X
+
+**REF:** HANDOVER-YYYY-MM-DD-DEPLOY-vX.X.X  
+**Fecha:** YYYY-MM-DD  
+**Commit:** [hash del primer commit]  
+**Versión:** BX.X.XNX.X.X
+
+---
+
+## 📋 Resumen Ejecutivo
+
+[Descripción breve del deploy - 1-2 líneas]
+
+---
+
+## ✅ Tareas Completadas
+
+### 1. Actualización de Código
+[Lista de archivos modificados]
+
+### 2. Git Push
+- Commit(s): [hash1, hash2]
+- Push a: origin/main
+
+### 3. Deploy AWS
+- Build: [tiempo]
+- URLs: [S3, CloudFront]
+
+### 4. Base de Datos
+- Tabla: system_config
+- Config Key: app_version
+- Versión: BX.X.XNX.X.X
+
+---
+
+## 📊 Cambios Principales
+
+[Bullet points de cambios importantes]
+
+---
+
+## ⏭️ Próximos Pasos
+
+[Acciones para el usuario]
+
+---
+
+## 📚 Referencias
+
+[Links a docs relevantes]
+
+---
+
+**Deploy Status:** ✅ COMPLETADO  
+**Lecciones Aprendidas:** [Si aplica]
+```
+
+---
+
+## 🚨 Manejo de Errores
+
+### Error en PASO 1 (Script)
+```
+❌ Script deploy-complete.ts falló
+
+Error: [mensaje del error]
+
+🔧 Soluciones posibles:
+1. Verificar que no haya conflictos de merge
+2. Verificar permisos de archivos
+3. Ejecutar manualmente: tsx scripts/deploy-complete.ts
+
+⏸️ Deploy DETENIDO en PASO 1
+```
+
+### Error en PASO 3 (BD)
+```
+❌ Actualización de BD falló
+
+Error: [mensaje del MCP]
+
+🔧 Soluciones posibles:
+1. Verificar que MCP Supa_PQNC_AI esté conectado
+2. Verificar tabla system_config existe
+3. Ejecutar manualmente vía MCP
+
+⚠️ Deploy PARCIAL: Git y AWS OK, BD pendiente
+```
+
+### Error en PASO 5 (Handover)
+```
+❌ Creación de handover falló
+
+Error: [mensaje del error]
+
+🔧 Soluciones posibles:
+1. Verificar que .cursor/handovers/ existe
+2. Verificar permisos de escritura
+3. Crear handover manualmente
+
+⚠️ Deploy COMPLETO pero sin documentación
+```
+
+---
+
+## ⚙️ Troubleshooting para el Agente
+
+**Problema:** No sé si debo ejecutar esta rule
+**Solución:** Si el usuario dice "deploy completo" o menciona @deploy-workflow.mdc, SIEMPRE ejecutar
+
+**Problema:** Script deploy-complete.ts no existe
+**Solución:** DETENER y pedir al usuario que lo cree o use deploy manual
+
+**Problema:** MCP Supa_PQNC_AI no responde
+**Solución:** Intentar 2 veces más, si falla reportar error pero NO detener deploy (solo advertir)
+
+**Problema:** No tengo el mensaje del deploy
+**Solución:** Usar mensaje por defecto: "Deploy automático v[X.X.X]"
+
+**Problema:** Usuario canceló a mitad del proceso
+**Solución:** Reportar qué pasos se completaron y qué falta, crear handover parcial
 
 **Si el script falla:**
 - Verificar que la versión tenga el formato correcto
@@ -295,5 +523,108 @@ Ejemplo: B10.1.43N2.5.43
 
 ---
 
-**Última actualización:** 2026-01-22  
-**Versión del rule:** 2.0.0 (Script automatizado)
+## 📚 Referencias Internas
+
+- Script principal: `scripts/deploy-complete.ts`
+- Formato handover: `.cursor/rules/handover-format.mdc`
+- MCP docs: `.cursor/rules/mcp-rules.mdc`
+- Security checks: `.cursor/rules/security-rules.mdc`
+
+---
+
+## 🎓 Guía para el Usuario
+
+### ¿Cómo invocar correctamente este workflow?
+
+**✅ FORMA CORRECTA (Garantiza ejecución completa):**
+```
+deploy completo
+```
+
+O con mensaje personalizado:
+```
+deploy completo con mensaje: Fix búsqueda WhatsApp + Performance
+```
+
+**❌ EVITAR (Puede ser ambiguo):**
+- "documenta y actualiza" → Puede interpretarse solo como actualizar docs
+- "push a git" → Solo hace git push, no AWS ni BD
+- "deploy" → Ambiguo, puede no incluir todos los pasos
+
+### ¿Qué hace exactamente?
+
+1. ✅ Sincroniza documentación a `public/docs/`
+2. ✅ Actualiza versión en `appVersion.ts` y `package.json`
+3. ✅ Hace git commit y push automático
+4. ✅ Deploy a AWS S3 + CloudFront
+5. ✅ Actualiza versión requerida en BD (`system_config`)
+6. ✅ Crea handover con REF único
+7. ✅ Commitea el handover
+8. ✅ Imprime resumen completo
+
+### ¿Cuánto tarda?
+
+- Típico: 1-2 minutos
+- Con muchos archivos: 3-5 minutos
+- CloudFront propagation: +5-10 minutos adicionales
+
+### ¿Puedo cancelar?
+
+Sí, pero el agente reportará qué se completó y qué falta. Tendrás un handover parcial con el estado actual.
+
+### ¿Qué pasa si algo falla?
+
+El agente:
+1. Detecta el error
+2. Reporta qué paso falló
+3. Sugiere soluciones
+4. Crea handover con estado PARCIAL
+5. No continúa pasos siguientes (safe-fail)
+
+---
+
+## 🔐 Seguridad
+
+**Checks automáticos de seguridad:**
+- ✅ Verifica que no se expongan API keys en bundle
+- ✅ Verifica que `system_config` use MCP seguro
+- ✅ Verifica que handover no contenga secretos
+- ✅ Verifica permisos de archivos antes de commit
+
+**Si detecta un issue de seguridad:**
+```
+🚨 SECURITY ISSUE DETECTADO
+
+Tipo: [API key exposure / Credentials in bundle / etc]
+Ubicación: [archivo:línea]
+
+⛔ DEPLOY BLOQUEADO
+🔧 Acción requerida: [pasos para resolver]
+
+El deploy NO continuará hasta resolver el issue.
+```
+
+---
+
+## 📊 Métricas de Éxito
+
+**Un deploy se considera 100% exitoso si:**
+- ✅ Todos los pre-checks pasaron
+- ✅ Script retornó exit code 0
+- ✅ Git push exitoso (retornó "main -> main")
+- ✅ AWS deploy exitoso (retornó "✅ Frontend actualizado")
+- ✅ BD actualizada (MCP retornó "Updated 1 record")
+- ✅ Handover creado y commiteado
+- ✅ Auto-verificación final: 100%
+
+**Métricas típicas:**
+- Pre-checks: ~5 segundos
+- Script ejecución: 30-45 segundos
+- BD update: 1-2 segundos
+- Handover: 5 segundos
+- **Total:** ~1 minuto
+
+---
+
+**Última actualización:** 2026-01-24  
+**Versión del rule:** 3.0.0 (Modo estricto + Pre-checks + Auto-verificación)
