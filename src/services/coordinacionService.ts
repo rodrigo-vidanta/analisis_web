@@ -497,12 +497,16 @@ class CoordinacionService {
   // ============================================
 
   /**
-   * Obtiene todos los ejecutivos de una coordinación
+   * Obtiene todos los usuarios asignables de una coordinación (ejecutivos, coordinadores, supervisores)
+   * 
+   * @param coordinacionId ID de la coordinación
+   * @returns Lista de usuarios activos de la coordinación con roles asignables
    */
   async getEjecutivosByCoordinacion(coordinacionId: string): Promise<Ejecutivo[]> {
     try {
       // Usar user_profiles_v2 (vista segura sin password_hash)
       // NOTA: user_profiles_v2 YA incluye role_name, no necesita JOIN
+      // Incluir ejecutivos, coordinadores y supervisores
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
         .select(`
@@ -522,7 +526,7 @@ class CoordinacionService {
           role_name
         `)
         .eq('coordinacion_id', coordinacionId)
-        .eq('role_name', 'ejecutivo')
+        .in('role_name', ['ejecutivo', 'coordinador', 'supervisor'])
         .eq('is_active', true)
         .order('full_name');
 
@@ -1113,12 +1117,15 @@ class CoordinacionService {
   }
 
   /**
-   * Obtiene todos los ejecutivos (asignados y sin asignación)
-   * Útil para coordinadores que necesitan ver todos los ejecutivos disponibles
+   * Obtiene todos los usuarios asignables (ejecutivos, coordinadores y supervisores)
+   * Útil para filtros de asignación donde cualquiera de estos roles puede tener prospectos
+   * 
+   * @returns Lista de usuarios con roles: ejecutivo, coordinador, supervisor
    */
   async getAllEjecutivos(): Promise<Ejecutivo[]> {
     try {
       // Usar user_profiles_v2 que ya tiene role_name incluido
+      // Incluir ejecutivos, coordinadores y supervisores (todos pueden tener prospectos asignados)
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
         .select(`
@@ -1135,7 +1142,7 @@ class CoordinacionService {
           created_at,
           role_name
         `)
-        .eq('role_name', 'ejecutivo')
+        .in('role_name', ['ejecutivo', 'coordinador', 'supervisor'])
         .order('full_name');
 
       if (error) throw error;
