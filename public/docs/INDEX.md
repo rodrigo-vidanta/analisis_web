@@ -1,8 +1,8 @@
 # 📚 Índice de Documentación - PQNC QA AI Platform
 
-> **Última actualización**: 2026-01-22  
-> **Versión**: v2.5.37  
-> **Total de archivos**: ~138 archivos en docs/
+> **Última actualización**: 2026-01-24  
+> **Versión**: v2.5.40  
+> **Total de archivos**: ~139 archivos en docs/
 
 ---
 
@@ -30,6 +30,7 @@
 | **Ver cambios recientes** | [CHANGELOG.md](../CHANGELOG.md) |
 | **Versiones detalladas** | [VERSIONS.md](../VERSIONS.md) |
 | **Configurar ambiente** | [ENV_VARIABLES_REQUIRED.md](ENV_VARIABLES_REQUIRED.md) |
+| **Hacer deploy completo** | [DEPLOY_QUICK_GUIDE.md](DEPLOY_QUICK_GUIDE.md) ⭐ NUEVO
 
 ---
 
@@ -93,10 +94,11 @@
 - [LIVE_MONITOR_VIEW_DOCUMENTATION.md](LIVE_MONITOR_VIEW_DOCUMENTATION.md)
 - [AUDIO_MONITORING_IMPLEMENTATION.md](AUDIO_MONITORING_IMPLEMENTATION.md)
 
-### Live Chat
+### Live Chat / WhatsApp
 - [../src/components/chat/README.md](../src/components/chat/README.md)
 - [../src/components/chat/CHANGELOG_LIVECHAT.md](../src/components/chat/CHANGELOG_LIVECHAT.md)
 - [LIVE_CHAT_MIGRATION.md](LIVE_CHAT_MIGRATION.md)
+- [FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md](FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md) - ⭐ Fix búsqueda server-side (v2.5.40)
 
 ### Análisis IA
 - [../src/components/analysis/README_ANALISIS_IA.md](../src/components/analysis/README_ANALISIS_IA.md)

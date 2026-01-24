@@ -8,14 +8,15 @@ alwaysApply: true
 
 | MCP | Proyecto | URL | Uso | Estado |
 |-----|----|----|-----|--------|
-| `SupabaseREST` | pqnc_ai (UNIFICADO) | `glsmifhkoaifvaegsozd.supabase.co` | **TODO:** Auth, usuarios, permisos, prospectos, llamadas, WhatsApp, coordinaciones, configuración | ✅ **ACTIVO** (Management API REST) |
-| `Supa_PQNC_AI` | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | Mismo proyecto que SupabaseREST | ⚠️ REQUIERE SETUP (funciones RPC) |
+| **MCPSecureProxy** | pqnc_ai (UNIFICADO) | Edge Function Proxy | **TODO:** Operaciones seguras auditadas | ✅ **RECOMENDADO** (Producción) |
+| `SupabaseREST` | pqnc_ai (UNIFICADO) | `glsmifhkoaifvaegsozd.supabase.co` | **Solo desarrollo:** Acceso directo con Personal Token | ⚠️ Solo debugging |
+| `Supa_PQNC_AI` | pqnc_ai | `glsmifhkoaifvaegsozd.supabase.co` | ❌ **DEPRECADO** (exec_sql eliminado por seguridad) | ⚠️ NO usar |
 | `SystemUI_AuthDB` | system_ui (BACKUP) | `zbylezfyagwrxoecioup.supabase.co` | **SOLO BACKUP** - No usar para datos de producción (migración 2025-01-13) | ⚠️ Solo lectura |
 
-**⚠️ NOTA IMPORTANTE (2026-01-22):** 
-- **Preferir `SupabaseREST`** - No requiere funciones RPC en BD
-- `Supa_PQNC_AI` requiere ejecutar `enable_full_access_mcp.sql` primero
-- Ambos apuntan al mismo proyecto PQNC_AI pero usan APIs diferentes
+**⚠️ CAMBIO IMPORTANTE (2026-01-24):** 
+- **Usar `MCPSecureProxy`** - Edge Function con auditoría y límites
+- `SupabaseREST` solo para debugging (token tiene acceso total a cuenta)
+- `Supa_PQNC_AI` deprecado (función `exec_sql` eliminada por vulnerabilidad)
 
 ## ⛔ MCPs PROHIBIDOS
 

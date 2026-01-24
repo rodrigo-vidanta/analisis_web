@@ -83,10 +83,11 @@ const getProjectId = (): string => {
 };
 
 const ACCESS_TOKEN = getAccessToken();
-const PROJECT_ID = getProjectId();
+let PROJECT_ID = getProjectId(); // Mutable para cambiar entre proyectos
 const API_BASE = 'https://api.supabase.com/v1';
 
-console.error(`[SupabaseREST] Connecting to project: ${PROJECT_ID}`);
+console.error(`[SupabaseREST] Token loaded successfully`);
+console.error(`[SupabaseREST] Default project: ${PROJECT_ID}`);
 
 // ============================================
 // FUNCIONES DE API
@@ -279,6 +280,78 @@ async function backupTable(table: string): Promise<QueryResult> {
   return result;
 }
 
+async function listProjects(): Promise<QueryResult> {
+  try {
+    const response = await fetch(`${API_BASE}/projects`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${ACCESS_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        success: false,
+        error: `HTTP ${response.status}: ${errorText}`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data,
+      rowCount: Array.isArray(data) ? data.length : 0,
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || 'Unknown error',
+    };
+  }
+}
+
+async function switchProject(projectId: string): Promise<QueryResult> {
+  // Validar que el proyecto existe
+  const projects = await listProjects();
+  
+  if (!projects.success) {
+    return projects;
+  }
+
+  const projectExists = Array.isArray(projects.data) && 
+    projects.data.some((p: any) => p.id === projectId || p.ref === projectId);
+
+  if (!projectExists) {
+    return {
+      success: false,
+      error: `Project ${projectId} not found in your account`,
+    };
+  }
+
+  // Cambiar proyecto activo
+  PROJECT_ID = projectId;
+  
+  return {
+    success: true,
+    data: {
+      message: `Switched to project: ${projectId}`,
+      currentProject: PROJECT_ID,
+    },
+  };
+}
+
+async function getCurrentProject(): Promise<QueryResult> {
+  return {
+    success: true,
+    data: {
+      projectId: PROJECT_ID,
+      apiBase: API_BASE,
+    },
+  };
+}
+
 // ============================================
 // MCP SERVER
 // ============================================
@@ -313,8 +386,35 @@ class SupabaseRESTServer {
     this.server.setRequestHandler(ListToolsRequestSchema, async () => ({
       tools: [
         {
+          name: 'list_projects',
+          description: '📋 Lista todos los proyectos de Supabase en tu cuenta',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'switch_project',
+          description: '🔄 Cambia al proyecto especificado (usa ref o id)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              projectId: { type: 'string', description: 'ID o ref del proyecto (ej: glsmifhkoaifvaegsozd)' },
+            },
+            required: ['projectId'],
+          },
+        },
+        {
+          name: 'get_current_project',
+          description: '📍 Muestra el proyecto actualmente seleccionado',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
           name: 'execute_sql',
-          description: 'Ejecuta SQL arbitrario en Supabase (SELECT, INSERT, UPDATE, DELETE, CREATE, etc.)',
+          description: '⚡ Ejecuta SQL arbitrario en Supabase (SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, etc.)',
           inputSchema: {
             type: 'object',
             properties: {
@@ -425,6 +525,20 @@ class SupabaseRESTServer {
         let result: QueryResult;
 
         switch (name) {
+          case 'list_projects':
+            console.error('[SupabaseREST] Listing all projects');
+            result = await listProjects();
+            break;
+
+          case 'switch_project':
+            console.error(`[SupabaseREST] Switching to project: ${args?.projectId}`);
+            result = await switchProject(args?.projectId as string);
+            break;
+
+          case 'get_current_project':
+            result = await getCurrentProject();
+            break;
+
           case 'execute_sql':
             console.error(`[SupabaseREST] Executing: ${args?.description || 'SQL query'}`);
             result = await executeSQL(args?.sql as string);

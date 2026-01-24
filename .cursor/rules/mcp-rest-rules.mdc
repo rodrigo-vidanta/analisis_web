@@ -2,101 +2,174 @@
 alwaysApply: true
 ---
 
-# Reglas del MCP Supabase REST
+# Reglas del MCP Supabase REST (Acceso Completo)
 
 ## 📋 Información del MCP
 
 | Propiedad | Valor |
 |-----------|-------|
 | **Nombre** | `SupabaseREST` |
-| **Tipo** | REST API (no requiere funciones RPC) |
-| **Proyecto** | PQNC_AI (`glsmifhkoaifvaegsozd`) |
-| **Token** | Leído de `.supabase/access_token` |
+| **Tipo** | Management API REST (Acceso Total) |
+| **Token** | Personal Access Token (`.supabase/access_token`) |
+| **Acceso** | **COMPLETO** - Todos los proyectos y operaciones |
+| **Documentación** | `docs/MCP_REST_FULL_ACCESS.md` |
 
-## ⚠️ IMPORTANTE
+## ⚡ Capacidades
 
-**Este MCP reemplaza a `Supa_PQNC_AI`** que usaba funciones RPC (`exec_sql`).
-
-El nuevo MCP:
-- ✅ Usa la Management API REST de Supabase
-- ✅ No requiere funciones RPC en la BD
-- ✅ Lee el token de `.supabase/access_token`
-- ✅ Tiene acceso total de administración
+✅ **Multi-Proyecto:** Listar y cambiar entre proyectos  
+✅ **SQL Completo:** SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER  
+✅ **DDL:** Crear/modificar tablas, funciones, triggers  
+✅ **Sin Restricciones:** Acceso total a Management API
 
 ## 🔧 Herramientas Disponibles
 
-```
-mcp_SupabaseREST_execute_sql       # Ejecutar SQL arbitrario
-mcp_SupabaseREST_query_table       # SELECT con filtros
-mcp_SupabaseREST_insert_data       # INSERT
-mcp_SupabaseREST_update_data       # UPDATE
-mcp_SupabaseREST_delete_data       # DELETE (requiere filtro)
-mcp_SupabaseREST_get_schema        # Ver estructura de BD
-mcp_SupabaseREST_get_table_info    # Detalles de una tabla
-mcp_SupabaseREST_backup_table      # Backup en JSON
-mcp_SupabaseREST_debug_connection  # Verificar conexión
+### Gestión de Proyectos
+
+```typescript
+mcp_SupabaseREST_list_projects()           // 📋 Listar proyectos
+mcp_SupabaseREST_switch_project({          // 🔄 Cambiar proyecto
+  projectId: "glsmifhkoaifvaegsozd"
+})
+mcp_SupabaseREST_get_current_project()     // 📍 Ver proyecto actual
 ```
 
-## 📝 Ejemplos de Uso
-
-### Ejecutar SQL
+### SQL Arbitrario
 
 ```typescript
 mcp_SupabaseREST_execute_sql({
   sql: "SELECT * FROM auth_users LIMIT 5",
   description: "Listar usuarios"
 })
+
+// DDL
+mcp_SupabaseREST_execute_sql({
+  sql: `
+    CREATE TABLE test (
+      id UUID PRIMARY KEY,
+      name TEXT
+    )
+  `,
+  description: "Crear tabla"
+})
 ```
 
-### Consultar tabla
+### Operaciones CRUD
 
 ```typescript
 mcp_SupabaseREST_query_table({
   table: "prospectos",
   select: "id, nombre, telefono",
   filter: { status: "activo" },
-  limit: 10,
+  limit: 50,
   order: "created_at DESC"
 })
-```
 
-### Crear tabla
+mcp_SupabaseREST_insert_data({
+  table: "coordinaciones",
+  data: { nombre: "CDMX Sur", codigo: "CDMX-S" }
+})
 
-```typescript
-mcp_SupabaseREST_execute_sql({
-  sql: `CREATE TABLE nueva_tabla (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nombre TEXT NOT NULL
-  )`,
-  description: "Crear tabla"
+mcp_SupabaseREST_update_data({
+  table: "prospectos",
+  data: { status: "contactado" },
+  filter: { id: "uuid-aqui" }
+})
+
+mcp_SupabaseREST_delete_data({
+  table: "test_data",
+  filter: { id: "uuid-aqui" }
 })
 ```
 
-## 🔒 Seguridad
+### Utilidades
 
-- El Access Token está en `.supabase/access_token` (NO en Git)
-- El token tiene acceso TOTAL a la cuenta Supabase
-- NUNCA compartir ni exponer el token
+```typescript
+mcp_SupabaseREST_get_schema()              // Ver estructura BD
+mcp_SupabaseREST_get_table_info({          // Detalles de tabla
+  table: "prospectos"
+})
+mcp_SupabaseREST_backup_table({            // Backup JSON
+  table: "coordinaciones"
+})
+mcp_SupabaseREST_debug_connection()        // Test conexión
+```
 
-## 📁 Archivos
+## ⚠️ Seguridad
 
-| Archivo | Descripción |
-|---------|-------------|
-| `mcp-supabase-rest-server.ts` | Servidor MCP |
-| `.supabase/access_token` | Token (en .gitignore) |
-| `~/.cursor/mcp.json` | Configuración |
-| `docs/MCP_REST_SETUP.md` | Guía completa |
+### 🔴 Riesgos
 
-## 🔄 Migración desde MCP Antiguo
+Este MCP tiene **ACCESO TOTAL**:
+- Puede eliminar proyectos
+- Puede modificar billing
+- Puede ejecutar DROP DATABASE
+- Sin auditoría de operaciones
 
-| Antes | Ahora |
-|-------|-------|
-| `mcp_Supa_PQNC_AI_pqnc_execute_sql` | `mcp_SupabaseREST_execute_sql` |
-| `mcp_Supa_PQNC_AI_pqnc_query_table` | `mcp_SupabaseREST_query_table` |
-| `mcp_Supa_PQNC_AI_pqnc_insert_data` | `mcp_SupabaseREST_insert_data` |
-| `mcp_Supa_PQNC_AI_pqnc_update_data` | `mcp_SupabaseREST_update_data` |
-| `mcp_Supa_PQNC_AI_pqnc_delete_data` | `mcp_SupabaseREST_delete_data` |
+### ✅ Uso Seguro
+
+- **SOLO** en computadora personal
+- Token en `.supabase/access_token` (chmod 600)
+- **NUNCA** subir a Git
+- **NUNCA** compartir token
+- Para **desarrollo local** únicamente
+
+## 🚀 Setup Rápido
+
+```bash
+# 1. Crear token en: https://supabase.com/dashboard/account/tokens
+
+# 2. Guardar token
+echo "sbp_tu_token" > .supabase/access_token
+chmod 600 .supabase/access_token
+echo ".supabase/access_token" >> .gitignore
+
+# 3. Configurar ~/.cursor/mcp.json
+{
+  "mcpServers": {
+    "SupabaseREST": {
+      "command": "npx",
+      "args": ["-y", "tsx", "/ruta/completa/mcp-supabase-rest-server.ts"],
+      "env": {
+        "SUPABASE_PROJECT_ID": "glsmifhkoaifvaegsozd"
+      }
+    }
+  }
+}
+
+# 4. Reiniciar Cursor (Cmd+Q)
+```
+
+## 🔍 Troubleshooting
+
+### MCP no aparece en Cursor
+
+```bash
+# 1. Limpiar cache
+rm -rf ~/.cursor/projects/.../mcps/user-SupabaseREST/
+
+# 2. Verificar token
+cat .supabase/access_token
+
+# 3. Test manual
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0.0"}}}' | \
+SUPABASE_PROJECT_ID=glsmifhkoaifvaegsozd npx -y tsx mcp-supabase-rest-server.ts
+
+# 4. Reiniciar Cursor completamente
+```
+
+### Token inválido
+
+1. Ir a https://supabase.com/dashboard/account/tokens
+2. Revocar token antiguo
+3. Generar nuevo token
+4. Actualizar `.supabase/access_token`
+
+## 📚 Ver También
+
+- [Documentación Completa](../docs/MCP_REST_FULL_ACCESS.md)
+- [MCP Secure Proxy](../docs/MCP_SECURE_PROXY_SETUP.md) - Alternativa segura para producción
+- [Security Rules](security-rules.mdc)
 
 ---
 
-**Última actualización:** 20 de Enero 2026
+**Última actualización:** 24 de Enero 2026  
+**Estado:** ✅ Funcional - Desarrollo Local

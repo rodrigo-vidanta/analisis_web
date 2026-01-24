@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '7e7bcd7', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
   { hash: '8213ca3', date: '2026-01-22', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '9402dda', date: '2026-01-22', author: 'Team', message: 'v2.5.39: B10.1.39N2.5.39 - Sistema control versiones forzado + actualización automática BD', isRelease: true },
@@ -477,6 +478,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-588', date: '24/01/2026, 13:19', version: 'Incluir coordinadores y supervisores en filtro de ejecutivos', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-243', date: '22/01/2026, 16:35', version: 'B10.1.42N2.5.44', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-887', date: '22/01/2026, 16:29', version: 'B10.1.42N2.5.43', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-129', date: '2026-01-22 20:00', version: 'B10.1.39N2.5.39', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -606,10 +608,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.44', highlight: true },
-  { label: 'Release', value: 'B10.1.42N2.5.44', highlight: false },
+  { label: 'Version', value: 'vIncluir coordinadores y supervisores en filtro de ejecutivos', highlight: true },
+  { label: 'Release', value: 'Incluir coordinadores y supervisores en filtro de ejecutivos', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '22 ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '24 ene 2026', highlight: false },
 ];
 
 // ============================================
