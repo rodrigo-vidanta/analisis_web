@@ -1592,6 +1592,63 @@ const LiveChatCanvas: React.FC = () => {
   // Determinar si necesitamos carga agresiva (búsqueda o filtro no leídos)
   const needsAggressiveLoading = (debouncedSearchTerm.trim().length >= 3) || filterByUnread;
   
+  // ✅ NUEVO: Búsqueda en servidor cuando hay término
+  useEffect(() => {
+    const searchInServer = async () => {
+      if (debouncedSearchTerm.trim().length < 3) return;
+      
+      try {
+        setIsSearchingAllBatches(true);
+        
+        // Llamar a función de búsqueda en servidor
+        const { data: searchResults, error } = await analysisSupabase.rpc('search_dashboard_conversations', {
+          p_search_term: debouncedSearchTerm.trim(),
+          p_user_id: queryUserId,
+          p_is_admin: isAdminRef.current,
+          p_ejecutivo_ids: ejecutivosIdsRef.current.length > 0 ? ejecutivosIdsRef.current : null,
+          p_coordinacion_ids: coordinacionesFilterRef.current || null,
+          p_limit: 100
+        });
+        
+        if (error) {
+          console.warn('⚠️ Búsqueda en servidor no disponible, usando filtrado local');
+          // Fallback a carga agresiva local
+          return;
+        }
+        
+        if (searchResults && searchResults.length > 0) {
+          // Convertir resultados a formato esperado
+          const convertedResults = searchResults.map(conv => 
+            optimizedConversationsService.convertToConversationFormat(conv)
+          );
+          
+          // Actualizar prospectosDataRef con resultados
+          const prospectosMap = optimizedConversationsService.buildProspectosDataMap(searchResults);
+          prospectosMap.forEach((value, key) => {
+            prospectosDataRef.current.set(key, value);
+          });
+          setProspectosDataVersion(prev => prev + 1);
+          
+          // Agregar resultados a la lista (sin duplicados)
+          setConversations(prev => {
+            const existingIds = new Set(prev.map(c => c.id));
+            const newConvs = convertedResults.filter(c => !existingIds.has(c.id));
+            return [...prev, ...newConvs];
+          });
+          
+          console.log(`✅ Búsqueda en servidor: ${searchResults.length} resultados`);
+        }
+        
+        setIsSearchingAllBatches(false);
+      } catch (error) {
+        console.error('Error en búsqueda servidor:', error);
+        setIsSearchingAllBatches(false);
+      }
+    };
+    
+    searchInServer();
+  }, [debouncedSearchTerm]);
+  
   useEffect(() => {
     // Limpiar intervalo anterior
     if (searchLoadIntervalRef.current) {
@@ -2819,7 +2876,16 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       // Si no se encontró en conversaciones cargadas, buscar directamente en BD
-      // Primero buscar en conversaciones_whatsapp (fuente principal)
+      // Obtener el último mensaje para obtener el conversacion_id (ID real de UChat)
+      const { data: lastMessage } = await analysisSupabase
+        .from('mensajes_whatsapp')
+        .select('conversacion_id')
+        .eq('prospecto_id', prospectoId)
+        .order('fecha_hora', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      // Buscar en conversaciones_whatsapp (para metadatos adicionales)
       const { data: waConv, error: waError } = await analysisSupabase
         .from('conversaciones_whatsapp')
         .select('*')
@@ -2833,9 +2899,13 @@ const LiveChatCanvas: React.FC = () => {
         // IMPORTANTE: El id de la conversación DEBE ser el prospecto_id
         // porque loadMessagesAndBlocks busca mensajes por prospecto_id usando conversation.id
         const customerName = waConv.nombre_contacto || prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre';
+        
+        // ✅ Obtener conversation_id del mensaje (ID real de UChat) con fallbacks
+        const uchatId = lastMessage?.conversacion_id || prospecto.id_uchat || waConv.id;
+        
         const processedConv: UChatConversation = {
           id: prospectoId,  // ← CRÍTICO: Debe ser prospecto_id para que carguen los mensajes
-          conversation_id: waConv.id,
+          conversation_id: uchatId, // ✅ ID de UChat para API (prioridad: mensaje > prospecto > waConv)
           customer_phone: waConv.numero_telefono || prospecto.whatsapp,
           customer_name: customerName,
           nombre_contacto: customerName,
@@ -2849,7 +2919,8 @@ const LiveChatCanvas: React.FC = () => {
           message_count: 0,
           metadata: {
             prospect_id: prospectoId,
-            prospecto_id: prospectoId
+            prospecto_id: prospectoId,
+            id_uchat: uchatId
           }
         };
 
@@ -3210,6 +3281,7 @@ const LiveChatCanvas: React.FC = () => {
           conversations.push({
             id: lastMessage.conversacion_id || prospectoId, // Usar conversacion_id o prospecto_id como fallback
             prospecto_id: prospectoId,
+            conversation_id: lastMessage.conversacion_id || prospecto?.id_uchat || '', // ✅ ID real de UChat para API (priority: mensaje.conversacion_id > prospectos.id_uchat)
             nombre_contacto: prospecto?.nombre_completo || 'Sin nombre',
             customer_name: prospecto?.nombre_completo || 'Sin nombre', // ✅ Agregar para UI
             customer_phone: prospecto?.whatsapp || '',
@@ -3227,7 +3299,8 @@ const LiveChatCanvas: React.FC = () => {
           message_count: count || 0,
             // Agregar metadata para compatibilidad
             metadata: {
-              id_uchat: prospecto?.id_uchat || ''
+              id_uchat: lastMessage.conversacion_id || prospecto?.id_uchat || '',
+              prospect_id: prospectoId
             }
           });
         }
@@ -5307,6 +5380,16 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
 
   const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
+    // ⚠️ VALIDACIÓN CRÍTICA: Verificar que uchatId existe
+    if (!uchatId || uchatId === 'undefined' || uchatId === 'null') {
+      console.error('❌ No se puede pausar bot: uchat_id no válido', { uchatId });
+      toast.error('No se puede pausar el bot para esta conversación.', {
+        duration: 4000,
+        icon: '⚠️'
+      });
+      return false;
+    }
+    
     try {
       // ⚠️ LÓGICA DE RESPETO DE PAUSAS ACTIVAS
       // Si force = false, verificar si ya existe una pausa activa antes de sobreescribir
@@ -5435,6 +5518,16 @@ const LiveChatCanvas: React.FC = () => {
 
 
   const resumeBot = async (uchatId: string): Promise<boolean> => {
+    // ⚠️ VALIDACIÓN CRÍTICA: Verificar que uchatId existe
+    if (!uchatId || uchatId === 'undefined' || uchatId === 'null') {
+      console.error('❌ No se puede reactivar bot: uchat_id no válido', { uchatId });
+      toast.error('No se puede reactivar el bot para esta conversación.', {
+        duration: 4000,
+        icon: '⚠️'
+      });
+      return false;
+    }
+    
     try {
       // Crear AbortController para timeout de 6 segundos
       const controller = new AbortController();
@@ -6286,10 +6379,17 @@ const LiveChatCanvas: React.FC = () => {
       
       try {
         filtered = filtered.filter(conv => {
-          // Manejo seguro de strings con fallbacks
-          const customerName = conv.customer_name || conv.nombre_contacto || '';
-          const customerPhone = conv.customer_phone || conv.telefono || conv.numero_telefono || '';
-          const customerEmail = conv.customer_email || conv.email || '';
+          // ✅ ACTUALIZADO: Buscar en prospectosDataRef (datos del prospecto via JOIN)
+          const prospectId = conv.prospecto_id || conv.id;
+          const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+          
+          // Obtener datos del prospecto (Single Source of Truth)
+          const customerName = prospectoData?.nombre_completo || prospectoData?.nombre_whatsapp || 
+                              conv.customer_name || conv.nombre_contacto || '';
+          const customerPhone = prospectoData?.whatsapp || 
+                               conv.customer_phone || conv.telefono || conv.numero_telefono || '';
+          const customerEmail = prospectoData?.email || 
+                               conv.customer_email || conv.email || '';
           
           // Normalizar nombre para búsqueda sin acentos (lulu → lulú, jose → josé, etc.)
           const nameNoAccents = normalizeText(customerName);
@@ -7160,8 +7260,15 @@ const LiveChatCanvas: React.FC = () => {
                   // Obtener uchatId de manera consistente
                   // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
                   const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
-                  const status = uchatId ? botPauseStatus[uchatId] : undefined;
-                  const timeRemaining = uchatId ? getBotPauseTimeRemaining(uchatId) : null;
+                  
+                  // ⚠️ PROTECCIÓN: Solo mostrar botón si existe uchatId
+                  if (!uchatId) {
+                    console.warn('⚠️ No se puede pausar bot: uchat_id no disponible para prospecto', selectedConversation.id);
+                    return null;
+                  }
+                  
+                  const status = botPauseStatus[uchatId];
+                  const timeRemaining = getBotPauseTimeRemaining(uchatId);
                   const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
                   
                   return (
@@ -8156,8 +8263,8 @@ const LiveChatCanvas: React.FC = () => {
                   user_id: user?.id || null,
                   justificacion: selectedCallForDelete.justificacion_llamada,
                   fecha_programada: selectedCallForDelete.fecha_programada,
-                  customer_phone: selectedConversation.customer_phone,
-                  customer_name: selectedConversation.customer_name || selectedCallForDelete.prospecto_nombre,
+                  customer_phone: selectedCallForDelete.prospecto_whatsapp,
+                  customer_name: selectedCallForDelete.prospecto_nombre,
                   conversation_id: selectedConversation.id
                 }
               );

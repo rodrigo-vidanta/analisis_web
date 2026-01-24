@@ -20,7 +20,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import type { UIErrorLogAnnotation, UIErrorLogTag, UIErrorLogAIAnalysis } from '../../config/supabaseLogMonitor';
 import { supabaseLogMonitor } from '../../config/supabaseLogMonitor';
-import { Search, Filter, X, MessageSquare, Phone, Monitor, ChevronUp, ChevronDown, ChevronsUpDown, Plus, Minus, User, Layers } from 'lucide-react';
+import { Search, Filter, X, MessageSquare, Phone, Monitor, ChevronUp, ChevronDown, ChevronsUpDown, Plus, Minus, User, Layers, AlertCircle } from 'lucide-react';
+import CreateTicketFromLogModal from './CreateTicketFromLogModal';
 
 Chart.register(...registerables);
 
@@ -108,6 +109,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   const [newTagName, setNewTagName] = useState('');
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [groupByType, setGroupByType] = useState(true);
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
 
   // OPTIMIZACIÓN: useTransition para actualizaciones no urgentes
   const [isPending, startTransition] = useTransition();
@@ -1576,7 +1578,17 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                                   </span>
                                 </div>
                               )}
-                              {!hasAnnotations && !hasAIAnalysis && (
+                              {(log as any).has_ticket && (
+                                <div className="group relative">
+                                  <svg className="w-4 h-4 text-emerald-500 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                  </svg>
+                                  <span className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+                                    Tiene ticket: {(log as any).ticket_number || 'N/A'}
+                                  </span>
+                                </div>
+                              )}
+                              {!hasAnnotations && !hasAIAnalysis && !(log as any).has_ticket && (
                                 <span className="text-gray-300 dark:text-gray-600">—</span>
                               )}
                             </div>
@@ -1728,9 +1740,19 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                         {formatDate(selectedLog.timestamp)}
                       </p>
                     </div>
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
+                    <div className="flex items-center gap-2">
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        onClick={() => setShowCreateTicketModal(true)}
+                        className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-red-600 rounded-xl hover:from-orange-700 hover:to-red-700 transition-all duration-200 flex items-center gap-2"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                        Crear Ticket
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                           onClick={() => {
                             setShowLogDetail(false);
                             // Limpiar datos al cerrar el modal
@@ -1739,12 +1761,13 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
                             setAnnotations([]);
                             setTags([]);
                           }}
-                      className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </motion.button>
+                        className="w-10 h-10 rounded-xl flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </motion.button>
+                    </div>
                   </div>
                 </div>
 
@@ -2015,6 +2038,15 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Modal de Crear Ticket desde Log */}
+        {showCreateTicketModal && selectedLog && (
+          <CreateTicketFromLogModal
+            isOpen={showCreateTicketModal}
+            onClose={() => setShowCreateTicketModal(false)}
+            logData={selectedLog}
+          />
+        )}
       </div>
     </div>
   );

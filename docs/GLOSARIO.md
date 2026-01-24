@@ -1,7 +1,7 @@
 # 📖 Glosario de Términos — PQNC QA AI Platform
 
-**Última actualización:** 22 de Enero 2026  
-**Versión:** 1.0.0
+**Última actualización:** 24 de Enero 2026  
+**Versión:** 1.1.0
 
 ---
 
@@ -203,6 +203,156 @@
 **Uso:** Agentes de voz (Natalia, etc.) para llamadas de ventas.
 
 **Integración:** Webhooks a Edge Functions, análisis en PQNC_AI.
+
+---
+
+### RPC (Remote Procedure Call)
+**Definición:** Mecanismo de Supabase/PostgreSQL para ejecutar funciones del servidor desde el cliente.
+
+**Sintaxis:**
+```typescript
+const { data, error } = await supabase.rpc('nombre_funcion', {
+  parametro1: valor1,
+  parametro2: valor2
+});
+```
+
+**Ventajas:**
+- Ejecución en servidor (más rápido, más seguro)
+- Acceso a lógica compleja de PostgreSQL
+- Bypass controlado de RLS con `SECURITY DEFINER`
+
+**Ejemplo en PQNC:**
+```sql
+-- Función RPC para búsqueda server-side
+CREATE FUNCTION search_dashboard_conversations(
+  p_search_term TEXT,
+  p_is_admin BOOLEAN,
+  p_limit INTEGER
+) RETURNS TABLE (...) AS $$
+  -- Lógica SQL
+$$;
+```
+
+**Ver:** [FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md](FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md)
+
+---
+
+### Server-Side Search
+**Definición:** Búsqueda ejecutada en el servidor de base de datos, no en el navegador.
+
+**Ventajas vs Client-Side:**
+- Performance: <1s vs 30s+
+- Escalabilidad: Ilimitado vs max 2500 registros
+- Memoria: ~100KB vs ~50MB transferidos
+- Cobertura: 100% vs 92% de datos
+
+**Implementación en PQNC:**
+```typescript
+// Llama a función RPC en servidor
+const { data } = await supabase.rpc('search_dashboard_conversations', {
+  p_search_term: 'Rosario'
+});
+// Retorna solo resultados (no carga 2388 conversaciones)
+```
+
+**Contraste con Client-Side:**
+```typescript
+// ❌ Client-side: Carga TODO, filtra en navegador
+const { data: all } = await supabase.from('prospectos').select('*');
+const filtered = all.filter(p => p.nombre.includes(searchTerm));
+```
+
+**Ver:** [FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md](FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md)
+
+---
+
+### Client-Side Search
+**Definición:** Búsqueda ejecutada en el navegador después de cargar todos los datos.
+
+**Limitaciones:**
+- Consume mucha memoria (datos en RAM)
+- Lento para datasets grandes (>1000 registros)
+- No escala (límite ~2500 registros)
+- Error `ERR_INSUFFICIENT_RESOURCES` si datos > memoria disponible
+
+**Cuándo usar:**
+- Datasets pequeños (<100 registros)
+- Datos ya cargados en memoria
+- Búsqueda en tiempo real mientras se escribe
+
+**Cuándo NO usar:**
+- Datasets grandes (>1000 registros)
+- Primera carga de datos
+- Búsquedas complejas con JOINs
+
+**Ver:** [FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md](FIX_BUSQUEDA_WHATSAPP_SERVER_SIDE.md)
+
+---
+
+### SECURITY DEFINER
+**Definición:** Modificador de funciones PostgreSQL que ejecuta la función con permisos del owner, no del caller.
+
+**Sintaxis:**
+```sql
+CREATE FUNCTION mi_funcion() 
+RETURNS TABLE (...)
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ← Ejecuta con permisos del owner
+AS $$
+  -- Lógica
+$$;
+```
+
+**Uso en PQNC:**
+- Bypass controlado de RLS en funciones RPC
+- Permite búsquedas a usuarios no-admin sin exponer todos los datos
+- La función implementa su propia lógica de permisos
+
+**Ejemplo:**
+```sql
+-- Función con SECURITY DEFINER
+CREATE FUNCTION search_dashboard_conversations(...)
+SECURITY DEFINER
+AS $$
+  -- Implementa filtros de permisos internamente
+  WHERE (
+    p_is_admin = TRUE OR  -- Admin ve todo
+    p.ejecutivo_id = ANY(p_ejecutivo_ids) OR  -- Solo asignados
+    p.coordinacion_id = ANY(p_coordinacion_ids)  -- Solo coordinación
+  )
+$$;
+```
+
+**Seguridad:**
+- ⚠️ Requiere cuidado: función tiene acceso total a BD
+- ✅ Implementar validaciones internas de permisos
+- ✅ Auditar todas las funciones con `SECURITY DEFINER`
+
+**Ver:** [ARQUITECTURA_SEGURIDAD_2026.md](ARQUITECTURA_SEGURIDAD_2026.md)
+
+---
+
+### Management API (Supabase)
+**Definición:** API REST de Supabase para operaciones administrativas (crear tablas, ejecutar SQL, gestionar usuarios, etc).
+
+**URL:** `https://api.supabase.com/v1/projects/{project_ref}/...`
+
+**Autenticación:** Token de acceso personal (`.supabase/access_token`)
+
+**Endpoints usados en PQNC:**
+- `POST /database/query` - Ejecutar SQL arbitrario
+- `GET /database/tables` - Listar tablas
+- `POST /auth/users` - Crear usuarios
+
+**Ejemplo:**
+```bash
+curl -X POST https://api.supabase.com/v1/projects/glsmifhkoaifvaegsozd/database/query \
+  -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+  -d '{"query": "SELECT * FROM prospectos LIMIT 10"}'
+```
+
+**Ver:** [MCP_REST_SETUP.md](MCP_REST_SETUP.md)
 
 ---
 

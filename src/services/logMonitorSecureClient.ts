@@ -70,6 +70,7 @@ class LogMonitorQueryBuilder<T = unknown> {
   private rangeStart: number | null = null;
   private rangeEnd: number | null = null;
   private singleResult: boolean = false;
+  private maybeSingleResult: boolean = false; // Nuevo: permite 0 o 1
   private countOption: 'exact' | null = null;
   private headOnly: boolean = false;
 
@@ -175,11 +176,13 @@ class LogMonitorQueryBuilder<T = unknown> {
 
   single(): this {
     this.singleResult = true;
+    this.maybeSingleResult = false;
     return this;
   }
 
   maybeSingle(): this {
-    this.singleResult = true;
+    this.maybeSingleResult = true;
+    this.singleResult = false;
     return this;
   }
 
@@ -265,8 +268,10 @@ class LogMonitorQueryBuilder<T = unknown> {
 
       // Ejecutar
       let result;
-      if (this.singleResult) {
+      if (this.maybeSingleResult) {
         result = await query.maybeSingle();
+      } else if (this.singleResult) {
+        result = await query.single();
       } else {
         result = await query;
       }
@@ -319,6 +324,7 @@ class LogMonitorQueryBuilder<T = unknown> {
             order: orderStr,
             limit: this.limitCount || (this.rangeEnd !== null ? this.rangeEnd - (this.rangeStart || 0) + 1 : undefined),
             single: this.singleResult,
+            maybeSingle: this.maybeSingleResult,
           }),
         }
       );

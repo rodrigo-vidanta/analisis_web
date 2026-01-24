@@ -692,6 +692,13 @@ interface AnalysisRecord {
   prospecto_whatsapp?: string;
   prospecto_ciudad?: string;
   
+  // Datos de asignación (para AssignmentBadge)
+  coordinacion_id?: string;
+  coordinacion_codigo?: string;
+  coordinacion_nombre?: string;
+  ejecutivo_id?: string;
+  ejecutivo_nombre?: string;
+  
   // Propiedades para agrupamiento
   isGroupMain?: boolean;
   isGroupSub?: boolean;
@@ -1136,6 +1143,14 @@ const AnalysisIAComplete: React.FC = () => {
           // Filtrar análisis para incluir solo los que tienen prospectos permitidos
           const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
           
+          // Obtener IDs únicos de coordinaciones y ejecutivos para cargar en batch
+          const coordinacionIds = [...new Set(prospectosData.map(p => p.coordinacion_id).filter(Boolean))];
+          const ejecutivoIds = [...new Set(prospectosData.map(p => p.ejecutivo_id).filter(Boolean))];
+          
+          // Cargar coordinaciones y ejecutivos en batch (optimización)
+          const coordinacionesMap = await coordinacionService.getCoordinacionesByIds(coordinacionIds);
+          const ejecutivosMap = await coordinacionService.getEjecutivosByIds(ejecutivoIds);
+          
           enrichedData = (analysisData || []).map(analysis => {
             const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
             const prospecto = prospectosData.find(p => p.id === llamada?.prospecto);
@@ -1145,6 +1160,10 @@ const AnalysisIAComplete: React.FC = () => {
               return null;
             }
             
+            // Obtener info de coordinación y ejecutivo desde los maps
+            const coordinacion = prospecto?.coordinacion_id ? coordinacionesMap.get(prospecto.coordinacion_id) : null;
+            const ejecutivo = prospecto?.ejecutivo_id ? ejecutivosMap.get(prospecto.ejecutivo_id) : null;
+            
             return {
               ...analysis,
               ...llamada,
@@ -1152,7 +1171,13 @@ const AnalysisIAComplete: React.FC = () => {
                                `${prospecto?.nombre || ''} ${prospecto?.apellido_paterno || ''} ${prospecto?.apellido_materno || ''}`.trim() ||
                                'Prospecto sin nombre',
               prospecto_whatsapp: prospecto?.whatsapp,
-              prospecto_ciudad: prospecto?.ciudad_residencia
+              prospecto_ciudad: prospecto?.ciudad_residencia,
+              // ✅ CORRECCIÓN: Agregar campos de asignación para AssignmentBadge
+              coordinacion_id: prospecto?.coordinacion_id,
+              coordinacion_codigo: coordinacion?.codigo,
+              coordinacion_nombre: coordinacion?.nombre,
+              ejecutivo_id: prospecto?.ejecutivo_id,
+              ejecutivo_nombre: ejecutivo?.full_name || ejecutivo?.nombre_completo || ejecutivo?.nombre
             };
           }).filter((item): item is NonNullable<typeof item> => item !== null);
         }
@@ -2039,6 +2064,9 @@ const AnalysisIAComplete: React.FC = () => {
                       <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Prospecto
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                        Asignaciones
+                      </th>
                       <th 
                         onClick={() => handleSort('created_at')}
                         className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
@@ -2150,6 +2178,9 @@ const AnalysisIAComplete: React.FC = () => {
                               </div>
                             </div>
                           </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <AssignmentBadge call={call as any} variant="compact" />
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
                           <div>
                             {new Date(call.fecha_llamada || call.created_at).toLocaleDateString('es-MX')}

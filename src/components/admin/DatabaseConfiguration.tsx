@@ -92,7 +92,7 @@ const DatabaseConfiguration: React.FC = () => {
           break;
         case 'pqnc':
           // Probar tabla de usuarios (la que sabemos que existe)
-          testQuery = client.from('auth_users_safe').select('count').limit(1);
+          testQuery = client.from('user_profiles_v2').select('count').limit(1);
           break;
         case 'natalia':
           // Probar tabla específica de análisis

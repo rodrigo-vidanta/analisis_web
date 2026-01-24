@@ -62,6 +62,7 @@ interface ProxyRequest {
   order?: string;
   limit?: number;
   single?: boolean;
+  maybeSingle?: boolean; // Nuevo: permite 0 o 1 resultado
 }
 
 // CORS headers
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
 
     // Parsear body
     const body: ProxyRequest = await req.json();
-    const { database, operation, table, select, data, filters, order, limit, single } = body;
+    const { database, operation, table, select, data, filters, order, limit, single, maybeSingle } = body;
 
     // Validar database
     if (!database || !DB_URLS[database]) {
@@ -280,9 +281,14 @@ Deno.serve(async (req) => {
 
     // Ejecutar query
     let result;
-    if (single) {
+    if (maybeSingle) {
+      // maybeSingle: permite 0 o 1 resultado (no falla si está vacío)
+      result = await query.maybeSingle();
+    } else if (single) {
+      // single: requiere exactamente 1 resultado
       result = await query.single();
     } else {
+      // Múltiples resultados
       result = await query;
     }
 

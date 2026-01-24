@@ -23,7 +23,7 @@ interface AIDivisionMember {
 import { APP_VERSION } from '../config/appVersion';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.39: Fix coordinaciones múltiples coordinadores + cierre automático modal
+  // Versión actual - v2.5.45: Fix búsqueda WhatsApp server-side + Performance optimization
   const version = APP_VERSION;
   
   // Legacy feature flag check (deprecated)
@@ -58,7 +58,7 @@ const Footer: React.FC = () => {
       try {
         // Obtener usuarios de la vista segura (sin password_hash)
         const { data: users, error: usersError } = await supabaseSystemUI
-          .from('auth_users_safe')
+          .from('user_profiles_v2')
           .select('id, email, full_name')
           .in('id', AI_DIVISION_USER_IDS);
         

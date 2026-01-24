@@ -154,14 +154,15 @@ VITE_ANALYSIS_SUPABASE_SERVICE_KEY=eyJ...service_role...
 
 ### Vistas Seguras (Solo Usuarios Autenticados)
 
-**⚠️ ACTUALIZACIÓN 2026-01-16:** Todas las vistas requieren autenticación (`authenticated` role)
+**⚠️ ACTUALIZACIÓN 2026-01-24:** Vista principal `user_profiles_v2` (consolidada)
 
 | Vista | Descripción | Acceso |
 |-------|-------------|--------|
-| `auth_users_safe` | Datos de usuarios SIN `password_hash` | ✅ Solo authenticated |
-| `api_auth_tokens_safe` | Metadatos de tokens SIN `token_value` | ✅ Solo authenticated |
 | `user_profiles_v2` | Perfiles completos SIN `password_hash` | ✅ Solo authenticated |
+| `api_auth_tokens_safe` | Metadatos de tokens SIN `token_value` | ✅ Solo authenticated |
 | **Todas las vistas** (23 total) | Analytics, WhatsApp, Llamadas, etc. | ✅ Solo authenticated |
+
+**Nota:** La vista `auth_users_safe` fue consolidada en `user_profiles_v2` (2026-01-24)
 
 **Implementación:**
 - `REVOKE ALL` de rol `anon` en todas las vistas
@@ -258,21 +259,20 @@ const { data } = await supabase.from('api_auth_tokens_safe').select('module_name
 // ❌ INCORRECTO - La tabla está bloqueada por RLS
 const { data } = await supabase.from('auth_users').select('*');
 
-// ✅ CORRECTO - Usar vista segura (sin password_hash)
-const { data } = await supabase.from('auth_users_safe').select('*');
-
-// ✅ CORRECTO - Usar vista de perfiles con role info (sin password_hash)
+// ✅ CORRECTO - Usar vista user_profiles_v2 (sin password_hash)
 const { data } = await supabase.from('user_profiles_v2').select('*');
 
 // ✅ CORRECTO - Usar Edge Function para operaciones admin
 await authAdminProxyService.updateUserField(userId, 'is_operativo', true);
 
-// ❌ INCORRECTO - Vista eliminada (exponía password_hash)
+// ❌ INCORRECTO - Vistas eliminadas (exponían password_hash o consolidadas)
 const { data } = await supabase.from('auth_user_profiles').select('*'); // ELIMINADA 2026-01-16
+const { data } = await supabase.from('auth_users_safe').select('*'); // CONSOLIDADA en user_profiles_v2 (2026-01-24)
 ```
 
 ---
 
 **⚠️ IMPORTANTE:** Cualquier violación de estas reglas puede exponer credenciales de producción y comprometer la seguridad del sistema.
 
-**Última auditoría:** 16 de Enero 2026 - ✅ APROBADA
+**Última auditoría:** 16 de Enero 2026 - ✅ APROBADA  
+**Última actualización:** 24 de Enero 2026 - Migración `auth_users_safe` → `user_profiles_v2`

@@ -43,6 +43,7 @@ class ScheduledCallsService {
   /**
    * Obtiene counts de llamadas por día para el calendario (optimizado)
    * Solo trae el conteo, no los datos completos
+   * IMPORTANTE: Aplica filtros de permisos según el rol del usuario
    */
   async getCallsCountByMonth(
     userId: string,
@@ -57,22 +58,111 @@ class ScheduledCallsService {
       const startISO = startDate.toISOString();
       const endISO = endDate.toISOString();
 
-      // Consulta simple sin JOINs para counts
-      const { data, error } = await analysisSupabase
+      // Obtener filtros de permisos
+      const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+      const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+      const permissions = await permissionsService.getUserPermissions(userId);
+      const isAdminOrOperativo = permissions?.role === 'admin' || permissions?.role === 'administrador_operativo';
+      const isCoordinadorCalidad = await permissionsService.isCoordinadorCalidad(userId);
+
+      // Consulta de llamadas del mes con JOIN a prospectos para filtrar
+      let query = analysisSupabase
         .from('llamadas_programadas')
-        .select('fecha_programada, estatus')
+        .select('fecha_programada, estatus, prospecto')
         .gte('fecha_programada', startISO)
         .lt('fecha_programada', endISO);
+
+      const { data: callsData, error } = await query;
 
       if (error) {
         console.error('Error obteniendo counts por mes:', error);
         return {};
       }
 
+      let filteredCalls = callsData || [];
+
+      // Aplicar filtros de permisos (igual que en getScheduledCalls)
+      if (!isAdminOrOperativo && !isCoordinadorCalidad) {
+        if (ejecutivoFilter) {
+          // Ejecutivo: filtrar por prospectos asignados
+          const prospectoIds = [...new Set(callsData?.map(c => c.prospecto).filter(Boolean) || [])];
+          
+          if (prospectoIds.length === 0) {
+            return {};
+          }
+
+          // Cargar prospectos en batches
+          const BATCH_SIZE = 100;
+          const prospectosResults: any[] = [];
+          for (let i = 0; i < prospectoIds.length; i += BATCH_SIZE) {
+            const batch = prospectoIds.slice(i, i + BATCH_SIZE);
+            const { data } = await analysisSupabase
+              .from('prospectos')
+              .select('id, ejecutivo_id')
+              .in('id', batch);
+            if (data) prospectosResults.push(...data);
+          }
+
+          // Obtener ejecutivos donde este usuario es backup
+          const { data: ejecutivosConBackup } = await supabaseSystemUI
+            .from('user_profiles_v2')
+            .select('id')
+            .eq('backup_id', ejecutivoFilter)
+            .eq('has_backup', true);
+
+          const ejecutivosIds = [ejecutivoFilter];
+          if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
+            ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
+          }
+
+          const prospectosMap = new Map(prospectosResults.map(p => [p.id, p]));
+          
+          // Filtrar llamadas de prospectos asignados al ejecutivo o donde es backup
+          filteredCalls = callsData?.filter(call => {
+            if (!call.prospecto) return false;
+            const prospecto = prospectosMap.get(call.prospecto);
+            return prospecto?.ejecutivo_id && ejecutivosIds.includes(String(prospecto.ejecutivo_id));
+          }) || [];
+          
+        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+          // Coordinador/Supervisor: filtrar por coordinaciones
+          const prospectoIds = [...new Set(callsData?.map(c => c.prospecto).filter(Boolean) || [])];
+          
+          if (prospectoIds.length === 0) {
+            return {};
+          }
+
+          // Cargar prospectos en batches
+          const BATCH_SIZE = 100;
+          const prospectosResults: any[] = [];
+          for (let i = 0; i < prospectoIds.length; i += BATCH_SIZE) {
+            const batch = prospectoIds.slice(i, i + BATCH_SIZE);
+            const { data } = await analysisSupabase
+              .from('prospectos')
+              .select('id, coordinacion_id')
+              .in('id', batch);
+            if (data) prospectosResults.push(...data);
+          }
+
+          const prospectosMap = new Map(prospectosResults.map(p => [p.id, p]));
+          
+          // Filtrar llamadas de prospectos de sus coordinaciones
+          filteredCalls = callsData?.filter(call => {
+            if (!call.prospecto) return false;
+            const prospecto = prospectosMap.get(call.prospecto);
+            return prospecto?.coordinacion_id && coordinacionesFilter.includes(prospecto.coordinacion_id);
+          }) || [];
+          
+        } else {
+          // Sin permisos
+          return {};
+        }
+      }
+
       // Agrupar por día (en zona horaria Guadalajara)
       const countsByDay: Record<string, { total: number; programadas: number; ejecutadas: number }> = {};
       
-      (data || []).forEach(call => {
+      filteredCalls.forEach(call => {
         // Convertir UTC a Guadalajara (UTC-6)
         const callDateUTC = new Date(call.fecha_programada);
         const mexicoTimestamp = callDateUTC.getTime() - (6 * 60 * 60 * 1000);

@@ -83,7 +83,11 @@ interface AdminTicketsPanelProps {
 
 const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNotificationCountChange }) => {
   const { user } = useAuth();
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [tickets, setTickets] = useState<(SupportTicket & { 
+    hasNewBadge: boolean; 
+    hasMessageBadge: boolean;
+    unreadCount: number;
+  })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
@@ -113,15 +117,19 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
     try {
-      const filters: any = {};
-      if (statusFilter !== 'all') filters.status = [statusFilter];
-      if (typeFilter !== 'all') filters.type = typeFilter;
-
-      const { tickets: data, error } = await ticketService.getAllTickets(filters);
+      if (!user?.id) return;
+      
+      const { tickets: data, error } = await ticketService.getTicketsWithBadges(user.id);
       if (error) {
         toast.error('Error al cargar tickets');
       } else {
-        setTickets(data);
+        // Aplicar filtros manualmente
+        const filtered = data.filter(t => {
+          if (statusFilter !== 'all' && t.status !== statusFilter) return false;
+          if (typeFilter !== 'all' && t.type !== typeFilter) return false;
+          return true;
+        });
+        setTickets(filtered);
       }
 
       const { stats: statsData } = await ticketService.getTicketStats();
@@ -131,7 +139,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
     } finally {
       setIsLoading(false);
     }
-  }, [statusFilter, typeFilter]);
+  }, [statusFilter, typeFilter, user?.id]);
 
   useEffect(() => {
     loadTickets();
@@ -154,10 +162,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
   const loadTicketDetails = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
     setActiveTab('details');
+    
+    // ✅ NUEVO: Marcar como visto
     if (user?.id) {
-      await ticketService.markTicketNotificationsAsRead(user.id, ticket.id);
+      await ticketService.markTicketAsViewed(ticket.id, user.id);
+      // Recargar para actualizar badges
+      loadTickets();
       loadNotificationCount();
     }
+    
     const [commentsResult, historyResult] = await Promise.all([
       ticketService.getTicketComments(ticket.id),
       ticketService.getTicketHistory(ticket.id)
@@ -206,6 +219,21 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
         setIsInternalComment(false);
         const { comments: newComments } = await ticketService.getTicketComments(selectedTicket.id);
         setComments(newComments);
+        
+        // ✅ NUEVO: Auto-cambio a "en_progreso" si está "abierto" y admin comenta
+        if (!isInternalComment && selectedTicket.status === 'abierto') {
+          await ticketService.updateTicketStatus(
+            selectedTicket.id, 
+            'en_progreso', 
+            user.id, 
+            user.full_name || user.email, 
+            'Auto-cambio al enviar respuesta'
+          );
+          setSelectedTicket({ ...selectedTicket, status: 'en_progreso' });
+          toast.success('Ticket movido a En Progreso', { icon: '🔄' });
+        }
+        
+        loadTickets();
       }
     } catch (error) {
       toast.error('Error al enviar');
@@ -401,6 +429,21 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                           <span className="text-xs font-mono font-semibold text-indigo-600 dark:text-indigo-400">
                             {ticket.ticket_number}
                           </span>
+                          
+                          {/* ✅ NUEVO: Badge "Nuevo" */}
+                          {ticket.hasNewBadge && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500 text-white animate-pulse">
+                              NUEVO
+                            </span>
+                          )}
+                          
+                          {/* ✅ NUEVO: Badge "Mensaje" */}
+                          {!ticket.hasNewBadge && ticket.hasMessageBadge && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500 text-white flex items-center gap-1">
+                              💬 {ticket.unreadCount}
+                            </span>
+                          )}
+                          
                           <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
                             ticket.type === 'reporte_falla' 
                               ? 'bg-red-100 dark:bg-red-900/30 text-red-600' 
@@ -544,6 +587,63 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                           {selectedTicket.description}
                         </p>
                       </div>
+
+                      {/* Información del Log (si viene de log) */}
+                      {selectedTicket.log_id && selectedTicket.form_data?.source === 'log_monitor' && (
+                        <div className="p-4 bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-900/10 dark:to-red-900/10 rounded-2xl border-2 border-orange-200 dark:border-orange-800">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="text-xs font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wider flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              Creado desde Log del Sistema
+                            </h4>
+                            <span className="text-[10px] px-2 py-1 bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200 rounded-full font-bold">
+                              LOG ID: {selectedTicket.log_id.substring(0, 8)}
+                            </span>
+                          </div>
+                          <div className="grid gap-2">
+                            {selectedTicket.form_data?.ambiente && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <span className="text-orange-600 dark:text-orange-400 font-medium min-w-[120px]">Ambiente:</span>
+                                <span className="text-orange-800 dark:text-orange-200 font-mono text-xs">{selectedTicket.form_data.ambiente}</span>
+                              </div>
+                            )}
+                            {selectedTicket.form_data?.log_timestamp && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <span className="text-orange-600 dark:text-orange-400 font-medium min-w-[120px]">Timestamp:</span>
+                                <span className="text-orange-800 dark:text-orange-200 font-mono text-xs">
+                                  {new Date(selectedTicket.form_data.log_timestamp).toLocaleString('es-MX')}
+                                </span>
+                              </div>
+                            )}
+                            {selectedTicket.form_data?.workflow_id && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <span className="text-orange-600 dark:text-orange-400 font-medium min-w-[120px]">Workflow ID:</span>
+                                <span className="text-orange-800 dark:text-orange-200 font-mono text-xs">{selectedTicket.form_data.workflow_id}</span>
+                              </div>
+                            )}
+                            {selectedTicket.form_data?.execution_id && (
+                              <div className="flex items-start gap-3 text-sm">
+                                <span className="text-orange-600 dark:text-orange-400 font-medium min-w-[120px]">Execution ID:</span>
+                                <span className="text-orange-800 dark:text-orange-200 font-mono text-xs">{selectedTicket.form_data.execution_id}</span>
+                              </div>
+                            )}
+                            {selectedTicket.form_data?.mensaje_completo && (
+                              <div className="mt-2">
+                                <span className="text-orange-600 dark:text-orange-400 font-medium text-sm block mb-2">Mensaje Completo:</span>
+                                <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-orange-200 dark:border-orange-800 max-h-32 overflow-y-auto scrollbar-thin">
+                                  <pre className="text-xs text-orange-900 dark:text-orange-100 whitespace-pre-wrap font-mono">
+                                    {typeof selectedTicket.form_data.mensaje_completo === 'string' 
+                                      ? selectedTicket.form_data.mensaje_completo 
+                                      : JSON.stringify(selectedTicket.form_data.mensaje_completo, null, 2)}
+                                  </pre>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Screenshot */}
                       {(selectedTicket.screenshot_url || selectedTicket.screenshot_base64) && (

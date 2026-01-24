@@ -41,9 +41,8 @@ export interface UChatConversation {
   conversation_id: string;
   bot_id: string;
   prospect_id?: string;
-  customer_phone: string;
-  customer_name?: string;
-  customer_email?: string;
+  // ❌ DEPRECATED: customer_phone y customer_name eliminados
+  // Usar prospecto.whatsapp y prospecto.nombre_completo via JOIN
   platform: string;
   status: 'active' | 'transferred' | 'closed' | 'archived';
   assigned_agent_id?: string;
@@ -60,7 +59,15 @@ export interface UChatConversation {
   // Datos relacionados
   bot?: UChatBot;
   assigned_agent?: any;
-  prospect?: any;
+  prospect?: {
+    id: string;
+    whatsapp: string;
+    nombre_completo: string;
+    nombre_whatsapp?: string;
+    email?: string;
+    ejecutivo_id?: string;
+    coordinacion_id?: string;
+  };
   latest_messages?: UChatMessage[];
 }
 

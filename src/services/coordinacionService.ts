@@ -612,13 +612,15 @@ class CoordinacionService {
           phone,
           coordinacion_id,
           is_active,
+          is_operativo,
           email_verified,
           last_login,
           created_at,
           role_name
         `)
         .in('id', ids)
-        .in('role_name', ['ejecutivo', 'coordinador']);
+        .in('role_name', ['ejecutivo', 'coordinador'])
+        .eq('is_active', true);
 
       if (error) throw error;
 
@@ -639,6 +641,7 @@ class CoordinacionService {
           coordinacion_codigo: coordinacion?.codigo,
           coordinacion_nombre: coordinacion?.nombre,
           is_active: user.is_active,
+          is_operativo: user.is_operativo,
           email_verified: user.email_verified,
           last_login: user.last_login,
           created_at: user.created_at,

@@ -398,23 +398,26 @@ const Header = ({
     if ((isAdmin || isAdminOperativo) && user?.id) {
       const loadTicketCount = async () => {
         try {
-          // Contar tickets pendientes (nuevos) para admin
-          const { data, error } = await analysisSupabase
+          // FIX 2026-01-23: Contar solo tickets abiertos y en progreso (status en español)
+          // Los status 'new' y 'open' no existen en la BD
+          const { count, error } = await analysisSupabase
             .from('support_tickets')
-            .select('id', { count: 'exact', head: true })
-            .in('status', ['new', 'open']);
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['abierto', 'en_progreso']);
           
-          if (!error && data !== null) {
-            setTicketUnreadCount((data as any)?.length || 0);
+          if (error) {
+            console.warn('Error contando tickets:', error);
+            setTicketUnreadCount(0);
+            return;
           }
           
-          // También obtener notificaciones no leídas del usuario admin
+          // FIX 2026-01-23: Solo usar el conteo de notificaciones de tickets
+          // (No sumar tickets abiertos + notificaciones, eso duplica el conteo)
           const { count: notifCount } = await ticketService.getUnreadNotificationCount(user.id);
-          if (notifCount > 0) {
-            setTicketUnreadCount(prev => prev + notifCount);
-          }
+          setTicketUnreadCount(notifCount || 0);
         } catch (error) {
           console.warn('Error cargando contador de tickets:', error);
+          setTicketUnreadCount(0);
         }
       };
       loadTicketCount();
@@ -837,12 +840,9 @@ const Header = ({
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
               }
-              // Recargar contador de tickets
+              // Recargar contador de tickets (SOLO notificaciones no leídas)
               if (user?.id) {
-                analysisSupabase
-                  .from('support_tickets')
-                  .select('id', { count: 'exact', head: true })
-                  .in('status', ['new', 'open'])
+                ticketService.getUnreadNotificationCount(user.id)
                   .then(({ count }) => setTicketUnreadCount(count || 0));
               }
             }}
@@ -1197,12 +1197,9 @@ const Header = ({
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
               }
-              // Recargar contador de tickets
+              // Recargar contador de tickets (SOLO notificaciones no leídas)
               if (user?.id) {
-                analysisSupabase
-                  .from('support_tickets')
-                  .select('id', { count: 'exact', head: true })
-                  .in('status', ['new', 'open'])
+                ticketService.getUnreadNotificationCount(user.id)
                   .then(({ count }) => setTicketUnreadCount(count || 0));
               }
             }}

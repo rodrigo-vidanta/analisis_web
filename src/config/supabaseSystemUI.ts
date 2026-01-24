@@ -34,13 +34,7 @@ import { createClient } from '@supabase/supabase-js';
 export const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || '';
 
-// Log de inicialización para debugging (solo en desarrollo)
-if (import.meta.env.DEV) {
-  console.log('📦 [SystemUI Config] Configuración cargada:', {
-    hasUrl: !!SUPABASE_URL,
-    hasAnonKey: !!SUPABASE_ANON_KEY
-  });
-}
+// Log de inicialización removido para producción
 
 // Validación en desarrollo
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {

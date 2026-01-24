@@ -13,7 +13,6 @@
 
 import {
   supabaseLogMonitor,
-  supabaseLogMonitorAdmin,
   type ErrorLog,
   type UIErrorLogStatus,
   type UIErrorLogAnnotation,
@@ -25,6 +24,7 @@ import {
   type EnvironmentType
 } from '../config/supabaseLogMonitor';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { analysisSupabase } from '../config/analysisSupabase';
 // SEGURIDAD: Cliente seguro que usa Edge Function cuando service_key no está disponible
 import { logMonitorSecureClient } from './logMonitorSecureClient';
 
@@ -71,18 +71,14 @@ class LogMonitorService {
    */
   private isClientAvailable(): boolean {
     // Cliente local disponible O cliente seguro (Edge Function) disponible
-    return supabaseLogMonitorAdmin !== null || logMonitorSecureClient.isAvailable();
+    return logMonitorSecureClient.isAvailable();
   }
 
   /**
-   * Obtener el cliente apropiado (local o seguro)
+   * Obtener el cliente apropiado (siempre seguro en producción)
    */
   private getClient() {
-    // Preferir cliente local si está disponible
-    if (supabaseLogMonitorAdmin) {
-      return supabaseLogMonitorAdmin;
-    }
-    // Fallback a cliente seguro (Edge Function)
+    // Usar cliente seguro (Edge Function) que maneja el proxy automáticamente
     return logMonitorSecureClient;
   }
 
@@ -177,6 +173,33 @@ class LogMonitorService {
         throw error;
       }
 
+      // Obtener tickets asociados a los logs (query separada a PQNC_AI)
+      const logIds = (data || []).map((log: any) => log.id);
+      let ticketsMap = new Map();
+      
+      if (logIds.length > 0) {
+        try {
+          // Procesar en lotes de 100 para evitar URLs demasiado largas
+          const batchSize = 100;
+          for (let i = 0; i < logIds.length; i += batchSize) {
+            const batch = logIds.slice(i, i + batchSize);
+            const { data: tickets } = await analysisSupabase
+              .from('support_tickets')
+              .select('log_id, id, ticket_number, status')
+              .in('log_id', batch);
+            
+            if (tickets) {
+              tickets.forEach((ticket: any) => {
+                ticketsMap.set(ticket.log_id, ticket);
+              });
+            }
+          }
+        } catch (ticketError) {
+          console.error('Error fetching tickets:', ticketError);
+          // No lanzar error, solo log - los logs se pueden mostrar sin tickets
+        }
+      }
+
       // Procesar y filtrar datos
       let processedLogs = (data || []).map((log: any) => {
         const uiStatus = Array.isArray(log.ui_error_log_status) 
@@ -191,13 +214,20 @@ class LogMonitorService {
           ? log.ui_error_log_ai_analysis.some((a: any) => a.status === 'completed')
           : false;
 
+        // Información del ticket (desde el map)
+        const ticketInfo = ticketsMap.get(log.id);
+
         return {
           ...log,
           ui_is_read: uiStatus?.is_read || false,
           ui_is_archived: uiStatus?.is_archived || false,
           ui_priority: uiStatus?.priority || 'medium',
           ui_tags: tags,
-          has_ai_analysis: hasAnalysis
+          has_ai_analysis: hasAnalysis,
+          has_ticket: !!ticketInfo,
+          ticket_id: ticketInfo?.id,
+          ticket_number: ticketInfo?.ticket_number,
+          ticket_status: ticketInfo?.status
         };
       });
 
@@ -286,7 +316,7 @@ class LogMonitorService {
   async markAsRead(logId: string, userId: string): Promise<boolean> {
     try {
       // Verificar si ya existe un registro de estado (usar maybeSingle para evitar errores si no existe)
-      const { data: existingStatus, error: checkError } = await supabaseLogMonitorAdmin
+      const { data: existingStatus, error: checkError } = await this.getClient()
         .from('ui_error_log_status')
         .select('id')
         .eq('error_log_id', logId)
@@ -300,7 +330,7 @@ class LogMonitorService {
 
       if (existingStatus) {
         // Actualizar existente
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .update({
             is_read: true,
@@ -316,7 +346,7 @@ class LogMonitorService {
         }
       } else {
         // Crear nuevo registro
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .insert({
             error_log_id: logId,
@@ -352,7 +382,7 @@ class LogMonitorService {
       }));
 
       // Usar upsert para crear o actualizar
-      const { error } = await supabaseLogMonitorAdmin
+      const { error } = await this.getClient()
         .from('ui_error_log_status')
         .upsert(updates, {
           onConflict: 'error_log_id'
@@ -375,7 +405,7 @@ class LogMonitorService {
    */
   async markAsUnread(logId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseLogMonitorAdmin
+      const { error } = await this.getClient()
         .from('ui_error_log_status')
         .update({
           is_read: false,
@@ -416,7 +446,7 @@ class LogMonitorService {
       }
 
       // Verificar si existe registro (usar maybeSingle para evitar errores si no existe)
-      const { data: existingStatus, error: checkError } = await supabaseLogMonitorAdmin
+      const { data: existingStatus, error: checkError } = await this.getClient()
         .from('ui_error_log_status')
         .select('id')
         .eq('error_log_id', logId)
@@ -429,7 +459,7 @@ class LogMonitorService {
       }
 
       if (existingStatus) {
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .update(updateData)
           .eq('error_log_id', logId);
@@ -439,7 +469,7 @@ class LogMonitorService {
           return false;
         }
       } else {
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .insert({
             error_log_id: logId,
@@ -465,7 +495,7 @@ class LogMonitorService {
   async updatePriority(logId: string, priority: 'low' | 'medium' | 'high' | 'critical'): Promise<boolean> {
     try {
       // Verificar si existe registro (usar maybeSingle para evitar errores si no existe)
-      const { data: existingStatus, error: checkError } = await supabaseLogMonitorAdmin
+      const { data: existingStatus, error: checkError } = await this.getClient()
         .from('ui_error_log_status')
         .select('id')
         .eq('error_log_id', logId)
@@ -478,7 +508,7 @@ class LogMonitorService {
       }
 
       if (existingStatus) {
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .update({
             priority,
@@ -491,7 +521,7 @@ class LogMonitorService {
           return false;
         }
       } else {
-        const { error } = await supabaseLogMonitorAdmin
+        const { error } = await this.getClient()
           .from('ui_error_log_status')
           .insert({
             error_log_id: logId,
@@ -516,7 +546,7 @@ class LogMonitorService {
    */
   async addAnnotation(logId: string, annotationText: string, userId: string): Promise<UIErrorLogAnnotation | null> {
     try {
-      const { data, error } = await supabaseLogMonitorAdmin
+      const { data, error } = await this.getClient()
         .from('ui_error_log_annotations')
         .insert({
           error_log_id: logId,
@@ -543,9 +573,9 @@ class LogMonitorService {
    */
   async getAnnotations(logId: string): Promise<UIErrorLogAnnotation[]> {
     try {
-      // Usar admin client para evitar problemas de RLS
+      // Usar cliente apropiado (seguro en producción)
       // Incluir created_by en el select (ya debería estar incluido con *)
-      const { data, error } = await supabaseLogMonitorAdmin
+      const { data, error } = await this.getClient()
         .from('ui_error_log_annotations')
         .select('id, error_log_id, annotation_text, created_by, created_at, updated_at')
         .eq('error_log_id', logId)
@@ -572,7 +602,7 @@ class LogMonitorService {
    */
   async deleteAnnotation(annotationId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseLogMonitorAdmin
+      const { error } = await this.getClient()
         .from('ui_error_log_annotations')
         .delete()
         .eq('id', annotationId);
@@ -594,7 +624,7 @@ class LogMonitorService {
    */
   async addTag(logId: string, tagName: string, tagColor: string | null, userId: string): Promise<UIErrorLogTag | null> {
     try {
-      const { data, error } = await supabaseLogMonitorAdmin
+      const { data, error } = await this.getClient()
         .from('ui_error_log_tags')
         .insert({
           error_log_id: logId,
@@ -622,8 +652,8 @@ class LogMonitorService {
    */
   async getTags(logId: string): Promise<UIErrorLogTag[]> {
     try {
-      // Usar admin client para evitar problemas de RLS
-      const { data, error } = await supabaseLogMonitorAdmin
+      // Usar cliente apropiado (seguro en producción)
+      const { data, error } = await this.getClient()
         .from('ui_error_log_tags')
         .select('*')
         .eq('error_log_id', logId)
@@ -680,7 +710,7 @@ class LogMonitorService {
    */
   async removeTag(tagId: string): Promise<boolean> {
     try {
-      const { error } = await supabaseLogMonitorAdmin
+      const { error } = await this.getClient()
         .from('ui_error_log_tags')
         .delete()
         .eq('id', tagId);
@@ -728,7 +758,7 @@ class LogMonitorService {
       if (request.requested_by) {
         try {
           // Verificar si ya existe un análisis para este error_log_id
-          const { data: existingAnalysis } = await supabaseLogMonitorAdmin
+          const { data: existingAnalysis } = await this.getClient()
             .from('ui_error_log_ai_analysis')
             .select('*')
             .eq('error_log_id', request.error_log_id)
@@ -736,7 +766,7 @@ class LogMonitorService {
 
           if (existingAnalysis) {
             // Actualizar el registro existente
-            await supabaseLogMonitorAdmin
+            await this.getClient()
               .from('ui_error_log_ai_analysis')
               .update({
                 requested_by: request.requested_by,
@@ -746,7 +776,7 @@ class LogMonitorService {
               .eq('id', existingAnalysis.id);
           } else {
             // Crear nuevo registro pendiente
-            await supabaseLogMonitorAdmin
+            await this.getClient()
               .from('ui_error_log_ai_analysis')
               .insert({
                 error_log_id: request.error_log_id,
@@ -856,7 +886,7 @@ class LogMonitorService {
   ): Promise<UIErrorLogAIAnalysis | null> {
     try {
       // Verificar si ya existe un análisis para este error_log_id
-      const { data: existingAnalysis } = await supabaseLogMonitorAdmin
+      const { data: existingAnalysis } = await this.getClient()
         .from('ui_error_log_ai_analysis')
         .select('*')
         .eq('error_log_id', errorLogId)
@@ -880,7 +910,7 @@ class LogMonitorService {
           updateData.requested_by = userId;
         }
         
-        const { data: updated, error: updateError } = await supabaseLogMonitorAdmin
+        const { data: updated, error: updateError } = await this.getClient()
           .from('ui_error_log_ai_analysis')
           .update(updateData)
           .eq('id', existingAnalysis.id)
@@ -914,7 +944,7 @@ class LogMonitorService {
           insertData.requested_by = userId;
         }
         
-        const { data: newRecord, error: insertError } = await supabaseLogMonitorAdmin
+        const { data: newRecord, error: insertError } = await this.getClient()
           .from('ui_error_log_ai_analysis')
           .insert(insertData)
           .select()
@@ -938,10 +968,10 @@ class LogMonitorService {
    */
   async getAIAnalysis(logId: string): Promise<UIErrorLogAIAnalysis | null> {
     try {
-      // Usar admin client para evitar problemas de RLS
+      // Usar cliente apropiado (seguro en producción)
       // Usar maybeSingle para evitar errores cuando no hay análisis
       // Incluir requested_by en el select
-      const { data, error } = await supabaseLogMonitorAdmin
+      const { data, error } = await this.getClient()
         .from('ui_error_log_ai_analysis')
         .select('*, requested_by')
         .eq('error_log_id', logId)
@@ -1148,7 +1178,7 @@ class LogMonitorService {
   async getLogsWithUserAnnotations(userId: string, filters?: LogFilters): Promise<{ data: ErrorLog[]; count: number }> {
     try {
       // Obtener IDs de logs donde el usuario ha comentado
-      const { data: annotationLogIds, error: annotationError } = await supabaseLogMonitorAdmin
+      const { data: annotationLogIds, error: annotationError } = await this.getClient()
         .from('ui_error_log_annotations')
         .select('error_log_id')
         .eq('created_by', userId)
@@ -1165,8 +1195,8 @@ class LogMonitorService {
         return { data: [], count: 0 };
       }
 
-      // Obtener los logs directamente por IDs usando Supabase
-      const { data: logsData, error: logsError } = await supabaseLogMonitorAdmin
+      // Obtener los logs directamente por IDs usando cliente apropiado
+      const { data: logsData, error: logsError } = await this.getClient()
         .from('error_log')
         .select(`
           *,
@@ -1258,7 +1288,7 @@ class LogMonitorService {
   async getLogsWithUserAIAnalysis(userId: string, filters?: LogFilters): Promise<{ data: ErrorLog[]; count: number }> {
     try {
       // Obtener IDs de logs donde el usuario ha solicitado análisis
-      const { data: analysisLogIds, error: analysisError } = await supabaseLogMonitorAdmin
+      const { data: analysisLogIds, error: analysisError } = await this.getClient()
         .from('ui_error_log_ai_analysis')
         .select('error_log_id')
         .eq('requested_by', userId)
@@ -1275,8 +1305,8 @@ class LogMonitorService {
         return { data: [], count: 0 };
       }
 
-      // Obtener los logs directamente por IDs usando Supabase
-      const { data: logsData, error: logsError } = await supabaseLogMonitorAdmin
+      // Obtener los logs directamente por IDs usando cliente apropiado
+      const { data: logsData, error: logsError } = await this.getClient()
         .from('error_log')
         .select(`
           *,

@@ -2,6 +2,94 @@
 
 ## [Unreleased]
 
+### 🗓️ v2.5.40 - Fix Búsqueda WhatsApp Server-Side [24-01-2026]
+
+#### 🐛 Correcciones de Bugs
+
+**Problema: Prospecto "Rosario" no aparecía en búsqueda de módulo WhatsApp**
+- **Síntoma:** Búsqueda de "Rosario Arroyo Rivera" retornaba 0 resultados
+- **Causa:** 
+  - Cliente cargaba solo 2200 de 2388 conversaciones por límites de memoria (`ERR_INSUFFICIENT_RESOURCES`)
+  - Búsqueda era solo client-side en conversaciones cargadas
+  - Prospecto estaba en batch no cargado (invisible para búsqueda)
+- **Fix:** 
+  - Implementada búsqueda server-side con función RPC `search_dashboard_conversations`
+  - Búsqueda directa en BD sin cargar todas las conversaciones
+  - Performance: <1 segundo vs 30+ segundos anterior
+  - Respeta permisos de admin/ejecutivo/coordinación
+
+#### ✨ Mejoras de Performance
+
+**Búsqueda optimizada:**
+- Búsqueda por nombre, teléfono, email, WhatsApp
+- Filtros de permisos integrados
+- Retorna solo resultados necesarios (hasta 100)
+- Metadata completa (ejecutivo, coordinación, mensajes)
+
+#### 🔧 Funcionalidad Nueva
+
+**Función RPC `search_dashboard_conversations`:**
+```sql
+search_dashboard_conversations(
+  p_search_term TEXT,
+  p_user_id UUID,
+  p_is_admin BOOLEAN,
+  p_ejecutivo_ids UUID[],
+  p_coordinacion_ids UUID[],
+  p_limit INTEGER
+)
+```
+
+**Características:**
+- Búsqueda fuzzy en múltiples campos
+- Normalización de teléfonos (sin caracteres especiales)
+- Orden por fecha de último mensaje
+- `SECURITY DEFINER` para bypass RLS controlado
+
+#### 📁 Archivos Modificados
+
+| Archivo | Cambios |
+|---------|---------|
+| `migrations/20260124_search_dashboard_conversations_v3.sql` | Función RPC de búsqueda server-side ✅ |
+| `scripts/deploy-search-dashboard.mjs` | Script de deploy automatizado via Management API |
+| `scripts/test-search-rpc.mjs` | Testing de función RPC con supabase-js |
+| `scripts/test-user-profiles-view.mjs` | Verificación de vista user_profiles_v2 |
+| `scripts/check-user-profiles-view.mjs` | Verificación de permisos de vista |
+| `scripts/check-view-rls.mjs` | Verificación de RLS en vistas |
+| `.cursor/handovers/2026-01-24-fix-busqueda-whatsapp-server-side.md` | Documentación completa del fix |
+
+#### 🔍 Debugging Realizado
+
+**Correcciones durante implementación:**
+- Columna `fecha` → `fecha_hora` (nombre correcto en `mensajes_whatsapp`)
+- Columna `is_read` eliminada (no existe en esquema)
+- Tipos de datos `VARCHAR(255)` → `TEXT` via cast para compatibilidad
+- Vista `user_profiles_v2` verificada (145 usuarios accesibles)
+
+#### 🧪 Testing
+
+**Scripts de verificación:**
+```bash
+node scripts/test-search-rpc.mjs
+# ✅ PROSPECTO ROSARIO ENCONTRADO (posición #9 de 10)
+
+node scripts/test-user-profiles-view.mjs
+# ✅ Vista accesible. Total registros: 145
+```
+
+#### ⚠️ Notas de Deploy
+
+**Cache del navegador:**
+- Limpiar cache con Cmd+Shift+R (Mac) o Ctrl+Shift+R (Windows)
+- Reiniciar dev server si persisten errores CORS
+
+**Archivos legacy:**
+- `migrations/20260124_fix_search_whatsapp_prospects.sql` (primera versión, no usada)
+- `migrations/20260124_search_dashboard_conversations_v2.sql` (segunda versión con errores)
+- **Versión final:** `v3.sql` desplegada en producción
+
+---
+
 ### 🗓️ v2.5.39 - Fix Coordinaciones Múltiples + Actualización Usuarios Vidanta [22-01-2026]
 
 #### 🐛 Correcciones de Bugs

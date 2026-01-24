@@ -88,9 +88,9 @@ const TokenManagement: React.FC = () => {
       }
 
       // Cargar usuarios productores (ordenados por fecha de creación, más recientes primero)
-      // Usamos la vista segura auth_users_safe
+      // Usamos la vista segura user_profiles_v2
       const { data: usersData, error: usersError } = await supabaseSystemUI
-        .from('auth_users_safe')
+        .from('user_profiles_v2')
         .select(`
           id,
           email,

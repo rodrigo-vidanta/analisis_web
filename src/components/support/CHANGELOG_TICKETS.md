@@ -5,6 +5,191 @@
 
 ---
 
+## [1.3.0] - 2026-01-24
+
+### 🤖 Tickets desde Logs del Sistema
+
+**Descripción:** Implementación completa de funcionalidad para crear tickets de soporte directamente desde logs del sistema, usando un usuario "system" que no genera notificaciones masivas.
+
+#### 🆕 Nuevo Componente
+
+**CreateTicketFromLogModal.tsx:**
+- Modal especializado para crear tickets desde logs
+- Pre-rellena título, descripción y prioridad automáticamente
+- Permite seleccionar asignación (grupo o usuario específico)
+- Mapea severidad del log a prioridad del ticket:
+  - `critica` → `urgente`
+  - `alta` → `alta`
+  - `media` → `normal`
+  - `baja` → `baja`
+- Guarda metadata técnica del log en `form_data` para referencia
+
+#### 🔧 Cambios en Base de Datos
+
+**Usuario System:**
+- ID: `00000000-0000-0000-0000-000000000001`
+- Email: `system@internal`
+- Full Name: `Sistema Automático`
+- Características: No puede hacer login, marcado como `is_system: true`
+
+**Nueva Función:**
+- `is_system_user(user_id UUID)`: Verifica si un usuario es el usuario system
+
+**Funciones Actualizadas:**
+- `notify_new_ticket()`: Skip notificaciones si reporter es system
+- `notify_new_comment()`: No notificar al reporter si es system
+
+#### 🎨 Cambios en Frontend
+
+**LogDashboard.tsx:**
+- Botón "Crear Ticket" en header del modal de detalle de log
+- Integración con `CreateTicketFromLogModal`
+- Import de `AlertCircle` de lucide-react
+
+**ticketService.ts:**
+- Método `createSystemTicket()`: Crea tickets como system con asignación inmediata
+- Pre-asigna a grupo o usuario para evitar notificaciones masivas
+- Cambia status a "en_progreso" automáticamente si está asignado
+
+#### ✅ Lógica de Notificaciones (Tickets System)
+
+**Ticket System Nuevo:**
+- NO notifica a ningún admin (reporter es system)
+- SÍ notifica al grupo/usuario asignado (trigger de asignación)
+- Context: `role_group` o `specific_user`
+- Badge: "NUEVO" solo para asignados
+
+**Admin Comenta en Ticket System:**
+- NO notifica al reporter (system)
+- Funciona normalmente para el resto de usuarios
+
+#### 🎯 Beneficios
+
+1. **Sin Spam de Notificaciones:** Los errores del sistema no inundan a todos los admins
+2. **Asignación Inmediata:** El ticket llega directo al equipo responsable
+3. **Trazabilidad:** Metadata completa del log guardada en el ticket
+4. **Flujo Eficiente:** 1 clic desde log → ticket asignado
+5. **Sin Auto-Notificaciones:** El usuario system nunca recibe notificaciones
+
+#### 📝 Archivos Afectados
+
+- `src/components/admin/CreateTicketFromLogModal.tsx` (nuevo)
+- `src/components/admin/LogDashboard.tsx` (modificado)
+- `src/services/ticketService.ts` (modificado)
+- `migrations/20260124_create_system_user.sql` (nuevo)
+- `migrations/20260124_system_user_no_notifications.sql` (nuevo)
+
+#### 🔗 Referencias
+
+- **Handover:** `.cursor/handovers/2026-01-24-crear-tickets-desde-logs.md`
+- **Plan:** `.cursor/plans/crear_ticket_desde_log_96154f0c.plan.md`
+- **Migraciones:** `migrations/20260124_*`
+
+---
+
+## [1.2.0] - 2026-01-23
+
+### 🎯 Sistema de Notificaciones Contextual
+
+**Descripción:** Implementación completa del sistema de notificaciones contextual basado en asignación de tickets, con badges "Nuevo" y "Mensaje", tracking de visualizaciones, y auto-cambio de status.
+
+#### 🔧 Cambios en Base de Datos
+
+**Nueva Tabla:**
+- `support_ticket_views`: Tracking de visualizaciones por usuario
+  - `ticket_id`, `user_id`, `last_viewed_at`, `last_comment_read_at`
+  - Índices optimizados para performance
+
+**Columnas Agregadas:**
+- `support_tickets`: `last_comment_at`, `last_comment_by`, `last_comment_by_role`
+- `support_ticket_notifications`: `assignment_context` (enum: 'all_admins', 'role_group', 'specific_user', 'reporter')
+
+**Nuevas Funciones PL/pgSQL:**
+- `get_users_by_role(role_name TEXT)`: Obtiene usuarios activos por rol
+- `notify_new_ticket()`: Notifica a TODOS los admins al crear ticket
+- `notify_ticket_assignment()`: Notifica según asignación (grupo o usuario)
+- `notify_new_comment()`: Lógica contextual de notificaciones
+- `mark_ticket_viewed(ticket_id, user_id)`: Marca ticket como visto
+
+**Nuevos Triggers:**
+- `trigger_notify_assignment`: Dispara al cambiar asignación
+- `trigger_notify_new_comment`: Dispara al agregar comentario (reescrito)
+- `trigger_notify_new_ticket`: Dispara al crear ticket (reescrito)
+
+#### 🎨 Cambios en Frontend
+
+**Header.tsx:**
+- Fix: Contador de tickets ahora usa `getUnreadNotificationCount()` en lugar de contar tickets abiertos
+- Elimina double-counting (tickets + notificaciones)
+- Cambio de status 'new'/'open' (inglés) a 'abierto'/'en_progreso' (español)
+
+**AdminTicketsPanel.tsx:**
+- Usa `getTicketsWithBadges()` para obtener tickets con información de badges
+- Llama `markTicketAsViewed()` al abrir ticket
+- **Auto-cambio:** Cuando admin comenta (no interno), ticket pasa de "abierto" a "en_progreso" automáticamente
+- Badges "NUEVO" y "MENSAJE" funcionan correctamente
+
+**MyTicketsModal.tsx:**
+- Llama `markTicketAsViewed()` al abrir ticket
+- Badges "MENSAJE" para notificar respuestas de admins
+
+**ticketService.ts:**
+- Método `markTicketAsViewed()`: Marca ticket como visto y actualiza notificaciones
+- Método `getTicketsWithBadges()`: Retorna tickets con `hasNewBadge`, `hasMessageBadge`, `unreadCount`
+
+#### ✅ Lógica de Notificaciones
+
+**Escenario 1: Ticket Nuevo**
+- Notifica a: TODOS los admins
+- Context: `all_admins`
+- Badge: "NUEVO" hasta que cada admin lo abra
+
+**Escenario 2: Asignación a Grupo**
+- Notifica a: Todos los usuarios del rol asignado
+- Context: `role_group`
+- Badge: "NUEVO" para el grupo
+
+**Escenario 3: Asignación a Usuario**
+- Notifica a: Solo el usuario asignado
+- Context: `specific_user`
+- Badge: "NUEVO" para el usuario
+
+**Escenario 4: Cliente Comenta**
+- Si asignado a usuario: Notifica solo a él
+- Si asignado a grupo: Notifica a todos del grupo
+- Si no asignado: Notifica a todos los admins
+- Badge: "MENSAJE" si ya lo había visto
+
+**Escenario 5: Admin Comenta (no interno)**
+- Notifica al reporter del ticket
+- Context: `reporter`
+- Badge: "MENSAJE" para el reporter
+- **BONUS:** Auto-cambio de "abierto" → "en_progreso"
+
+#### 🐛 Bugs Corregidos
+
+- **Fix:** Contadores de notificaciones incorrectos en Header
+- **Fix:** Badges "NUEVO" aparecían en tickets viejos
+- **Fix:** Admin recibía notificaciones de sus propios comentarios
+- **Fix:** Double-counting (tickets abiertos + notificaciones)
+- **Fix:** Status 'new'/'open' no existían en BD (usar 'abierto'/'en_progreso')
+
+#### 📝 Archivos Afectados
+
+- `migrations/20260123_fix_ticket_notifications.sql` (nuevo)
+- `src/components/Header.tsx` (modificado)
+- `src/components/support/AdminTicketsPanel.tsx` (modificado)
+- `src/services/ticketService.ts` (sin cambios, métodos ya existían)
+- `src/components/support/MyTicketsModal.tsx` (sin cambios, ya implementado)
+
+#### 🔗 Referencias
+
+- **Handover:** `.cursor/handovers/2026-01-23-sistema-notificaciones-tickets-contextual.md`
+- **Plan:** `.cursor/plans/sistema_notificaciones_tickets_18e874c3.plan.md`
+- **Migración:** `migrations/20260123_fix_ticket_notifications.sql`
+
+---
+
 ## [1.1.0] - 2026-01-20
 
 ### 🎨 Rediseño Completo de UI/UX

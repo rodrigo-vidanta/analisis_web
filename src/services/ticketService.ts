@@ -42,6 +42,7 @@ export interface SupportTicket {
   screenshot_url: string | null;
   screenshot_base64: string | null;
   form_data: Record<string, any> | null;
+  log_id: string | null; // ✅ NUEVO: ID del log del que se creó el ticket
   reporter_id: string;
   reporter_name: string | null;
   reporter_email: string | null;
@@ -931,6 +932,168 @@ class TicketService {
   unsubscribeFromNotifications(channel: any) {
     if (channel) {
       analysisSupabase.removeChannel(channel);
+    }
+  }
+
+  // ============================================
+  // SISTEMA DE BADGES (NUEVO/MENSAJE)
+  // ============================================
+
+  /**
+   * Marcar ticket como visto por el usuario actual
+   */
+  async markTicketAsViewed(ticketId: string, userId: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const { error } = await analysisSupabase.rpc('mark_ticket_viewed', {
+        ticket_id_param: ticketId,
+        user_id_param: userId
+      });
+      
+      if (error) {
+        return { success: false, error: error.message };
+      }
+      
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Error marking ticket as viewed:', err);
+      return { success: false, error: 'Error al marcar como visto' };
+    }
+  }
+
+  /**
+   * Obtener tickets con información de badges (nuevo/mensaje)
+   */
+  async getTicketsWithBadges(userId: string): Promise<{ 
+    tickets: (SupportTicket & { 
+      hasNewBadge: boolean; 
+      hasMessageBadge: boolean;
+      unreadCount: number;
+    })[]; 
+    error: string | null 
+  }> {
+    try {
+      const { data: tickets, error: ticketsError } = await analysisSupabase
+        .from('support_tickets')
+        .select(`
+          *,
+          views:support_ticket_views!support_ticket_views_ticket_id_fkey(
+            last_viewed_at,
+            last_comment_read_at,
+            user_id
+          ),
+          notifications:support_ticket_notifications(
+            id,
+            is_read,
+            user_id
+          )
+        `)
+        .order('created_at', { ascending: false });
+      
+      if (ticketsError) {
+        return { tickets: [], error: ticketsError.message };
+      }
+      
+      const ticketsWithBadges = (tickets || []).map(ticket => {
+        const userView = (ticket.views as any)?.find((v: any) => v.user_id === userId);
+        const userNotifications = ((ticket.notifications as any) || []).filter((n: any) => n.user_id === userId);
+        const unreadCount = userNotifications.filter((n: any) => !n.is_read).length;
+        
+        // Badge "Nuevo": No ha sido visto por este usuario
+        const hasNewBadge = !userView;
+        
+        // Badge "Mensaje": Hay comentarios nuevos desde la última vez que se vio
+        const hasMessageBadge = userView && 
+                                ticket.last_comment_at && 
+                                ticket.last_comment_by !== userId &&
+                                new Date(ticket.last_comment_at) > new Date(userView.last_comment_read_at || 0);
+        
+        // Eliminar propiedades temporales
+        const { views, notifications, ...ticketData } = ticket;
+        
+        return {
+          ...ticketData as SupportTicket,
+          hasNewBadge,
+          hasMessageBadge,
+          unreadCount
+        };
+      });
+      
+      return { tickets: ticketsWithBadges, error: null };
+    } catch (err) {
+      console.error('Error getting tickets with badges:', err);
+      return { tickets: [], error: 'Error al obtener tickets' };
+    }
+  }
+
+  /**
+   * Crear ticket como usuario system (sin notificaciones iniciales)
+   * Los tickets system se crean pre-asignados para evitar notificaciones masivas
+   * Usa RPC con SECURITY DEFINER para bypassear RLS
+   */
+  async createSystemTicket(
+    data: CreateTicketData,
+    assignedTo?: string,
+    assignedToRole?: string,
+    logId?: string
+  ): Promise<{ ticket: SupportTicket | null; error: string | null }> {
+    try {
+      const { data: ticketData, error } = await analysisSupabase
+        .rpc('create_system_ticket', {
+          p_type: data.type,
+          p_title: data.title,
+          p_description: data.description,
+          p_category: data.category || null,
+          p_subcategory: data.subcategory || null,
+          p_priority: data.priority || 'normal',
+          p_form_data: data.form_data || null,
+          p_assigned_to: assignedTo || null,
+          p_assigned_to_role: assignedToRole || null,
+          p_log_id: logId || null
+        });
+
+      if (error) {
+        console.error('Error creating system ticket via RPC:', error);
+        return { ticket: null, error: error.message };
+      }
+
+      // La función retorna JSONB directamente
+      return { ticket: ticketData as SupportTicket, error: null };
+    } catch (err) {
+      console.error('Error in createSystemTicket:', err);
+      return { ticket: null, error: 'Error al crear el ticket' };
+    }
+  }
+
+  /**
+   * Verificar si un log ya tiene un ticket asociado
+   */
+  async checkLogHasTicket(logId: string): Promise<{
+    hasTicket: boolean;
+    ticketId?: string;
+    ticketNumber?: string;
+    ticketStatus?: string;
+    error: string | null;
+  }> {
+    try {
+      const { data, error } = await analysisSupabase
+        .rpc('check_log_has_ticket', { p_log_id: logId })
+        .single();
+
+      if (error) {
+        console.error('Error checking log ticket:', error);
+        return { hasTicket: false, error: error.message };
+      }
+
+      return {
+        hasTicket: data.has_ticket,
+        ticketId: data.ticket_id,
+        ticketNumber: data.ticket_number,
+        ticketStatus: data.ticket_status,
+        error: null
+      };
+    } catch (err) {
+      console.error('Error in checkLogHasTicket:', err);
+      return { hasTicket: false, error: 'Error al verificar ticket' };
     }
   }
 }

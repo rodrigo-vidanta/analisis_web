@@ -264,16 +264,7 @@ export function useUserManagement(): UseUserManagementReturn {
         })
         .map(u => u.id);
       
-      console.log('🔍 [LOAD USERS] Coordinadores encontrados:', {
-        total: coordinadorIds.length,
-        ids: coordinadorIds,
-        usuarios: (data || []).filter(u => {
-          const isCoordByRole = u.auth_roles?.name === 'coordinador';
-          const isCoordByName = u.role_name === 'coordinador';
-          const isCoordByFlag = u.is_coordinator === true;
-          return isCoordByRole || isCoordByName || isCoordByFlag;
-        }).map(u => ({ id: u.id, email: u.email, role_name: u.role_name, auth_roles_name: u.auth_roles?.name }))
-      });
+      // Debug logs removidos para producción
       
       const userCoordinacionesMap: Record<string, string[]> = {};
       
@@ -283,12 +274,7 @@ export function useUserManagement(): UseUserManagementReturn {
           .select('user_id, coordinacion_id')
           .in('user_id', coordinadorIds);
         
-        console.log('🔍 [LOAD USERS] Consulta auth_user_coordinaciones:', {
-          coordinadorIds,
-          relacionesEncontradas: relaciones?.length || 0,
-          relaciones,
-          error: relError
-        });
+        // Debug logs removidos para producción
         
         if (!relError && relaciones) {
           relaciones.forEach(rel => {
@@ -298,7 +284,7 @@ export function useUserManagement(): UseUserManagementReturn {
             userCoordinacionesMap[rel.user_id].push(rel.coordinacion_id);
           });
           
-          console.log('✅ [LOAD USERS] Mapa de coordinaciones construido:', userCoordinacionesMap);
+          // Debug log removido para producción
         } else if (relError) {
           console.error('❌ [LOAD USERS] Error cargando coordinaciones:', relError);
         } else {
@@ -359,21 +345,7 @@ export function useUserManagement(): UseUserManagementReturn {
         // FIX 2026-01-22: Asegurar que coordinadores siempre tengan array (nunca undefined)
         const coordIds = isCoordinador ? (userCoordinacionesMap[user.id] || []) : undefined;
         
-        // Debug para el usuario específico
-        if (user.email === 'paolamaldonado@vidavacations.com') {
-          console.log('🔍 [LOAD USERS] Usuario específico:', {
-            userId: user.id,
-            email: user.email,
-            isCoordinador,
-            auth_roles_name: user.auth_roles?.name,
-            role_name: user.role_name,
-            is_coordinator_flag: user.is_coordinator,
-            userCoordinacionesMap: userCoordinacionesMap[user.id],
-            coordIds,
-            coordinacion_id_from_user: user.coordinacion_id,
-            userCoordinacionesMap_completo: userCoordinacionesMap
-          });
-        }
+        // Debug logs removidos para producción
         
         // Para coordinadores: obtener nombres de sus coordinaciones
         let coordinacionesNombres: string[] | undefined;

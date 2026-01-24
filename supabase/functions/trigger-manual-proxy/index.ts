@@ -99,7 +99,7 @@ serve(async (req) => {
     let programadaPorNombre = customer_name || user.email;
     try {
       const { data: userData } = await supabase
-        .from('auth_users_safe')
+        .from('user_profiles_v2')
         .select('full_name')
         .eq('id', user_id || user.id)
         .single();

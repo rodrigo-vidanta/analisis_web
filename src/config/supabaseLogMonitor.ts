@@ -67,6 +67,11 @@ export interface ErrorLog {
   severidad: ErrorSeverity;
   ambiente: EnvironmentType;
   descripcion?: string | null;
+  // Propiedades relacionadas (joins desde LogMonitorService)
+  annotations?: UIErrorLogAnnotation[];
+  tags?: UIErrorLogTag[];
+  ai_analysis?: UIErrorLogAIAnalysis | null;
+  status?: UIErrorLogStatus | null;
 }
 
 // Tipos para tablas UI

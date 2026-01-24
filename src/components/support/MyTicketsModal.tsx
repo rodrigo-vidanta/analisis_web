@@ -31,7 +31,11 @@ interface MyTicketsModalProps {
 
 const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTicketRead }) => {
   const { user } = useAuth();
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [tickets, setTickets] = useState<(SupportTicket & { 
+    hasNewBadge: boolean; 
+    hasMessageBadge: boolean;
+    unreadCount: number;
+  })[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [comments, setComments] = useState<TicketComment[]>([]);
@@ -62,7 +66,7 @@ const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTick
     if (!user) return;
     setIsLoading(true);
     try {
-      const { tickets: data } = await ticketService.getMyTickets(user.id);
+      const { tickets: data } = await ticketService.getTicketsWithBadges(user.id);
       setTickets(data);
     } catch {
       toast.error('Error al cargar tickets');
@@ -79,6 +83,14 @@ const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTick
   const handleSelectTicket = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
     await loadComments(ticket.id);
+    
+    // ✅ NUEVO: Marcar como visto
+    if (user?.id) {
+      await ticketService.markTicketAsViewed(ticket.id, user.id);
+      // Recargar tickets para actualizar badges
+      await loadTickets();
+    }
+    
     if (onTicketRead) onTicketRead(ticket.id);
   };
 
@@ -264,6 +276,21 @@ const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTick
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{ticket.ticket_number}</span>
+                              
+                              {/* ✅ NUEVO: Badge "Nuevo" */}
+                              {ticket.hasNewBadge && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-blue-500 text-white animate-pulse">
+                                  NUEVO
+                                </span>
+                              )}
+                              
+                              {/* ✅ NUEVO: Badge "Mensaje" */}
+                              {!ticket.hasNewBadge && ticket.hasMessageBadge && (
+                                <span className="px-1.5 py-0.5 text-[9px] font-bold rounded bg-emerald-500 text-white flex items-center gap-1">
+                                  💬 {ticket.unreadCount}
+                                </span>
+                              )}
+                              
                               <span className={`px-1.5 py-0.5 text-[9px] font-bold rounded ${
                                 ticket.type === 'reporte_falla' ? 'bg-red-100 text-red-600 dark:bg-red-900/30' : 'bg-violet-100 text-violet-600 dark:bg-violet-900/30'
                               }`}>

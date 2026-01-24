@@ -92,12 +92,14 @@ const LiveChatDashboard: React.FC<LiveChatDashboardProps> = ({
   const filterConversations = () => {
     let filtered = conversations;
 
-    // Filtro por búsqueda
+    // Filtro por búsqueda - Buscar en datos del prospecto
     if (searchTerm) {
       filtered = filtered.filter(conv => 
-        conv.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        conv.customer_phone.includes(searchTerm) ||
-        conv.customer_email?.toLowerCase().includes(searchTerm.toLowerCase())
+        // Buscar en prospecto (Single Source of Truth)
+        conv.prospect?.nombre_completo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.prospect?.nombre_whatsapp?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        conv.prospect?.whatsapp?.includes(searchTerm) ||
+        conv.prospect?.email?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 

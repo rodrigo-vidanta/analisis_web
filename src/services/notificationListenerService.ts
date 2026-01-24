@@ -247,8 +247,8 @@ class NotificationListenerService {
         p_message_id: message.id,
         p_conversation_id: conversationId,
         p_prospect_id: prospectId,
-        p_customer_name: prospecto.nombre_completo || message.nombre_contacto || 'Cliente',
-        p_customer_phone: prospecto.whatsapp || message.numero_telefono || '',
+        p_customer_name: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Cliente',
+        p_customer_phone: prospecto.whatsapp || '',
         p_message_preview: (message.mensaje || message.text || '').substring(0, 100),
       };
       
@@ -403,7 +403,7 @@ class NotificationListenerService {
         p_call_id: call.call_id,
         p_prospect_id: prospectId,
         p_call_status: call.call_status,
-        p_customer_name: prospecto.nombre_completo || 'Cliente',
+        p_customer_name: prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Cliente',
         p_customer_phone: prospecto.whatsapp || '',
       });
 

@@ -350,6 +350,19 @@ class NotificationService {
         async (payload) => {
           const message = payload.new;
           
+          // Obtener datos del prospecto (Single Source of Truth)
+          let customerName = 'Cliente';
+          let customerPhone = '';
+          
+          if (message.prospecto_id) {
+            const { prospectsService } = await import('./prospectsService');
+            const prospecto = await prospectsService.getProspectById(message.prospecto_id);
+            if (prospecto) {
+              customerName = prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Cliente';
+              customerPhone = prospecto.whatsapp || '';
+            }
+          }
+          
           // Crear notificación para el usuario
           await this.createNotification({
             user_id: userId,
@@ -357,8 +370,8 @@ class NotificationService {
             module: 'live-chat',
             message_id: message.id,
             prospect_id: message.prospecto_id,
-            customer_name: message.nombre_contacto || message.customer_name,
-            customer_phone: message.numero_telefono || message.customer_phone,
+            customer_name: customerName,
+            customer_phone: customerPhone,
             message_preview: message.mensaje?.substring(0, 100) || '',
           });
 
