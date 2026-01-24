@@ -2,10 +2,10 @@
  * APP VERSION - Versión de la aplicación
  * 
  * Actualizado: 2026-01-24
- * Cambios: Fix búsqueda WhatsApp server-side + Performance optimization
+ * Cambios: Incluir coordinadores y supervisores en filtro de ejecutivos
  */
 
-export const APP_VERSION = 'Incluir coordinadores y supervisores en filtro de ejecutivos';
+export const APP_VERSION = 'B10.1.42N2.5.46';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)
