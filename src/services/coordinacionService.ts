@@ -567,21 +567,31 @@ class CoordinacionService {
 
   /**
    * OPTIMIZACIÓN: Obtiene múltiples coordinaciones en batch
+   * NOTA: Incluye coordinaciones archivadas para mostrar historial correctamente
    */
   async getCoordinacionesByIds(ids: string[]): Promise<Map<string, Coordinacion>> {
     try {
       if (ids.length === 0) return new Map();
 
+      // Obtener todas las coordinaciones solicitadas (incluso archivadas para historial)
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
         .in('id', ids);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error en query getCoordinacionesByIds:', error);
+        throw error;
+      }
 
       const map = new Map<string, Coordinacion>();
-      (data || []).forEach(coord => {
-        map.set(coord.id, coord);
+      (data || []).forEach((coord: any) => {
+        // Normalizar datos para compatibilidad
+        map.set(coord.id, {
+          ...coord,
+          archivado: coord.archivado !== undefined ? coord.archivado : !coord.is_active,
+          is_operativo: coord.is_operativo !== undefined ? coord.is_operativo : true,
+        });
       });
 
       return map;
@@ -592,19 +602,22 @@ class CoordinacionService {
   }
 
   /**
-   * OPTIMIZACIÓN: Obtiene múltiples usuarios asignables en batch
+   * OPTIMIZACIÓN: Obtiene múltiples usuarios en batch para visualización histórica
    * ============================================
-   * CORRECCIÓN 2026-01-14: Incluir ejecutivos Y coordinadores
+   * CORRECCIÓN 2026-01-24: SIN FILTROS RESTRICTIVOS
    * ============================================
-   * Los administradores pueden reasignar prospectos tanto a ejecutivos
-   * como a coordinadores. El filtro anterior solo buscaba "ejecutivo"
-   * lo cual causaba error 406 cuando se intentaba asignar a un coordinador.
+   * Para registros históricos, se deben mostrar TODOS los usuarios asignados
+   * independientemente de su rol actual o estado activo/inactivo.
+   * Esto permite ver el historial completo de asignaciones.
+   * 
+   * Los permisos de acceso a prospectos se manejan en otro nivel (filtro de prospectos).
    */
   async getEjecutivosByIds(ids: string[]): Promise<Map<string, Ejecutivo>> {
     try {
       if (ids.length === 0) return new Map();
-
+      
       // Usar user_profiles_v2 (vista segura sin password_hash) que ya incluye role_name
+      // SIN filtros de role_name ni is_active para permitir visualización histórica completa
       const { data, error } = await supabaseSystemUI
         .from('user_profiles_v2')
         .select(`
@@ -622,11 +635,11 @@ class CoordinacionService {
           created_at,
           role_name
         `)
-        .in('id', ids)
-        .in('role_name', ['ejecutivo', 'coordinador'])
-        .eq('is_active', true);
+        .in('id', ids);
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
 
       const map = new Map<string, Ejecutivo>();
       (data || []).forEach((user: any) => {

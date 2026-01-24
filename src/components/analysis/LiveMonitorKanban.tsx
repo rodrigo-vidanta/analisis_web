@@ -1214,6 +1214,10 @@ const LiveMonitorKanban: React.FC = () => {
       let enrichedData: any[] = [];
       
       // Usar directamente allLlamadasData que ya tiene todos los datos necesarios
+      // ✅ FIX 2026-01-24: Declarar variables de mapas al nivel correcto para acceso en enriquecimiento
+      let localEjecutivosData: Record<string, any> = {};
+      let localCoordinacionesData: Record<string, any> = {};
+      
       if (allLlamadasData && allLlamadasData.length > 0) {
         const llamadasData = allLlamadasData;
         
@@ -1327,20 +1331,28 @@ const LiveMonitorKanban: React.FC = () => {
               }
               
               // Cargar datos de ejecutivos y coordinaciones únicos
-              const ejecutivoIds = [...new Set(prospectosResult.map(p => p.ejecutivo_id).filter(Boolean))];
-              const coordinacionIds = [...new Set(prospectosResult.map(p => p.coordinacion_id).filter(Boolean))];
+              // ✅ FIX 2026-01-24: Incluir ejecutivo_id de llamadas_ventas además de prospectos
+              // Las llamadas pueden tener un ejecutivo diferente al actual del prospecto
+              const ejecutivoIdsFromProspectos = prospectosResult.map(p => p.ejecutivo_id).filter(Boolean);
+              const ejecutivoIdsFromLlamadas = allLlamadasData?.map(l => l.ejecutivo_id).filter(Boolean) || [];
+              const ejecutivoIds = [...new Set([...ejecutivoIdsFromProspectos, ...ejecutivoIdsFromLlamadas])];
+              
+              const coordinacionIdsFromProspectos = prospectosResult.map(p => p.coordinacion_id).filter(Boolean);
+              const coordinacionIdsFromLlamadas = allLlamadasData?.map(l => l.coordinacion_id).filter(Boolean) || [];
+              const coordinacionIds = [...new Set([...coordinacionIdsFromProspectos, ...coordinacionIdsFromLlamadas])];
               
               // ⚡ OPTIMIZACIÓN POST-MIGRACIÓN: Batch loading con 1 query en lugar de N queries
+              // ✅ FIX 2026-01-24: Incluir TODOS los roles (ejecutivo, supervisor, coordinador)
+              // para mostrar correctamente el historial de asignaciones
               const [ejecutivosData, coordinacionesData] = await Promise.all([
                 ejecutivoIds.length > 0 ? (async () => {
                   try {
-                    // Usar auth_user_profiles (vista sin RLS) que ya incluye role_name
+                    // Usar user_profiles_v2 SIN filtro de role_name ni is_active
+                    // para visualización histórica completa
                     const { data: ejecutivosArray } = await supabaseSystemUI
                       .from('user_profiles_v2')
                       .select('id, email, full_name, first_name, last_name, phone, coordinacion_id, is_active, role_name')
-                      .in('id', ejecutivoIds)
-                      .eq('role_name', 'ejecutivo')
-                      .eq('is_active', true);
+                      .in('id', ejecutivoIds);
                     
                     return Object.fromEntries((ejecutivosArray || []).map(e => [e.id, e]));
                   } catch (err) {
@@ -1361,8 +1373,12 @@ const LiveMonitorKanban: React.FC = () => {
                 ).then(results => Object.fromEntries(results.filter(Boolean) as [string, any][])) : {}
               ]);
               
+              // Guardar en variables locales para uso fuera del bloque
+              localEjecutivosData = ejecutivosData;
+              localCoordinacionesData = coordinacionesData;
+              
               setEjecutivosMap(ejecutivosData);
-                setCoordinacionesMap(coordinacionesData);
+              setCoordinacionesMap(coordinacionesData);
             }
           }
           
@@ -1480,9 +1496,27 @@ const LiveMonitorKanban: React.FC = () => {
               prospecto_completo: prospecto,
               // Requiere atención humana del prospecto
               requiere_atencion_humana: prospecto?.requiere_atencion_humana || false,
-              // IDs de asignación del prospecto
-              ejecutivo_id: prospecto?.ejecutivo_id || null,
-              coordinacion_id: prospecto?.coordinacion_id || null,
+              // ✅ FIX 2026-01-24: Usar ejecutivo_id de la llamada como fuente primaria
+              // porque representa la asignación EN EL MOMENTO de la llamada
+              ejecutivo_id: finalLlamada?.ejecutivo_id || prospecto?.ejecutivo_id || null,
+              coordinacion_id: finalLlamada?.coordinacion_id || prospecto?.coordinacion_id || null,
+              // Obtener nombre del ejecutivo desde el mapa local
+              ejecutivo_nombre: (() => {
+                const efectivoId = finalLlamada?.ejecutivo_id || prospecto?.ejecutivo_id;
+                const ejecutivo = efectivoId ? localEjecutivosData[efectivoId] : null;
+                return ejecutivo?.full_name || prospecto?.asesor_asignado || null;
+              })(),
+              // Obtener código de coordinación desde el mapa local
+              coordinacion_codigo: (() => {
+                const efectivoCoordId = finalLlamada?.coordinacion_id || prospecto?.coordinacion_id;
+                const coord = efectivoCoordId ? localCoordinacionesData[efectivoCoordId] : null;
+                return coord?.codigo || null;
+              })(),
+              coordinacion_nombre: (() => {
+                const efectivoCoordId = finalLlamada?.coordinacion_id || prospecto?.coordinacion_id;
+                const coord = efectivoCoordId ? localCoordinacionesData[efectivoCoordId] : null;
+                return coord?.nombre || null;
+              })(),
               // Estado de llamada corregido
               call_status: callStatus,
               // Análisis completo para el modal
@@ -2088,13 +2122,17 @@ const LiveMonitorKanban: React.FC = () => {
     }
   }, [selectedTab, debouncedSearchQuery, dateFrom, dateTo, interestFilter, statusFilter, ejecutivoFilter, quickFilters, historySortField, historySortDirection, loadingMoreHistory, applyHistoryFilters]);
 
-  // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis (con diferimiento)
+  // Extraer valores únicos para filtros cuando cambie allCallsWithAnalysis o allHistoryCallsLoaded
   // Usar ref para comparar y evitar procesamiento innecesario
   const previousCallsRef = useRef<string>('');
   useEffect(() => {
-    if (allCallsWithAnalysis.length > 0) {
-      // Crear hash de los call_ids para comparar si realmente cambió el contenido
-      const callsHash = JSON.stringify(allCallsWithAnalysis.map(c => c.call_id).sort());
+    if (allCallsWithAnalysis.length > 0 || allHistoryCallsLoaded.length > 0) {
+      // Crear hash de los call_ids de ambas fuentes para comparar si realmente cambió el contenido
+      const allIds = [
+        ...allCallsWithAnalysis.map(c => c.call_id),
+        ...allHistoryCallsLoaded.map(c => c.call_id)
+      ];
+      const callsHash = JSON.stringify([...new Set(allIds)].sort());
       
       // Solo procesar si realmente cambió el contenido
       if (previousCallsRef.current !== callsHash) {
@@ -2112,26 +2150,43 @@ const LiveMonitorKanban: React.FC = () => {
               return prevString !== newString ? interests as string[] : prev;
             });
             
-            // Extraer ejecutivos únicos
-            const ejecutivosSet = new Set<string>();
-            allCallsWithAnalysis.forEach(call => {
+            // ✅ FIX 2026-01-24: Extraer ejecutivos únicos de TODAS las fuentes
+            // Usar allHistoryCallsLoaded (sin filtros de permisos) para mostrar todos los ejecutivos disponibles
+            // Incluir ejecutivo_id de llamadas y prospectos, y también los nombres directos
+            const ejecutivosSet = new Map<string, string>(); // id -> nombre
+            
+            // Primero de allHistoryCallsLoaded (sin filtrar)
+            allHistoryCallsLoaded.forEach(call => {
               const prospecto = call.prospecto_completo || {};
-              const ejecutivoId = prospecto.ejecutivo_id || call.ejecutivo_id;
-              if (ejecutivoId) {
-                ejecutivosSet.add(ejecutivoId);
+              const ejecutivoId = call.ejecutivo_id || prospecto.ejecutivo_id;
+              if (ejecutivoId && !ejecutivosSet.has(ejecutivoId)) {
+                const ejecutivoFromMap = ejecutivosMap[ejecutivoId];
+                const nombre = ejecutivoFromMap?.full_name 
+                  || call.ejecutivo_nombre 
+                  || prospecto.asesor_asignado 
+                  || 'Ejecutivo (sin nombre)';
+                ejecutivosSet.set(ejecutivoId, nombre);
               }
             });
             
-            // Cargar nombres de ejecutivos
-            const ejecutivosList: Array<{id: string, name: string}> = [];
-            ejecutivosSet.forEach((ejecId) => {
-              if (ejecutivosMap[ejecId]) {
-                const ejecutivo = ejecutivosMap[ejecId];
-                ejecutivosList.push({
-                  id: ejecId,
-                  name: ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'Sin nombre'
-                });
+            // También de allCallsWithAnalysis por si hay más
+            allCallsWithAnalysis.forEach(call => {
+              const prospecto = call.prospecto_completo || {};
+              const ejecutivoId = call.ejecutivo_id || prospecto.ejecutivo_id;
+              if (ejecutivoId && !ejecutivosSet.has(ejecutivoId)) {
+                const ejecutivoFromMap = ejecutivosMap[ejecutivoId];
+                const nombre = ejecutivoFromMap?.full_name 
+                  || call.ejecutivo_nombre 
+                  || prospecto.asesor_asignado 
+                  || 'Ejecutivo (sin nombre)';
+                ejecutivosSet.set(ejecutivoId, nombre);
               }
+            });
+            
+            // Cargar nombres de ejecutivos desde el Map
+            const ejecutivosList: Array<{id: string, name: string}> = [];
+            ejecutivosSet.forEach((name, ejecId) => {
+              ejecutivosList.push({ id: ejecId, name });
             });
             
             // Ordenar por nombre
@@ -2153,7 +2208,7 @@ const LiveMonitorKanban: React.FC = () => {
         }
       }
     }
-  }, [allCallsWithAnalysis, ejecutivosMap]);
+  }, [allCallsWithAnalysis, allHistoryCallsLoaded, ejecutivosMap]);
 
   // Cerrar date picker al hacer clic fuera
   useEffect(() => {

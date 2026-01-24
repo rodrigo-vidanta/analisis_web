@@ -1073,96 +1073,161 @@ const AnalysisIAComplete: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // Cargar análisis básicos
-      const { data: analysisData, error: analysisError } = await analysisSupabase
-        .from('call_analysis_summary')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (analysisError) throw analysisError;
+      // ============================================
+      // FIX 2026-01-24: Paginación para superar límite de 1000 registros de Supabase
+      // ============================================
+      const PAGE_SIZE = 1000;
+      
+      // Función helper para cargar datos con paginación
+      const loadAllWithPagination = async (table: string, selectQuery: string, orderBy?: string): Promise<any[]> => {
+        const results: any[] = [];
+        let from = 0;
+        let hasMore = true;
+        
+        while (hasMore) {
+          let query = analysisSupabase
+            .from(table)
+            .select(selectQuery)
+            .range(from, from + PAGE_SIZE - 1);
+          
+          if (orderBy) {
+            query = query.order(orderBy, { ascending: false });
+          }
+          
+          const { data, error } = await query;
+          
+          if (error) throw error;
+          
+          if (data && data.length > 0) {
+            results.push(...data);
+            from += PAGE_SIZE;
+            hasMore = data.length === PAGE_SIZE;
+          } else {
+            hasMore = false;
+          }
+        }
+        
+        return results;
+      };
+      
+      // Cargar análisis básicos CON PAGINACIÓN
+      const analysisData = await loadAllWithPagination('call_analysis_summary', '*', 'created_at');
 
       // Cargar datos complementarios de llamadas_ventas
       const callIds = analysisData?.map(a => a.call_id) || [];
       let enrichedData = analysisData || [];
       
       if (callIds.length > 0) {
-        const { data: llamadasData, error: llamadasError } = await analysisSupabase
-          .from('llamadas_ventas')
-          .select('*')
-          .in('call_id', callIds);
-
-        if (!llamadasError && llamadasData) {
-          // Obtener IDs de prospectos únicos
-          const prospectoIds = llamadasData.map(l => l.prospecto).filter(Boolean);
+        // ✅ OPTIMIZACIÓN: Cargar en batches PARALELOS para mejor rendimiento
+        const BATCH_SIZE = 200;
+        
+        const loadInParallelBatches = async (
+          table: string,
+          selectQuery: string,
+          filterColumn: string,
+          ids: string[]
+        ): Promise<any[]> => {
+          const uniqueIds = [...new Set(ids)];
+          const batches: string[][] = [];
+          for (let i = 0; i < uniqueIds.length; i += BATCH_SIZE) {
+            batches.push(uniqueIds.slice(i, i + BATCH_SIZE));
+          }
           
-          // Cargar datos de prospectos
-          let prospectosData: any[] = [];
-          if (prospectoIds.length > 0) {
-            // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
-            const BATCH_SIZE = 100;
-            const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
-              const results: any[] = [];
-              for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-                const batch = ids.slice(i, i + BATCH_SIZE);
-                const { data, error } = await analysisSupabase
-                  .from('prospectos')
-                  .select('id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia, coordinacion_id, ejecutivo_id')
-                  .in('id', batch);
-                if (!error && data) {
-                  results.push(...data);
-                }
-              }
-              return results;
-            };
+          const batchResults = await Promise.all(
+            batches.map(batch =>
+              analysisSupabase
+                .from(table)
+                .select(selectQuery)
+                .in(filterColumn, batch)
+                .then(({ data }) => data || [])
+            )
+          );
+          
+          return batchResults.flat();
+        };
+        
+        // Cargar llamadas en paralelo
+        const llamadasData = await loadInParallelBatches('llamadas_ventas', '*', 'call_id', callIds);
+        
+        // ✅ OPTIMIZACIÓN: Crear Map para búsqueda O(1)
+        const llamadasMap = new Map(llamadasData.map(l => [l.call_id, l]));
+
+        if (llamadasData.length > 0) {
+          // Obtener IDs de prospectos únicos
+          const prospectoIds = [...new Set(llamadasData.map(l => l.prospecto).filter(Boolean))];
+          
+          // Cargar prospectos en paralelo
+          let prospectosData = await loadInParallelBatches(
+            'prospectos',
+            'id, nombre_completo, nombre, apellido_paterno, apellido_materno, whatsapp, ciudad_residencia, coordinacion_id, ejecutivo_id, asesor_asignado',
+            'id',
+            prospectoIds
+          );
+          
+          // Aplicar filtros de permisos en memoria
+          // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+          if (queryUserId) {
+            const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+            const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
+            const isAdmin = await permissionsService.isAdmin(queryUserId);
+            const isCalidad = await permissionsService.isCoordinadorCalidad(queryUserId);
             
-            let allProspectos = await loadProspectosInBatches(prospectoIds);
-            
-            // Aplicar filtros de permisos en memoria
-            // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
-            if (queryUserId) {
-              const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
-              const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
-              const isAdmin = await permissionsService.isAdmin(queryUserId);
-              const isCalidad = await permissionsService.isCoordinadorCalidad(queryUserId);
-              
-              // Admin y Coordinadores de Calidad tienen acceso completo (sin filtros)
-              if (!isAdmin && !isCalidad) {
-                if (ejecutivoFilter) {
-                  // Ejecutivo: solo prospectos asignados a él
-                  allProspectos = allProspectos.filter(p => p.ejecutivo_id === ejecutivoFilter);
-                } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-                  // Coordinador normal: solo prospectos de sus coordinaciones
-                  allProspectos = allProspectos.filter(p => p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id));
-                }
+            // Admin y Coordinadores de Calidad tienen acceso completo (sin filtros)
+            if (!isAdmin && !isCalidad) {
+              if (ejecutivoFilter) {
+                // Ejecutivo: solo prospectos asignados a él
+                prospectosData = prospectosData.filter(p => p.ejecutivo_id === ejecutivoFilter);
+              } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+                // Coordinador normal: solo prospectos de sus coordinaciones
+                prospectosData = prospectosData.filter(p => p.coordinacion_id && coordinacionesFilter.includes(p.coordinacion_id));
               }
             }
-            
-            prospectosData = allProspectos;
           }
           
           // Filtrar análisis para incluir solo los que tienen prospectos permitidos
           const allowedProspectoIds = new Set(prospectosData.map(p => p.id));
           
-          // Obtener IDs únicos de coordinaciones y ejecutivos para cargar en batch
-          const coordinacionIds = [...new Set(prospectosData.map(p => p.coordinacion_id).filter(Boolean))];
-          const ejecutivoIds = [...new Set(prospectosData.map(p => p.ejecutivo_id).filter(Boolean))];
+          // ✅ FIX 2026-01-24: Obtener ejecutivo_id tanto de llamadas_ventas como de prospectos
+          // llamadas_ventas tiene ejecutivo_id y coordinacion_id que representan la asignación
+          // EN EL MOMENTO de la llamada, que es más preciso para el historial
+          const ejecutivoIdsFromLlamadas = llamadasData.map(l => l.ejecutivo_id).filter(Boolean);
+          const ejecutivoIdsFromProspectos = prospectosData.map(p => p.ejecutivo_id).filter(Boolean);
+          const allEjecutivoIds = [...new Set([...ejecutivoIdsFromLlamadas, ...ejecutivoIdsFromProspectos])];
           
-          // Cargar coordinaciones y ejecutivos en batch (optimización)
-          const coordinacionesMap = await coordinacionService.getCoordinacionesByIds(coordinacionIds);
-          const ejecutivosMap = await coordinacionService.getEjecutivosByIds(ejecutivoIds);
+          // Cargar TODAS las coordinaciones y ejecutivos en batch
+          const [coordinaciones, ejecutivosMap] = await Promise.all([
+            coordinacionService.getCoordinaciones(),
+            coordinacionService.getEjecutivosByIds(allEjecutivoIds)
+          ]);
+          
+          // ✅ OPTIMIZACIÓN: Crear Maps para búsqueda O(1) en lugar de .find() O(n)
+          const coordinacionesMap = new Map(coordinaciones.map(c => [c.id, c]));
+          const prospectosMap = new Map(prospectosData.map(p => [p.id, p]));
           
           enrichedData = (analysisData || []).map(analysis => {
-            const llamada = llamadasData.find(l => l.call_id === analysis.call_id);
-            const prospecto = prospectosData.find(p => p.id === llamada?.prospecto);
+            // ✅ OPTIMIZACIÓN: Usar Maps para O(1) lookup
+            const llamada = llamadasMap.get(analysis.call_id);
+            const prospecto = llamada?.prospecto ? prospectosMap.get(llamada.prospecto) : null;
             
             // Si el prospecto no está en la lista permitida, excluir este análisis
             if (llamada?.prospecto && !allowedProspectoIds.has(llamada.prospecto)) {
               return null;
             }
             
+            // ✅ FIX 2026-01-24: Usar ejecutivo_id de llamadas_ventas como fuente primaria
+            // porque representa la asignación EN EL MOMENTO de la llamada
+            const efectivoEjecutivoId = llamada?.ejecutivo_id || prospecto?.ejecutivo_id;
+            const efectivoCoordinacionId = llamada?.coordinacion_id || prospecto?.coordinacion_id;
+            
             // Obtener info de coordinación y ejecutivo desde los maps
-            const coordinacion = prospecto?.coordinacion_id ? coordinacionesMap.get(prospecto.coordinacion_id) : null;
-            const ejecutivo = prospecto?.ejecutivo_id ? ejecutivosMap.get(prospecto.ejecutivo_id) : null;
+            const coordinacion = efectivoCoordinacionId ? coordinacionesMap.get(efectivoCoordinacionId) : null;
+            const ejecutivo = efectivoEjecutivoId ? ejecutivosMap.get(efectivoEjecutivoId) : null;
+            
+            // Prioridad de nombre del ejecutivo:
+            // 1) Datos del mapa de ejecutivos (user_profiles_v2)
+            // 2) Campo legacy asesor_asignado del prospecto
+            const ejecutivoNombre = ejecutivo?.full_name || ejecutivo?.nombre_completo || ejecutivo?.nombre ||
+              (prospecto?.asesor_asignado && prospecto.asesor_asignado.trim() !== '' ? prospecto.asesor_asignado.trim() : null);
             
             return {
               ...analysis,
@@ -1172,12 +1237,12 @@ const AnalysisIAComplete: React.FC = () => {
                                'Prospecto sin nombre',
               prospecto_whatsapp: prospecto?.whatsapp,
               prospecto_ciudad: prospecto?.ciudad_residencia,
-              // ✅ CORRECCIÓN: Agregar campos de asignación para AssignmentBadge
-              coordinacion_id: prospecto?.coordinacion_id,
+              // Usar IDs efectivos (de llamada o prospecto)
+              coordinacion_id: efectivoCoordinacionId,
               coordinacion_codigo: coordinacion?.codigo,
               coordinacion_nombre: coordinacion?.nombre,
-              ejecutivo_id: prospecto?.ejecutivo_id,
-              ejecutivo_nombre: ejecutivo?.full_name || ejecutivo?.nombre_completo || ejecutivo?.nombre
+              ejecutivo_id: efectivoEjecutivoId,
+              ejecutivo_nombre: ejecutivoNombre
             };
           }).filter((item): item is NonNullable<typeof item> => item !== null);
         }

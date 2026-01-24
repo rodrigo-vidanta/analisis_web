@@ -5,7 +5,7 @@
  * Cambios: Incluir coordinadores y supervisores en filtro de ejecutivos
  */
 
-export const APP_VERSION = 'B10.1.42N2.5.46';
+export const APP_VERSION = 'Fix reasignación - eliminar actualizaciones locales duplicadas';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

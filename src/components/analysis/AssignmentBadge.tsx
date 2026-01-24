@@ -22,15 +22,16 @@ export const AssignmentBadge: React.FC<AssignmentBadgeProps> = ({
   className = '' 
 }) => {
   const { user } = useAuth();
-  const { isAdmin, isAdminOperativo, isCoordinador, isEjecutivo } = useEffectivePermissions();
+  const { isAdmin, isAdminOperativo, isCoordinador, isSupervisor, isEjecutivo } = useEffectivePermissions();
 
   // Determinar qué mostrar según el rol
   // Administrador: ve ambas (coordinación y ejecutivo)
   // Administrador Operativo: ve ambas (coordinación y ejecutivo)
   // Coordinador: ve AMBAS (coordinación y ejecutivo) - especialmente CALIDAD que ve todas las coordinaciones
+  // Supervisor: ve AMBAS (coordinación y ejecutivo) - necesita supervisar a su equipo
   // Ejecutivo: ve solo coordinación
-  const showCoordinacion = isAdmin || isAdminOperativo || isEjecutivo || isCoordinador;
-  const showEjecutivo = isAdmin || isAdminOperativo || isCoordinador;
+  const showCoordinacion = isAdmin || isAdminOperativo || isEjecutivo || isCoordinador || isSupervisor;
+  const showEjecutivo = isAdmin || isAdminOperativo || isCoordinador || isSupervisor;
 
   // Si no hay información de asignación, no mostrar nada
   if (!showCoordinacion && !showEjecutivo) {

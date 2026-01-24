@@ -9,8 +9,9 @@
  * Edge Function: ${VITE_EDGE_FUNCTIONS_URL}/functions/v1/dynamics-reasignar-proxy
  * 
  * ⚠️ IMPORTANTE:
- * - La reasignación ahora se hace vía webhook, NO directamente en BD
- * - Solo se actualiza localmente después de recibir 200 del webhook
+ * - Este servicio SOLO envía solicitudes al webhook de N8N
+ * - El workflow de N8N es el ÚNICO responsable de actualizar la BD
+ * - NO se hace ninguna actualización local desde el frontend
  * - Permisos: admin, administrador_operativo, coordinador, coordinador_calidad
  * 
  * 🔒 SEGURIDAD (Actualizado 2026-01-07):
@@ -98,36 +99,22 @@ class DynamicsReasignacionService {
   /**
    * Reasigna un prospecto a un nuevo ejecutivo vía webhook N8N/Dynamics
    * 
+   * IMPORTANTE: El workflow de N8N es el único responsable de actualizar la BD.
+   * Este servicio SOLO envía la solicitud al webhook, NO actualiza nada localmente.
+   * 
    * @param request - Datos de la reasignación
    * @returns Resultado de la operación
    */
   async reasignarProspecto(request: ReasignacionRequest): Promise<ReasignacionResponse> {
     try {
-      // 1. Enviar solicitud al webhook de N8N
+      // Enviar solicitud al webhook de N8N - el workflow se encarga de todo
       const webhookResponse = await this.enviarWebhook(request);
       
       if (!webhookResponse.success) {
         return webhookResponse;
       }
-
-      // 2. Si el webhook fue exitoso, actualizar localmente
-      const localUpdateResult = await this.actualizarLocalmente(request);
       
-      if (!localUpdateResult.success) {
-        // Aún así consideramos éxito porque Dynamics se actualizó
-        return {
-          success: true,
-          message: 'Reasignación completada en Dynamics, pero hubo un error actualizando localmente',
-          details: {
-            prospecto_id: request.prospecto_id,
-            ejecutivo_id: request.nuevo_ejecutivo_id,
-            coordinacion_id: request.nueva_coordinacion_id,
-            dynamics_updated: true,
-            local_updated: false
-          }
-        };
-      }
-      
+      // El webhook fue exitoso - el workflow de N8N ya actualizó la BD
       return {
         success: true,
         message: 'Prospecto reasignado exitosamente',
@@ -135,8 +122,7 @@ class DynamicsReasignacionService {
           prospecto_id: request.prospecto_id,
           ejecutivo_id: request.nuevo_ejecutivo_id,
           coordinacion_id: request.nueva_coordinacion_id,
-          dynamics_updated: true,
-          local_updated: true
+          dynamics_updated: true
         }
       };
 
@@ -375,114 +361,6 @@ class DynamicsReasignacionService {
     }
   }
 
-  /**
-   * Actualiza los datos localmente después de una reasignación exitosa en Dynamics
-   */
-  private async actualizarLocalmente(request: ReasignacionRequest): Promise<ReasignacionResponse> {
-    try {
-      const now = new Date().toISOString();
-
-      // Obtener nombre del nuevo ejecutivo para asesor_asignado
-      let ejecutivoNombre: string | null = null;
-      if (request.nuevo_ejecutivo_nombre) {
-        ejecutivoNombre = request.nuevo_ejecutivo_nombre;
-      } else {
-        try {
-          const ejecutivo = await coordinacionService.getEjecutivoById(request.nuevo_ejecutivo_id);
-          if (ejecutivo) {
-            ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
-          }
-        } catch {
-          // No se pudo obtener nombre del ejecutivo (no crítico)
-        }
-      }
-
-      // 1. Actualizar tabla prospectos (base analysis)
-      const updateData: Record<string, any> = {
-        ejecutivo_id: request.nuevo_ejecutivo_id,
-        coordinacion_id: request.nueva_coordinacion_id,
-        assignment_date: now,
-        updated_at: now
-      };
-
-      if (ejecutivoNombre) {
-        updateData.asesor_asignado = ejecutivoNombre;
-      }
-
-      const { error: prospectoError } = await analysisSupabase
-        .from('prospectos')
-        .update(updateData)
-        .eq('id', request.prospecto_id);
-
-      if (prospectoError) {
-        throw prospectoError;
-      }
-
-      // 2. Actualizar o crear registro en prospect_assignments (system_ui)
-      const { data: existingAssignment } = await supabaseSystemUI
-        .from('prospect_assignments')
-        .select('id')
-        .eq('prospect_id', request.prospecto_id)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (existingAssignment) {
-        // Actualizar asignación existente
-        await supabaseSystemUI
-          .from('prospect_assignments')
-          .update({
-            coordinacion_id: request.nueva_coordinacion_id,
-            ejecutivo_id: request.nuevo_ejecutivo_id,
-            assigned_by: request.reasignado_por_id,
-            assignment_type: 'manual',
-            assignment_reason: request.motivo || 'Reasignación vía Dynamics',
-            updated_at: now
-          })
-          .eq('id', existingAssignment.id);
-      } else {
-        // Crear nueva asignación
-        await supabaseSystemUI
-          .from('prospect_assignments')
-          .insert({
-            prospect_id: request.prospecto_id,
-            coordinacion_id: request.nueva_coordinacion_id,
-            ejecutivo_id: request.nuevo_ejecutivo_id,
-            assigned_by: request.reasignado_por_id,
-            assignment_type: 'manual',
-            assignment_reason: request.motivo || 'Reasignación vía Dynamics',
-            is_active: true
-          });
-      }
-
-      // 3. Registrar en logs de asignación (no crítico)
-      try {
-        await supabaseSystemUI
-          .from('assignment_logs')
-          .insert({
-            prospect_id: request.prospecto_id,
-            coordinacion_id: request.nueva_coordinacion_id,
-            ejecutivo_id: request.nuevo_ejecutivo_id,
-            action: 'reassigned_via_dynamics',
-            assigned_by: request.reasignado_por_id,
-            reason: request.motivo || 'Reasignación vía webhook Dynamics'
-          });
-      } catch {
-        // Error registrando log (no crítico)
-      }
-      
-      return {
-        success: true,
-        message: 'Datos actualizados localmente'
-      };
-
-    } catch (error) {
-      return {
-        success: false,
-        message: 'Error actualizando datos locales',
-        error: error instanceof Error ? error.message : 'Error desconocido'
-      };
-    }
-  }
 }
 
 // Exportar instancia singleton

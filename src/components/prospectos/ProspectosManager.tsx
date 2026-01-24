@@ -1081,9 +1081,68 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           codigo: c.codigo || c.nombre
         })));
         
-        // Cargar ejecutivos
-        const ejecutivos = await coordinacionService.getAllEjecutivos();
-        setEjecutivosOptions(ejecutivos.filter(e => e.is_active).map(e => ({
+        // ✅ FIX 2026-01-24: Solo mostrar usuarios que tengan prospectos asignados
+        // Primero obtener los ejecutivo_id únicos de la tabla prospectos
+        const { data: prospectosEjecutivos, error: prospectosError } = await analysisSupabase
+          .from('prospectos')
+          .select('ejecutivo_id')
+          .not('ejecutivo_id', 'is', null);
+        
+        if (prospectosError) {
+          console.error('Error obteniendo ejecutivos de prospectos:', prospectosError);
+          return;
+        }
+        
+        // Obtener IDs únicos de ejecutivos que tienen prospectos
+        const ejecutivoIdsConProspectos = [...new Set(
+          (prospectosEjecutivos || [])
+            .map(p => p.ejecutivo_id)
+            .filter(Boolean)
+        )];
+        
+        if (ejecutivoIdsConProspectos.length === 0) {
+          setEjecutivosOptions([]);
+          return;
+        }
+        
+        // Obtener datos de esos usuarios (sin filtrar por rol ni estado activo)
+        const { data: usuariosData, error: usuariosError } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('id, full_name, coordinacion_id, role_name, is_active')
+          .in('id', ejecutivoIdsConProspectos)
+          .order('full_name');
+        
+        if (usuariosError) {
+          console.error('Error obteniendo datos de usuarios:', usuariosError);
+          return;
+        }
+        
+        // Aplicar filtros según nivel de permisos del usuario
+        let filteredUsuarios = usuariosData || [];
+        const userRole = user?.role_name;
+        const isCalidad = await permissionsService.isCoordinadorCalidad(user?.id || '');
+        
+        if (userRole === 'admin' || userRole === 'administrador_operativo' || isCalidad) {
+          // Admin, Admin Operativo, Coordinador Calidad: ver todos
+          // No se aplican filtros adicionales
+        } else if (userRole === 'coordinador') {
+          // Coordinador: solo usuarios de su coordinación
+          const userCoordinacionId = user?.coordinacion_id;
+          if (userCoordinacionId) {
+            filteredUsuarios = filteredUsuarios.filter(u => u.coordinacion_id === userCoordinacionId);
+          }
+        } else if (userRole === 'supervisor') {
+          // Supervisor: solo usuarios de su coordinación
+          const userCoordinacionId = user?.coordinacion_id;
+          if (userCoordinacionId) {
+            filteredUsuarios = filteredUsuarios.filter(u => u.coordinacion_id === userCoordinacionId);
+          }
+        } else if (userRole === 'ejecutivo') {
+          // Ejecutivo: solo puede ver sus propios prospectos (mostrar solo su nombre)
+          filteredUsuarios = filteredUsuarios.filter(u => u.id === user?.id);
+        }
+        
+        setEjecutivosOptions(filteredUsuarios.map(e => ({
           id: e.id,
           full_name: e.full_name,
           coordinacion_id: e.coordinacion_id
