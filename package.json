@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "Fix reasignación - eliminar actualizaciones locales duplicadas",
+  "version": "2.5.47",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
