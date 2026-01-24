@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
+  { hash: 'f1b26ef', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '1841624', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '7e7bcd7', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
   { hash: '8213ca3', date: '2026-01-22', author: 'Team', message: 'Deploy automático completo', isRelease: true },
