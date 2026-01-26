@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
+  { hash: '076abc2', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
   { hash: 'f1b26ef', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '1841624', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '7e7bcd7', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
