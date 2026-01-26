@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
   { hash: 'f1b26ef', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '1841624', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '7e7bcd7', date: '2026-01-22', author: 'Team', message: 'Fix realtime subscriptions + mejoras hook versionCheck', isRelease: true },
@@ -479,6 +480,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-996', date: '25/01/2026, 22:22', version: 'B10.1.42N2.5.48', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-190', date: '24/01/2026, 15:03', version: 'Fix reasignación - eliminar actualizaciones locales duplicadas', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-588', date: '24/01/2026, 13:19', version: 'Incluir coordinadores y supervisores en filtro de ejecutivos', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-243', date: '22/01/2026, 16:35', version: 'B10.1.42N2.5.44', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -610,10 +612,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'vFix reasignación - eliminar actualizaciones locales duplicadas', highlight: true },
-  { label: 'Release', value: 'Fix reasignación - eliminar actualizaciones locales duplicadas', highlight: false },
+  { label: 'Version', value: 'v2.5.48', highlight: true },
+  { label: 'Release', value: 'B10.1.42N2.5.48', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '24 ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '25 ene 2026', highlight: false },
 ];
 
 // ============================================
