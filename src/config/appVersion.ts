@@ -1,11 +1,11 @@
 /**
  * APP VERSION - Versión de la aplicación
  * 
- * Actualizado: 2026-01-24
- * Cambios: Incluir coordinadores y supervisores en filtro de ejecutivos
+ * Actualizado: 2026-01-27
+ * Cambios: Migración a tabla de etapas, correcciones MCP, importador de prospectos
  */
 
-export const APP_VERSION = 'Migracion a tabla de etapas, correcciones de mcp, importador de prospectos';
+export const APP_VERSION = 'B10.1.43N2.5.49';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)
