@@ -3,12 +3,29 @@
 **REF:** HANDOVER-2026-01-27-DEPLOY-ETAPAS-MCP-IMPORTADOR  
 **Fecha:** 27 de Enero 2026  
 **Commit Principal:** 3f6fc0d  
-**Commit Handover:** 835c7ef  
-**Versión:** "Migracion a tabla de etapas, correcciones de mcp, importador de prospectos"
+**Commit Corrección:** 7529124  
+**Commit Handover:** 2a85df3  
+**Versión Final:** B10.1.43N2.5.49
 
 ---
 
-## 📋 Resumen Ejecutivo
+## ⚠️ CORRECCIÓN APLICADA (Post-Deploy)
+
+**Problema:** El script inicial usó el mensaje del commit como versión en lugar del número de versión.
+
+**Corrección (commit 7529124):**
+- ✅ `appVersion.ts`: `"B10.1.43N2.5.49"` (era "Migracion a tabla de etapas...")
+- ✅ `package.json`: `"B10.1.43N2.5.49"` (era "Migracion a tabla de etapas...")
+- ✅ `system_config` (BD): `"B10.1.43N2.5.49"` (era "Migracion a tabla de etapas...")
+- ✅ Re-build y re-deploy a AWS con versión correcta
+
+**Versión final:**
+- Anterior: `B10.1.42N2.5.48`
+- Nueva: `B10.1.43N2.5.49`
+- Backend: B10.1.42 → B10.1.43
+- Frontend: N2.5.48 → N2.5.49
+
+---
 
 Deploy completo que incluye:
 1. **Migración a tabla de etapas** - Sistema de etapas con FK UUID
