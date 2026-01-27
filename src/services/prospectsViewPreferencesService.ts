@@ -20,12 +20,35 @@ class ProspectsViewPreferencesService {
   private readonly STORAGE_KEY_PREFIX = 'prospects_view_preferences_';
 
   /**
+   * Migrar IDs antiguos de columnas al nuevo formato
+   */
+  private migrateOldColumnIds(columnIds: string[]): string[] {
+    return columnIds
+      .map(id => {
+        // Detectar y eliminar IDs con formato antiguo "checkpoint #..."
+        if (id.startsWith('checkpoint #')) {
+          console.log(`⚠️ Eliminando ID antiguo: ${id}`);
+          return null; // Marcar para eliminación
+        }
+        // Mantener IDs con formato nuevo "checkpoint-..."
+        return id;
+      })
+      .filter(id => id !== null) as string[];
+  }
+
+  /**
    * Obtener preferencias del usuario
    */
   getUserPreferences(userId: string | null): ProspectsViewPreferences {
     const defaultPreferences: ProspectsViewPreferences = {
       viewType: 'kanban',
-      collapsedColumns: ['checkpoint #es-miembro', 'checkpoint #activo-pqnc'], // Colapsar "Es miembro" y "Activo PQNC" por defecto
+      collapsedColumns: [], // Sin colapsar por defecto
+      hiddenColumns: [
+        'checkpoint-importado_manual',
+        'checkpoint-activo_pqnc', 
+        'checkpoint-es_miembro',
+        'checkpoint-no_interesado'
+      ], // Ocultar columnas menos usadas por defecto
       lastUpdated: new Date().toISOString()
     };
 
@@ -40,6 +63,34 @@ class ProspectsViewPreferencesService {
       
       if (stored) {
         const parsed = JSON.parse(stored) as ProspectsViewPreferences;
+        
+        // Migrar IDs antiguos si existen
+        let needsMigration = false;
+        let migratedHiddenColumns = parsed.hiddenColumns || [];
+        let migratedCollapsedColumns = parsed.collapsedColumns || [];
+        
+        if (migratedHiddenColumns.some(id => id.startsWith('checkpoint #'))) {
+          migratedHiddenColumns = this.migrateOldColumnIds(migratedHiddenColumns);
+          needsMigration = true;
+        }
+        
+        if (migratedCollapsedColumns.some(id => id.startsWith('checkpoint #'))) {
+          migratedCollapsedColumns = this.migrateOldColumnIds(migratedCollapsedColumns);
+          needsMigration = true;
+        }
+        
+        // Si hubo migración, guardar preferencias actualizadas
+        if (needsMigration) {
+          console.log('✅ Preferencias migradas al nuevo formato');
+          const migrated = {
+            ...parsed,
+            hiddenColumns: migratedHiddenColumns.length > 0 ? migratedHiddenColumns : defaultPreferences.hiddenColumns,
+            collapsedColumns: migratedCollapsedColumns
+          };
+          this.saveUserPreferences(userId, migrated);
+          return migrated;
+        }
+        
         return {
           ...defaultPreferences,
           ...parsed

@@ -92,6 +92,14 @@ interface ProspectData {
   nombre_conyuge?: string;
   campana_origen?: string;
   etapa?: string;
+  etapa_id?: string; // ✅ AGREGADO: FK a tabla etapas
+  etapa_info?: { // ✅ AGREGADO: Datos desde JOIN
+    id: string;
+    codigo: string;
+    nombre: string;
+    color_ui: string;
+    icono: string;
+  } | null;
   id_dynamics?: string; // Campo necesario para visibilidad de teléfono
   score?: string;
   ingresos?: string;
@@ -165,7 +173,12 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('*')
+        .select(`
+          *,
+          etapa_info:etapa_id (
+            id, codigo, nombre, color_ui, icono
+          )
+        `)
         .eq('id', prospectoId)
         .single();
 

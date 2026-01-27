@@ -108,6 +108,8 @@
 - [../src/components/prospectos/README_PROSPECTOS.md](../src/components/prospectos/README_PROSPECTOS.md)
 - [../src/components/prospectos/CHANGELOG_PROSPECTOS.md](../src/components/prospectos/CHANGELOG_PROSPECTOS.md)
 - [GUIA_ASIGNACION_MANUAL_PROSPECTOS.md](GUIA_ASIGNACION_MANUAL_PROSPECTOS.md)
+- [README_IMPORTACION_MANUAL.md](README_IMPORTACION_MANUAL.md) - ⭐ Importación manual desde Dynamics CRM
+- [CHANGELOG_IMPORTACION_MANUAL.md](CHANGELOG_IMPORTACION_MANUAL.md)
 
 ### WhatsApp
 - [WHATSAPP_TEMPLATES_API.md](WHATSAPP_TEMPLATES_API.md)
@@ -125,6 +127,7 @@
 ### Dynamics CRM
 - [../src/components/admin/README_DYNAMICS_CRM.md](../src/components/admin/README_DYNAMICS_CRM.md)
 - [../src/components/admin/CHANGELOG_DYNAMICS_CRM.md](../src/components/admin/CHANGELOG_DYNAMICS_CRM.md)
+- [README_IMPORTACION_MANUAL.md](README_IMPORTACION_MANUAL.md) - Importación manual de prospectos
 
 ### PQNC Humans
 - [../src/components/admin/README_PQNC_HUMANS.md](../src/components/admin/README_PQNC_HUMANS.md)
@@ -300,6 +303,6 @@
 
 ---
 
-**Última actualización**: 2026-01-22  
-**Archivos totales**: ~138 archivos en docs/  
+**Última actualización**: 2026-01-27  
+**Archivos totales**: ~141 archivos en docs/  
 **Mantenido por**: Equipo PQNC

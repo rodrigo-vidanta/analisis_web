@@ -33,14 +33,17 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { permissionsService } from '../../services/permissionsService';
+import { etapasService } from '../../services/etapasService';
 import { prospectsViewPreferencesService } from '../../services/prospectsViewPreferencesService';
 import type { ViewType } from '../../services/prospectsViewPreferencesService';
 import ProspectosKanban from './ProspectosKanban';
 import { BulkReassignmentTab } from './BulkReassignmentTab';
+import { ManualImportTab } from './ManualImportTab';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { BulkAssignmentModal } from '../shared/BulkAssignmentModal';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
+import { EtapaBadge } from '../shared/EtapaBadge';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
@@ -90,6 +93,7 @@ interface Prospecto {
   motivo_handoff?: string | null;
   contactado_por_vendedor?: boolean;
   etapa?: string;
+  etapa_id?: string; // ✅ AGREGADO: FK a tabla etapas
   ingresos?: string;
   score?: string;
   whatsapp?: string;
@@ -120,7 +124,7 @@ interface Prospecto {
 
 interface FilterState {
   search: string;
-  etapa: string;
+  etapa_id: string; // ✅ Migrado de 'etapa' (TEXT) a 'etapa_id' (UUID FK)
   score: string;
   campana_origen: string;
   dateRange: string;
@@ -499,44 +503,16 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
 
   if (!prospecto) return null;
 
-  const getStatusColor = (etapa: string) => {
-    if (!etapa) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+  /**
+   * Obtener color de etapa desde servicio (migración 2026-01-26)
+   * @deprecated Usar componente EtapaBadge directamente
+   */
+  const getStatusColor = (etapaIdOrNombre: string | undefined) => {
+    if (!etapaIdOrNombre) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     
-    const etapaLower = etapa.toLowerCase().trim();
-    
-    // Nuevos estados al principio (mismos colores que kanban)
-    if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') {
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400';
-    }
-    if (etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') {
-      return 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400';
-    }
-    
-    // Estados existentes (mismos colores que kanban)
-    if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') {
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-    }
-    if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') {
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-    }
-    if (etapaLower === 'interesado' || etapaLower === 'interesada') {
-      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-    }
-    if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') {
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-    }
-    
-    // Estados legacy
-    switch (etapaLower) {
-      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
+    const color = etapasService.getColor(etapaIdOrNombre);
+    // Convertir hex a clases Tailwind (aproximación)
+    return `bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
   };
 
   const getScoreColor = (score: string) => {
@@ -993,17 +969,44 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [callDetailModalOpen, setCallDetailModalOpen] = useState(false);
   const [selectedCallId, setSelectedCallId] = useState<string | null>(null);
   
-  // Estado para vista (Kanban/Datagrid)
-  const [viewType, setViewType] = useState<ViewType>('kanban');
-  const [collapsedColumns, setCollapsedColumns] = useState<string[]>([]);
-  const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
+  // Estado para vista (Kanban/Datagrid) - con lazy initialization
+  const [viewType, setViewType] = useState<ViewType>(() => {
+    if (user?.id) {
+      const prefs = prospectsViewPreferencesService.getUserPreferences(user.id);
+      return prefs.viewType;
+    }
+    return 'kanban';
+  });
+  
+  const [collapsedColumns, setCollapsedColumns] = useState<string[]>(() => {
+    if (user?.id) {
+      const prefs = prospectsViewPreferencesService.getUserPreferences(user.id);
+      return prefs.collapsedColumns || [];
+    }
+    return [];
+  });
+  
+  const [hiddenColumns, setHiddenColumns] = useState<string[]>(() => {
+    const defaults = [
+      'checkpoint-importado_manual',
+      'checkpoint-activo_pqnc', 
+      'checkpoint-es_miembro',
+      'checkpoint-no_interesado'
+    ];
+    
+    if (user?.id) {
+      const prefs = prospectsViewPreferencesService.getUserPreferences(user.id);
+      return prefs.hiddenColumns || defaults;
+    }
+    return defaults;
+  });
   
   // Estado para pestaña activa (solo admin/admin_operativo/coordinador_calidad pueden ver reasignación)
-  const [activeTab, setActiveTab] = useState<'prospectos' | 'reassignment'>('prospectos');
+  const [activeTab, setActiveTab] = useState<'prospectos' | 'reassignment' | 'import'>('prospectos');
   
   const [filters, setFilters] = useState<FilterState>({
     search: '',
-    etapa: '',
+    etapa_id: '', // ✅ Migrado de 'etapa' a 'etapa_id'
     score: '', // Mantener en estado pero no mostrar en UI
     campana_origen: '',
     dateRange: '',
@@ -1167,28 +1170,29 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
     if (user?.id && viewType === 'kanban') {
       hasInitialLoadRef.current = true;
-      // Inicializar estados de columnas
-      const etapasIniciales = [
-        'Es miembro',
-        'Activo PQNC',
-        'Validando membresia',
-        'En seguimiento',
-        'Interesado',
-        'Atendió llamada',
-        'Con ejecutivo',
-        'Certificado adquirido'
-      ];
       
-      const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
-      etapasIniciales.forEach(etapa => {
-        initialStates[etapa] = { loading: false, page: -1, hasMore: true };
-      });
-      setColumnLoadingStates(initialStates);
-      
-      // Cargar todos los prospectos de una vez
-      loadProspectos(true);
-      // Cargar totales por etapa (conteos reales desde BD)
-      loadEtapaTotals();
+      // ✅ ORDEN CORRECTO: Primero cargar totales, luego inicializar estados
+      (async () => {
+        const counts = await loadEtapaTotals(); // ← Obtener counts directamente
+        
+        // ✅ Inicializar estados de columnas con etapa_id (UUIDs) dinámicamente
+        const etapasActivas = etapasService.getAllActive();
+        
+        const initialStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
+        etapasActivas.forEach(etapa => {
+          // Verificar si hay prospectos en esta columna usando counts retornados
+          const totalEnColumna = counts[etapa.id] || 0;
+          initialStates[etapa.id] = { 
+            loading: false, 
+            page: -1,  // ← -1 = página 0 no cargada aún
+            hasMore: totalEnColumna > 0  // ← Solo hasMore si hay al menos 1
+          };
+        });
+        setColumnLoadingStates(initialStates);
+        
+        // Cargar prospectos globales (para otras vistas/widgets), pasando counts
+        await loadProspectos(true, counts);
+      })();
     } else if (user?.id && viewType === 'datagrid') {
       hasInitialLoadRef.current = true;
       // Para datagrid, cargar todos los prospectos
@@ -1196,24 +1200,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // Cargar totales por etapa (también para datagrid stats)
       loadEtapaTotals();
     }
-
-    // Resetear el flag cuando cambia el usuario o la vista
-    return () => {
-      hasInitialLoadRef.current = false;
-    };
+    // NO resetear hasInitialLoadRef en cleanup - causa cargas duplicadas en Strict Mode
   }, [user?.id, viewType]);
 
   // ============================================
   // 🥷 MODO NINJA: Recargar cuando cambia el usuario efectivo
   // ============================================
+  const prevQueryUserIdRef = useRef<string | null>(null);
   useEffect(() => {
-    // Cuando el modo ninja cambia o el usuario efectivo cambia, recargar datos
-    if (queryUserId && hasInitialLoadRef.current) {
-      // Forzar recarga con el nuevo usuario
-      hasInitialLoadRef.current = false;
+    // Solo recargar si queryUserId CAMBIÓ (no en la carga inicial)
+    if (queryUserId && prevQueryUserIdRef.current !== null && prevQueryUserIdRef.current !== queryUserId) {
+      console.log('🥷 Modo Ninja: recargando con usuario', queryUserId);
       loadProspectos(true);
       loadEtapaTotals();
     }
+    prevQueryUserIdRef.current = queryUserId;
   }, [queryUserId, isNinjaMode]);
 
   // ✅ REALTIME: Suscripción para detectar cambios en id_dynamics y etapa (PhoneDisplay)
@@ -1443,54 +1444,85 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   const [columnLoadingStates, setColumnLoadingStates] = useState<Record<string, { loading: boolean; page: number; hasMore: boolean }>>({});
   const [columnPages, setColumnPages] = useState<Record<string, number>>({});
   
+  // Ref para prevenir cargas duplicadas de etapaTotals
+  const isLoadingEtapaTotalsRef = useRef(false);
+  
   // Cargar totales por etapa (conteos reales desde BD, independiente del batch cargado)
   // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
-  const loadEtapaTotals = async () => {
-    if (!queryUserId) return;
+  const loadEtapaTotals = async (): Promise<Record<string, number>> => {
+    if (!queryUserId) return {};
+    
+    // Prevenir cargas duplicadas
+    if (isLoadingEtapaTotalsRef.current) {
+      return {};
+    }
+    isLoadingEtapaTotalsRef.current = true;
     
     try {
+      // ✅ SOLUCIÓN: Contar por etapa_id en múltiples batches para superar límite de 1000
+      const MAX_BATCH = 1000;
+      let allData: { etapa_id?: string }[] = [];
+      let offset = 0;
+      let hasMore = true;
       
-      // Construir query base
-      let query = analysisSupabase
-        .from('prospectos')
-        .select('etapa', { count: 'exact', head: false });
-      
-      // Aplicar filtros de permisos (usa queryUserId para modo ninja)
-      if (queryUserId) {
-        try {
-          const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
-          // Verificar que filteredQuery es un PostgrestFilterBuilder válido
-          if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
-            query = filteredQuery;
+      while (hasMore) {
+        // Construir query base con paginación
+        let query = analysisSupabase
+          .from('prospectos')
+          .select('etapa_id')
+          .range(offset, offset + MAX_BATCH - 1);
+        
+        // Aplicar filtros de permisos (usa queryUserId para modo ninja)
+        if (queryUserId) {
+          try {
+            const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
+            if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.select === 'function') {
+              query = filteredQuery;
+            }
+          } catch {
+            // Error aplicando filtros - continuar con query original
           }
-        } catch {
-          // Error aplicando filtros - continuar con query original
+        }
+        
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error('❌ Error en batch de loadEtapaTotals:', error);
+          break;
+        }
+        
+        if (data && data.length > 0) {
+          allData = [...allData, ...data];
+          offset += MAX_BATCH;
+          hasMore = data.length === MAX_BATCH;
+        } else {
+          hasMore = false;
         }
       }
       
-      const { data, error } = await query;
-      
-      if (error) {
-        return;
-      }
-      
-      // Agrupar por etapa y contar
+      // Agrupar por etapa_id y contar (nueva arquitectura)
       const counts: Record<string, number> = {};
-      data?.forEach((row: { etapa?: string }) => {
-        const etapa = row.etapa || 'Sin etapa';
-        counts[etapa] = (counts[etapa] || 0) + 1;
+      allData.forEach((row: { etapa_id?: string }) => {
+        const etapaId = row.etapa_id || 'sin-etapa';
+        counts[etapaId] = (counts[etapaId] || 0) + 1;
       });
       
+      console.log(`✅ loadEtapaTotals: ${allData.length} prospectos procesados`, counts);
+      
       setEtapaTotals(counts);
+      return counts;
     } catch (error) {
       console.error('❌ Error cargando totales por etapa:', error);
+      return {};
+    } finally {
+      isLoadingEtapaTotalsRef.current = false;
     }
   };
   
   // Ref para prevenir ejecuciones simultáneas de loadProspectos
   const isLoadingProspectosRef = useRef(false);
 
-  const loadProspectos = async (reset: boolean = false) => {
+  const loadProspectos = async (reset: boolean = false, etapaCountsOverride?: Record<string, number>) => {
     // Prevenir ejecuciones simultáneas
     if (isLoadingProspectosRef.current) {
       // Silenciar retorno - el ref previene ejecuciones duplicadas correctamente
@@ -1514,8 +1546,9 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       const from = reset ? 0 : currentPage * BATCH_SIZE;
       const to = from + BATCH_SIZE - 1;
       
+      // ✅ USAR VISTA OPTIMIZADA con etapas, ejecutivo y coordinación
       let query = analysisSupabase
-        .from('prospectos')
+        .from('prospectos_con_ejecutivo_y_coordinacion')  // ← Vista con JOINs
         .select('*', { count: 'exact' })
         .range(from, to);
 
@@ -1565,7 +1598,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           // Si no tiene .order(), reconstruir la query con los filtros aplicados
           const { analysisSupabase } = await import('../../config/analysisSupabase');
           let fallbackQuery = analysisSupabase
-            .from('prospectos')
+            .from('prospectos_con_ejecutivo_y_coordinacion')  // ← Vista optimizada
             .select('*', { count: 'exact' })
             .range(from, to);
           
@@ -1585,7 +1618,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         // Si falla, reconstruir la query con los filtros aplicados
         const { analysisSupabase } = await import('../../config/analysisSupabase');
         let fallbackQuery = analysisSupabase
-          .from('prospectos')
+          .from('prospectos_con_ejecutivo_y_coordinacion')  // ← Vista optimizada
           .select('*', { count: 'exact' })
           .range(from, to);
         
@@ -1632,11 +1665,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         }
       }
 
-      // Cargar coordinaciones y ejecutivos una sola vez (optimización crítica)
-      const { coordinacionesMap, ejecutivosMap } = await loadCoordinacionesAndEjecutivos();
-
-      // Enriquecer prospectos usando mapas (instantáneo)
-      let enrichedProspectos = enrichProspectos(data || [], coordinacionesMap, ejecutivosMap);
+      // ✅ NO NECESITA ENRICHMENT - La vista ya trae ejecutivo y coordinación enriquecidos
+      const enrichedProspectos = data || [];
 
       // ⚡ OPTIMIZACIÓN CRÍTICA: Pre-cargar datos de backup SIEMPRE antes de verificar permisos
       // Esto evita múltiples requests simultáneas que causan ERR_INSUFFICIENT_RESOURCES
@@ -1692,23 +1722,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         
         // Actualizar estados de columnas para Kanban
         if (viewType === 'kanban') {
-          const etapasIniciales = [
-            'Es miembro',
-            'Activo PQNC',
-            'Validando membresia',
-            'En seguimiento',
-            'Interesado',
-            'Atendió llamada',
-            'Con ejecutivo',
-            'Certificado adquirido'
-          ];
+          // ✅ Usar etapas dinámicas con UUIDs (no hardcodear nombres)
+          const etapasActivas = etapasService.getAllActive();
           
           const newColumnStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
-          etapasIniciales.forEach(etapa => {
-            newColumnStates[etapa] = { 
+          
+          // ✅ Para cada columna, calcular hasMore basado en el total de esa etapa
+          etapasActivas.forEach(etapa => {
+            const counts = etapaCountsOverride || etapaTotals;  // ← Usar override si existe
+            const totalEnColumna = counts[etapa.id] || 0;
+            const COLUMN_BATCH_SIZE = 100;
+            
+            newColumnStates[etapa.id] = {
               loading: false, 
-              page: 0, 
-              hasMore: hasMore // Usar el estado calculado arriba
+              page: -1,  // ← -1 indica que NO se ha cargado la página 0 aún
+              hasMore: totalEnColumna > 0  // ← Si hay al menos 1, hay que cargar
             };
           });
           setColumnLoadingStates(newColumnStates);
@@ -1743,13 +1771,238 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     }
   };
 
+  // ✅ CARGA INICIAL EN BATCH: Cargar todas las columnas en paralelo y actualizar estado una sola vez
+  const loadAllColumnsInitial = async (etapaIds: string[]) => {
+    if (etapaIds.length === 0) return;
+    
+    console.log(`🚀 Carga inicial en batch para ${etapaIds.length} columnas`);
+    
+    // Marcar todas como cargando
+    setColumnLoadingStates(prev => {
+      const updated = { ...prev };
+      etapaIds.forEach(etapaId => {
+        if (updated[etapaId]) {
+          updated[etapaId] = { ...updated[etapaId], loading: true };
+        }
+      });
+      return updated;
+    });
+    
+    try {
+      const COLUMN_BATCH_SIZE = 100;
+      
+      // Crear todas las queries en paralelo
+      const queries = etapaIds.map(async (etapaId) => {
+        try {
+          let query = analysisSupabase
+            .from('prospectos_con_ejecutivo_y_coordinacion')
+            .select('*', { count: 'exact' })
+            .eq('etapa_id', etapaId)
+            .range(0, COLUMN_BATCH_SIZE - 1)
+            .order('created_at', { ascending: false });
+          
+          // Aplicar filtros de permisos
+          if (queryUserId) {
+            try {
+              const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
+              if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.order === 'function') {
+                query = filteredQuery;
+              }
+            } catch {
+              // Continuar con query original
+            }
+          }
+          
+          const { data, error, count } = await query;
+          
+          if (error) {
+            console.error(`❌ Error en columna ${etapaId}:`, error);
+            return { etapaId, data: [], count: 0, error: true };
+          }
+          
+          return { etapaId, data: data || [], count: count || 0, error: false };
+        } catch (error) {
+          console.error(`❌ Error en columna ${etapaId}:`, error);
+          return { etapaId, data: [], count: 0, error: true };
+        }
+      });
+      
+      // Esperar a TODAS las queries
+      const results = await Promise.all(queries);
+      
+      // Combinar todos los prospectos nuevos
+      const allNewProspectos: Prospecto[] = [];
+      const newColumnStates: Record<string, { loading: boolean; page: number; hasMore: boolean }> = {};
+      
+      results.forEach(({ etapaId, data, count, error }) => {
+        if (!error && data.length > 0) {
+          allNewProspectos.push(...data);
+        }
+        
+        const hasMore = count ? data.length < count : data.length === COLUMN_BATCH_SIZE;
+        newColumnStates[etapaId] = {
+          loading: false,
+          page: 0,
+          hasMore
+        };
+        
+        console.log(`✅ Columna ${etapaId} cargada:`, {
+          nuevos: data.length,
+          totalEnBD: count,
+          hasMore
+        });
+      });
+      
+      // ✅ ACTUALIZAR ESTADO UNA SOLA VEZ (evita múltiples re-renders)
+      setAllProspectos(prev => {
+        const existingIds = new Set(prev.map(p => p.id));
+        const uniqueNew = allNewProspectos.filter(p => !existingIds.has(p.id));
+        return [...prev, ...uniqueNew];
+      });
+      
+      setColumnLoadingStates(prev => ({
+        ...prev,
+        ...newColumnStates
+      }));
+      
+      console.log(`✅ Carga inicial completada: ${allNewProspectos.length} prospectos de ${etapaIds.length} columnas`);
+      
+    } catch (error) {
+      console.error('❌ Error en loadAllColumnsInitial:', error);
+      // Resetear estados de loading
+      setColumnLoadingStates(prev => {
+        const updated = { ...prev };
+        etapaIds.forEach(etapaId => {
+          if (updated[etapaId]) {
+            updated[etapaId] = { ...updated[etapaId], loading: false };
+          }
+        });
+        return updated;
+      });
+    }
+  };
+
   // Función para cargar más prospectos de una columna específica (Kanban)
   // Implementa infinite scrolling para Kanban también
-  const loadMoreProspectosForColumn = async (etapa: string) => {
-    // Usar la misma función de carga general, pero solo para Kanban
-    if (viewType === 'kanban' && !loadingMore && hasMore && !isLoadingProspectosRef.current) {
-      setLoadingMore(true);
-      await loadProspectos(false); // Cargar más prospectos sin reset
+  const loadMoreProspectosForColumn = async (etapaId: string) => {
+    // Verificar que no se está cargando ya
+    const currentState = columnLoadingStates[etapaId];
+    if (!currentState || currentState.loading || !currentState.hasMore) {
+      return;
+    }
+
+    // Marcar como cargando
+    setColumnLoadingStates(prev => ({
+      ...prev,
+      [etapaId]: { ...prev[etapaId], loading: true }
+    }));
+
+    try {
+      const COLUMN_BATCH_SIZE = 100; // 100 prospectos por columna
+      const currentPage = currentState.page + 1;
+      const from = currentPage * COLUMN_BATCH_SIZE;
+      const to = from + COLUMN_BATCH_SIZE - 1;
+
+      console.log(`🔄 Cargando más prospectos para columna ${etapaId}:`, {
+        page: currentPage,
+        from,
+        to,
+        batchSize: COLUMN_BATCH_SIZE
+      });
+
+      // ✅ USAR VISTA OPTIMIZADA (elimina 3 queries + enrichment)
+      let query = analysisSupabase
+        .from('prospectos_con_ejecutivo_y_coordinacion')  // ← Vista con JOINs
+        .select('*', { count: 'exact' })
+        .eq('etapa_id', etapaId)
+        .range(from, to)
+        .order('created_at', { ascending: false });
+
+      // Aplicar filtros de permisos si es necesario
+      if (queryUserId) {
+        try {
+          const filteredQuery = await permissionsService.applyProspectFilters(query, queryUserId);
+          if (filteredQuery && typeof filteredQuery === 'object' && typeof filteredQuery.order === 'function') {
+            query = filteredQuery;
+          }
+        } catch {
+          // Continuar con query original
+        }
+      }
+
+      const { data, error, count } = await query;
+
+      if (error) {
+        // Error 416: Range Not Satisfiable - No hay más datos
+        if (error.code === 'PGRST103') {
+          console.log(`ℹ️ No hay más datos para columna ${etapaId} (OFFSET fuera de rango)`);
+          setColumnLoadingStates(prev => ({
+            ...prev,
+            [etapaId]: {
+              loading: false,
+              page: currentPage,
+              hasMore: false
+            }
+          }));
+          return;
+        }
+
+        console.error(`❌ Error cargando columna ${etapaId}:`, error);
+        setColumnLoadingStates(prev => ({
+          ...prev,
+          [etapaId]: { ...prev[etapaId], loading: false }
+        }));
+        return;
+      }
+
+      if (data && data.length > 0) {
+        // ✅ NO NECESITA ENRICHMENT - La vista ya trae todo enriquecido
+        // Solo agregar a allProspectos (evitando duplicados)
+        setAllProspectos(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const newProspectos = data.filter((p: Prospecto) => !existingIds.has(p.id));
+          return [...prev, ...newProspectos];
+        });
+
+        // Actualizar estado de la columna
+        // Calcular si hay más datos: 
+        // 1. Si count existe, verificar si quedan más registros (from + data.length < count)
+        // 2. Si no existe count, verificar si se cargó el batch completo
+        const totalCargados = from + data.length;
+        const hasMore = count ? totalCargados < count : data.length === COLUMN_BATCH_SIZE;
+        
+        setColumnLoadingStates(prev => ({
+          ...prev,
+          [etapaId]: {
+            loading: false,
+            page: currentPage,
+            hasMore
+          }
+        }));
+
+        console.log(`✅ Columna ${etapaId} cargada:`, {
+          nuevos: data.length,
+          totalCargados,
+          totalEnBD: count || 'desconocido',
+          hasMore
+        });
+      } else {
+        // No hay más datos
+        setColumnLoadingStates(prev => ({
+          ...prev,
+          [etapaId]: {
+            loading: false,
+            page: currentPage,
+            hasMore: false
+          }
+        }));
+      }
+    } catch (error) {
+      console.error(`❌ Error en loadMoreProspectosForColumn:`, error);
+      setColumnLoadingStates(prev => ({
+        ...prev,
+        [etapaId]: { ...prev[etapaId], loading: false }
+      }));
     }
   };
 
@@ -1820,8 +2073,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       }
     }
 
-    if (filters.etapa) {
-      filtered = filtered.filter(p => p.etapa === filters.etapa);
+    if (filters.etapa_id) {
+      filtered = filtered.filter(p => p.etapa_id === filters.etapa_id);
     }
 
     if (filters.score) {
@@ -1963,17 +2216,14 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     setHiddenColumns(newHidden);
   };
 
-  // Definir todas las columnas disponibles del Kanban
-  const kanbanColumns = [
-    { id: 'checkpoint #es-miembro', label: 'Es miembro' },
-    { id: 'checkpoint #activo-pqnc', label: 'Activo PQNC' },
-    { id: 'checkpoint #1', label: 'Validando membresia' },
-    { id: 'checkpoint #2', label: 'En seguimiento' },
-    { id: 'checkpoint #3', label: 'Interesado' },
-    { id: 'checkpoint #4', label: 'Atendió llamada' },
-    { id: 'checkpoint #5', label: 'Con ejecutivo' },
-    { id: 'checkpoint #6', label: 'Certificado adquirido' }
-  ];
+  // Definir todas las columnas disponibles del Kanban (dinámico desde etapasService)
+  const kanbanColumns = useMemo(() => {
+    const etapas = etapasService.getAllActive();
+    return etapas.map(etapa => ({
+      id: `checkpoint-${etapa.codigo}`,
+      label: etapa.nombre
+    }));
+  }, []);
 
   // Estado para mostrar/ocultar el dropdown de filtrado
   const [showColumnFilter, setShowColumnFilter] = useState(false);
@@ -2000,44 +2250,16 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     return [...new Set(prospectos.map(p => p[field]).filter(Boolean))];
   };
 
-  const getStatusColor = (etapa: string) => {
-    if (!etapa) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+  /**
+   * Obtener color de etapa desde servicio (migración 2026-01-26)
+   * @deprecated Usar componente EtapaBadge directamente
+   */
+  const getStatusColor = (etapaIdOrNombre: string | undefined) => {
+    if (!etapaIdOrNombre) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     
-    const etapaLower = etapa.toLowerCase().trim();
-    
-    // Nuevos estados al principio (mismos colores que kanban)
-    if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') {
-      return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-400';
-    }
-    if (etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') {
-      return 'bg-teal-100 text-teal-800 dark:bg-teal-900/20 dark:text-teal-400';
-    }
-    
-    // Estados existentes (mismos colores que kanban)
-    if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') {
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-    }
-    if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') {
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-    }
-    if (etapaLower === 'interesado' || etapaLower === 'interesada') {
-      return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-    }
-    if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') {
-      return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-    }
-    
-    // Estados legacy
-    switch (etapaLower) {
-      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
+    const color = etapasService.getColor(etapaIdOrNombre);
+    // Convertir hex a clases Tailwind (aproximación)
+    return `bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
   };
 
   const getScoreColor = (score: string) => {
@@ -2091,6 +2313,19 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 <span>Reasignación Masiva</span>
               </div>
             </button>
+            <button
+              onClick={() => setActiveTab('import')}
+              className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
+                activeTab === 'import'
+                  ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 border-t border-l border-r border-gray-200 dark:border-gray-700 -mb-px'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-800/50'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Phone size={16} />
+                <span>Importación</span>
+              </div>
+            </button>
           </div>
         </div>
       )}
@@ -2099,6 +2334,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       {activeTab === 'reassignment' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) ? (
         <div className="flex-1 overflow-hidden">
           <BulkReassignmentTab />
+        </div>
+      ) : activeTab === 'import' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) ? (
+        <div className="flex-1 overflow-hidden">
+          <ManualImportTab />
         </div>
       ) : (
         <div className="flex-1 overflow-auto p-6 space-y-6">
@@ -2166,13 +2405,13 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           {/* Filtros compactos */}
           <div className="flex flex-wrap md:flex-nowrap gap-2 items-center">
             <select
-              value={filters.etapa}
-              onChange={(e) => setFilters(prev => ({ ...prev, etapa: e.target.value }))}
+              value={filters.etapa_id}
+              onChange={(e) => setFilters(prev => ({ ...prev, etapa_id: e.target.value }))}
               className="h-9 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
             >
               <option value="">Todas las etapas</option>
-              {getUniqueValues('etapa').map(etapa => (
-                <option key={etapa} value={etapa}>{etapa}</option>
+              {etapasService.getAllActive().map(etapa => (
+                <option key={etapa.id} value={etapa.id}>{etapa.nombre}</option>
               ))}
             </select>
             
@@ -2219,7 +2458,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             </select>
             
             <button 
-              onClick={() => setFilters({ search: '', etapa: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}
+              onClick={() => setFilters({ search: '', etapa_id: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}
               className="h-9 flex items-center justify-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
             >
               <Filter size={14} />
@@ -2388,6 +2627,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             getStatusColor={getStatusColor}
             getScoreColor={getScoreColor}
             onLoadMoreForColumn={loadMoreProspectosForColumn}
+            onLoadAllColumnsInitial={loadAllColumnsInitial}
             columnLoadingStates={columnLoadingStates}
             etapaTotals={etapaTotals}
           />
@@ -2447,9 +2687,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Etapa:</span>
-                    <span className={`inline-block px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
-                      {prospecto.etapa}
-                    </span>
+                    <EtapaBadge prospecto={prospecto} size="sm" />
                   </div>
                   <div>
                     <span className="text-gray-500 dark:text-gray-400">Score:</span>
@@ -2649,9 +2887,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                         <div className="min-w-[100px] md:min-w-[120px] truncate">{prospecto.whatsapp || '-'}</div>
                       </td>
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(prospecto.etapa || '')}`}>
-                          {prospecto.etapa}
-                        </span>
+                        <EtapaBadge prospecto={prospecto} size="sm" />
                       </td>
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4 text-xs md:text-sm text-gray-600 dark:text-gray-400 hidden md:table-cell">
                         <div className="min-w-[60px]">{prospecto.created_at ? new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' }) : 'N/A'}</div>

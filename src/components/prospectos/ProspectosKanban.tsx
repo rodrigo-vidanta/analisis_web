@@ -9,11 +9,16 @@
 
 import React, { useState, useEffect, useMemo, memo, useRef } from 'react';
 import {
-  User, Phone, MessageSquare, MapPin, Loader2
+  User, Phone, MessageSquare, MapPin, Loader2,
+  CloudDownload, UserPlus, Search, ClipboardList,
+  Flame, UserCheck, CheckCircle, BadgeCheck,
+  UserX, HelpCircle
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { etapasService } from '../../services/etapasService';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { PhoneText } from '../shared/PhoneDisplay';
+import { EtapaBadge } from '../shared/EtapaBadge';
 
 interface Prospecto {
   id: string;
@@ -25,7 +30,10 @@ interface Prospecto {
   whatsapp?: string;
   email?: string;
   telefono_principal?: string;
+  /** @deprecated Usar etapa_id */
   etapa?: string;
+  /** Campo principal - UUID FK → etapas.id */
+  etapa_id?: string;
   id_dynamics?: string; // Campo necesario para visibilidad de teléfono
   score?: string;
   campana_origen?: string;
@@ -53,107 +61,16 @@ interface ProspectosKanbanProps {
   getStatusColor: (etapa: string) => string;
   getScoreColor: (score: string) => string;
   onLoadMoreForColumn?: (etapa: string) => void;
+  onLoadAllColumnsInitial?: (etapaIds: string[]) => void;
   columnLoadingStates?: Record<string, { loading: boolean; page: number; hasMore: boolean }>;
   etapaTotals?: Record<string, number>;
 }
 
-// Checkpoints fijos - ORDEN CORRECTO: Es miembro, Activo PQNC, Validando membresia, En seguimiento, Interesado, Atendió llamada, Con ejecutivo, Certificado adquirido
-const CHECKPOINTS = {
-  'checkpoint #es-miembro': {
-    title: 'Es miembro',
-    description: 'Prospecto es miembro activo',
-    color: 'bg-emerald-500',
-    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20'
-  },
-  'checkpoint #activo-pqnc': {
-    title: 'Activo PQNC',
-    description: 'Prospecto activo en PQNC',
-    color: 'bg-teal-500',
-    bgColor: 'bg-teal-50 dark:bg-teal-900/20'
-  },
-  'checkpoint #1': {
-    title: 'Validando membresia',
-    description: 'Prospecto en validación inicial',
-    color: 'bg-blue-500',
-    bgColor: 'bg-blue-50 dark:bg-blue-900/20'
-  },
-  'checkpoint #2': {
-    title: 'En seguimiento',
-    description: 'Prospecto en proceso activo',
-    color: 'bg-yellow-500',
-    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20'
-  },
-  'checkpoint #3': {
-    title: 'Interesado',
-    description: 'Prospecto ha mostrado interés',
-    color: 'bg-green-500',
-    bgColor: 'bg-green-50 dark:bg-green-900/20'
-  },
-  'checkpoint #4': {
-    title: 'Atendió llamada',
-    description: 'Prospecto atendió llamada',
-    color: 'bg-purple-500',
-    bgColor: 'bg-purple-50 dark:bg-purple-900/20'
-  },
-  'checkpoint #5': {
-    title: 'Con ejecutivo',
-    description: 'Prospecto asignado a ejecutivo',
-    color: 'bg-indigo-500',
-    bgColor: 'bg-indigo-50 dark:bg-indigo-900/20'
-  },
-  'checkpoint #6': {
-    title: 'Certificado adquirido',
-    description: 'Prospecto adquirió certificado',
-    color: 'bg-rose-500',
-    bgColor: 'bg-rose-50 dark:bg-rose-900/20'
-  }
-} as const;
-
-type CheckpointKey = keyof typeof CHECKPOINTS;
-
-// Definir checkpoint keys en el orden correcto (constante fuera del componente)
-const CHECKPOINT_KEYS: CheckpointKey[] = [
-  'checkpoint #es-miembro', // Es miembro (al principio, colapsado)
-  'checkpoint #activo-pqnc', // Activo PQNC (al principio, colapsado)
-  'checkpoint #1', // Validando membresia
-  'checkpoint #2', // En seguimiento
-  'checkpoint #3', // Interesado
-  'checkpoint #4', // Atendió llamada
-  'checkpoint #5', // Con ejecutivo
-  'checkpoint #6'  // Certificado adquirido
-] as const;
-
-// Mapeo de etapas reales a checkpoints - ORDEN CORRECTO
-const getCheckpointForEtapa = (etapa?: string): CheckpointKey => {
-  if (!etapa) return 'checkpoint #1';
-  
-  const etapaLower = etapa.toLowerCase().trim();
-  
-  // Nuevos estados al principio: Es miembro → Activo PQNC
-  if (etapaLower === 'es miembro' || etapaLower === 'es miembro activo') return 'checkpoint #es-miembro';
-  if (etapaLower === 'activo pqnc' || etapaLower === 'activo pqnc' || etapaLower === 'activo en pqnc') return 'checkpoint #activo-pqnc';
-  
-  // Orden: Validando membresia → En seguimiento → Interesado → Atendió llamada
-  if (etapaLower === 'validando membresia' || etapaLower === 'validando membresía') return 'checkpoint #1';
-  if (etapaLower === 'en seguimiento' || etapaLower === 'seguimiento') return 'checkpoint #2';
-  if (etapaLower === 'interesado' || etapaLower === 'interesada') return 'checkpoint #3';
-  // Atendió llamada
-  if (etapaLower === 'atendió llamada' || etapaLower === 'atendio llamada' || etapaLower === 'atendio la llamada') return 'checkpoint #4';
-  
-  // Con ejecutivo (después de Atendió llamada)
-  if (etapaLower === 'con ejecutivo' || etapaLower === 'con ejecutiva' || etapaLower === 'asignado a ejecutivo' || etapaLower === 'asignada a ejecutivo') return 'checkpoint #5';
-  
-  // Certificado adquirido (al final)
-  if (etapaLower === 'certificado adquirido' || etapaLower === 'certificado comprado' || etapaLower === 'certificado obtenido') return 'checkpoint #6';
-  
-  // Mapeos legacy (por si acaso)
-  if (etapaLower === 'propuesta') return 'checkpoint #3'; // Mapear a Interesado como fallback
-  if (['transferido', 'transferida', 'finalizado', 'finalizada', 'perdido', 'perdida', 'cerrado', 'cerrada'].includes(etapaLower)) {
-    return 'checkpoint #4'; // Mapear a Atendió llamada como fallback
-  }
-  
-  return 'checkpoint #1';
-};
+// ============================================
+// COLUMNAS DINÁMICAS DESDE BASE DE DATOS
+// ============================================
+// Migración: etapa (string) → etapa_id (FK) - 2026-01-26
+// Las columnas del Kanban se generan dinámicamente desde la tabla `etapas`
 
 const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   prospectos,
@@ -164,16 +81,96 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   onToggleColumnCollapse,
   getScoreColor,
   onLoadMoreForColumn,
+  onLoadAllColumnsInitial,
   columnLoadingStates = {},
   etapaTotals = {}
 }) => {
   const [ultimosMensajes, setUltimosMensajes] = useState<Record<string, string>>({});
+  const [etapasLoaded, setEtapasLoaded] = useState(etapasService.isLoaded());
   const columnRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const observerRefs = useRef<Record<string, IntersectionObserver>>({});
   const loadingMensajesRef = useRef(false);
   const prospectosIdsRef = useRef<string>('');
   const containerRef = useRef<HTMLDivElement | null>(null);
   const autoCollapseRef = useRef(false); // Prevenir loops infinitos
+  const initialLoadTriggeredRef = useRef<Set<string>>(new Set()); // Track columnas que ya iniciaron carga
+  const batchLoadTriggeredRef = useRef(false); // Track si ya se disparó la carga en batch
+
+  // Verificar si las etapas están cargadas
+  useEffect(() => {
+    if (!etapasService.isLoaded()) {
+      etapasService.loadEtapas().then(() => {
+        setEtapasLoaded(true);
+      });
+    } else {
+      setEtapasLoaded(true);
+    }
+  }, []);
+
+  // Generar checkpoints dinámicamente desde etapasService (dentro del componente)
+  const CHECKPOINTS = useMemo(() => {
+    if (!etapasLoaded) return {};
+    
+    const etapas = etapasService.getAllActive();
+    const checkpoints: Record<string, {
+      title: string;
+      description: string;
+      color: string;
+      bgColor: string;
+      etapaId: string;
+      codigo: string;
+      orden: number;
+    }> = {};
+    
+    etapas.forEach((etapa) => {
+      const checkpointKey = `checkpoint-${etapa.codigo}`;
+      checkpoints[checkpointKey] = {
+        title: etapa.nombre,
+        description: etapa.descripcion || `Prospecto en ${etapa.nombre}`,
+        color: etapa.color_ui, // Color hex desde BD
+        bgColor: `${etapa.color_ui}15`, // 15% opacity para fondo
+        etapaId: etapa.id,
+        codigo: etapa.codigo,
+        orden: etapa.orden_funnel
+      };
+    });
+    
+    return checkpoints;
+  }, [etapasLoaded]);
+
+  type CheckpointKey = keyof typeof CHECKPOINTS;
+
+  // Generar keys ordenadas por orden_funnel
+  const CHECKPOINT_KEYS: CheckpointKey[] = useMemo(() => {
+    if (!etapasLoaded) return [];
+    
+    return Object.entries(CHECKPOINTS)
+      .sort(([, a], [, b]) => a.orden - b.orden)
+      .map(([key]) => key as CheckpointKey);
+  }, [CHECKPOINTS, etapasLoaded]);
+
+  // Mapeo de etapas reales a checkpoints - USA CÓDIGO DE ETAPA
+  const getCheckpointForEtapa = (etapa?: string, etapaId?: string): CheckpointKey => {
+    // 1. Si tenemos etapa_id, buscar por ID (preferido)
+    if (etapaId) {
+      const etapaData = etapasService.getById(etapaId);
+      if (etapaData) {
+        return `checkpoint-${etapaData.codigo}` as CheckpointKey;
+      }
+    }
+    
+    // 2. Si solo tenemos etapa (string legacy), buscar por nombre
+    if (etapa) {
+      const etapaData = etapasService.getByNombreLegacy(etapa);
+      if (etapaData) {
+        return `checkpoint-${etapaData.codigo}` as CheckpointKey;
+      }
+    }
+    
+    // 3. Fallback: primera etapa por orden
+    const firstCheckpoint = CHECKPOINT_KEYS[0];
+    return firstCheckpoint || 'checkpoint-validando_membresia' as CheckpointKey;
+  };
 
   // Cargar fechas de último mensaje (solo si cambian los IDs de prospectos)
   useEffect(() => {
@@ -265,12 +262,16 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
   }, [hiddenColumns]);
 
   // Columnas menos prioritarias que se colapsan automáticamente cuando no hay espacio
-  // Orden de prioridad: Es miembro → Activo PQNC → Certificado adquirido
-  const lowPriorityColumns: CheckpointKey[] = useMemo(() => [
-    'checkpoint #es-miembro',
-    'checkpoint #activo-pqnc',
-    'checkpoint #6' // Certificado adquirido
-  ], []);
+  // Identificar etapas terminales o de baja prioridad desde la BD
+  const lowPriorityColumns: CheckpointKey[] = useMemo(() => {
+    const allEtapas = etapasService.getAllActive();
+    // Identificar etapas terminales o con es_terminal=true
+    const terminalKeys = allEtapas
+      .filter(e => e.es_terminal)
+      .map(e => `checkpoint-${e.codigo}` as CheckpointKey);
+    
+    return terminalKeys;
+  }, []);
 
   // Efecto para colapsar automáticamente columnas cuando no hay espacio suficiente
   useEffect(() => {
@@ -342,56 +343,36 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     };
   }, [visibleCheckpointKeys, collapsedColumns, onToggleColumnCollapse, hiddenColumns, lowPriorityColumns]);
 
-  // Mapeo inverso: checkpoint → etapas posibles
-  const getEtapasForCheckpoint = (checkpoint: CheckpointKey): string[] => {
-    switch (checkpoint) {
-      case 'checkpoint #es-miembro':
-        return ['Es miembro', 'Es miembro activo'];
-      case 'checkpoint #activo-pqnc':
-        return ['Activo PQNC', 'Activo en PQNC'];
-      case 'checkpoint #1':
-        return ['Validando membresia', 'Validando membresía'];
-      case 'checkpoint #2':
-        return ['En seguimiento', 'Seguimiento'];
-      case 'checkpoint #3':
-        return ['Interesado', 'Interesada'];
-      case 'checkpoint #4':
-        return ['Atendió llamada', 'Atendio llamada', 'Atendio la llamada'];
-      case 'checkpoint #5':
-        return ['Con ejecutivo', 'Con ejecutiva', 'Asignado a ejecutivo', 'Asignada a ejecutivo'];
-      case 'checkpoint #6':
-        return ['Certificado adquirido', 'Certificado comprado', 'Certificado obtenido'];
-      default:
-        return [];
-    }
+  // Mapeo inverso: checkpoint → etapa_id (usa código de etapa)
+  const getEtapaIdForCheckpoint = (checkpoint: CheckpointKey): string | null => {
+    const codigo = checkpoint.replace('checkpoint-', '');
+    const etapa = etapasService.getByCodigo(codigo as any);
+    return etapa?.id || null;
   };
   
   // Obtener el total real de prospectos para un checkpoint (desde BD, no del batch)
   const getTotalForCheckpoint = (checkpoint: CheckpointKey): number => {
-    const etapas = getEtapasForCheckpoint(checkpoint);
-    let total = 0;
-    etapas.forEach(etapa => {
-      total += etapaTotals[etapa] || 0;
-    });
-    return total;
+    const etapaId = getEtapaIdForCheckpoint(checkpoint);
+    if (!etapaId) return 0;
+    
+    // etapaTotals ahora usa etapa_id como key
+    return etapaTotals[etapaId] || 0;
   };
 
-  // Agrupar prospectos por checkpoint
+  // Agrupar prospectos por checkpoint (dinámico)
   const prospectosPorCheckpoint = useMemo(() => {
-    const grouped: Record<CheckpointKey, typeof prospectosConMensajes> = {
-      'checkpoint #es-miembro': [],
-      'checkpoint #activo-pqnc': [],
-      'checkpoint #1': [],
-      'checkpoint #2': [],
-      'checkpoint #3': [],
-      'checkpoint #4': [],
-      'checkpoint #5': [],
-      'checkpoint #6': []
-    };
+    // Inicializar grupos vacíos para cada checkpoint
+    const grouped: Record<CheckpointKey, typeof prospectosConMensajes> = {};
+    CHECKPOINT_KEYS.forEach(key => {
+      grouped[key] = [];
+    });
     
+    // Agrupar cada prospecto en su checkpoint correspondiente
     prospectosConMensajes.forEach(prospecto => {
-      const checkpoint = getCheckpointForEtapa(prospecto.etapa);
-      grouped[checkpoint].push(prospecto);
+      const checkpoint = getCheckpointForEtapa(prospecto.etapa, prospecto.etapa_id);
+      if (grouped[checkpoint]) {
+        grouped[checkpoint].push(prospecto);
+      }
     });
     
     // Ordenar cada grupo por fecha de último mensaje
@@ -418,12 +399,44 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     // Crear una copia estable de las keys para evitar recrear observers innecesariamente
     const keysToProcess = [...visibleCheckpointKeys];
     
+    // ✅ CARGA INICIAL EN BATCH: Si hay función de batch y no se ha disparado aún
+    if (onLoadAllColumnsInitial && !batchLoadTriggeredRef.current) {
+      // Recolectar todas las columnas que necesitan carga inicial
+      const columnsNeedingInitialLoad: string[] = [];
+      
+      keysToProcess.forEach((checkpointKey) => {
+        const etapaId = getEtapaIdForCheckpoint(checkpointKey);
+        if (!etapaId) return;
+        
+        const columnState = columnLoadingStates[etapaId];
+        if (columnState?.page === -1 && columnState.hasMore && !columnState.loading) {
+          columnsNeedingInitialLoad.push(etapaId);
+        }
+      });
+      
+      // Si hay columnas que necesitan carga, disparar batch
+      if (columnsNeedingInitialLoad.length > 0) {
+        batchLoadTriggeredRef.current = true;
+        console.log(`🚀 Carga inicial en BATCH para ${columnsNeedingInitialLoad.length} columnas`);
+        onLoadAllColumnsInitial(columnsNeedingInitialLoad);
+        return; // No continuar, esperar a que termine el batch
+      }
+    }
+    
+    // Para lazy loading (scroll), seguir usando el método individual
     keysToProcess.forEach((checkpointKey) => {
-      const etapas = getEtapasForCheckpoint(checkpointKey);
-      const etapa = etapas[0]; // Usar la primera etapa como identificador
-      const columnElement = columnRefs.current[checkpointKey];
-      const columnState = columnLoadingStates[etapa];
+      const etapaId = getEtapaIdForCheckpoint(checkpointKey);
+      if (!etapaId) return;
+      
+      const columnState = columnLoadingStates[etapaId];
 
+      // Si aún está en page -1, esperar al batch
+      if (columnState?.page === -1) {
+        return;
+      }
+
+      // Para el observer, sí necesitamos el elemento renderizado
+      const columnElement = columnRefs.current[checkpointKey];
       if (!columnElement) return;
 
       // Limpiar observer anterior si existe
@@ -431,18 +444,18 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
         observerRefs.current[checkpointKey].disconnect();
       }
 
-      // Solo crear observer si hay más datos para cargar
-      if (columnState?.hasMore) {
+      // Solo crear observer si hay más datos para cargar y página >= 0
+      if (columnState?.hasMore && columnState.page >= 0) {
         // Crear nuevo observer
         const observer = new IntersectionObserver(
           (entries) => {
             if (entries[0].isIntersecting && columnState.hasMore && !columnState.loading) {
-              onLoadMoreForColumn(etapa);
+              onLoadMoreForColumn(etapaId);
             }
           },
           {
             root: columnElement,
-            rootMargin: '200px',
+            rootMargin: '400px', // ← Aumentado: comienza a cargar mucho antes
             threshold: 0.1
           }
         );
@@ -459,7 +472,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     return () => {
       Object.values(observerRefs.current).forEach(observer => observer.disconnect());
     };
-  }, [prospectosPorCheckpoint, columnLoadingStates, onLoadMoreForColumn, visibleCheckpointKeys]);
+  }, [prospectosPorCheckpoint, columnLoadingStates, onLoadMoreForColumn, onLoadAllColumnsInitial, visibleCheckpointKeys]);
 
   const formatFechaUltimoMensaje = (fecha: string | null) => {
     if (!fecha) return 'Sin mensajes';
@@ -611,6 +624,18 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
 
   const totalExpanded = visibleCheckpointKeys.filter(key => !collapsedColumns.includes(key)).length;
 
+  // Si las etapas no están cargadas o no hay checkpoints, mostrar loader
+  if (!etapasLoaded || CHECKPOINT_KEYS.length === 0) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2 text-slate-400" />
+          <p className="text-sm text-slate-500 dark:text-slate-400">Cargando etapas...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col w-full" style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
       <div className="rounded-lg overflow-hidden flex-1 flex flex-col w-full" style={{ height: '100%', maxHeight: '100%', width: '100%', maxWidth: '100%' }}>
@@ -633,6 +658,23 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
             const prospectosCheckpoint = prospectosPorCheckpoint[checkpointKey];
             const isCollapsed = collapsedColumns.includes(checkpointKey);
             
+            // Obtener el componente de icono para esta etapa
+            const etapaData = etapasService.getByCodigo(checkpoint.codigo as any);
+            const ICON_MAP: Record<string, React.ElementType> = {
+              'cloud-download': CloudDownload,
+              'user-plus': UserPlus,
+              'search': Search,
+              'clipboard-list': ClipboardList,
+              'flame': Flame,
+              'phone': Phone,
+              'user-check': UserCheck,
+              'check-circle': CheckCircle,
+              'badge-check': BadgeCheck,
+              'user-x': UserX,
+              'help-circle': HelpCircle,
+            };
+            const IconComponent = ICON_MAP[etapaData?.icono || 'help-circle'] || HelpCircle;
+            
             return (
               <div
                 key={checkpointKey}
@@ -651,27 +693,31 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
               >
                 {/* Header de la columna */}
                 <div
-                  className={`${checkpoint.bgColor} border-b border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 flex-shrink-0 ${
-                    isCollapsed ? 'p-2' : 'p-3'
-                  }`}
+                  className="border-b border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 flex-shrink-0"
+                  style={{
+                    backgroundColor: checkpoint.bgColor,
+                    padding: isCollapsed ? '0.5rem' : '0.75rem',
+                    ...(isCollapsed ? {
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    } : {})
+                  }}
                   onClick={() => onToggleColumnCollapse(checkpointKey)}
-                  style={isCollapsed ? {
-                    height: '100%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  } : {}}
                 >
                   {!isCollapsed ? (
                     <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-900 dark:text-white text-xs leading-tight">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <IconComponent 
+                          size={16} 
+                          className="flex-shrink-0 text-slate-700 dark:text-slate-300"
+                          style={{ color: checkpoint.color }}
+                        />
+                        <h3 className="font-semibold text-slate-900 dark:text-white text-sm leading-tight">
                           {checkpoint.title}
                         </h3>
-                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">
-                          {checkpoint.description}
-                        </p>
                       </div>
                       {/* Mostrar total real, con indicador de cargados si hay diferencia */}
                       {(() => {
@@ -681,12 +727,15 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                         const showDiff = hasTotalReal && cargados < totalReal;
                         return (
                           <div className="flex flex-col items-end ml-2 flex-shrink-0">
-                            <div className={`min-w-6 h-6 px-1.5 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold`}>
+                            <div 
+                              className="min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                              style={{ backgroundColor: checkpoint.color }}
+                            >
                               {hasTotalReal ? totalReal : cargados}
                             </div>
                             {showDiff && (
-                              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                                {cargados} cargados
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 whitespace-nowrap">
+                                {cargados} de {totalReal}
                               </span>
                             )}
                           </div>
@@ -701,7 +750,10 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                         const cargados = prospectosCheckpoint.length;
                         const hasTotalReal = totalReal > 0;
                         return (
-                          <div className={`min-w-6 h-6 px-1.5 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold absolute top-2`}>
+                          <div 
+                            className="min-w-6 h-6 px-1.5 rounded-full flex items-center justify-center text-white text-xs font-bold absolute top-2"
+                            style={{ backgroundColor: checkpoint.color }}
+                          >
                             {hasTotalReal ? totalReal : cargados}
                           </div>
                         );
@@ -746,9 +798,8 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                         ))}
                         {/* Elemento sentinel para infinite scrolling */}
                         {(() => {
-                          const etapas = getEtapasForCheckpoint(checkpointKey);
-                          const etapa = etapas[0];
-                          const columnState = columnLoadingStates[etapa];
+                          const etapaId = getEtapaIdForCheckpoint(checkpointKey);
+                          const columnState = columnLoadingStates[etapaId || ''];
                           return (
                             <div 
                               data-sentinel 

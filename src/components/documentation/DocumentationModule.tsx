@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-27', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '076abc2', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
   { hash: 'f1b26ef', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '1841624', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
@@ -612,10 +613,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.48', highlight: true },
-  { label: 'Release', value: 'B10.1.42N2.5.48', highlight: false },
+  { label: 'Version', value: 'vMigracion a tabla de etapas, correcciones de mcp, importador de prospectos', highlight: true },
+  { label: 'Release', value: 'Migracion a tabla de etapas, correcciones de mcp, importador de prospectos', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '25 ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '27 ene 2026', highlight: false },
 ];
 
 // ============================================

@@ -2,6 +2,87 @@
 
 ## [Unreleased]
 
+### 🗓️ v2.5.41 - Importación Manual de Prospectos desde Dynamics [27-01-2026]
+
+#### ✨ Nueva Funcionalidad
+
+**Módulo: Gestión de Prospectos → Pestaña Importación**
+
+Nueva funcionalidad para buscar prospectos directamente en Dynamics CRM por número de teléfono.
+
+**Características principales:**
+- ✅ Búsqueda directa en Dynamics CRM por teléfono (10 dígitos)
+- ✅ Normalización automática de formato de teléfono
+- ✅ Validación de entrada con mensajes claros
+- ✅ **Verificación automática de duplicados en BD local**
+- ✅ **Advertencia visual (panel amber) si el prospecto ya existe**
+- ✅ Visualización de resultados en 4 secciones organizadas
+- ✅ Manejo completo de errores y estados de carga
+- ✅ Animaciones suaves con Framer Motion
+
+**Diferencia con Dynamics CRM Manager:**
+- **Dynamics CRM Manager:** Busca en local → compara con Dynamics
+- **Importación Manual:** Busca directamente en Dynamics → verifica duplicados
+
+#### 🎨 UI/UX
+
+**Advertencia de Duplicados:**
+Cuando el prospecto ya existe, muestra panel amber con:
+- Nombre del prospecto existente
+- Ejecutivo asignado
+- Coordinación asignada
+- Nota: Datos de Dynamics mostrados como referencia
+
+**Secciones de Datos:**
+1. Información Personal (nombre, email, estado civil, ocupación)
+2. Ubicación (país, estado)
+3. Asignación en CRM (coordinación, propietario)
+4. Datos CRM (ID, calificación, última llamada)
+
+#### 🔌 Integración
+
+**Edge Function reutilizada:**
+- `dynamics-lead-proxy` - Consulta a Dynamics CRM
+- Timeout: 30 segundos
+- Autenticación: JWT del usuario
+
+**Vista para verificación:**
+- `prospectos_con_ejecutivo_y_coordinacion`
+- Filtro: `id_dynamics = LeadID`
+
+#### 📁 Archivos Nuevos
+
+| Archivo | Descripción |
+|---------|-------------|
+| `src/components/prospectos/ManualImportTab.tsx` | Componente principal (nuevo) |
+| `public/docs/README_IMPORTACION_MANUAL.md` | Documentación completa |
+| `public/docs/CHANGELOG_IMPORTACION_MANUAL.md` | Historial de cambios |
+| `.cursor/handovers/2026-01-27-importacion-manual-prospectos.md` | Handover técnico |
+| `.cursor/handovers/2026-01-27-importacion-manual-UI-preview.md` | Preview visual |
+
+#### 📝 Archivos Modificados
+
+| Archivo | Cambios |
+|---------|---------|
+| `src/components/prospectos/ProspectosManager.tsx` | Añadida pestaña "Importación" |
+| `docs/INDEX.md` | Actualizado con nuevos docs |
+
+#### 🔐 Permisos
+
+Acceso restringido a:
+- ✅ Admin
+- ✅ Admin Operativo
+- ✅ Coordinador Calidad
+
+#### 📚 Documentación
+
+- README completo con índice y "Ver También"
+- Changelog detallado
+- Handovers técnicos con preview UI
+- Actualización de INDEX.md
+
+---
+
 ### 🗓️ v2.5.40 - Fix Búsqueda WhatsApp Server-Side [24-01-2026]
 
 #### 🐛 Correcciones de Bugs

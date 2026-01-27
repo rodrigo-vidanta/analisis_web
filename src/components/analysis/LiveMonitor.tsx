@@ -23,11 +23,13 @@ import { Device } from '@twilio/voice-sdk';
 import * as Tone from 'tone';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { etapasService } from '../../services/etapasService';
 import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
 import { AssignmentBadge } from './AssignmentBadge';
 import { ProspectoEtapaAsignacion } from '../shared/ProspectoEtapaAsignacion';
+import { EtapaBadge } from '../shared/EtapaBadge';
 import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { PhoneDisplay } from '../shared/PhoneDisplay';
@@ -1130,17 +1132,16 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
 
   if (!prospecto) return null;
 
-  const getStatusColor = (etapa: string) => {
-    switch (etapa?.toLowerCase()) {
-      case 'nuevo': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
-      case 'contactado': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
-      case 'calificado': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
-      case 'propuesta': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
-      case 'transferido': return 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/20 dark:text-indigo-400';
-      case 'finalizado': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'perdido': return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
-    }
+  /**
+   * Obtener color de etapa desde servicio (migración 2026-01-26)
+   * @deprecated Usar componente EtapaBadge directamente
+   */
+  const getStatusColor = (etapaIdOrNombre: string | undefined) => {
+    if (!etapaIdOrNombre) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
+    
+    const color = etapasService.getColor(etapaIdOrNombre);
+    // Mantener formato de clases para compatibilidad
+    return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
   };
 
   const getScoreColor = (score: string) => {
@@ -1495,7 +1496,12 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('*')
+        .select(`
+          *,
+          etapa_info:etapa_id (
+            id, codigo, nombre, color_ui, icono
+          )
+        `)
         .eq('id', prospectoId)
         .single();
 
@@ -1959,7 +1965,7 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
                       className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
                     >
                       <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Etapa:</span>
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">{prospect.etapa}</span>
+                      <EtapaBadge prospecto={{ etapa_id: prospect.etapa_id, etapa: prospect.etapa }} size="sm" />
                     </motion.div>
                     <motion.div
                       initial={{ opacity: 0, x: -10 }}
@@ -2277,7 +2283,12 @@ const ProspectDetailModal: React.FC<ProspectDetailModalProps> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('*')
+        .select(`
+          *,
+          etapa_info:etapa_id (
+            id, codigo, nombre, color_ui, icono
+          )
+        `)
         .eq('id', prospectoId)
         .single();
 
@@ -3626,9 +3637,12 @@ Debería sonar MUCHO mejor ahora.`);
               className="mt-4"
             >
             <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900 dark:text-white">
-                {prospect.etapa} • {progressPercentage}%
-              </span>
+              <div className="flex items-center gap-2">
+                <EtapaBadge prospecto={{ etapa_id: prospect.etapa_id, etapa: prospect.etapa }} size="sm" />
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  {progressPercentage}%
+                </span>
+              </div>
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                 {liveMonitorService.getTimeElapsed(prospect.updated_at)}
               </span>

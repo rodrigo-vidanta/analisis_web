@@ -11,6 +11,7 @@
 import React, { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import { permissionsService } from '../services/permissionsService';
+import { etapasService } from '../services/etapasService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
@@ -243,8 +244,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const initializeAuth = async () => {
     try {
       setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      // Inicializar auth primero
       const state = await authService.initialize();
+      
       setAuthState(state);
+      
+      // ✅ Solo cargar etapas si hay usuario autenticado
+      if (state.isAuthenticated && state.user) {
+        etapasService.loadEtapas().catch(err => {
+          console.error('⚠️ Error cargando etapas:', err);
+          // No bloquear si falla carga de etapas
+        });
+      }
     } catch (error) {
       console.error('Error initializing auth:', error);
       setAuthState({
@@ -272,6 +284,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const state = await authService.login(credentials);
       
       setAuthState(state);
+      
+      // ✅ Cargar etapas después de login exitoso
+      if (state.isAuthenticated && state.user) {
+        etapasService.loadEtapas().catch(err => {
+          console.error('⚠️ Error cargando etapas después de login:', err);
+        });
+      }
       
       if (!state.isAuthenticated) {
         // Si falla el login, ocultar la animación

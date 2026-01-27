@@ -164,13 +164,24 @@ export const ESTADOS_CIVILES: { value: EstadoCivil; label: string }[] = [
 
 /**
  * Audiencia para plantillas WhatsApp
+ * 
+ * ⚠️ MIGRACIÓN ETAPAS (2026-01-27):
+ * - etapa/etapas (string) → DEPRECADO - mantener para compatibilidad
+ * - etapa_id/etapa_ids (UUID FK) → USAR - nueva arquitectura
  */
 export interface WhatsAppAudience {
   id: string;
   nombre: string;
   descripcion?: string | null;
-  etapa?: ProspectoEtapa | null; // Legacy: etapa única (mantener compatibilidad)
-  etapas?: ProspectoEtapa[]; // Nuevo: múltiples etapas seleccionables
+  
+  // ⚠️ DEPRECADO - Campos legacy (mantener temporalmente)
+  etapa?: ProspectoEtapa | null; // Legacy: etapa única string
+  etapas?: ProspectoEtapa[]; // Legacy: múltiples etapas string
+  
+  // ✅ NUEVO - Arquitectura con FK a tabla etapas
+  etapa_id?: string | null; // FK a etapas.id (singular)
+  etapa_ids?: string[] | null; // Array de FKs a etapas.id (múltiple)
+  
   destinos?: string[]; // Array de destinos (prospectos.destino_preferencia)
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Array de tipos (prospectos.viaja_con)
@@ -199,11 +210,20 @@ export const DIAS_SIN_CONTACTO_PRESETS = [
 
 /**
  * Input para crear/editar audiencia
+ * 
+ * ⚠️ MIGRACIÓN ETAPAS (2026-01-27):
+ * - Usar etapa_ids (UUID[]) en lugar de etapas (string[])
  */
 export interface CreateAudienceInput {
   nombre: string;
   descripcion?: string;
-  etapas?: ProspectoEtapa[]; // Múltiples etapas seleccionables
+  
+  // ⚠️ DEPRECADO - Mantener temporalmente para compatibilidad
+  etapas?: ProspectoEtapa[]; // Legacy: múltiples etapas string
+  
+  // ✅ NUEVO - Usar este campo
+  etapa_ids?: string[]; // Array de UUIDs (FK a etapas.id)
+  
   destinos?: string[]; // Múltiples destinos seleccionables
   estado_civil?: EstadoCivil | null;
   viaja_con?: string[]; // Múltiples opciones de "viaja con"

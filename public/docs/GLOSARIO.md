@@ -1,7 +1,7 @@
 # 📖 Glosario de Términos — PQNC QA AI Platform
 
-**Última actualización:** 24 de Enero 2026  
-**Versión:** 1.1.0
+**Última actualización:** 27 de Enero 2026  
+**Versión:** 1.2.0
 
 ---
 
@@ -440,9 +440,50 @@ curl -X POST https://api.supabase.com/v1/projects/glsmifhkoaifvaegsozd/database/
 - Vista Kanban por etapas
 - Asignación manual/automática
 - Integración con Dynamics CRM
+- **Importación manual desde Dynamics** (nuevo 2026-01-27)
 - Timeline de actividad
 
-**Archivos:** `src/components/prospectos/ProspectosManager.tsx`
+**Archivos:** 
+- `src/components/prospectos/ProspectosManager.tsx`
+- `src/components/prospectos/ManualImportTab.tsx` (nuevo)
+
+**Ver:** [README_IMPORTACION_MANUAL.md](README_IMPORTACION_MANUAL.md)
+
+---
+
+### Importación Manual
+**Definición:** Funcionalidad para buscar prospectos directamente en Dynamics CRM por número de teléfono.
+
+**Implementación:** 27 de Enero 2026
+
+**Características:**
+- Búsqueda directa por teléfono (10 dígitos)
+- Verificación automática de duplicados
+- Advertencia visual si ya existe en BD local
+- Visualización en 4 secciones (Personal, Ubicación, CRM, Datos)
+
+**Edge Function:** `dynamics-lead-proxy`
+
+**Acceso:** Admin, Admin Operativo, Coordinador Calidad
+
+**Ver:** [README_IMPORTACION_MANUAL.md](README_IMPORTACION_MANUAL.md)
+
+---
+
+### Dynamics CRM Manager
+**Definición:** Módulo administrativo para comparar y sincronizar prospectos con Dynamics CRM.
+
+**Diferencia con Importación Manual:**
+- **Dynamics CRM Manager:** Busca en local → compara con Dynamics
+- **Importación Manual:** Busca directamente en Dynamics → verifica duplicados
+
+**Características:**
+- Comparación de datos local vs Dynamics
+- Detección de discrepancias
+- Reasignación de ejecutivos
+- Sincronización de coordinaciones
+
+**Ver:** [README_DYNAMICS_CRM.md](README_DYNAMICS_CRM.md)
 
 ---
 

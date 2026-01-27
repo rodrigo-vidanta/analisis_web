@@ -19,6 +19,7 @@ import { systemNotificationService } from '../../../services/systemNotificationS
 import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { PhoneText } from '../../shared/PhoneDisplay';
 import { useAuth } from '../../../contexts/AuthContext';
+import { EtapaBadge } from '../../shared/EtapaBadge';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
@@ -903,11 +904,18 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                           </p>
                         )}
                         <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                          {prospecto.etapa && (
-                            <span className="inline-block px-2 py-0.5 text-xs rounded bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
-                              {prospecto.etapa}
-                            </span>
-                          )}
+                          {/* Badge dinámico de etapa con color e icono */}
+                          <div className="inline-flex">
+                            <EtapaBadge 
+                              prospecto={{ 
+                                etapa_id: prospecto.etapa_id, 
+                                etapa: prospecto.etapa 
+                              }} 
+                              size="sm" 
+                              variant="solid"
+                              showIcon={false}
+                            />
+                          </div>
                           {prospecto.destino_preferencia && prospecto.destino_preferencia.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {prospecto.destino_preferencia.map((destino, idx) => (

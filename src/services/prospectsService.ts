@@ -38,7 +38,21 @@ export interface Prospect {
   edad?: number;
   estado_civil?: string;
   ciudad_residencia?: string;
+  /** @deprecated Usar etapa_id */
   etapa?: string;
+  /** Campo principal - UUID FK → etapas.id */
+  etapa_id?: string;
+  /** Datos de etapa desde JOIN (opcional) */
+  etapa_info?: {
+    id: string;
+    codigo: string;
+    nombre: string;
+    color_ui: string;
+    icono: string;
+    orden_funnel: number;
+    grupo_objetivo: 'ENGAGEMENT' | 'LLAMADA' | null;
+    es_terminal: boolean;
+  };
   whatsapp: string;
   email?: string;
   observaciones?: string;
@@ -421,14 +435,29 @@ class ProspectsService {
     name?: string;
     email?: string;
     phone?: string;
+    /** @deprecated Usar etapa_id */
     etapa?: string;
+    /** UUID de etapa (preferido) */
+    etapa_id?: string;
     ciudad?: string;
     limit?: number;
   }, userId?: string): Promise<Prospect[]> {
     try {
       let query = analysisSupabase
         .from('prospectos')
-        .select('*');
+        .select(`
+          *,
+          etapa_info:etapa_id (
+            id,
+            codigo,
+            nombre,
+            color_ui,
+            icono,
+            orden_funnel,
+            grupo_objetivo,
+            es_terminal
+          )
+        `);
 
       if (criteria.name) {
         query = query.or(`nombre_completo.ilike.%${criteria.name}%,nombre_whatsapp.ilike.%${criteria.name}%`);
@@ -443,7 +472,12 @@ class ProspectsService {
         query = query.like('whatsapp', `%${cleanPhone}%`);
       }
 
-      if (criteria.etapa) {
+      // Filtrar por etapa_id (nuevo, preferido)
+      if (criteria.etapa_id) {
+        query = query.eq('etapa_id', criteria.etapa_id);
+      }
+      // Compatibilidad: filtrar por nombre legacy (si no hay etapa_id)
+      else if (criteria.etapa) {
         query = query.eq('etapa', criteria.etapa);
       }
 

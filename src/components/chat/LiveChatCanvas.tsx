@@ -67,6 +67,7 @@ import { botPauseService } from '../../services/botPauseService';
 import { Pause } from 'lucide-react';
 import { ProspectDetailSidebar } from './ProspectDetailSidebar';
 import { PhoneDisplay, PhoneText } from '../shared/PhoneDisplay';
+import { EtapaBadge } from '../shared/EtapaBadge';
 import toast from 'react-hot-toast';
 import ModerationService from '../../services/moderationService';
 import ParaphraseLogService from '../../services/paraphraseLogService';
@@ -840,7 +841,7 @@ interface ConversationItemProps {
   userId?: string;
   labels: ConversationLabel[];
   /** Datos del prospecto para PhoneDisplay (id_dynamics, etapa) */
-  prospectoData?: { id_dynamics?: string | null; etapa?: string | null } | null;
+  prospectoData?: { id_dynamics?: string | null; etapa?: string | null; etapa_id?: string | null } | null;
   onLabelsClick: (e: React.MouseEvent) => void;
   onSelect: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
@@ -935,11 +936,20 @@ const ConversationItem = React.memo<ConversationItemProps>(({
               phone={conversation.customer_phone || conversation.numero_telefono} 
               prospecto={{ 
                 id_dynamics: prospectoData?.id_dynamics || conversation.metadata?.id_dynamics, 
-                etapa: prospectoData?.etapa || conversation.metadata?.etapa 
+                etapa: prospectoData?.etapa || conversation.metadata?.etapa,
+                etapa_id: prospectoData?.etapa_id
               }} 
             />
           </p>
-          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-2">{prospectoData?.etapa || conversation.metadata?.etapa}</p>
+          <div className="mb-2">
+            <EtapaBadge 
+              prospecto={{ 
+                etapa_id: prospectoData?.etapa_id, 
+                etapa: prospectoData?.etapa || conversation.metadata?.etapa 
+              }} 
+              size="sm" 
+            />
+          </div>
           
           {/* Etiquetas WhatsApp */}
           {labels.length > 0 && (
@@ -1018,6 +1028,22 @@ const ConversationItem = React.memo<ConversationItemProps>(({
       </div>
       </div>
     </div>
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison para evitar re-renders innecesarios
+  // Solo re-renderizar si cambian valores importantes
+  return (
+    prevProps.conversation.id === nextProps.conversation.id &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.hasActiveCall === nextProps.hasActiveCall &&
+    prevProps.isBotPaused === nextProps.isBotPaused &&
+    prevProps.requiereAtencion === nextProps.requiereAtencion &&
+    prevProps.unreadCount === nextProps.unreadCount &&
+    prevProps.conversation.last_message_at === nextProps.conversation.last_message_at &&
+    prevProps.conversation.message_count === nextProps.conversation.message_count &&
+    prevProps.prospectoData?.etapa_id === nextProps.prospectoData?.etapa_id &&
+    prevProps.prospectoData?.etapa === nextProps.prospectoData?.etapa &&
+    prevProps.labels.length === nextProps.labels.length
   );
 });
 
@@ -1196,6 +1222,8 @@ const LiveChatCanvas: React.FC = () => {
   const reconnectBackoffRef = useRef<number>(0);
   const isSettingUpRef = useRef<boolean>(false); // Flag para evitar múltiples setup simultáneos
   const isUnmountingRef = useRef<boolean>(false); // Flag para detectar unmount (hot reload)
+  const activeChannelRef = useRef<ReturnType<typeof analysisSupabase.channel> | null>(null); // 🆕 CANAL ACTIVO GLOBAL
+  const processedMessagesRef = useRef<Set<string>>(new Set()); // 🆕 DEDUPLICACIÓN DE MENSAJES
 
   // Estados para control del bot
   const [botPauseStatus, setBotPauseStatus] = useState<{[uchatId: string]: {
@@ -1304,6 +1332,7 @@ const LiveChatCanvas: React.FC = () => {
     requiere_atencion_humana?: boolean;
     motivo_handoff?: string | null;
     etapa?: string | null;
+    etapa_id?: string | null; // ✅ AGREGADO: FK a tabla etapas
   }>>(new Map());
 
   // ⚠️ CRÍTICO: Refs para filtros de permisos en tiempo real
@@ -1819,6 +1848,7 @@ const LiveChatCanvas: React.FC = () => {
     setConvRealtimeChannel(null);
     setUchatRealtimeChannel(null);
     setUchatMessagesRealtimeChannel(null);
+    activeChannelRef.current = null;
   }, [realtimeChannel, convRealtimeChannel, uchatRealtimeChannel, uchatMessagesRealtimeChannel]);
 
   const scheduleReconnect = (source: string) => {
@@ -1873,11 +1903,10 @@ const LiveChatCanvas: React.FC = () => {
       return;
     }
     
-    // ✅ PROTECCIÓN: Si ya hay un canal activo y suscrito, no crear otro
-    if (realtimeChannel) {
+    // ✅ PROTECCIÓN MEJORADA: Verificar ref global de canal activo
+    if (activeChannelRef.current) {
       try {
-        // Verificar si el canal está realmente suscrito
-        const channelState = (realtimeChannel as any).state;
+        const channelState = (activeChannelRef.current as any).state;
         if (channelState === 'joined' || channelState === 'joining') {
           logDev('✅ [REALTIME] Canal ya está activo, no crear duplicado');
           return;
@@ -1912,6 +1941,7 @@ const LiveChatCanvas: React.FC = () => {
     
     // Usar un canal único con timestamp para evitar conflictos
     const channelId = `live-chat-mensajes-whatsapp-v4-${Date.now()}`;
+    
     const newChannel = analysisSupabase
       .channel(channelId)
       .on(
@@ -1922,13 +1952,27 @@ const LiveChatCanvas: React.FC = () => {
           table: 'mensajes_whatsapp',
         },
         (payload) => {
-          // ⚡ OPTIMIZADO V5: Handler consolidado sin console.logs
+          // ⚡ OPTIMIZADO V5: Handler consolidado
           const newMessage = payload.new as any;
           const targetProspectoId = newMessage.prospecto_id;
           const messageTimestamp = newMessage.fecha_hora || new Date().toISOString();
           
+          // 🆕 DEDUPLICACIÓN: Evitar procesar el mismo mensaje múltiples veces
+          if (processedMessagesRef.current.has(newMessage.id)) {
+            return;
+          }
+          processedMessagesRef.current.add(newMessage.id);
+          
+          // Limpiar mensajes antiguos del set para evitar memory leak (mantener últimos 100)
+          if (processedMessagesRef.current.size > 100) {
+            const arr = Array.from(processedMessagesRef.current);
+            processedMessagesRef.current = new Set(arr.slice(-50));
+          }
+          
           // Validación mínima - retornar inmediatamente si no es válido
-          if (!targetProspectoId || !newMessage.id) return;
+          if (!targetProspectoId || !newMessage.id) {
+            return;
+          }
 
           // ⚠️ CRÍTICO: Verificar permisos ANTES de procesar el mensaje
           // Esto evita que ejecutivos vean mensajes de prospectos no asignados
@@ -2007,67 +2051,64 @@ const LiveChatCanvas: React.FC = () => {
             adjuntos: newMessage.adjuntos,
           } as any;
 
-          // ⚡ OPTIMIZACIÓN CLAVE: Un solo requestAnimationFrame con batch de actualizaciones
-          requestAnimationFrame(() => {
-            startTransition(() => {
-              // Batch 1: Actualizar mensajes
-              setMessagesByConversation(prev => {
-                const current = prev[targetProspectoId] || [];
-                // Verificar duplicado dentro del setter
-                if (current.length > 0 && current[current.length - 1]?.id === newMessage.id) {
-                  return prev;
-                }
-                // Filtrar mensajes optimistas si existen
-                const withoutOptimistic = current.some(m => m.id.startsWith('temp_'))
-                  ? current.filter(m => !m.id.startsWith('temp_'))
-                  : current;
-                
-                return {
-                  ...prev,
-                  [targetProspectoId]: [...withoutOptimistic, adaptedMessage],
-                };
-              });
-
-              // Batch 2: Actualizar AMBAS listas (conversations Y allConversationsLoaded)
-              const updateConversationsList = (prev: Conversation[]) => {
-                const existingIndex = prev.findIndex(c => 
-                  c.id === targetProspectoId || c.prospecto_id === targetProspectoId
-                );
-                
-                if (existingIndex === -1) {
-                  // Conversación nueva - cargar de forma diferida
-                  loadNewConversationIfNeeded(targetProspectoId);
-                  return prev;
-                }
-
-                const currentConv = prev[existingIndex];
-                const updatedConv: Conversation = { 
-                  ...currentConv, 
-                  last_message_at: messageTimestamp, 
-                  updated_at: messageTimestamp,
-                  ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
-                  message_count: (currentConv.message_count || 0) + 1,
-                  unread_count: (!isActiveConversation && !isFromAgent)
-                    ? (currentConv.unread_count || 0) + 1
-                    : 0,
-                  mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
-                    ? (currentConv.mensajes_no_leidos || 0) + 1
-                    : 0
-                };
-                
-                // Si ya está al principio, actualizar in-place
-                if (existingIndex === 0) {
-                  return [updatedConv, ...prev.slice(1)];
-                }
-                // Mover al principio
-                return [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
-              };
-              
-              // Actualizar ambas listas con la misma lógica
-              setConversations(updateConversationsList);
-              setAllConversationsLoaded(updateConversationsList);
-            });
+          // ⚡ Actualizar estado directamente
+          
+          // Batch 1: Actualizar mensajes
+          setMessagesByConversation(prev => {
+            const current = prev[targetProspectoId] || [];
+            // Verificar duplicado dentro del setter
+            if (current.length > 0 && current[current.length - 1]?.id === newMessage.id) {
+              return prev;
+            }
+            // Filtrar mensajes optimistas si existen
+            const withoutOptimistic = current.some(m => m.id.startsWith('temp_'))
+              ? current.filter(m => !m.id.startsWith('temp_'))
+              : current;
+            
+            return {
+              ...prev,
+              [targetProspectoId]: [...withoutOptimistic, adaptedMessage],
+            };
           });
+
+          // Batch 2: Actualizar AMBAS listas (conversations Y allConversationsLoaded)
+          const updateConversationsList = (prev: Conversation[]) => {
+            const existingIndex = prev.findIndex(c => 
+              c.id === targetProspectoId || c.prospecto_id === targetProspectoId
+            );
+            
+            if (existingIndex === -1) {
+              // Conversación nueva - cargar de forma diferida
+              loadNewConversationIfNeeded(targetProspectoId);
+              return prev;
+            }
+
+            const currentConv = prev[existingIndex];
+            const updatedConv: Conversation = { 
+              ...currentConv, 
+              last_message_at: messageTimestamp, 
+              updated_at: messageTimestamp,
+              ultimo_mensaje_preview: newMessage.mensaje?.substring(0, 100) || '',
+              message_count: (currentConv.message_count || 0) + 1,
+              unread_count: (!isActiveConversation && !isFromAgent)
+                ? (currentConv.unread_count || 0) + 1
+                : 0,
+              mensajes_no_leidos: (!isActiveConversation && !isFromAgent)
+                ? (currentConv.mensajes_no_leidos || 0) + 1
+                : 0
+            };
+            
+            // Si ya está al principio, actualizar in-place
+            if (existingIndex === 0) {
+              return [updatedConv, ...prev.slice(1)];
+            }
+            // Mover al principio - crear nuevo array
+            return [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
+          };
+          
+          // Actualizar ambas listas con la misma lógica
+          setConversations(updateConversationsList);
+          setAllConversationsLoaded(updateConversationsList);
 
           // ⚡ Trabajo secundario diferido (no crítico para UI)
           if (window.requestIdleCallback) {
@@ -2116,7 +2157,8 @@ const LiveChatCanvas: React.FC = () => {
                 requiere_atencion_humana: updatedProspecto.requiere_atencion_humana || false,
                 motivo_handoff: updatedProspecto.motivo_handoff || null,
                 id_dynamics: updatedProspecto.id_dynamics || null,
-                etapa: updatedProspecto.etapa || null
+                etapa: updatedProspecto.etapa || null,
+                etapa_id: updatedProspecto.etapa_id || null // ✅ AGREGADO
               });
               
               // Verificar permisos del usuario para este prospecto actualizado
@@ -2224,7 +2266,8 @@ const LiveChatCanvas: React.FC = () => {
                 prospectosDataRef.current.set(prospectoId, {
                   ...prospectoData,
                   id_dynamics: updatedProspecto.id_dynamics || null,
-                  etapa: updatedProspecto.etapa || null
+                  etapa: updatedProspecto.etapa || null,
+                  etapa_id: updatedProspecto.etapa_id || null // ✅ AGREGADO
                 });
               }
               
@@ -2363,6 +2406,7 @@ const LiveChatCanvas: React.FC = () => {
       });
 
     setRealtimeChannel(newChannel);
+    activeChannelRef.current = newChannel;
   };
 
   // Función de throttling para actualizaciones masivas

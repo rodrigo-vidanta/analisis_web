@@ -2703,11 +2703,18 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       // WHERE base de la audiencia
       let baseWhere = 'WHERE 1=1';
       
-      // Filtro de etapas (IN - múltiple)
-      if (audience?.etapas?.length) {
+      // Filtro de etapas con FK (priorizar etapa_ids)
+      if (audience?.etapa_ids?.length) {
+        // ✅ NUEVO - Usar FKs a tabla etapas
+        baseWhere += ` AND etapa_id IN ('${audience.etapa_ids.join("','")}')`;
+      } else if (audience?.etapa_id) {
+        // ✅ NUEVO - FK singular
+        baseWhere += ` AND etapa_id = '${audience.etapa_id}'`;
+      } else if (audience?.etapas?.length) {
+        // ⚠️ FALLBACK LEGACY - etapas string array
         baseWhere += ` AND etapa IN ('${audience.etapas.join("','")}')`;
       } else if (audience?.etapa) {
-        // Compatibilidad legacy: etapa singular
+        // ⚠️ FALLBACK LEGACY - etapa string singular
         baseWhere += ` AND etapa = '${audience.etapa}'`;
       }
       

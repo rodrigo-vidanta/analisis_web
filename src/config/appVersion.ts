@@ -5,7 +5,7 @@
  * Cambios: Incluir coordinadores y supervisores en filtro de ejecutivos
  */
 
-export const APP_VERSION = 'B10.1.42N2.5.48';
+export const APP_VERSION = 'Migracion a tabla de etapas, correcciones de mcp, importador de prospectos';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

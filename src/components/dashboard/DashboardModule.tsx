@@ -49,6 +49,8 @@ import toast from 'react-hot-toast';
 import { ProspectosMetricsWidget, type GlobalTimePeriod } from './widgets/ProspectosMetricsWidget';
 import { EjecutivosMetricsWidget } from './widgets/EjecutivosMetricsWidget';
 import { getSignedGcsUrl } from '../../services/gcsUrlService';
+import { etapasService } from '../../services/etapasService';
+import type { Etapa } from '../../types/etapas';
 
 // ============================================
 // CONTEXT PARA VISTA EXPANDIDA
@@ -648,25 +650,15 @@ const TIME_PERIODS: { value: TimePeriod; label: string }[] = [
   { value: '24hours', label: 'Últimas 24h' }
 ];
 
-// Etapas del FUNNEL DE CONVERSIÓN (flujo principal)
-// Orden: Validando → En Seguimiento → Interesado → Atendió Llamada → Ejecutivo → Certificado
-const FUNNEL_CONVERSION_STAGES = [
-  { key: 'validando_membresia', name: 'Validando Membresía', shortName: 'Validando', description: 'Entrada de todas las conversaciones' },
-  { key: 'en_seguimiento', name: 'En Seguimiento', shortName: 'Seguimiento', description: 'En proceso de seguimiento' },
-  { key: 'interesado', name: 'Interesado', shortName: 'Interesado', description: 'Ya proporcionó datos de discovery' },
-  { key: 'atendio_llamada', name: 'Atendió Llamada', shortName: 'Atendió', description: 'Atendió la llamada' },
-  { key: 'con_ejecutivo', name: 'Con Ejecutivo', shortName: 'Ejecutivo', description: 'Siendo atendido por ejecutivo' },
-  { key: 'certificado_adquirido', name: 'Certificado Adquirido', shortName: 'Certificado', description: 'Adquirió certificado vacacional' }
-];
-
-// Etapas FUERA DEL FUNNEL (prospectos descartados que también cuentan para el total)
-const OUT_OF_FUNNEL_STAGES = [
-  { key: 'activo_pqnc', name: 'Activo PQNC', shortName: 'Activo PQNC', description: 'Ya era cliente activo' },
-  { key: 'es_miembro', name: 'Es Miembro', shortName: 'Miembro', description: 'Ya estaba siendo atendido' }
-];
-
-// Todas las etapas para clasificación (el TOTAL incluye todas)
-const ALL_STAGES = [...FUNNEL_CONVERSION_STAGES, ...OUT_OF_FUNNEL_STAGES];
+// ============================================
+// ETAPAS DINÁMICAS DESDE BASE DE DATOS
+// ============================================
+// Las etapas ahora se cargan dinámicamente desde la tabla `etapas`
+// usando etapasService (cache en memoria cargado al iniciar la app)
+//
+// IMPORTANTE: Las etapas con 0 prospectos NO se mostrarán en el funnel
+// ACTUALIZACIÓN 2026-01-27: Eliminadas constantes hardcodeadas
+// ============================================
 
 const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   transferida: { label: 'Transferidas', color: '#10B981' },
@@ -2878,6 +2870,7 @@ const DashboardModule: React.FC = () => {
   const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([]);
   const [trackingStagesData, setTrackingStagesData] = useState<PipelineStage[]>([]);
   const [funnelCoordData, setFunnelCoordData] = useState<FunnelCoordData[]>([]);
+  const [etapasDisponibles, setEtapasDisponibles] = useState<Etapa[]>([]);
   const [assignmentByCoord, setAssignmentByCoord] = useState<CoordAssignment[]>([]);
   const [totalProspectsReal, setTotalProspectsReal] = useState(0);
   const [crmSalesData, setCrmSalesData] = useState<CRMSalesData>({
@@ -3068,74 +3061,196 @@ const DashboardModule: React.FC = () => {
   }, [filters, getStartDate, getSelectedCoordinacionIds]);
 
   // Cargar pipeline usando RPC optimizado
+  // ============================================
+  // CARGAR PIPELINE DINÁMICO DESDE BD
+  // Actualizado: 2026-01-27
+  // - Carga etapas dinámicamente desde tabla `etapas`
+  // - Filtra automáticamente etapas con count = 0
+  // - Usa color_ui desde BD en lugar de hardcoded
+  // ============================================
   const loadPipelineOptimized = useCallback(async () => {
     try {
       const startDate = getStartDate(filters.period);
       const coordIds = getSelectedCoordinacionIds();
-      
-      const { data, error } = await analysisSupabase.rpc('get_dashboard_pipeline', {
-        p_fecha_inicio: startDate.toISOString(),
-        p_fecha_fin: new Date().toISOString(),
-        p_coordinacion_ids: coordIds
-      });
+
+      // Query con JOIN a tabla etapas para obtener datos dinámicos
+      const { data: prospectos, error } = await analysisSupabase
+        .from('prospectos')
+        .select(`
+          id,
+          etapa,
+          etapa_id,
+          coordinacion_id,
+          created_at,
+          etapa_info:etapa_id (
+            id,
+            codigo,
+            nombre,
+            color_ui,
+            icono,
+            orden_funnel,
+            es_terminal
+          )
+        `)
+        .gte('created_at', startDate.toISOString())
+        .not('etapa_id', 'is', null); // Solo prospectos con etapa definida
 
       if (error) throw error;
 
-      // Procesar etapas de conversión
-      const conversionStages = data?.conversion_stages || [];
-      const pipelineData: PipelineStage[] = conversionStages.map((s: any) => ({
-        name: s.name,
-        shortName: s.short_name,
-        count: s.count || 0,
-        percentage: s.percentage || 0,
-        fill: '#3B82F6',
-        conversionFromPrevious: undefined
+      // Filtrar por coordinación si aplica
+      const prospectosFiltrados = coordIds && coordIds.length > 0
+        ? prospectos?.filter(p => coordIds.includes(p.coordinacion_id)) || []
+        : prospectos || [];
+
+      // Agrupar prospectos por etapa usando etapa_info
+      const etapaCounts = new Map<string, {
+        id: string;
+        nombre: string;
+        codigo: string;
+        color: string;
+        orden: number;
+        count: number;
+        esTerminal: boolean;
+      }>();
+
+      prospectosFiltrados.forEach(p => {
+        if (!p.etapa_info) return; // Skip si no tiene etapa_info
+
+        const key = p.etapa_info.id;
+        const existing = etapaCounts.get(key);
+
+        if (existing) {
+          existing.count++;
+        } else {
+          etapaCounts.set(key, {
+            id: p.etapa_info.id,
+            nombre: p.etapa_info.nombre,
+            codigo: p.etapa_info.codigo,
+            color: p.etapa_info.color_ui,
+            orden: p.etapa_info.orden_funnel,
+            count: 1,
+            esTerminal: p.etapa_info.es_terminal || false
+          });
+        }
+      });
+
+      // Convertir a array y ordenar por orden_funnel
+      const etapasArray = Array.from(etapaCounts.values())
+        .sort((a, b) => a.orden - b.orden);
+
+      // Separar etapas de conversión (no terminales) y fuera del funnel (terminales)
+      // ⚠️ IMPORTANTE: Solo mostrar etapas con count > 0
+      const conversionStages = etapasArray.filter(e => !e.esTerminal && e.count > 0);
+      const outOfFunnelStages = etapasArray.filter(e => e.esTerminal && e.count > 0);
+
+      // Total de prospectos
+      const totalProspectos = prospectosFiltrados.length;
+      setTotalProspectsReal(totalProspectos);
+
+      // Calcular acumulados para funnel (cada etapa incluye siguientes)
+      const conversionData: PipelineStage[] = [];
+
+      conversionStages.forEach((etapa, idx) => {
+        // Para el funnel, mostrar acumulado (esta etapa + todas las siguientes)
+        const etapasSiguientes = conversionStages.slice(idx);
+        const countAcumulado = etapasSiguientes.reduce((sum, e) => sum + e.count, 0);
+
+        conversionData.push({
+          name: etapa.nombre,
+          shortName: etapa.nombre.split(' ').slice(0, 2).join(' '),
+          count: countAcumulado,
+          percentage: totalProspectos > 0 ? (countAcumulado / totalProspectos) * 100 : 0,
+          fill: etapa.color,
+          conversionFromPrevious: idx > 0 && conversionData[idx - 1].count > 0
+            ? (countAcumulado / conversionData[idx - 1].count) * 100
+            : 100
+        });
+      });
+
+      setPipelineStages(conversionData);
+
+      // Etapas fuera del funnel (solo las que tienen count > 0)
+      const trackingData: PipelineStage[] = outOfFunnelStages.map(etapa => ({
+        name: etapa.nombre,
+        shortName: etapa.nombre.split(' ').slice(0, 2).join(' '),
+        count: etapa.count,
+        percentage: totalProspectos > 0 ? (etapa.count / totalProspectos) * 100 : 0,
+        fill: etapa.color,
+        conversionFromPrevious: 0
       }));
 
-      // Calcular conversiones entre etapas
-      for (let i = 1; i < pipelineData.length; i++) {
-        const prev = pipelineData[i - 1].count;
-        if (prev > 0) {
-          pipelineData[i].conversionFromPrevious = (pipelineData[i].count / prev) * 100;
-        }
-      }
-
-      setPipelineStages(pipelineData);
-      setTotalProspectsReal(data?.total_prospectos || 0);
-
-      // Procesar etapas fuera del funnel
-      const outOfFunnel = data?.out_of_funnel_stages || [];
-      setTrackingStagesData(outOfFunnel.map((s: any) => ({
-        name: s.name,
-        shortName: s.short_name,
-        count: s.count || 0,
-        percentage: s.percentage || 0,
-        fill: '#6B7280'
-      })));
+      setTrackingStagesData(trackingData);
 
       // Procesar asignación por coordinación
-      const byCoord = data?.by_coordinacion || [];
-      setAssignmentByCoord(byCoord.map((c: any) => ({
-        coordName: c.coordinacion_nombre || 'Sin nombre',
-        coordCode: c.coordinacion_codigo || 'N/A',
-        count: c.count || 0,
-        color: getCoordColorGlobal(c.coordinacion_codigo)
-      })));
+      const coordAssignmentMap = new Map<string, { name: string; code: string; count: number }>();
+      
+      prospectosFiltrados.forEach(p => {
+        if (!p.coordinacion_id) return;
+        const existing = coordAssignmentMap.get(p.coordinacion_id);
+        if (existing) {
+          existing.count++;
+        } else {
+          const coord = coordinaciones.find(c => c.id === p.coordinacion_id);
+          coordAssignmentMap.set(p.coordinacion_id, {
+            name: coord?.nombre || 'Sin nombre',
+            code: coord?.codigo || 'N/A',
+            count: 1
+          });
+        }
+      });
+
+      setAssignmentByCoord(
+        Array.from(coordAssignmentMap.values()).map(c => ({
+          coordName: c.name,
+          coordCode: c.code,
+          count: c.count,
+          color: getCoordColorGlobal(c.code)
+        }))
+      );
 
       // Calcular datos por coordinación para funnel comparativo
       if (!isGlobalView && coordIds && coordIds.length > 0) {
-        // Para vista no global, usar los datos por coordinación
-        const coordDataMap: Record<string, FunnelCoordData> = {};
-        
-        // Los datos del funnel por coordinación se calcularían aquí
-        // Por ahora, dejamos vacío ya que la RPC devuelve datos agregados
-        setFunnelCoordData([]);
+        const coordData: FunnelCoordData[] = [];
+
+        coordIds.forEach(coordId => {
+          const prospectsCoord = prospectosFiltrados.filter(p => p.coordinacion_id === coordId);
+          const coord = coordinaciones.find(c => c.id === coordId);
+          
+          if (!coord || prospectsCoord.length === 0) return;
+
+          // Agrupar por etapa para esta coordinación
+          const coordEtapaCounts = new Map<string, number>();
+          prospectsCoord.forEach(p => {
+            if (!p.etapa_info || p.etapa_info.es_terminal) return; // Solo etapas de conversión
+            const key = p.etapa_info.nombre;
+            coordEtapaCounts.set(key, (coordEtapaCounts.get(key) || 0) + 1);
+          });
+
+          // Crear stages para esta coordinación (solo etapas con count > 0)
+          const coordStages = conversionStages
+            .map(e => ({
+              stage: e.nombre,
+              count: coordEtapaCounts.get(e.nombre) || 0
+            }))
+            .filter(s => s.count > 0); // ⚠️ FILTRAR etapas con 0 prospectos
+
+          if (coordStages.length > 0) {
+            coordData.push({
+              coordinacionId: coordId,
+              coordinacionNombre: coord.nombre,
+              color: getCoordColorGlobal(coord.codigo),
+              stages: coordStages
+            });
+          }
+        });
+
+        setFunnelCoordData(coordData);
       } else {
         setFunnelCoordData([]);
       }
 
     } catch (error) {
-      console.error('Error loading pipeline (RPC):', error);
+      console.error('Error loading pipeline (optimized + dynamic):', error);
     }
   }, [filters, getStartDate, getSelectedCoordinacionIds, isGlobalView, coordinaciones]);
 
@@ -3537,13 +3652,15 @@ const DashboardModule: React.FC = () => {
       const startDate = getStartDate(filters.period); // Aplicar filtro de tiempo
       
       // Función para clasificar etapas según el flujo de conversión
-      // Flujo: Validando → En Seguimiento → Interesado → Atendió → Ejecutivo → Certificado
+      // Flujo: Validando → Discovery → Interesado → Atendió → Ejecutivo → Certificado
+      // Actualizado 2026-01-26: Compatibilidad con nuevas etapas
       const classifyEtapa = (etapa: string): { category: 'conversion' | 'out_of_funnel'; name: string } => {
         const e = (etapa || '').toLowerCase().trim();
         
         // Etapas de CONVERSIÓN (flujo principal - 6 etapas)
         if (e.includes('validando')) return { category: 'conversion', name: 'Validando Membresía' };
-        if (e.includes('seguimiento')) return { category: 'conversion', name: 'En Seguimiento' };
+        // "En seguimiento" ahora es "Discovery"
+        if (e.includes('seguimiento') || e.includes('discovery')) return { category: 'conversion', name: 'Discovery' };
         if (e.includes('interesado') || e.includes('interesada')) return { category: 'conversion', name: 'Interesado' };
         if (e.includes('atendi')) return { category: 'conversion', name: 'Atendió Llamada' };
         if (e.includes('ejecutiv')) return { category: 'conversion', name: 'Con Ejecutivo' };

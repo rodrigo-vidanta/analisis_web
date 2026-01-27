@@ -20,9 +20,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Star, Users, User, AlertTriangle } from 'lucide-react';
+import { EtapaBadge } from './EtapaBadge';
 
 export interface ProspectoAsignacionData {
   etapa?: string | null;
+  etapa_id?: string | null; // ✅ AGREGADO para migración FK
   score?: string | null;
   coordinacion_codigo?: string | null;
   coordinacion_nombre?: string | null;
@@ -77,10 +79,15 @@ export const ProspectoEtapaAsignacion: React.FC<ProspectoEtapaAsignacionProps> =
         transition={{ duration: 0.3, delay: animationDelay, ease: "easeOut" }}
         className="flex items-center gap-3 flex-wrap"
       >
-        {/* Etapa */}
-        <div className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-          {prospecto.etapa || 'Sin etapa'}
-        </div>
+        {/* Etapa con Badge Dinámico */}
+        <EtapaBadge 
+          prospecto={{ 
+            etapa_id: prospecto.etapa_id, 
+            etapa: prospecto.etapa 
+          }} 
+          size="sm" 
+          variant="solid"
+        />
         
         {/* Score (opcional) */}
         {showScore && prospecto.score && (
@@ -136,12 +143,18 @@ export const ProspectoEtapaAsignacion: React.FC<ProspectoEtapaAsignacionProps> =
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-3">
-          {/* Etapa Actual */}
+          {/* Etapa Actual con Badge Dinámico */}
           <div className={`flex-1 ${compact ? 'min-w-[100px]' : 'min-w-[120px]'}`}>
-            <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Etapa Actual</p>
-            <h3 className={`${compact ? 'text-base' : 'text-lg'} font-bold text-gray-900 dark:text-white`}>
-              {prospecto.etapa || 'Sin etapa'}
-            </h3>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Etapa Actual</p>
+            <EtapaBadge 
+              prospecto={{ 
+                etapa_id: prospecto.etapa_id, 
+                etapa: prospecto.etapa 
+              }} 
+              size={compact ? "sm" : "md"} 
+              variant="solid"
+              showIcon={!compact}
+            />
           </div>
 
           {/* Separador visual */}

@@ -1292,17 +1292,27 @@ class LiveMonitorService {
 
   /**
    * Mapear etapa a checkpoint
+   * Actualizado 2026-01-26: Compatibilidad con etapas nuevas
    */
-  mapEtapaToCheckpoint(etapa: string): string {
+  mapEtapaToCheckpoint(etapaIdOrNombre: string): string {
+    // Mapeo legacy por nombre
     const mapping: Record<string, string> = {
       'Validando si es miembro': 'saludo_continuacion',
+      'validando membresia': 'saludo_continuacion',
+      'validando membresía': 'saludo_continuacion',
       'En seguimiento': 'conexion_emocional',
+      'en seguimiento': 'conexion_emocional',
+      'Discovery': 'conexion_emocional', // Nuevo nombre de "en seguimiento"
+      'discovery': 'conexion_emocional',
       'Interesado': 'introduccion_paraiso',
+      'interesado': 'introduccion_paraiso',
       'Negociando': 'presentacion_oferta',
-      'Procesando pago': 'proceso_pago'
+      'negociando': 'presentacion_oferta',
+      'Procesando pago': 'proceso_pago',
+      'procesando pago': 'proceso_pago'
     };
 
-    return mapping[etapa] || 'saludo_continuacion';
+    return mapping[etapaIdOrNombre] || 'saludo_continuacion';
   }
 
   /**

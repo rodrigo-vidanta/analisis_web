@@ -663,15 +663,27 @@ class BackupService {
         return null;
       }
 
-      // Obtener información del ejecutivo del cual es backup
-      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .select('id, full_name, email')
-        .eq('id', backupData.backup_id)
-        .single();
+      // Obtener información del ejecutivo del cual es backup (con cache)
+      const ejecutivoCacheKey = `ejecutivo_info_${backupData.backup_id}`;
+      const ejecutivoCached = permissionsService.backupCache.get(ejecutivoCacheKey);
+      let ejecutivoData;
 
-      if (ejecutivoError || !ejecutivoData) {
-        return null;
+      if (ejecutivoCached && (now - ejecutivoCached.timestamp) < CACHE_TTL) {
+        ejecutivoData = ejecutivoCached.data;
+      } else {
+        const { data, error } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('id, full_name, email')
+          .eq('id', backupData.backup_id)
+          .single();
+
+        if (error || !data) {
+          return null;
+        }
+
+        ejecutivoData = data;
+        // Cachear info del ejecutivo
+        permissionsService.backupCache.set(ejecutivoCacheKey, { data: ejecutivoData, timestamp: now });
       }
 
       return {

@@ -44,6 +44,8 @@ import {
   VIAJA_CON_OPTIONS,
   DIAS_SIN_CONTACTO_PRESETS,
 } from '../../../types/whatsappTemplates';
+import type { Etapa } from '../../../types/etapas';
+import { etapasService } from '../../../services/etapasService';
 
 // Tipo para etiquetas del sistema
 interface WhatsAppLabelPreset {
@@ -63,6 +65,10 @@ const AudienciasManager: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingAudience, setEditingAudience] = useState<WhatsAppAudience | null>(null);
   
+  // Cargar etapas desde BD
+  const [etapas, setEtapas] = useState<Etapa[]>([]);
+  const [loadingEtapas, setLoadingEtapas] = useState(true);
+  
   // Estados para vista y paginación
   const [viewMode, setViewMode] = useState<'cards' | 'grid'>('grid');
   const [currentPageCards, setCurrentPageCards] = useState(1);
@@ -79,8 +85,25 @@ const AudienciasManager: React.FC = () => {
   const [activeQuickFilters, setActiveQuickFilters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
+    loadEtapas();
     loadAudiences();
   }, []);
+
+  const loadEtapas = async () => {
+    try {
+      setLoadingEtapas(true);
+      // Cargar etapas desde BD (si no están cargadas)
+      await etapasService.loadEtapas();
+      // Obtener todas las etapas activas ordenadas
+      const etapasData = etapasService.getAllActive();
+      setEtapas(etapasData);
+    } catch (error) {
+      console.error('Error loading etapas:', error);
+      toast.error('Error al cargar etapas');
+    } finally {
+      setLoadingEtapas(false);
+    }
+  };
 
   const loadAudiences = async () => {
     try {
@@ -103,8 +126,13 @@ const AudienciasManager: React.FC = () => {
               .from('prospectos')
               .select('id', { count: 'exact', head: true });
             
-            // Filtro de etapa
-            if (aud.etapa) {
+            // Filtro de etapa con FK (priorizar etapa_ids, fallback a etapa_id, legacy a etapa)
+            if (aud.etapa_ids && aud.etapa_ids.length > 0) {
+              query = query.in('etapa_id', aud.etapa_ids);
+            } else if (aud.etapa_id) {
+              query = query.eq('etapa_id', aud.etapa_id);
+            } else if (aud.etapa) {
+              // Fallback legacy: buscar por string
               query = query.eq('etapa', aud.etapa);
             }
             
@@ -241,7 +269,7 @@ const AudienciasManager: React.FC = () => {
         a => 
           a.nombre.toLowerCase().includes(query) ||
           a.descripcion?.toLowerCase().includes(query) ||
-          a.etapa?.toLowerCase().includes(query) ||
+          a.etapa?.toLowerCase().includes(query) || // Legacy fallback
           a.destinos?.some(d => d.toLowerCase().includes(query)) ||
           a.viaja_con?.some(v => v.toLowerCase().includes(query))
       );
@@ -258,8 +286,9 @@ const AudienciasManager: React.FC = () => {
         // Si hay filtros de etapa, debe coincidir con al menos uno
         if (etapaFilters.length > 0) {
           const matchesEtapa = etapaFilters.some(filter => {
-            const etapaValue = filter.replace('etapa-', '');
-            return a.etapa === etapaValue;
+            const etapaId = filter.replace('etapa-', '');
+            // Verificar tanto etapa_ids (array) como etapa_id (singular)
+            return a.etapa_ids?.includes(etapaId) || a.etapa_id === etapaId || a.etapa === etapaId; // Legacy fallback
           });
           if (!matchesEtapa) return false;
         }
@@ -438,20 +467,27 @@ const AudienciasManager: React.FC = () => {
         <div className="flex flex-wrap gap-2">
           <span className="text-xs font-medium text-gray-500 dark:text-gray-400 self-center">Filtros rápidos:</span>
           
-          {/* Etapas */}
-          {PROSPECTO_ETAPAS.map((etapa) => (
-            <button
-              key={`etapa-${etapa.value}`}
-              onClick={() => toggleQuickFilter(`etapa-${etapa.value}`)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                activeQuickFilters.has(`etapa-${etapa.value}`)
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-2 border-purple-500'
-                  : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-              }`}
-            >
-              {etapa.label}
-            </button>
-          ))}
+          {/* Etapas dinámicas desde BD */}
+          {loadingEtapas ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg">
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-gray-400"></div>
+              <span className="text-xs text-gray-500">Cargando etapas...</span>
+            </div>
+          ) : (
+            etapas.map((etapa) => (
+              <button
+                key={`etapa-${etapa.id}`}
+                onClick={() => toggleQuickFilter(`etapa-${etapa.id}`)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  activeQuickFilters.has(`etapa-${etapa.id}`)
+                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-2 border-purple-500'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+                }`}
+              >
+                {etapa.nombre}
+              </button>
+            ))
+          )}
 
           {/* Estados Civiles */}
           {ESTADOS_CIVILES.map((ec) => (
@@ -818,6 +854,8 @@ const AudienciasManager: React.FC = () => {
           setEditingAudience(null);
         }}
         editingAudience={editingAudience}
+        etapas={etapas}
+        loadingEtapas={loadingEtapas}
       />
 
       {/* Modal de confirmación de eliminación */}
@@ -886,6 +924,8 @@ interface CreateAudienceModalProps {
   onClose: () => void;
   onCreated: () => void;
   editingAudience?: WhatsAppAudience | null;
+  etapas: Etapa[];
+  loadingEtapas: boolean;
 }
 
 const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
@@ -893,10 +933,13 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
   onClose,
   onCreated,
   editingAudience,
+  etapas,
+  loadingEtapas,
 }) => {
   const [formData, setFormData] = useState<CreateAudienceInput>({
     nombre: '',
     descripcion: '',
+    etapa_ids: [],
     etapas: [],
     destinos: [],
     estado_civil: null,
@@ -945,15 +988,33 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
 
   useEffect(() => {
     if (editingAudience) {
-      // Compatibilidad: si tiene etapa (singular) pero no etapas, migrar
-      const etapasToUse = editingAudience.etapas?.length 
-        ? editingAudience.etapas 
-        : (editingAudience.etapa ? [editingAudience.etapa] : []);
+      // Migración automática: priorizar etapa_ids (FK), fallback a etapas (string)
+      let etapaIdsToUse: string[] = [];
+      
+      if (editingAudience.etapa_ids && editingAudience.etapa_ids.length > 0) {
+        // Ya tiene etapa_ids (nueva arquitectura)
+        etapaIdsToUse = editingAudience.etapa_ids;
+      } else if (editingAudience.etapas && editingAudience.etapas.length > 0) {
+        // Tiene etapas string (legacy) - convertir a IDs
+        etapaIdsToUse = editingAudience.etapas
+          .map(etapaStr => etapas.find(e => e.nombre === etapaStr || e.codigo === etapaStr)?.id)
+          .filter(Boolean) as string[];
+      } else if (editingAudience.etapa_id) {
+        // Tiene etapa_id singular
+        etapaIdsToUse = [editingAudience.etapa_id];
+      } else if (editingAudience.etapa) {
+        // Tiene etapa string singular (legacy) - convertir a ID
+        const etapaMatch = etapas.find(e => e.nombre === editingAudience.etapa || e.codigo === editingAudience.etapa);
+        if (etapaMatch) {
+          etapaIdsToUse = [etapaMatch.id];
+        }
+      }
       
       setFormData({
         nombre: editingAudience.nombre,
         descripcion: editingAudience.descripcion || '',
-        etapas: etapasToUse,
+        etapa_ids: etapaIdsToUse, // ✅ NUEVO - usar FKs
+        etapas: editingAudience.etapas || [], // Legacy - mantener para compatibilidad
         destinos: editingAudience.destinos || [],
         estado_civil: editingAudience.estado_civil,
         viaja_con: editingAudience.viaja_con || [],
@@ -967,6 +1028,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setFormData({
         nombre: '',
         descripcion: '',
+        etapa_ids: [],
         etapas: [],
         destinos: [],
         estado_civil: null,
@@ -978,7 +1040,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       });
       setCustomDays('');
     }
-  }, [editingAudience, isOpen]);
+  }, [editingAudience, isOpen, etapas]);
 
   // Calcular prospectos en tiempo real desde la BD
   useEffect(() => {
@@ -1052,8 +1114,11 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           .from('prospectos')
           .select('id', { count: 'exact', head: true });
         
-        // Filtro de etapas (múltiples)
-        if (formData.etapas && formData.etapas.length > 0) {
+        // Filtro de etapas con FK (usar etapa_ids si está disponible)
+        if (formData.etapa_ids && formData.etapa_ids.length > 0) {
+          query = query.in('etapa_id', formData.etapa_ids);
+        } else if (formData.etapas && formData.etapas.length > 0) {
+          // Fallback legacy: si no hay etapa_ids pero hay etapas string
           query = query.in('etapa', formData.etapas);
         }
         
@@ -1108,7 +1173,11 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
               .from('prospectos')
               .select('id');
             
-            if (formData.etapas && formData.etapas.length > 0) {
+            if (formData.etapa_ids && formData.etapa_ids.length > 0) {
+              idsQuery = idsQuery.in('etapa_id', formData.etapa_ids);
+            } else             if (formData.etapa_ids && formData.etapa_ids.length > 0) {
+              idsQuery = idsQuery.in('etapa_id', formData.etapa_ids);
+            } else if (formData.etapas && formData.etapas.length > 0) {
               idsQuery = idsQuery.in('etapa', formData.etapas);
             }
             if (formData.estado_civil) {
@@ -1169,7 +1238,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
     
     const timer = setTimeout(countProspects, 300);
     return () => clearTimeout(timer);
-  }, [formData.etapas, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, formData.tiene_email, formData.con_menores, formData.etiquetas, isOpen]);
+  }, [formData.etapa_ids, formData.destinos, formData.estado_civil, formData.viaja_con, formData.dias_sin_contacto, formData.tiene_email, formData.con_menores, formData.etiquetas, isOpen]);
 
   const handleSubmit = async () => {
     if (!formData.nombre.trim()) {
@@ -1183,8 +1252,6 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       const audienceData: any = {
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion?.trim() || null,
-        etapas: formData.etapas?.length ? formData.etapas : null,
-        etapa: formData.etapas?.length === 1 ? formData.etapas[0] : null, // Compatibilidad legacy
         estado_civil: formData.estado_civil || null,
         dias_sin_contacto: formData.dias_sin_contacto || null,
         tiene_email: formData.tiene_email,
@@ -1192,6 +1259,25 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
         prospectos_count: prospectCount,
         is_active: true,
       };
+      
+      // Guardar etapas con FK (priorizar etapa_ids)
+      if (formData.etapa_ids && formData.etapa_ids.length > 0) {
+        audienceData.etapa_ids = formData.etapa_ids;
+        // Compatibilidad legacy: si solo hay 1 etapa, también guardar en etapa_id singular
+        if (formData.etapa_ids.length === 1) {
+          audienceData.etapa_id = formData.etapa_ids[0];
+        }
+        // Mantener etapas/etapa legacy para compatibilidad temporal
+        const etapasStrings = etapas.filter(e => formData.etapa_ids!.includes(e.id)).map(e => e.nombre);
+        audienceData.etapas = etapasStrings;
+        audienceData.etapa = etapasStrings.length === 1 ? etapasStrings[0] : null;
+      } else {
+        // Limpiar todos los campos de etapa
+        audienceData.etapa_ids = null;
+        audienceData.etapa_id = null;
+        audienceData.etapas = null;
+        audienceData.etapa = null;
+      }
       
       if (formData.destinos && formData.destinos.length > 0) {
         audienceData.destinos = formData.destinos;
@@ -1268,6 +1354,15 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
       setFormData({ ...formData, viaja_con: current.filter(t => t !== tipo) });
     } else {
       setFormData({ ...formData, viaja_con: [...current, tipo] });
+    }
+  };
+  
+  const toggleEtapa = (etapaId: string) => {
+    const current = formData.etapa_ids || [];
+    if (current.includes(etapaId)) {
+      setFormData({ ...formData, etapa_ids: current.filter(id => id !== etapaId) });
+    } else {
+      setFormData({ ...formData, etapa_ids: [...current, etapaId] });
     }
   };
 
@@ -1368,55 +1463,49 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                 />
               </div>
 
-              {/* Etapas (Multi-select) - Sección completa */}
+              {/* Etapas (Multi-select) - Dinámico desde BD */}
               <div className="space-y-2">
                 <label className="flex items-center justify-between text-xs font-medium text-gray-600 dark:text-gray-400">
                   <div className="flex items-center space-x-2">
                     <Tag className="w-4 h-4" />
                     <span>Etapas del Prospecto</span>
                   </div>
-                  {(formData.etapas?.length || 0) > 0 && (
+                  {(formData.etapa_ids?.length || 0) > 0 && (
                     <span className="text-purple-600 dark:text-purple-400">
-                      {formData.etapas?.length} seleccionadas
+                      {formData.etapa_ids?.length} seleccionadas
                     </span>
                   )}
                 </label>
-                <div className="flex flex-wrap gap-2">
-                  {PROSPECTO_ETAPAS.map((etapa) => {
-                    const isSelected = formData.etapas?.includes(etapa.value) || false;
-                    return (
-                      <button
-                        key={etapa.value}
-                        type="button"
-                        onClick={() => {
-                          const currentEtapas = formData.etapas || [];
-                          if (isSelected) {
-                            setFormData({ 
-                              ...formData, 
-                              etapas: currentEtapas.filter(e => e !== etapa.value) 
-                            });
-                          } else {
-                            setFormData({ 
-                              ...formData, 
-                              etapas: [...currentEtapas, etapa.value] 
-                            });
-                          }
-                        }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                          isSelected
-                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-2 border-purple-400'
-                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-purple-300'
-                        }`}
-                      >
-                        {isSelected && '✓ '}{etapa.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                {(formData.etapas?.length || 0) > 0 && (
+                {loadingEtapas ? (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-purple-500"></div>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {etapas.map((etapa) => {
+                      const isSelected = formData.etapa_ids?.includes(etapa.id) || false;
+                      return (
+                        <button
+                          key={etapa.id}
+                          type="button"
+                          onClick={() => toggleEtapa(etapa.id)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                            isSelected
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border-2 border-purple-400'
+                              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-purple-300'
+                          }`}
+                          style={isSelected ? { backgroundColor: `${etapa.color_ui}20`, borderColor: etapa.color_ui, color: etapa.color_ui } : {}}
+                        >
+                          {isSelected && '✓ '}{etapa.nombre}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {(formData.etapa_ids?.length || 0) > 0 && (
                   <button
                     type="button"
-                    onClick={() => setFormData({ ...formData, etapas: [] })}
+                    onClick={() => setFormData({ ...formData, etapa_ids: [] })}
                     className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
                   >
                     Limpiar selección

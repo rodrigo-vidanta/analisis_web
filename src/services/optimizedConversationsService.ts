@@ -28,6 +28,7 @@ export interface DashboardConversation {
   numero_telefono: string | null;
   whatsapp_raw: string | null;
   etapa: string | null;
+  etapa_id: string | null; // ✅ AGREGADO: FK a tabla etapas
   requiere_atencion_humana: boolean;
   motivo_handoff: string | null;
   id_dynamics: string | null;
@@ -233,6 +234,7 @@ class OptimizedConversationsService {
         requiere_atencion_humana: conv.requiere_atencion_humana,
         motivo_handoff: conv.motivo_handoff,
         etapa: conv.etapa,
+        etapa_id: conv.etapa_id, // ✅ AGREGADO: FK a tabla etapas
       });
     });
 

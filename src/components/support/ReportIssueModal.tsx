@@ -42,12 +42,19 @@ if (!(window as any).__consoleInterceptorInstalled) {
   };
   
   const captureLog = (type: string, ...args: any[]) => {
+    // ⚠️ FIX: NO capturar logs de fetch/network para evitar loop infinito
     const message = args.map(arg => {
       try {
-        if (typeof arg === 'object') return JSON.stringify(arg, null, 0).slice(0, 200);
-        return String(arg).slice(0, 200);
+        const str = typeof arg === 'object' ? JSON.stringify(arg, null, 0) : String(arg);
+        // Ignorar logs relacionados con getUserGroups que causan loop
+        if (str.includes('getUserGroups') || str.includes('user_permission_groups')) {
+          return null;
+        }
+        return str.slice(0, 200);
       } catch { return '[Object]'; }
-    }).join(' ');
+    }).filter(Boolean).join(' ');
+    
+    if (!message || message.length === 0) return; // No capturar mensajes vacíos
     
     consoleLogBuffer.push({
       type,
@@ -61,10 +68,10 @@ if (!(window as any).__consoleInterceptorInstalled) {
     }
   };
   
-  console.log = (...args) => { captureLog('log', ...args); originalConsole.log(...args); };
-  console.warn = (...args) => { captureLog('warn', ...args); originalConsole.warn(...args); };
-  console.error = (...args) => { captureLog('error', ...args); originalConsole.error(...args); };
-  console.info = (...args) => { captureLog('info', ...args); originalConsole.info(...args); };
+  console.log = (...args) => { originalConsole.log(...args); captureLog('log', ...args); };
+  console.warn = (...args) => { originalConsole.warn(...args); captureLog('warn', ...args); };
+  console.error = (...args) => { originalConsole.error(...args); captureLog('error', ...args); };
+  console.info = (...args) => { originalConsole.info(...args); captureLog('info', ...args); };
   
   (window as any).__consoleInterceptorInstalled = true;
 }
