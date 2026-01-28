@@ -1441,14 +1441,29 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                                     {template.name}
                                   </p>
-                                  {template.description && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                      {template.description}
-                                    </p>
-                                  )}
+                                  
+                                  {/* Vista previa del mensaje */}
+                                  {template.components
+                                    .filter(c => c.type === 'BODY' && c.text)
+                                    .map((component, idx) => {
+                                      let previewText = component.text || '';
+                                      
+                                      // Reemplazar variables con placeholders legibles
+                                      template.variable_mappings?.forEach(mapping => {
+                                        const varPattern = new RegExp(`\\{\\{${mapping.variable_number}\\}\\}`, 'g');
+                                        previewText = previewText.replace(varPattern, `[${mapping.display_name}]`);
+                                      });
+                                      
+                                      return (
+                                        <p key={idx} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">
+                                          {previewText}
+                                        </p>
+                                      );
+                                    })}
+                                  
                                   {template.tags && template.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-1 mt-2">
                                       {template.tags.map(tag => (

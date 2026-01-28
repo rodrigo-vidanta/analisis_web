@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'v2.5.58: B10.1.43N2.5.58 - UX: Vista previa en lugar de descripción en selector plan...', isRelease: true },
   { hash: '2942336', date: '2026-01-28', author: 'Team', message: 'v2.5.57: B10.1.43N2.5.57 - FEAT: Regex robusto para normalización coordinaciones', isRelease: true },
   { hash: '8f42b2a', date: '2026-01-28', author: 'Team', message: 'v2.5.56: B10.1.43N2.5.56 - FIX: Comparar UUID coord con nombre (cargar map)', isRelease: true },
   { hash: 'bd9132d', date: '2026-01-28', author: 'Team', message: 'v2.5.55: B10.1.43N2.5.55 - HOTFIX CRÍTICO: Cargar datos usuario desde user_profiles_v2', isRelease: true },
@@ -489,6 +490,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-888', date: '28/01/2026, 17:54', version: 'B10.1.43N2.5.58', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-389', date: '28/01/2026, 17:51', version: 'B10.1.43N2.5.57', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-915', date: '28/01/2026, 17:47', version: 'B10.1.43N2.5.56', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-136', date: '28/01/2026, 17:42', version: 'B10.1.43N2.5.55', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -628,8 +630,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.57', highlight: true },
-  { label: 'Release', value: 'B10.1.43N2.5.57', highlight: false },
+  { label: 'Version', value: 'v2.5.58', highlight: true },
+  { label: 'Release', value: 'B10.1.43N2.5.58', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '28 ene 2026', highlight: false },
 ];
