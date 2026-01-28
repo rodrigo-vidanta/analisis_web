@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'v2.5.51: B10.1.43N2.5.51 - Wizard importación WhatsApp: validación de variables en p...', isRelease: true },
+  { hash: 'efbedb2', date: '2026-01-28', author: 'Team', message: 'v2.5.51: B10.1.43N2.5.51 - Wizard importación WhatsApp: validación de variables en p...', isRelease: true },
   { hash: '639261f', date: '2026-01-28', author: 'Team', message: 'v2.5.50: B10.1.43N2.5.50 - Fix navegación SPA Quick Import WhatsApp + Listeners eventos', isRelease: true },
   { hash: '3f6fc0d', date: '2026-01-27', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '076abc2', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
