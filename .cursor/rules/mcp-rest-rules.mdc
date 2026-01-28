@@ -2,7 +2,14 @@
 alwaysApply: true
 ---
 
-# Reglas del MCP Supabase REST (Acceso Completo)
+# ⚠️ DEPRECADO - Ver mcp-supabase-rest-full.mdc
+
+> **Esta regla está obsoleta desde 27 de Enero 2026.**
+> **Usar:** `.cursor/rules/mcp-supabase-rest-full.mdc`
+
+---
+
+# Reglas del MCP Supabase REST (Acceso Completo) - DEPRECADO
 
 ## 📋 Información del MCP
 

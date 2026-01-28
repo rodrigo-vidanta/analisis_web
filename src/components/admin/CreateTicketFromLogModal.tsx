@@ -182,7 +182,9 @@ const CreateTicketFromLogModal: React.FC<CreateTicketFromLogModalProps> = ({ isO
               month: '2-digit',
               day: '2-digit',
               hour: '2-digit',
-              minute: '2-digit'
+              minute: '2-digit',
+              timeZone: 'America/Mexico_City',
+              hour12: false
             });
             sections.push(`   [${index + 1}] ${annotation.annotation_text}`);
             sections.push(`       Autor: ${annotation.created_by || 'Usuario'} | Fecha: ${date}`);
@@ -225,7 +227,9 @@ const CreateTicketFromLogModal: React.FC<CreateTicketFromLogModalProps> = ({ isO
             month: '2-digit',
             day: '2-digit',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
+            timeZone: 'America/Mexico_City',
+            hour12: false
           })}`);
           sections.push('');
         }

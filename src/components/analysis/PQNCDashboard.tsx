@@ -1712,17 +1712,19 @@ const PQNCDashboard: React.FC = () => {
                       <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-300">
                         <div className="flex flex-col text-center">
                           <span className="font-medium truncate">
-                            {new Date(call.start_time).toLocaleDateString('es-ES', { 
+                            {new Date(call.start_time).toLocaleDateString('es-MX', { 
                               day: '2-digit', 
                               month: '2-digit',
-                              year: '2-digit'
+                              year: '2-digit',
+                              timeZone: 'America/Mexico_City'
                             })}
                           </span>
                           <span className="text-xs text-slate-400 dark:text-slate-500 truncate">
-                            {new Date(call.start_time).toLocaleTimeString('es-ES', { 
+                            {new Date(call.start_time).toLocaleTimeString('es-MX', { 
                               hour: '2-digit',
                               minute: '2-digit',
-                              hour12: true
+                              timeZone: 'America/Mexico_City',
+                              hour12: false
                             })}
                           </span>
                         </div>

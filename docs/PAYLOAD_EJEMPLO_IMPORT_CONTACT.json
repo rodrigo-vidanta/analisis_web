@@ -1,0 +1,24 @@
+{
+  "ejecutivo_nombre": "Samuel Rosales",
+  "ejecutivo_id": "e8ced62c-3fd0-4328-b61a-a59ebea2e877",
+  "coordinacion_id": "f5a8c9d1-2b3e-4f6a-8d9c-1e2f3a4b5c6d",
+  "fecha_solicitud": "2026-01-27T17:00:00.000Z",
+  "lead_dynamics": {
+    "LeadID": "919a8b2f-3c4d-5e6f-7a8b-9c0d1e2f3a4b",
+    "Nombre": "Darig Samuel Rosales Robledo",
+    "Email": "darig.soporte@grupovidanta.com",
+    "EstadoCivil": null,
+    "Ocupacion": null,
+    "Pais": "MEXICO",
+    "EntidadFederativa": null,
+    "Coordinacion": "Telemarketing",
+    "CoordinacionID": "coord-123-dynamics",
+    "Propietario": "Vanessa Valentina Perez Moreno",
+    "OwnerID": "owner-456-dynamics",
+    "FechaUltimaLlamada": null,
+    "Calificacion": null
+  },
+  "telefono": "3333243333",
+  "nombre_completo": "Darig Samuel Rosales Robledo",
+  "id_dynamics": "919a8b2f-3c4d-5e6f-7a8b-9c0d1e2f3a4b"
+}

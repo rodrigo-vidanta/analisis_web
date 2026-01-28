@@ -2285,12 +2285,14 @@ const UserManagement: React.FC = () => {
                     </td>
                     <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {user.last_login 
-                        ? new Date(user.last_login).toLocaleDateString('es-ES', {
+                        ? new Date(user.last_login).toLocaleDateString('es-MX', {
                             year: 'numeric',
                             month: 'short',
                             day: 'numeric',
                             hour: '2-digit',
-                            minute: '2-digit'
+                            minute: '2-digit',
+                            timeZone: 'America/Mexico_City',
+                            hour12: false
                           })
                         : 'Nunca'
                       }

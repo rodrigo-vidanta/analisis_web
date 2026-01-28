@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "B10.1.43N2.5.49",
+  "version": "Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",

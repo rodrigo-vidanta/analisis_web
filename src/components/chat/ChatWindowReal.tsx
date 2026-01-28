@@ -201,9 +201,11 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('es-ES', { 
+    return date.toLocaleTimeString('es-MX', { 
       hour: '2-digit', 
-      minute: '2-digit' 
+      minute: '2-digit',
+      timeZone: 'America/Mexico_City',
+      hour12: false
     });
   };
 
@@ -218,9 +220,10 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Ayer';
     } else {
-      return date.toLocaleDateString('es-ES', { 
+      return date.toLocaleDateString('es-MX', { 
         day: 'numeric', 
-        month: 'short' 
+        month: 'short',
+        timeZone: 'America/Mexico_City'
       });
     }
   };

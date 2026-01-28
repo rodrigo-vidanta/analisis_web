@@ -380,7 +380,11 @@ const LiveChatAnalytics: React.FC = () => {
     return Object.entries(trends)
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' }),
+        date: new Date(date).toLocaleDateString('es-MX', { 
+          month: 'short', 
+          day: 'numeric',
+          timeZone: 'America/Mexico_City'
+        }),
         count
       }));
   };

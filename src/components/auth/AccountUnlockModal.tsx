@@ -180,7 +180,15 @@ const AccountUnlockModal: React.FC<AccountUnlockModalProps> = ({
                     </p>
                     {lockedUntil && (
                       <p className="text-xs text-orange-600 dark:text-orange-400 mt-2">
-                        Bloqueado hasta: {new Date(lockedUntil).toLocaleString('es-ES')}
+                        Bloqueado hasta: {new Date(lockedUntil).toLocaleString('es-MX', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          timeZone: 'America/Mexico_City',
+                          hour12: false
+                        })}
                       </p>
                     )}
                   </div>

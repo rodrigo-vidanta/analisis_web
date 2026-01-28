@@ -349,12 +349,14 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
       const fechaProgramada = new Date(scheduledCall.fecha_programada);
       const ahora = new Date();
       const isPast = fechaProgramada < ahora;
-      const fechaFormateada = fechaProgramada.toLocaleDateString('es-ES', {
+      const fechaFormateada = fechaProgramada.toLocaleDateString('es-MX', {
         day: 'numeric',
         month: 'short',
         year: 'numeric',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        timeZone: 'America/Mexico_City',
+        hour12: false
       });
 
       events.push({

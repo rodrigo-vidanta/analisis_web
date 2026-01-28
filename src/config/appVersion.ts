@@ -5,7 +5,7 @@
  * Cambios: Migración a tabla de etapas, correcciones MCP, importador de prospectos
  */
 
-export const APP_VERSION = 'B10.1.43N2.5.49';
+export const APP_VERSION = 'Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

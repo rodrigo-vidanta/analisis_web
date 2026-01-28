@@ -509,6 +509,13 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                         <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${PRIORITY_CONFIG[selectedTicket.priority].color}`}>
                           {PRIORITY_CONFIG[selectedTicket.priority].label}
                         </span>
+                        <span className="text-slate-300 dark:text-slate-600">·</span>
+                        <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          {formatFullDate(selectedTicket.created_at)}
+                        </span>
                       </div>
                       <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
                         {selectedTicket.title}

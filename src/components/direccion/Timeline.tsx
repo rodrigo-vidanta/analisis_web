@@ -721,7 +721,11 @@ const Timeline: React.FC = () => {
     } else if (date.toDateString() === tomorrow.toDateString()) {
       return 'Mañana';
     } else {
-      return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+      return date.toLocaleDateString('es-MX', { 
+        day: 'numeric', 
+        month: 'long',
+        timeZone: 'America/Mexico_City'
+      });
     }
   };
 
@@ -1450,10 +1454,17 @@ const Timeline: React.FC = () => {
                         <div className="flex items-center justify-center mb-10 relative z-10 w-full"> {/* Centrado de fecha */}
                            <div className="px-6 py-2 rounded-full bg-slate-900/90 dark:bg-[#0f172a]/80 border border-slate-800 dark:border-white/10 backdrop-blur-md shadow-xl flex flex-col items-center">
                               <span className="text-xs font-medium text-slate-400 dark:text-white/40 uppercase tracking-widest mb-0.5">
-                                 {new Date(dateKey).toLocaleDateString('es-ES', { weekday: 'long' })}
+                                 {new Date(dateKey).toLocaleDateString('es-MX', { 
+                                   weekday: 'long',
+                                   timeZone: 'America/Mexico_City'
+                                 })}
                                       </span>
                               <span className="text-lg font-light text-white">
-                                 {new Date(dateKey).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                                 {new Date(dateKey).toLocaleDateString('es-MX', { 
+                                   day: 'numeric', 
+                                   month: 'long',
+                                   timeZone: 'America/Mexico_City'
+                                 })}
                               </span>
                                     </div>
                                   </div>

@@ -36,6 +36,8 @@ import {
   X,
   Calendar,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GripVertical,
   Paperclip,
   Flag,
@@ -1176,6 +1178,9 @@ const LiveChatCanvas: React.FC = () => {
   const [deleteCallModalOpen, setDeleteCallModalOpen] = useState(false);
   const [selectedCallForDelete, setSelectedCallForDelete] = useState<{ id: string; prospecto_nombre?: string; prospecto_whatsapp?: string; fecha_programada: string; justificacion_llamada?: string } | null>(null);
   const [isDeletingCall, setIsDeletingCall] = useState(false);
+
+  // Estado para expansión del header de conversación
+  const [headerExpanded, setHeaderExpanded] = useState(false);
 
   // Estados para gestión de etiquetas WhatsApp
   const [labelsModalOpen, setLabelsModalOpen] = useState(false);
@@ -3501,6 +3506,67 @@ const LiveChatCanvas: React.FC = () => {
 
     loadBotPauseStatus();
   }, []);
+
+  // ============================================
+  // 🚀 LISTENER PARA SELECCIONAR CONVERSACIÓN DESDE QUICK IMPORT
+  // ============================================
+  useEffect(() => {
+    const handleSelectConversation = (event: CustomEvent) => {
+      const conversacionId = event.detail;
+      console.log('🎯 [LiveChatCanvas] Evento recibido: seleccionar conversación', conversacionId);
+      
+      if (!conversacionId) return;
+      
+      // Buscar la conversación por ID en la lista actual
+      const conversation = allConversationsLoaded.find(c => c.id === conversacionId);
+      
+      if (conversation) {
+        console.log('✅ [LiveChatCanvas] Conversación encontrada, seleccionando...');
+        // Marcar como selección manual para que se marque como leída
+        isManualSelectionRef.current = true;
+        setSelectedConversation(conversation);
+        
+        // Scroll al chat
+        setTimeout(() => {
+          const chatContainer = document.querySelector('.chat-messages-container');
+          if (chatContainer) {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+          }
+        }, 100);
+      } else {
+        console.warn('⚠️ [LiveChatCanvas] Conversación no encontrada en la lista actual. Recargando...');
+        // Si no está en la lista, forzar recarga de conversaciones
+        window.dispatchEvent(new CustomEvent('refresh-livechat-conversations'));
+        
+        // Reintentar después de 1 segundo
+        setTimeout(() => {
+          const retryConversation = allConversationsLoaded.find(c => c.id === conversacionId);
+          if (retryConversation) {
+            isManualSelectionRef.current = true;
+            setSelectedConversation(retryConversation);
+          }
+        }, 1000);
+      }
+    };
+    
+    const handleRefreshConversations = () => {
+      console.log('🔄 [LiveChatCanvas] Refrescando lista de conversaciones...');
+      // Recargar conversaciones (lógica existente de carga inicial)
+      // Por ahora, forzamos un re-fetch completo
+      setLoadingMoreConversations(true);
+      setTimeout(() => {
+        setLoadingMoreConversations(false);
+      }, 500);
+    };
+    
+    window.addEventListener('select-livechat-conversation', handleSelectConversation as EventListener);
+    window.addEventListener('refresh-livechat-conversations', handleRefreshConversations as EventListener);
+    
+    return () => {
+      window.removeEventListener('select-livechat-conversation', handleSelectConversation as EventListener);
+      window.removeEventListener('refresh-livechat-conversations', handleRefreshConversations as EventListener);
+    };
+  }, [allConversationsLoaded]);
 
   useEffect(() => {
     // ⚡ OPTIMIZADO V5.2: Timer con intervalo mayor y sin re-renders innecesarios
@@ -6164,9 +6230,11 @@ const LiveChatCanvas: React.FC = () => {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('es-ES', { 
+    return date.toLocaleTimeString('es-MX', { 
       hour: '2-digit', 
-      minute: '2-digit' 
+      minute: '2-digit',
+      timeZone: 'America/Mexico_City',
+      hour12: false
     });
   };
 
@@ -6181,9 +6249,10 @@ const LiveChatCanvas: React.FC = () => {
     } else if (date.toDateString() === yesterday.toDateString()) {
       return 'Ayer';
     } else {
-      return date.toLocaleDateString('es-ES', { 
+      return date.toLocaleDateString('es-MX', { 
         day: 'numeric', 
-        month: 'short' 
+        month: 'short',
+        timeZone: 'America/Mexico_City'
       });
     }
   };
@@ -6202,7 +6271,10 @@ const LiveChatCanvas: React.FC = () => {
     } else {
       return {
         day: date.getDate().toString(),
-        month: date.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase()
+        month: date.toLocaleDateString('es-MX', { 
+          month: 'short',
+          timeZone: 'America/Mexico_City'
+        }).toUpperCase()
       };
     }
   };
@@ -7176,169 +7248,286 @@ const LiveChatCanvas: React.FC = () => {
             overflow: 'hidden'
           }}
         >
-          {/* Header fijo del chat */}
+          {/* Header fijo del chat - CON EXPANSIÓN */}
           <div 
-            className="p-4 border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-800 dark:to-gray-700"
+            className="border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-800 dark:to-gray-700 transition-all duration-300"
             style={{ 
               flexShrink: 0,
-              height: '80px'
+              height: headerExpanded ? 'auto' : '80px'
             }}
           >
-            <div className="flex items-center justify-between">
-              <div 
-                className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-2 -m-2 transition-colors"
-                onClick={() => setShowProspectSidebar(true)}
-                title="Click para ver detalles del prospecto"
-              >
-                <Avatar
-                  name={selectedConversation.customer_name}
-                  size="lg"
-                  showIcon={false}
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
-                    {selectedConversation.customer_name}
-                  </h3>
-                  {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
-                  <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
-                    {/* Badges de asignación inline */}
-                    <AssignmentBadge
-                      call={{
-                        coordinacion_codigo: selectedConversation.metadata?.coordinacion_codigo,
-                        coordinacion_nombre: selectedConversation.metadata?.coordinacion_nombre,
-                        ejecutivo_nombre: selectedConversation.metadata?.ejecutivo_nombre,
-                        ejecutivo_email: selectedConversation.metadata?.ejecutivo_email
-                      } as any}
-                      variant="compact"
-                    />
-                    {/* Teléfono con control de visibilidad */}
-                    {(() => {
-                      const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
-                      const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-                      const phoneProspecto = {
-                        id_dynamics: prospectoData?.id_dynamics || selectedConversation.metadata?.id_dynamics,
-                        etapa: prospectoData?.etapa || selectedConversation.metadata?.etapa,
-                      };
-                      return (
-                        <PhoneDisplay
-                          phone={selectedConversation.customer_phone || selectedConversation.numero_telefono}
-                          prospecto={phoneProspecto}
-                          size="sm"
-                          copyable
-                          inline
-                          textClassName="text-slate-500 dark:text-gray-400"
-                          emptyText="Sin teléfono"
-                        />
-                      );
-                    })()}
-                    {/* Separador y Prospecto ID */}
-                    {selectedConversation.prospecto_id && (
-                      <>
-                        <span className="text-slate-300 dark:text-gray-600">|</span>
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (selectedConversation.prospecto_id) {
-                              try {
-                                await navigator.clipboard.writeText(selectedConversation.prospecto_id);
-                                toast.success('ID del prospecto copiado al portapapeles');
-                              } catch (error) {
-                                toast.error('Error al copiar ID');
+            {/* Línea principal del header */}
+            <div className="p-4">
+              <div className="flex items-center justify-between">
+                <div 
+                  className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50 rounded-lg p-2 -m-2 transition-colors"
+                  onClick={() => setShowProspectSidebar(true)}
+                  title="Click para ver detalles del prospecto"
+                >
+                  <Avatar
+                    name={selectedConversation.customer_name}
+                    size="lg"
+                    showIcon={false}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
+                      {selectedConversation.customer_name}
+                    </h3>
+                    {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                      {/* Badges de asignación inline */}
+                      <AssignmentBadge
+                        call={{
+                          coordinacion_codigo: selectedConversation.metadata?.coordinacion_codigo,
+                          coordinacion_nombre: selectedConversation.metadata?.coordinacion_nombre,
+                          ejecutivo_nombre: selectedConversation.metadata?.ejecutivo_nombre,
+                          ejecutivo_email: selectedConversation.metadata?.ejecutivo_email
+                        } as any}
+                        variant="compact"
+                      />
+                      {/* Teléfono con control de visibilidad */}
+                      {(() => {
+                        const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                        const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                        const phoneProspecto = {
+                          id_dynamics: prospectoData?.id_dynamics || selectedConversation.metadata?.id_dynamics,
+                          etapa: prospectoData?.etapa || selectedConversation.metadata?.etapa,
+                        };
+                        return (
+                          <PhoneDisplay
+                            phone={selectedConversation.customer_phone || selectedConversation.numero_telefono}
+                            prospecto={phoneProspecto}
+                            size="sm"
+                            copyable
+                            inline
+                            textClassName="text-slate-500 dark:text-gray-400"
+                            emptyText="Sin teléfono"
+                          />
+                        );
+                      })()}
+                      {/* Separador y Prospecto ID */}
+                      {selectedConversation.prospecto_id && (
+                        <>
+                          <span className="text-slate-300 dark:text-gray-600">|</span>
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (selectedConversation.prospecto_id) {
+                                try {
+                                  await navigator.clipboard.writeText(selectedConversation.prospecto_id);
+                                  toast.success('ID del prospecto copiado al portapapeles');
+                                } catch (error) {
+                                  toast.error('Error al copiar ID');
+                                }
                               }
-                            }
-                          }}
-                          className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
-                          title="Click para copiar ID del prospecto"
-                        >
-                          {selectedConversation.prospecto_id}
-                        </button>
-                      </>
+                            }}
+                            className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
+                            title="Click para copiar ID del prospecto"
+                          >
+                            {selectedConversation.prospecto_id}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Controles del Bot */}
+                <div className="flex items-center space-x-3">
+                  {/* Botón CRM - Consultar datos de Dynamics */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowCRMDataModal(true)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg text-xs font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
+                    title="Ver datos de CRM"
+                  >
+                    <Search className="w-3.5 h-3.5" />
+                    <span>CRM</span>
+                  </motion.button>
+
+                  {/* Indicador de requiere atención humana */}
+                  {(() => {
+                    const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                    const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                    const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
+                    
+                    // Mostrar siempre el botón, pero en diferentes estados según requiere_atencion_humana
+                    return (
+                      <RequiereAtencionFlag
+                        prospectId={prospectId}
+                        requiereAtencionHumana={requiereAtencion}
+                        motivoHandoff={prospectoData?.motivo_handoff || null}
+                        onResolve={async () => {
+                          const success = await updateRequiereAtencionHumana(prospectId, false);
+                          if (success) {
+                            toast.success('Estado de atención actualizado');
+                          }
+                        }}
+                        onReEnable={async () => {
+                          const success = await updateRequiereAtencionHumana(prospectId, true);
+                          if (success) {
+                            toast.success('Atención humana reactivada');
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+                  
+                  {(() => {
+                    // Obtener uchatId de manera consistente
+                    // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+                    const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
+                    
+                    // ⚠️ PROTECCIÓN: Solo mostrar botón si existe uchatId
+                    if (!uchatId) {
+                      console.warn('⚠️ No se puede pausar bot: uchat_id no disponible para prospecto', selectedConversation.id);
+                      return null;
+                    }
+                    
+                    const status = botPauseStatus[uchatId];
+                    const timeRemaining = getBotPauseTimeRemaining(uchatId);
+                    const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
+                    
+                    return (
+                      <BotPauseButton
+                        uchatId={uchatId}
+                        isPaused={isPaused}
+                        timeRemaining={timeRemaining}
+                        onPause={pauseBot}
+                        onResume={resumeBot}
+                      />
+                    );
+                  })()}
+
+                  {/* Botón expandir/colapsar - REEMPLAZA el botón de cerrar */}
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setHeaderExpanded(!headerExpanded)}
+                    className="p-2 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200"
+                    title={headerExpanded ? "Ocultar controles de conversación" : "Mostrar controles de conversación"}
+                  >
+                    {headerExpanded ? (
+                      <ChevronUp className="w-5 h-5" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5" />
                     )}
+                  </motion.button>
+                </div>
+              </div>
+            </div>
+
+            {/* Panel expandible de controles - CON ANIMACIÓN */}
+            <motion.div
+              initial={false}
+              animate={{
+                height: headerExpanded ? 'auto' : 0,
+                opacity: headerExpanded ? 1 : 0
+              }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 pt-2 border-t border-slate-200/50 dark:border-gray-700/50">
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Toggle IA */}
+                  <div 
+                    className="group relative"
+                    title="Controla la interacción de la inteligencia artificial en este chat"
+                  >
+                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all duration-200">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
+                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out transform translate-x-5"></div>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA</span>
+                        </div>
+                      </div>
+                      <input type="checkbox" className="sr-only" defaultChecked disabled />
+                    </label>
+                    {/* Tooltip hover */}
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
+                      Activa o desactiva la interacción automática de la IA
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
+                    </div>
+                  </div>
+
+                  {/* Toggle Programación */}
+                  <div 
+                    className="group relative"
+                    title="Permite que la IA programe llamadas automáticamente según el interés del prospecto"
+                  >
+                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer transition-all duration-200">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
+                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Programación</span>
+                        </div>
+                      </div>
+                      <input type="checkbox" className="sr-only" disabled />
+                    </label>
+                    {/* Tooltip hover */}
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
+                      La IA puede programar llamadas según el nivel de interés detectado
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
+                    </div>
+                  </div>
+
+                  {/* Toggle Reactivación */}
+                  <div 
+                    className="group relative"
+                    title="Permite que la IA retome conversaciones inactivas dentro de la ventana de 24 horas"
+                  >
+                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer transition-all duration-200">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
+                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Reactivación</span>
+                        </div>
+                      </div>
+                      <input type="checkbox" className="sr-only" disabled />
+                    </label>
+                    {/* Tooltip hover */}
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
+                      La IA puede retomar conversaciones después de inactividad (ventana 24h)
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
+                    </div>
+                  </div>
+
+                  {/* Toggle Secuencias */}
+                  <div 
+                    className="group relative"
+                    title="Permite que la IA reactivate al prospecto a lo largo del tiempo con plantillas o actividades"
+                  >
+                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer transition-all duration-200">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
+                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        </div>
+                        <div className="flex items-center space-x-1.5">
+                          <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Secuencias</span>
+                        </div>
+                      </div>
+                      <input type="checkbox" className="sr-only" disabled />
+                    </label>
+                    {/* Tooltip hover */}
+                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
+                      La IA puede reactivar al prospecto de forma inteligente con plantillas y actividades
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
+                    </div>
                   </div>
                 </div>
               </div>
-
-              {/* Controles del Bot */}
-              <div className="flex items-center space-x-3">
-                {/* Botón CRM - Consultar datos de Dynamics */}
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setShowCRMDataModal(true)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg text-xs font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
-                  title="Ver datos de CRM"
-                >
-                  <Search className="w-3.5 h-3.5" />
-                  <span>CRM</span>
-                </motion.button>
-
-                {/* Indicador de requiere atención humana */}
-                {(() => {
-                  const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
-                  const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-                  const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
-                  
-                  // Mostrar siempre el botón, pero en diferentes estados según requiere_atencion_humana
-                  return (
-                    <RequiereAtencionFlag
-                      prospectId={prospectId}
-                      requiereAtencionHumana={requiereAtencion}
-                      motivoHandoff={prospectoData?.motivo_handoff || null}
-                      onResolve={async () => {
-                        const success = await updateRequiereAtencionHumana(prospectId, false);
-                        if (success) {
-                          toast.success('Estado de atención actualizado');
-                        }
-                      }}
-                      onReEnable={async () => {
-                        const success = await updateRequiereAtencionHumana(prospectId, true);
-                        if (success) {
-                          toast.success('Atención humana reactivada');
-                        }
-                      }}
-                    />
-                  );
-                })()}
-                
-                {(() => {
-                  // Obtener uchatId de manera consistente
-                  // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
-                  const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
-                  
-                  // ⚠️ PROTECCIÓN: Solo mostrar botón si existe uchatId
-                  if (!uchatId) {
-                    console.warn('⚠️ No se puede pausar bot: uchat_id no disponible para prospecto', selectedConversation.id);
-                    return null;
-                  }
-                  
-                  const status = botPauseStatus[uchatId];
-                  const timeRemaining = getBotPauseTimeRemaining(uchatId);
-                  const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
-                  
-                  return (
-                    <BotPauseButton
-                      uchatId={uchatId}
-                      isPaused={isPaused}
-                      timeRemaining={timeRemaining}
-                      onPause={pauseBot}
-                      onResume={resumeBot}
-                    />
-                  );
-                })()}
-
-                <button
-                  onClick={() => {
-                    // ✅ CRÍTICO: Resetear refs al cerrar conversación
-                    selectedConversationRef.current = null;
-                    isManualSelectionRef.current = false;
-                    setSelectedConversation(null);
-                  }}
-                  className="p-2 text-slate-400 dark:text-gray-400 hover:text-slate-600 dark:hover:text-gray-200 hover:bg-white dark:hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+            </motion.div>
           </div>
 
           {/* Área de mensajes - SCROLL INDIVIDUAL (hacia arriba desde abajo) */}

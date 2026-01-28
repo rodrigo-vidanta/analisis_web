@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '3f6fc0d', date: '2026-01-27', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '076abc2', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
   { hash: 'f1b26ef', date: '2026-01-24', author: 'Team', message: 'Deploy automático completo', isRelease: true },
@@ -481,6 +482,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-692', date: '28/01/2026, 13:57', version: 'Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-996', date: '25/01/2026, 22:22', version: 'B10.1.42N2.5.48', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-190', date: '24/01/2026, 15:03', version: 'Fix reasignación - eliminar actualizaciones locales duplicadas', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-588', date: '24/01/2026, 13:19', version: 'Incluir coordinadores y supervisores en filtro de ejecutivos', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -613,10 +615,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'vMigracion a tabla de etapas, correcciones de mcp, importador de prospectos', highlight: true },
-  { label: 'Release', value: 'Migracion a tabla de etapas, correcciones de mcp, importador de prospectos', highlight: false },
+  { label: 'Version', value: 'vFix navegación SPA en Quick Import WhatsApp + Listeners de eventos', highlight: true },
+  { label: 'Release', value: 'Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '27 ene 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '28 ene 2026', highlight: false },
 ];
 
 // ============================================

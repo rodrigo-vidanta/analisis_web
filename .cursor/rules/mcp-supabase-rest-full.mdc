@@ -1,0 +1,236 @@
+# Reglas del MCP Supabase REST (Actualizado)
+
+**Fecha de actualización:** 27 de Enero 2026  
+**Versión:** 2.0.0  
+**Estado:** ✅ Completamente funcional
+
+---
+
+## 📋 Información del MCP
+
+| Propiedad | Valor |
+|-----------|-------|
+| **Nombre en Cursor** | `user-SupabaseREST` |
+| **Tipo** | REST API + RPC Functions |
+| **Proyecto** | PQNC_AI (`glsmifhkoaifvaegsozd`) |
+| **Token** | `service_role_key` en `~/.cursor/mcp.json` |
+| **Capacidad** | SQL completo (DDL + DML) |
+
+---
+
+## ⚠️ IMPORTANTE - Seguridad
+
+### ✅ Dónde está el `service_role_key`
+
+```
+~/.cursor/mcp.json  ← Solo aquí (NO en el proyecto)
+```
+
+**Este archivo:**
+- ✅ Es local en tu computadora
+- ✅ NO está en Git
+- ✅ NO se incluye en el bundle
+- ✅ Solo lo usa el MCP (servidor local)
+
+### ❌ Dónde NUNCA debe estar
+
+```
+❌ src/config/*.ts
+❌ .env o .env.production
+❌ Cualquier archivo con VITE_*
+❌ Código fuente del proyecto
+```
+
+### 🔒 Funciones Seguras en Supabase
+
+El MCP usa 2 funciones RPC en Supabase:
+
+#### 1. `exec_sql` (Ya existía)
+```sql
+-- Para SELECT/INSERT/UPDATE/DELETE que devuelven datos
+-- Accesible con: service_role_key
+```
+
+#### 2. `exec_ddl` (Nueva - Creada 2026-01-27)
+```sql
+-- Para CREATE/DROP/ALTER que NO devuelven datos
+-- SOLO accesible con: service_role_key
+-- REVOCADO acceso a: anon, authenticated, public
+
+CREATE OR REPLACE FUNCTION exec_ddl(sql_command TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  EXECUTE sql_command;
+  RETURN 'OK';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION exec_ddl(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION exec_ddl(TEXT) TO service_role;
+```
+
+**Seguridad:** Aunque exista en Supabase, **NO puede ser llamada con `anon_key`** (frontend), solo con `service_role_key` (MCP local).
+
+---
+
+## 🔧 Herramientas Disponibles
+
+### SQL Completo
+```typescript
+mcp_user-SupabaseREST_execute_sql
+```
+
+**Detecta automáticamente:**
+- DDL (CREATE, DROP, ALTER) → usa `exec_ddl`
+- DML (SELECT, INSERT, UPDATE, DELETE) → usa `exec_sql`
+
+**Ejemplos:**
+```typescript
+// CREATE TABLE
+execute_sql({ sql: "CREATE TABLE test (id serial)" })
+
+// DROP FUNCTION
+execute_sql({ sql: "DROP FUNCTION my_func CASCADE" })
+
+// CREATE FUNCTION
+execute_sql({ sql: "CREATE FUNCTION ..." })
+
+// SELECT
+execute_sql({ sql: "SELECT * FROM prospectos LIMIT 5" })
+```
+
+### Operaciones Específicas
+```typescript
+mcp_user-SupabaseREST_query_table        // SELECT con filtros
+mcp_user-SupabaseREST_insert_data        // INSERT
+mcp_user-SupabaseREST_update_data        // UPDATE
+mcp_user-SupabaseREST_delete_data        // DELETE
+mcp_user-SupabaseREST_get_schema         // Ver tablas
+mcp_user-SupabaseREST_get_table_info     // Ver columnas
+mcp_user-SupabaseREST_backup_table       // Backup JSON
+mcp_user-SupabaseREST_debug_connection   // Test conexión
+```
+
+---
+
+## 📝 Ejemplos de Uso
+
+### Crear Vista
+```typescript
+CallMcpTool({
+  server: "user-SupabaseREST",
+  toolName: "execute_sql",
+  arguments: {
+    sql: `CREATE OR REPLACE VIEW my_view AS 
+          SELECT p.*, e.full_name 
+          FROM prospectos p 
+          LEFT JOIN auth_users e ON p.ejecutivo_id = e.id`
+  }
+})
+```
+
+### Actualizar Configuración
+```typescript
+CallMcpTool({
+  server: "user-SupabaseREST",
+  toolName: "update_data",
+  arguments: {
+    table: "system_config",
+    data: { 
+      config_value: { version: "1.0.0", force_update: true }
+    },
+    filter: { config_key: "app_version" }
+  }
+})
+```
+
+### Consultar con Filtros
+```typescript
+CallMcpTool({
+  server: "user-SupabaseREST",
+  toolName: "query_table",
+  arguments: {
+    table: "prospectos",
+    select: "id, nombre, telefono",
+    filter: { coordinacion_id: "abc-123" },
+    limit: 10,
+    order: "created_at.desc"
+  }
+})
+```
+
+---
+
+## 🚫 Limitaciones
+
+### ❌ NO Funciona Para
+- Queries extremadamente largas (>100KB)
+- Transacciones multi-statement con `BEGIN/COMMIT`
+- Modificar usuarios de auth.users (usar Dashboard)
+
+### ✅ SÍ Funciona Para
+- CREATE/DROP/ALTER TABLE
+- CREATE/DROP/ALTER FUNCTION
+- CREATE/DROP TRIGGER
+- CREATE/DROP VIEW
+- CREATE/DROP INDEX
+- INSERT/UPDATE/DELETE en cualquier tabla
+- SELECT con JOINs complejos
+
+---
+
+## 🔍 Troubleshooting
+
+### MCP no funciona después de cambios
+```bash
+# 1. Limpiar cache
+rm -rf ~/.cursor/projects/.../mcps/user-SupabaseREST/
+
+# 2. Reiniciar Cursor
+Cmd+Q → Esperar 5s → Reabrir
+```
+
+### Error "function exec_ddl does not exist"
+```bash
+# Ejecutar en Supabase Dashboard:
+cat CREAR_EXEC_DDL_SEGURO.sql
+# → Copiar y pegar en SQL Editor
+```
+
+### Error "JWT failed verification"
+```bash
+# Verificar que service_role_key esté en ~/.cursor/mcp.json
+cat ~/.cursor/mcp.json | grep SUPABASE_SERVICE_ROLE_KEY
+```
+
+---
+
+## 📚 Documentación Relacionada
+
+| Documento | Propósito |
+|-----------|-----------|
+| `SUPABASE_CREDENTIALS.local.md` | 🔑 Credenciales (NO en Git) |
+| `CREAR_EXEC_DDL_SEGURO.sql` | Script para crear `exec_ddl` |
+| `mcp-supabase-rest-server.ts` | Código del servidor MCP |
+| `docs/DIAGNOSTICO_MCP_SUPABASE_REST.md` | Historial de problemas |
+| `.cursor/rules/security-rules.mdc` | Reglas generales de seguridad |
+
+---
+
+## ⚡ Checklist de Seguridad
+
+Antes de cada commit:
+
+- [ ] `service_role_key` NO está en código fuente
+- [ ] `SUPABASE_CREDENTIALS.local.md` está en `.gitignore`
+- [ ] `.env.production` solo tiene `anon_key`
+- [ ] Build no contiene `service_role`: `grep -r "service_role" dist/`
+
+---
+
+**Última actualización:** 27 de Enero 2026  
+**Autor:** MCP Setup con seguridad completa  
+**Validado:** ✅ Funcionando con DDL completo

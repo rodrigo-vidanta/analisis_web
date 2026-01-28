@@ -1106,12 +1106,15 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return new Intl.DateTimeFormat('es-ES', {
+    return new Intl.DateTimeFormat('es-MX', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'America/Mexico_City',
+      hour12: false
     }).format(date);
   };
 
@@ -2128,15 +2131,19 @@ const LogsTimelineChart: React.FC<TimelineChartProps> = ({ logs, dateFrom, dateT
             // Para rangos menores a 24 horas, mostrar solo la hora
             // Para rangos mayores, incluir también la fecha
             const label = hoursDiff <= 24 
-              ? current.toLocaleTimeString('es-ES', { 
+              ? current.toLocaleTimeString('es-MX', { 
                   hour: '2-digit',
-                  minute: '2-digit'
+                  minute: '2-digit',
+                  timeZone: 'America/Mexico_City',
+                  hour12: false
                 })
-              : current.toLocaleString('es-ES', { 
+              : current.toLocaleString('es-MX', { 
                   day: 'numeric', 
                   month: 'short',
                   hour: '2-digit',
-                  minute: '2-digit'
+                  minute: '2-digit',
+                  timeZone: 'America/Mexico_City',
+                  hour12: false
                 });
             labels.push(label);
             buckets.push(new Date(current));
@@ -2145,9 +2152,10 @@ const LogsTimelineChart: React.FC<TimelineChartProps> = ({ logs, dateFrom, dateT
         } else {
           const current = new Date(startDate);
           while (current <= endDate) {
-            const label = current.toLocaleDateString('es-ES', { 
+            const label = current.toLocaleDateString('es-MX', { 
               day: 'numeric', 
-              month: 'short'
+              month: 'short',
+              timeZone: 'America/Mexico_City'
             });
             labels.push(label);
             buckets.push(new Date(current));
