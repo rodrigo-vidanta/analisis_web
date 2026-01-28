@@ -395,25 +395,64 @@ class AuthService {
   // CARGAR DATOS DEL USUARIO
   // ============================================
   private async loadUserData(supabaseUser: SupabaseUser): Promise<void> {
-    const metadata = supabaseUser.user_metadata || {};
-    const roleId = metadata.role_id;
+    // Cargar datos completos desde user_profiles_v2
+    const { data: profileData, error: profileError } = await supabase!
+      .from('user_profiles_v2')
+      .select('*')
+      .eq('id', supabaseUser.id)
+      .single();
 
-    // Obtener nombre del rol
-    let roleData: { name: string; display_name: string } | undefined;
-    if (roleId) {
-      const { data } = await supabase!
-        .from('auth_roles')
-        .select('name, display_name')
-        .eq('id', roleId)
-        .single();
-      
-      if (data) {
-        roleData = data;
+    if (profileError || !profileData) {
+      console.error('Error loading user profile:', profileError);
+      // Fallback a metadata si falla la consulta
+      const metadata = supabaseUser.user_metadata || {};
+      const roleId = metadata.role_id;
+
+      // Obtener nombre del rol
+      let roleData: { name: string; display_name: string } | undefined;
+      if (roleId) {
+        const { data } = await supabase!
+          .from('auth_roles')
+          .select('name, display_name')
+          .eq('id', roleId)
+          .single();
+        
+        if (data) {
+          roleData = data;
+        }
       }
-    }
 
-    // Mapear usuario
-    this.currentUser = this.mapSupabaseUserToUser(supabaseUser, roleData);
+      // Mapear usuario con metadata
+      this.currentUser = this.mapSupabaseUserToUser(supabaseUser, roleData);
+    } else {
+      // Mapear desde user_profiles_v2 (datos completos y actualizados)
+      this.currentUser = {
+        id: profileData.id,
+        email: profileData.email,
+        full_name: profileData.full_name || '',
+        first_name: profileData.first_name || '',
+        last_name: profileData.last_name || '',
+        phone: profileData.phone || '',
+        department: profileData.department || '',
+        position: profileData.position || '',
+        organization: profileData.organization || 'PQNC',
+        role_name: profileData.role_name || '',
+        role_display_name: profileData.role_display_name || '',
+        is_active: profileData.is_active !== false,
+        is_admin: profileData.role_name === 'admin',
+        is_ejecutivo: profileData.is_ejecutivo || false,
+        is_coordinador: profileData.is_coordinator || false,
+        is_coordinador_calidad: profileData.role_name === 'coordinador_calidad',
+        is_operativo: profileData.is_operativo !== false,
+        email_verified: profileData.email_verified || false,
+        last_login: profileData.last_login || undefined,
+        created_at: profileData.created_at,
+        must_change_password: profileData.must_change_password || false,
+        id_colaborador: profileData.id_colaborador,
+        id_dynamics: profileData.id_dynamics,
+        coordinacion_id: profileData.coordinacion_id,
+      };
+    }
 
     // Cargar coordinaciones para coordinadores/supervisores
     if (this.currentUser.role_name === 'coordinador' || this.currentUser.role_name === 'supervisor') {
