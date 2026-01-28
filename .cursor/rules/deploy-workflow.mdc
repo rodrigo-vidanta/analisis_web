@@ -180,12 +180,22 @@ tsx scripts/deploy-complete.ts --increment-backend "Mensaje"
 
 **Ejemplo de ejecución:**
 ```bash
-# El agente lee appVersion.ts y encuentra B10.1.42N2.5.42
-# Incrementa automáticamente a B10.1.42N2.5.43
+# ✅ CORRECTO: Sin argumentos (auto-incremento)
+tsx scripts/deploy-complete.ts
+
+# ✅ CORRECTO: Con mensaje (auto-incremento + mensaje)
 tsx scripts/deploy-complete.ts "Fix modal actualización + dropdowns enriquecidos"
+
+# ✅ CORRECTO: Con versión explícita + mensaje
+tsx scripts/deploy-complete.ts B10.1.43N2.5.43 "Fix modal actualización"
+
+# ❌ INCORRECTO: Versión mal formada (se interpretará como mensaje)
+tsx scripts/deploy-complete.ts v2.5.50
 ```
 
 **⚠️ IMPORTANTE:** 
+- El script VALIDA que el primer argumento sea una versión válida (formato `BX.X.XNX.X.X`)
+- Si NO es versión válida, lo trata como mensaje y auto-incrementa la versión
 - El script NO requiere confirmación para git push ni AWS deploy
 - El script actualiza automáticamente todos los archivos necesarios
 - El script retorna el hash del commit para usar en el handover

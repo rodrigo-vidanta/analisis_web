@@ -130,7 +130,9 @@ function updateDocumentationModule(newVersion: string, commitHash: string, commi
   
   // Agregar commit al inicio de gitCommits
   const today = new Date().toISOString().split('T')[0];
-  const newCommit = `  { hash: '${commitHash}', date: '${today}', author: 'Team', message: '${commitMessage}', isRelease: true },`;
+  // ✅ FIX: Usar formato con versión + mensaje resumido
+  const shortMessage = commitMessage.length > 60 ? commitMessage.substring(0, 57) + '...' : commitMessage;
+  const newCommit = `  { hash: '${commitHash}', date: '${today}', author: 'Team', message: 'v${numericVersion}: ${newVersion} - ${shortMessage}', isRelease: true },`;
   
   if (!content.includes(`hash: '${commitHash}'`)) {
     content = content.replace(
@@ -252,10 +254,18 @@ async function main() {
     const currentVersion = getCurrentVersion();
     newVersion = incrementVersion(currentVersion, 'frontend');
     commitMessage = args[1] || 'Deploy automático completo';
-  } else {
-    // Versión explícita
+  } else if (args[0].startsWith('B') && args[0].includes('N')) {
+    // ✅ FIX: Verificar que el primer argumento es una versión válida (formato BX.X.XNX.X.X)
     newVersion = args[0];
     commitMessage = args[1] || 'Deploy automático completo';
+  } else {
+    // ✅ FIX: Si no es versión ni flag, asumir que es mensaje y auto-incrementar
+    const currentVersion = getCurrentVersion();
+    newVersion = incrementVersion(currentVersion, 'frontend');
+    commitMessage = args[0] || 'Deploy automático completo';
+    log(`⚠️  Primer argumento no es versión válida, auto-incrementando...`, 'yellow');
+    log(`📦 Versión actual: ${currentVersion}`, 'cyan');
+    log(`📦 Nueva versión: ${newVersion} (incremento automático)`, 'cyan');
   }
   
   log('\n🚀 Iniciando deploy completo automatizado...', 'blue');
