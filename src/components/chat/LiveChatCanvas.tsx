@@ -84,8 +84,8 @@ import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { coordinacionService } from '../../services/coordinacionService';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
-import { PROSPECTO_ETAPAS } from '../../types/whatsappTemplates';
 import { useAppStore } from '../../stores/appStore';
+import { etapasService } from '../../services/etapasService';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import BotPauseButton from './BotPauseButton';
 import { Avatar } from '../shared/Avatar';
@@ -1120,6 +1120,41 @@ const LiveChatCanvas: React.FC = () => {
   const [showEtapasFilter, setShowEtapasFilter] = useState(false);
   const etapasFilterRef = useRef<HTMLDivElement>(null);
   const [prospectosDataVersion, setProspectosDataVersion] = useState(0); // Para forzar re-render cuando cambien los prospectos
+  
+  // Estado para etapas dinámicas de la BD
+  const [etapasDinamicas, setEtapasDinamicas] = useState<Array<{
+    id: string;
+    nombre: string;
+    color_ui: string;
+    icono: string;
+    orden_funnel: number;
+  }>>([]);
+  const [etapasLoading, setEtapasLoading] = useState(true);
+  
+  // Cargar etapas dinámicas al montar el componente
+  useEffect(() => {
+    const cargarEtapas = async () => {
+      try {
+        if (!etapasService.isLoaded()) {
+          await etapasService.loadEtapas();
+        }
+        const opciones = etapasService.getOptions();
+        setEtapasDinamicas(opciones.map(opt => ({
+          id: opt.value,
+          nombre: opt.label,
+          color_ui: opt.color,
+          icono: opt.icono,
+          orden_funnel: opt.orden
+        })));
+      } catch (error) {
+        console.error('❌ Error cargando etapas dinámicas:', error);
+      } finally {
+        setEtapasLoading(false);
+      }
+    };
+    
+    cargarEtapas();
+  }, []);
   
   // v6.6.0: Filtro por conversaciones no leídas
   const [filterByUnread, setFilterByUnread] = useState(false);
@@ -6450,14 +6485,30 @@ const LiveChatCanvas: React.FC = () => {
   const filteredConversations = useMemo(() => {
     let filtered = conversations;
     
-    // 1. Filtro por etapa (si hay etapas seleccionadas)
+    // 1. Filtro por etapa (usando etapa_id UUID en lugar de nombre string)
     if (selectedEtapas.size > 0) {
       filtered = filtered.filter(conv => {
-        // Obtener etapa desde prospectosDataRef (tabla prospectos)
+        // Obtener etapa_id desde prospectosDataRef (tabla prospectos)
         const prospectId = conv.prospecto_id || conv.id;
         const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-        const etapa = prospectoData?.etapa || conv.metadata?.etapa || conv.etapa || null;
-        return etapa && selectedEtapas.has(etapa);
+        
+        // NUEVO: Usar etapa_id (UUID FK) en lugar de etapa (string legacy)
+        const etapaId = prospectoData?.etapa_id || null;
+        
+        // Si tiene etapa_id, comparar con UUIDs seleccionados
+        if (etapaId && selectedEtapas.has(etapaId)) {
+          return true;
+        }
+        
+        // FALLBACK: Si no tiene etapa_id, intentar con nombre legacy (compatibilidad temporal)
+        const etapaLegacy = prospectoData?.etapa || conv.metadata?.etapa || conv.etapa || null;
+        if (etapaLegacy) {
+          // Buscar UUID correspondiente al nombre legacy
+          const etapaByNombre = etapasService.getByNombreLegacy(etapaLegacy);
+          return etapaByNombre && selectedEtapas.has(etapaByNombre.id);
+        }
+        
+        return false;
       });
     }
 
@@ -6777,49 +6828,62 @@ const LiveChatCanvas: React.FC = () => {
                     className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
                   >
                     <div className="p-2 space-y-1">
-                      {PROSPECTO_ETAPAS.map((etapa) => {
-                        const isSelected = selectedEtapas.has(etapa.value);
-                        return (
-                          <label
-                            key={etapa.value}
-                            className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                          >
-                            <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
-                              isSelected
-                                ? 'bg-blue-500 border-blue-500'
-                                : 'border-slate-300 dark:border-gray-600'
-                            }`}>
-                              {isSelected && (
-                                <Check className="w-3 h-3 text-white" />
-                              )}
-                            </div>
-                            <span className="text-xs text-slate-700 dark:text-gray-300">{etapa.label}</span>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => {
-                                setSelectedEtapas(prev => {
-                                  const newSet = new Set(prev);
-                                  if (isSelected) {
-                                    newSet.delete(etapa.value);
-                                  } else {
-                                    newSet.add(etapa.value);
-                                  }
-                                  return newSet;
-                                });
-                              }}
-                              className="sr-only"
-                            />
-                          </label>
-                        );
-                      })}
-                      {selectedEtapas.size > 0 && (
-                        <button
-                          onClick={() => setSelectedEtapas(new Set())}
-                          className="w-full mt-2 px-2 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
-                        >
-                          Limpiar filtros
-                        </button>
+                      {etapasLoading ? (
+                        <div className="flex items-center justify-center py-4">
+                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                          <span className="ml-2 text-xs text-slate-500">Cargando etapas...</span>
+                        </div>
+                      ) : etapasDinamicas.length === 0 ? (
+                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                          No hay etapas disponibles
+                        </div>
+                      ) : (
+                        <>
+                          {etapasDinamicas.map((etapa) => {
+                            const isSelected = selectedEtapas.has(etapa.id);
+                            return (
+                              <label
+                                key={etapa.id}
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                              >
+                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                                  isSelected
+                                    ? 'bg-blue-500 border-blue-500'
+                                    : 'border-slate-300 dark:border-gray-600'
+                                }`}>
+                                  {isSelected && (
+                                    <Check className="w-3 h-3 text-white" />
+                                  )}
+                                </div>
+                                <span className="text-xs text-slate-700 dark:text-gray-300">{etapa.nombre}</span>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setSelectedEtapas(prev => {
+                                      const newSet = new Set(prev);
+                                      if (isSelected) {
+                                        newSet.delete(etapa.id);
+                                      } else {
+                                        newSet.add(etapa.id);
+                                      }
+                                      return newSet;
+                                    });
+                                  }}
+                                  className="sr-only"
+                                />
+                              </label>
+                            );
+                          })}
+                          {selectedEtapas.size > 0 && (
+                            <button
+                              onClick={() => setSelectedEtapas(new Set())}
+                              className="w-full mt-2 px-2 py-1.5 text-xs text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-md transition-colors"
+                            >
+                              Limpiar filtros
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </motion.div>
