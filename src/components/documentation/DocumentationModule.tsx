@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'v2.5.58: B10.1.43N2.5.58 - UX: Vista previa en lugar de descripción en selector plan...', isRelease: true },
+  { hash: '5de8dfa', date: '2026-01-28', author: 'Team', message: 'v2.5.58: B10.1.43N2.5.58 - UX: Vista previa en lugar de descripción en selector plan...', isRelease: true },
   { hash: '2942336', date: '2026-01-28', author: 'Team', message: 'v2.5.57: B10.1.43N2.5.57 - FEAT: Regex robusto para normalización coordinaciones', isRelease: true },
   { hash: '8f42b2a', date: '2026-01-28', author: 'Team', message: 'v2.5.56: B10.1.43N2.5.56 - FIX: Comparar UUID coord con nombre (cargar map)', isRelease: true },
   { hash: 'bd9132d', date: '2026-01-28', author: 'Team', message: 'v2.5.55: B10.1.43N2.5.55 - HOTFIX CRÍTICO: Cargar datos usuario desde user_profiles_v2', isRelease: true },
