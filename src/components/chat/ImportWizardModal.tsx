@@ -429,7 +429,21 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
 
     // Ejecutivo: verificar coordinación
-    if (user?.is_ejecutivo && user?.coordinacion_id && lead.Coordinacion) {
+    if (user?.is_ejecutivo) {
+      if (!user.coordinacion_id) {
+        return {
+          canImport: false,
+          reason: 'No tienes coordinación asignada. Contacta al administrador.',
+        };
+      }
+
+      if (!lead.Coordinacion) {
+        return {
+          canImport: false,
+          reason: 'Este prospecto no tiene coordinación asignada en Dynamics',
+        };
+      }
+
       const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
       const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
       
@@ -439,19 +453,15 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       
       return {
         canImport: false,
-        reason: `Este prospecto es de ${lead.Coordinacion}. Solo puedes importar de ${user.coordinacion_id}`,
+        reason: `Este prospecto es de ${lead.Coordinacion}. Solo puedes importar de tu coordinación (${user.coordinacion_id})`,
       };
     }
 
-    // Si no hay coordinación en el lead pero el usuario sí tiene
-    if (user?.coordinacion_id && !lead.Coordinacion) {
-      return {
-        canImport: false,
-        reason: 'Este prospecto no tiene coordinación asignada en Dynamics',
-      };
-    }
-
-    return { canImport: true, reason: null };
+    // Si llegamos aquí, el usuario no tiene rol reconocido
+    return {
+      canImport: false,
+      reason: 'No tienes permisos para importar prospectos. Contacta al administrador.',
+    };
   };
 
   /**
