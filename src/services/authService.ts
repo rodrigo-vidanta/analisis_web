@@ -55,6 +55,10 @@ export interface User {
   role_name: string;
   role_display_name: string;
   is_active: boolean;
+  is_admin?: boolean;
+  is_ejecutivo?: boolean;
+  is_coordinador?: boolean;
+  is_coordinador_calidad?: boolean;
   is_operativo?: boolean;
   email_verified: boolean;
   last_login?: string;
@@ -114,6 +118,10 @@ class AuthService {
       role_name: roleData?.name || metadata.role_name || '',
       role_display_name: roleData?.display_name || metadata.role_display_name || '',
       is_active: metadata.is_active !== false,
+      is_admin: metadata.is_admin || false,
+      is_ejecutivo: metadata.is_ejecutivo || false,
+      is_coordinador: metadata.is_coordinador || false,
+      is_coordinador_calidad: metadata.is_coordinador_calidad || false,
       is_operativo: metadata.is_operativo !== false,
       email_verified: !!supabaseUser.email_confirmed_at,
       last_login: supabaseUser.last_sign_in_at || undefined,

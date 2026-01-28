@@ -370,7 +370,9 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
 
     // Coordinador: verificar coordinación
-    if (user?.is_coordinador && user?.coordinacion_id && prospect.coordinacion_id) {
+    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador';
+    
+    if (isCoordinador && user?.coordinacion_id && prospect.coordinacion_id) {
       const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
       const prospectCoordNorm = normalizeCoordinacion(prospect.coordinacion_id);
       
@@ -380,7 +382,9 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
 
     // Ejecutivo: verificar que sea su prospecto o de su coordinación
-    if (user?.is_ejecutivo) {
+    const isEjecutivo = user?.is_ejecutivo || user?.role_name === 'ejecutivo';
+    
+    if (isEjecutivo) {
       // Si es su prospecto
       if (prospect.ejecutivo_id === user.id) {
         return { canImport: true, reason: null };
@@ -414,7 +418,24 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
 
     // Coordinador: verificar coordinación
-    if (user?.is_coordinador && user?.coordinacion_id && lead.Coordinacion) {
+    // Usar is_coordinador O role_name como fallback
+    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador';
+    
+    if (isCoordinador) {
+      if (!user.coordinacion_id) {
+        return {
+          canImport: false,
+          reason: 'No tienes coordinación asignada. Contacta al administrador.',
+        };
+      }
+
+      if (!lead.Coordinacion) {
+        return {
+          canImport: false,
+          reason: 'Este prospecto no tiene coordinación asignada en Dynamics',
+        };
+      }
+
       const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
       const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
       
@@ -429,7 +450,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
 
     // Ejecutivo: verificar coordinación
-    if (user?.is_ejecutivo) {
+    // Usar is_ejecutivo O role_name como fallback
+    const isEjecutivo = user?.is_ejecutivo || user?.role_name === 'ejecutivo';
+    
+    if (isEjecutivo) {
       if (!user.coordinacion_id) {
         return {
           canImport: false,
