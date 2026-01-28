@@ -64,21 +64,65 @@ interface ImportWizardModalProps {
 }
 
 /**
- * Normaliza coordinación para comparación (COB ACAPULCO = COBACA, APEX = i360)
+ * Normaliza coordinación para comparación con regex robusto
+ * Maneja variaciones de mayúsculas/minúsculas y nombres incompletos
+ * 
+ * Ejemplos:
+ * - COB ACAPULCO, COB Aca, COBACA, cobaca → COBACA
+ * - APEX, apex, i360, I360 → i360
+ * - MVP, mvp → MVP
+ * - VEN, ven → VEN
+ * - BOOM, boom, Boom → BOOM
  */
 const normalizeCoordinacion = (coord: string | null | undefined): string => {
   if (!coord) return '';
-  const upper = coord.trim().toUpperCase();
   
-  // Mapeo de equivalencias
-  const equivalencias: Record<string, string> = {
-    'COB ACAPULCO': 'COBACA',
-    'COBACA': 'COBACA',
-    'APEX': 'i360',
-    'I360': 'i360',
-  };
+  // Convertir a uppercase y limpiar espacios extras
+  const cleaned = coord.trim().toUpperCase().replace(/\s+/g, ' ');
   
-  return equivalencias[upper] || upper;
+  // Mapeo con regex para variaciones
+  const coordinacionPatterns: Array<{ regex: RegExp; normalized: string }> = [
+    // COB Acapulco y variantes
+    { regex: /^COB\s*(ACA|ACAP|ACAPULCO)$/i, normalized: 'COBACA' },
+    { regex: /^COBACA$/i, normalized: 'COBACA' },
+    
+    // APEX e i360
+    { regex: /^(APEX|I360)$/i, normalized: 'i360' },
+    
+    // MVP
+    { regex: /^MVP$/i, normalized: 'MVP' },
+    
+    // VEN (Ventas)
+    { regex: /^VEN(TAS)?$/i, normalized: 'VEN' },
+    
+    // BOOM
+    { regex: /^BOOM$/i, normalized: 'BOOM' },
+    
+    // Telemarketing (variantes)
+    { regex: /^(TELE|TELEMARK|TELEMARKETING)$/i, normalized: 'TELEMARKETING' },
+    
+    // Campaña (variantes)
+    { regex: /^(CAMP|CAMPA|CAMPANA|CAMPAIGN)$/i, normalized: 'CAMPANA' },
+    
+    // CDMX (variantes)
+    { regex: /^CDMX(\s*(SUR|NORTE|CENTRO))?$/i, normalized: 'CDMX' },
+    
+    // Inbound
+    { regex: /^(INB|INBOUND)$/i, normalized: 'INBOUND' },
+    
+    // Outbound
+    { regex: /^(OUT|OUTBOUND)$/i, normalized: 'OUTBOUND' },
+  ];
+  
+  // Buscar coincidencia con regex
+  for (const pattern of coordinacionPatterns) {
+    if (pattern.regex.test(cleaned)) {
+      return pattern.normalized;
+    }
+  }
+  
+  // Si no hay coincidencia, retornar uppercase limpio
+  return cleaned;
 };
 
 /**
