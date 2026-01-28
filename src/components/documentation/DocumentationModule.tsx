@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'v2.5.55: B10.1.43N2.5.55 - HOTFIX CRÍTICO: Cargar datos usuario desde user_profiles_v2', isRelease: true },
+  { hash: 'bd9132d', date: '2026-01-28', author: 'Team', message: 'v2.5.55: B10.1.43N2.5.55 - HOTFIX CRÍTICO: Cargar datos usuario desde user_profiles_v2', isRelease: true },
   { hash: '7bfb8a1', date: '2026-01-28', author: 'Team', message: 'v2.5.54: B10.1.43N2.5.54 - HOTFIX: Validación de permisos usando role_name como fall...', isRelease: true },
   { hash: 'db14802', date: '2026-01-28', author: 'Team', message: 'v2.5.53: B10.1.43N2.5.53 - HOTFIX: Validación estricta de permisos en wizard importa...', isRelease: true },
   { hash: '899f0cd', date: '2026-01-28', author: 'Team', message: 'v2.5.52: B10.1.43N2.5.52 - Fix filtros de etapa en WhatsApp - Migración a etapas din...', isRelease: true },
