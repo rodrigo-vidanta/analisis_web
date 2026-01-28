@@ -909,6 +909,18 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
       toast.success('Plantilla enviada exitosamente');
       
+      // Disparar evento para refrescar conversaciones
+      window.dispatchEvent(new CustomEvent('refresh-livechat-conversations'));
+      
+      // Si tenemos conversacionId, abrirla después del rerender
+      if (conversacionId) {
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('select-livechat-conversation', { 
+            detail: conversacionId 
+          }));
+        }, 1000);
+      }
+      
       // Cerrar wizard y notificar éxito
       onSuccess(importedProspectId, conversacionId || undefined);
       onClose();

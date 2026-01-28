@@ -3586,12 +3586,8 @@ const LiveChatCanvas: React.FC = () => {
     
     const handleRefreshConversations = () => {
       console.log('🔄 [LiveChatCanvas] Refrescando lista de conversaciones...');
-      // Recargar conversaciones (lógica existente de carga inicial)
-      // Por ahora, forzamos un re-fetch completo
-      setLoadingMoreConversations(true);
-      setTimeout(() => {
-        setLoadingMoreConversations(false);
-      }, 500);
+      // Recargar conversaciones desde cero
+      loadConversationsWrapper('', true);
     };
     
     window.addEventListener('select-livechat-conversation', handleSelectConversation as EventListener);
