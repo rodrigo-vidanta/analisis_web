@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-28', author: 'Team', message: 'v2.5.51: B10.1.43N2.5.51 - Wizard importación WhatsApp: validación de variables en p...', isRelease: true },
   { hash: '639261f', date: '2026-01-28', author: 'Team', message: 'v2.5.50: B10.1.43N2.5.50 - Fix navegación SPA Quick Import WhatsApp + Listeners eventos', isRelease: true },
   { hash: '3f6fc0d', date: '2026-01-27', author: 'Team', message: 'Deploy automático completo', isRelease: true },
   { hash: '076abc2', date: '2026-01-26', author: 'Team', message: 'Optimización módulo Administración > Logs: +150% espacio grid, barras scroll invisibles, UI compactada', isRelease: true },
@@ -482,6 +483,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-301', date: '28/01/2026, 16:50', version: 'B10.1.43N2.5.51', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-692', date: '28/01/2026, 13:57', version: 'B10.1.43N2.5.50', status: 'success', duration: '40s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-996', date: '25/01/2026, 22:22', version: 'B10.1.42N2.5.48', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-190', date: '24/01/2026, 15:03', version: 'Fix reasignación - eliminar actualizaciones locales duplicadas', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -615,8 +617,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.50', highlight: true },
-  { label: 'Release', value: 'B10.1.43N2.5.50', highlight: false },
+  { label: 'Version', value: 'v2.5.51', highlight: true },
+  { label: 'Release', value: 'B10.1.43N2.5.51', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '28 ene 2026', highlight: false },
 ];

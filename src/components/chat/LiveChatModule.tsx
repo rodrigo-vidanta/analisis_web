@@ -21,8 +21,7 @@ import { MessageCircle, Settings, Users, BarChart3, MessageSquarePlus } from 'lu
 import LiveChatCanvas from './LiveChatCanvas';
 import AgentAssignmentModal from './AgentAssignmentModal';
 import LiveChatAnalytics from './LiveChatAnalytics';
-import QuickImportModal from './QuickImportModal';
-import { SendTemplateToProspectModal } from './SendTemplateToProspectModal';
+import { ImportWizardModal } from './ImportWizardModal';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -43,9 +42,6 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
   const [conversationToAssign, setConversationToAssign] = useState<UChatConversation | null>(null);
   const [showQuickImportModal, setShowQuickImportModal] = useState(false);
-  const [showTemplateModal, setShowTemplateModal] = useState(false);
-  const [selectedProspectoId, setSelectedProspectoId] = useState<string | null>(null);
-  const [prospectoData, setProspectoData] = useState<any>(null);
   const [metrics, setMetrics] = useState({
     totalConversations: 0,
     activeConversations: 0,
@@ -93,27 +89,17 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
     console.log(`Conversación asignada a ${agentName}`);
   };
 
-  const handleQuickImportSuccess = async (prospectoId: string) => {
+  const handleQuickImportSuccess = async (prospectoId: string, conversacionId?: string) => {
     setShowQuickImportModal(false);
     
-    // Cargar datos del prospecto
-    try {
-      const { data: prospecto } = await analysisSupabase
-        .from('prospectos')
-        .select('*')
-        .eq('id', prospectoId)
-        .single();
-      
-      if (prospecto) {
-        setProspectoData(prospecto);
-        setSelectedProspectoId(prospectoId);
-        setShowTemplateModal(true);
-      } else {
-        toast.error('No se pudo cargar el prospecto');
-      }
-    } catch (error) {
-      console.error('Error cargando prospecto:', error);
-      toast.error('Error al cargar datos del prospecto');
+    // Si se recibió conversacionId, navegar a la conversación
+    if (conversacionId) {
+      window.dispatchEvent(new CustomEvent('select-livechat-conversation', { 
+        detail: conversacionId 
+      }));
+      toast.success('Prospecto importado y plantilla enviada. Navegando a conversación...');
+    } else {
+      toast.success('Prospecto importado exitosamente');
     }
   };
 
@@ -261,50 +247,12 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       )}
 
       {/* Modal de importación rápida */}
+      {/* Modal de Importación con Wizard */}
       {showQuickImportModal && (
-        <QuickImportModal
+        <ImportWizardModal
           isOpen={showQuickImportModal}
           onClose={() => setShowQuickImportModal(false)}
           onSuccess={handleQuickImportSuccess}
-        />
-      )}
-
-      {/* Modal de enviar plantilla (después de importar) */}
-      {showTemplateModal && selectedProspectoId && prospectoData && (
-        <SendTemplateToProspectModal
-          isOpen={showTemplateModal}
-          onClose={() => {
-            setShowTemplateModal(false);
-            setSelectedProspectoId(null);
-            setProspectoData(null);
-          }}
-          prospectoId={selectedProspectoId}
-          prospectoData={prospectoData}
-          onSuccess={(conversacionId) => {
-            setShowTemplateModal(false);
-            setSelectedProspectoId(null);
-            setProspectoData(null);
-            
-            if (conversacionId) {
-              // ✅ Guardar conversación para que LiveChatCanvas la abra automáticamente
-              console.log('🎯 Navegando a conversación:', conversacionId);
-              
-              // Usar evento personalizado para indicar al canvas que debe seleccionar esta conversación
-              window.dispatchEvent(new CustomEvent('select-livechat-conversation', { 
-                detail: conversacionId 
-              }));
-              
-              // Notificar éxito
-              toast.success('Conversación iniciada correctamente', {
-                icon: '✅',
-                duration: 3000
-              });
-            } else {
-              // ⚠️ Si no hay conversacion_id, recargar lista
-              console.warn('⚠️ No hay conversacion_id, recargando lista');
-              window.dispatchEvent(new CustomEvent('refresh-livechat-conversations'));
-            }
-          }}
         />
       )}
     </div>

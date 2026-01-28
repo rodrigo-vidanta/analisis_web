@@ -66,6 +66,7 @@ import { analysisSupabase } from '../../../config/analysisSupabase';
 import { ErrorModal } from '../../shared/ErrorModal';
 import { DeleteTemplateConfirmationModal } from '../../shared/DeleteTemplateConfirmationModal';
 import TemplateSuggestionsTab from './TemplateSuggestionsTab';
+import { TemplateTagsSelector } from './TemplateTagsSelector';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
 
 /**
@@ -165,6 +166,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
     category: 'MARKETING', // Por default MARKETING
     components: [{ type: 'BODY', text: '' }],
     description: '',
+    tags: [], // Etiquetas de clasificación
     variable_mappings: [],
     classification: { ...defaultClassification },
   });
@@ -507,6 +509,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
       category: template.category,
       components: template.components,
       description: template.description || '',
+      tags: template.tags || [], // Cargar tags existentes
       variable_mappings: template.variable_mappings || [],
       classification: (template as any).classification || { ...defaultClassification },
     });
@@ -2662,6 +2665,19 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             placeholder="Descripción opcional"
                             className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                          />
+                        </div>
+
+                        {/* Selector de etiquetas */}
+                        <div>
+                          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            <Tag className="w-4 h-4" />
+                            <span>Etiquetas de Clasificación</span>
+                          </label>
+                          <TemplateTagsSelector
+                            selectedTags={formData.tags || []}
+                            onChange={(tags) => setFormData({ ...formData, tags })}
+                            disabled={saving}
                           />
                         </div>
                       </div>

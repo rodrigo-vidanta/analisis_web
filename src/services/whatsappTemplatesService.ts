@@ -544,9 +544,9 @@ class WhatsAppTemplatesService {
     // Crear a través del webhook (maneja uChat y BD)
     const uchatData = await this.createTemplateInUChat(input);
     
-    // El webhook crea el registro en BD, pero puede que no incluya variable_mappings o suggested_by
+    // El webhook crea el registro en BD, pero puede que no incluya variable_mappings, tags o suggested_by
     // Actualizar el registro en BD local con los datos adicionales
-    const hasAdditionalData = (input.variable_mappings && input.variable_mappings.length > 0) || input.suggested_by;
+    const hasAdditionalData = (input.variable_mappings && input.variable_mappings.length > 0) || input.suggested_by || (input.tags && input.tags.length > 0);
     
     if (hasAdditionalData && uchatData?.id) {
       try {
@@ -560,6 +560,10 @@ class WhatsAppTemplatesService {
         
         if (input.suggested_by) {
           updateData.suggested_by = input.suggested_by;
+        }
+        
+        if (input.tags && input.tags.length > 0) {
+          updateData.tags = input.tags;
         }
         
         const { error: updateError } = await analysisSupabase
@@ -589,6 +593,7 @@ class WhatsAppTemplatesService {
     return {
       ...uchatData,
       variable_mappings: input.variable_mappings || [],
+      tags: input.tags || [],
     } as WhatsAppTemplate;
   }
 
@@ -730,26 +735,38 @@ class WhatsAppTemplatesService {
       uchatData = await this.updateTemplateInUChat(id, updatePayload);
     }
 
-    // El webhook actualiza el registro en BD, pero puede que no incluya variable_mappings
-    // Actualizar el registro en BD local con los variable_mappings si existen
+    // El webhook actualiza el registro en BD, pero puede que no incluya variable_mappings o tags
+    // Actualizar el registro en BD local con los datos adicionales si existen
     const finalVariableMappings = input.variable_mappings !== undefined ? input.variable_mappings : currentTemplate.variable_mappings;
+    const finalTags = input.tags !== undefined ? input.tags : currentTemplate.tags;
     
-    if (finalVariableMappings && finalVariableMappings.length > 0) {
+    const hasAdditionalData = (finalVariableMappings && finalVariableMappings.length > 0) || (finalTags && finalTags.length > 0);
+    
+    if (hasAdditionalData) {
       try {
+        const updateData: Record<string, any> = {
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (finalVariableMappings && finalVariableMappings.length > 0) {
+          updateData.variable_mappings = finalVariableMappings;
+        }
+        
+        if (finalTags && finalTags.length > 0) {
+          updateData.tags = finalTags;
+        }
+        
         const { error: updateError } = await analysisSupabase
           .from('whatsapp_templates')
-          .update({
-            variable_mappings: finalVariableMappings,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', id);
         
         if (updateError) {
-          console.error('Error actualizando variable_mappings en BD:', updateError);
+          console.error('Error actualizando datos adicionales en BD:', updateError);
           // No lanzar error, solo loguear
         }
       } catch (error) {
-        console.error('Error actualizando variable_mappings en BD:', error);
+        console.error('Error actualizando datos adicionales en BD:', error);
         // No lanzar error, solo loguear
       }
     }
@@ -760,10 +777,11 @@ class WhatsAppTemplatesService {
       return fullTemplate;
     }
     
-    // Si no se puede obtener desde BD, retornar con variable_mappings preservados
+    // Si no se puede obtener desde BD, retornar con datos preservados
     return {
       ...uchatData,
-      variable_mappings: finalVariableMappings,
+      variable_mappings: finalVariableMappings || [],
+      tags: finalTags || [],
     } as WhatsAppTemplate;
   }
 

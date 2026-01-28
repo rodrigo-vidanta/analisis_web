@@ -351,6 +351,7 @@ export interface WhatsAppTemplate {
   description?: string | null;
   created_by?: string | null;
   suggested_by?: string | null; // ID del usuario que sugirió esta plantilla
+  tags?: string[] | null; // Etiquetas de clasificación (máx 18 chars, solo a-z0-9_)
   created_at: string;
   updated_at: string;
   variable_mappings?: VariableMapping[];
@@ -362,6 +363,7 @@ export interface CreateTemplateInput {
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION';
   components: WhatsAppTemplateComponent[];
   description?: string;
+  tags?: string[]; // Etiquetas de clasificación
   variable_mappings?: VariableMapping[];
   // Clasificación de la plantilla (se envía al webhook en array separado)
   classification?: TemplateClassification;
@@ -378,6 +380,7 @@ export interface UpdateTemplateInput {
   rejection_reason?: string | null;
   is_active?: boolean;
   description?: string;
+  tags?: string[]; // Etiquetas de clasificación
   variable_mappings?: VariableMapping[];
   // Clasificación de la plantilla
   classification?: TemplateClassification;
