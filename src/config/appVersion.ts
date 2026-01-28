@@ -1,11 +1,11 @@
 /**
  * APP VERSION - Versión de la aplicación
  * 
- * Actualizado: 2026-01-27
- * Cambios: Migración a tabla de etapas, correcciones MCP, importador de prospectos
+ * Actualizado: 2026-01-28
+ * Cambios: Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos
  */
 
-export const APP_VERSION = 'Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos';
+export const APP_VERSION = 'B10.1.43N2.5.50';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)
