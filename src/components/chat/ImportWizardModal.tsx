@@ -145,6 +145,39 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // Estado de envío
   const [isSending, setIsSending] = useState(false);
 
+  // Mapa de coordinaciones (UUID -> nombre)
+  const [coordinacionesMap, setCoordinacionesMap] = useState<Map<string, string>>(new Map());
+
+  /**
+   * Cargar coordinaciones al montar
+   */
+  useEffect(() => {
+    const loadCoordinaciones = async () => {
+      try {
+        const { data, error } = await analysisSupabase
+          .from('coordinaciones')
+          .select('id, nombre');
+        
+        if (error) {
+          console.error('Error cargando coordinaciones:', error);
+          return;
+        }
+
+        const map = new Map<string, string>();
+        data?.forEach(coord => {
+          map.set(coord.id, coord.nombre);
+        });
+        setCoordinacionesMap(map);
+      } catch (err) {
+        console.error('Error al cargar coordinaciones:', err);
+      }
+    };
+
+    if (isOpen) {
+      loadCoordinaciones();
+    }
+  }, [isOpen]);
+
   /**
    * Reset del wizard al cerrar/abrir
    */
@@ -436,7 +469,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         };
       }
 
-      const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
+      // IMPORTANTE: user.coordinacion_id es UUID, lead.Coordinacion es nombre
+      // Necesitamos buscar el nombre de la coordinación del usuario
+      const userCoordName = coordinacionesMap.get(user.coordinacion_id) || user.coordinacion_id;
+      const userCoordNorm = normalizeCoordinacion(userCoordName);
       const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
       
       if (userCoordNorm === leadCoordNorm) {
@@ -445,7 +481,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       
       return {
         canImport: false,
-        reason: `Este prospecto pertenece a ${lead.Coordinacion}, no a tu coordinación (${user.coordinacion_id})`,
+        reason: `Este prospecto pertenece a ${lead.Coordinacion}, no a tu coordinación (${userCoordName})`,
       };
     }
 
@@ -468,7 +504,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         };
       }
 
-      const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
+      // IMPORTANTE: user.coordinacion_id es UUID, lead.Coordinacion es nombre
+      // Necesitamos buscar el nombre de la coordinación del usuario
+      const userCoordName = coordinacionesMap.get(user.coordinacion_id) || user.coordinacion_id;
+      const userCoordNorm = normalizeCoordinacion(userCoordName);
       const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
       
       if (userCoordNorm === leadCoordNorm) {
@@ -477,7 +516,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       
       return {
         canImport: false,
-        reason: `Este prospecto es de ${lead.Coordinacion}. Solo puedes importar de tu coordinación (${user.coordinacion_id})`,
+        reason: `Este prospecto es de ${lead.Coordinacion}. Solo puedes importar de tu coordinación (${userCoordName})`,
       };
     }
 
