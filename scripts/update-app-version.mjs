@@ -1,19 +1,39 @@
+#!/usr/bin/env node
+/**
+ * Script para actualizar app_version en system_config
+ * Usar cuando el MCP no puede actualizar directamente
+ */
+
 import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-const supabaseUrl = 'https://glsmifhkoaifvaegsozd.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E';
-const supabase = createClient(supabaseUrl, supabaseKey);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-const version = "B10.1.42N2.5.48";
+// Cargar variables de entorno
+dotenv.config({ path: join(__dirname, '../.env.local') });
+dotenv.config({ path: join(__dirname, '../.env') });
 
-async function updateAppVersion() {
-  console.log(`🔄 Actualizando versión requerida en BD: ${version}`);
-  
+const SUPABASE_URL = process.env.VITE_ANALYSIS_SUPABASE_URL;
+const SUPABASE_KEY = process.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('❌ Variables de entorno no configuradas');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function updateAppVersion(version) {
+  console.log(`🔄 Actualizando app_version a: ${version}`);
+
   const { data, error } = await supabase
     .from('system_config')
     .update({
       config_value: {
-        version,
+        version: version,
         force_update: true
       },
       updated_at: new Date().toISOString()
@@ -26,15 +46,17 @@ async function updateAppVersion() {
     process.exit(1);
   }
 
-  if (!data || data.length === 0) {
-    console.error('❌ No se actualizó ningún registro');
-    process.exit(1);
-  }
+  console.log('✅ Versión actualizada:', data);
+  
+  // Verificar
+  const { data: verify } = await supabase
+    .from('system_config')
+    .select('config_key, config_value, updated_at')
+    .eq('config_key', 'app_version')
+    .single();
 
-  console.log('✅ Versión actualizada exitosamente');
-  console.log(`   Versión: ${data[0].config_value.version}`);
-  console.log(`   Force Update: ${data[0].config_value.force_update}`);
-  console.log(`   Updated At: ${data[0].updated_at}`);
+  console.log('📊 Verificación:', verify);
 }
 
-updateAppVersion();
+const version = process.argv[2] || 'B10.1.43N2.5.61';
+updateAppVersion(version);
