@@ -205,7 +205,10 @@ class AuthService {
       // 3. Guardar sesión
       this.supabaseSession = data.session;
 
-      // 4. Cargar datos del usuario
+      // 4. Registrar sesión única (previene sesiones duplicadas)
+      await this.registerUniqueSession(data.user.id, data.session.access_token);
+
+      // 5. Cargar datos del usuario
       await this.loadUserData(data.user);
 
       // Supabase Auth resetea intentos automáticamente
@@ -282,6 +285,9 @@ class AuthService {
           await this.handleExecutiveLogout(this.currentUser.id, backupId);
         }
       }
+
+      // Limpiar sesión única antes de cerrar sesión con Supabase
+      await this.clearUniqueSession();
 
       // Cerrar sesión con Supabase Auth
       await supabase!.auth.signOut();
@@ -588,6 +594,103 @@ class AuthService {
       this.supabaseSession = session;
       callback(event, session);
     });
+  }
+
+  // ============================================
+  // MÉTODOS PARA SESIÓN ÚNICA (FIX 29 Enero 2026)
+  // ============================================
+  
+  /**
+   * Registra una sesión única para el usuario
+   * Si ya existe una sesión activa, la reemplaza (UPSERT con ON CONFLICT)
+   * Esto invalida automáticamente la sesión anterior en otro dispositivo
+   */
+  private async registerUniqueSession(userId: string, sessionToken: string): Promise<void> {
+    try {
+      const sessionId = crypto.randomUUID(); // ID único para esta sesión
+      
+      // Información del dispositivo para auditoría
+      const deviceInfo = {
+        browser: this.getBrowserName(),
+        os: navigator.platform,
+        userAgent: navigator.userAgent,
+        timestamp: new Date().toISOString()
+      };
+
+      // UPSERT: Inserta nueva sesión o reemplaza existente (constraint UNIQUE en user_id)
+      const { error } = await supabase!
+        .from('active_sessions')
+        .upsert({
+          user_id: userId,
+          session_id: sessionId,
+          device_info: deviceInfo,
+          last_activity: new Date().toISOString(),
+          expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 horas
+        }, {
+          onConflict: 'user_id' // Reemplazar sesión anterior del mismo usuario
+        });
+
+      if (error) {
+        console.error('⚠️ Error registrando sesión única:', error);
+        // No bloquear login si falla el registro de sesión
+        return;
+      }
+
+      // Guardar session_id en localStorage para verificación posterior
+      localStorage.setItem('session_id', sessionId);
+      console.log('✅ Sesión única registrada:', sessionId.substring(0, 8) + '...');
+      
+    } catch (err) {
+      console.error('⚠️ Excepción en registerUniqueSession:', err);
+      // No lanzar error para no bloquear login
+    }
+  }
+
+  /**
+   * Limpia la sesión actual de la tabla active_sessions
+   * Se ejecuta en logout para liberar la sesión
+   */
+  private async clearUniqueSession(): Promise<void> {
+    try {
+      const currentSessionId = localStorage.getItem('session_id');
+      
+      if (!currentSessionId) {
+        console.warn('⚠️ No hay session_id en localStorage para limpiar');
+        return;
+      }
+
+      const { error } = await supabase!
+        .from('active_sessions')
+        .delete()
+        .eq('session_id', currentSessionId);
+
+      if (error) {
+        console.error('⚠️ Error limpiando sesión única:', error);
+      } else {
+        console.log('✅ Sesión única eliminada:', currentSessionId.substring(0, 8) + '...');
+      }
+
+      // Limpiar localStorage siempre
+      localStorage.removeItem('session_id');
+      
+    } catch (err) {
+      console.error('⚠️ Excepción en clearUniqueSession:', err);
+      // Limpiar localStorage aunque falle la limpieza en BD
+      localStorage.removeItem('session_id');
+    }
+  }
+
+  /**
+   * Helper: Detectar nombre del navegador
+   */
+  private getBrowserName(): string {
+    const userAgent = navigator.userAgent;
+    if (userAgent.includes('Firefox')) return 'Firefox';
+    if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) return 'Chrome';
+    if (userAgent.includes('Edg')) return 'Edge';
+    if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) return 'Safari';
+    if (userAgent.includes('Opera') || userAgent.includes('OPR')) return 'Opera';
+    return 'Unknown';
   }
 }
 

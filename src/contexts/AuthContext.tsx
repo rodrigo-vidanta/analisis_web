@@ -55,7 +55,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: null
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
-  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sessionBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const backupRealtimeChannelRef = useRef<any>(null);
@@ -165,34 +164,72 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [authState.user?.id, authState.isAuthenticated]);
 
   // ============================================
-  // NOTA: Verificación de sesión legacy DEPRECADA
+  // SUSCRIPCIÓN A SESIÓN ÚNICA (Realtime)
   // ============================================
-  // Con Supabase Auth nativo, las sesiones se manejan automáticamente:
-  // - JWT con refresh automático
-  // - onAuthStateChange detecta cambios
-  // - No necesitamos auth_sessions custom ni broadcast manual
-  //
-  // Mantenemos cleanup de refs legacy por compatibilidad
+  // Detecta cuando la sesión fue invalidada en otro dispositivo
   useEffect(() => {
     if (!authState.isAuthenticated || !authState.user?.id) {
+      // Limpiar canal si no hay usuario autenticado
       if (sessionBroadcastChannelRef.current) {
         supabase?.removeChannel(sessionBroadcastChannelRef.current);
         sessionBroadcastChannelRef.current = null;
       }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current);
-        sessionCheckIntervalRef.current = null;
-      }
+      return;
     }
+
+    const currentSessionId = localStorage.getItem('session_id');
+    if (!currentSessionId) {
+      console.warn('⚠️ No se encontró session_id en localStorage');
+      return;
+    }
+
+    // Suscribirse a cambios en active_sessions para este usuario
+    const channel = supabase!
+      .channel(`session_${authState.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'active_sessions',
+          filter: `user_id=eq.${authState.user.id}`
+        },
+        (payload) => {
+          const newSession = payload.new as { session_id: string };
+          
+          // Si la sesión en BD cambió y NO es la nuestra, fuimos desconectados
+          if (newSession.session_id !== currentSessionId) {
+            console.log('🔐 Sesión invalidada - Nueva sesión detectada en otro dispositivo');
+            handleForceLogout('Iniciaste sesión en otro dispositivo');
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'active_sessions',
+          filter: `user_id=eq.${authState.user.id}`
+        },
+        (payload) => {
+          const deletedSession = payload.old as { session_id: string };
+          
+          // Si eliminaron nuestra sesión desde otro lugar (admin, etc.)
+          if (deletedSession.session_id === currentSessionId) {
+            console.log('🔐 Sesión eliminada remotamente');
+            handleForceLogout('Tu sesión fue cerrada por un administrador');
+          }
+        }
+      )
+      .subscribe();
+
+    sessionBroadcastChannelRef.current = channel;
 
     return () => {
       if (sessionBroadcastChannelRef.current) {
-        supabase?.removeChannel(sessionBroadcastChannelRef.current);
+        supabase!.removeChannel(sessionBroadcastChannelRef.current);
         sessionBroadcastChannelRef.current = null;
-      }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current);
-        sessionCheckIntervalRef.current = null;
       }
     };
   }, [authState.isAuthenticated, authState.user?.id]);
@@ -202,7 +239,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log(`🔐 Cerrando sesión automáticamente: ${reason}`);
     
     // Mostrar notificación PRIMERO (antes de desmontar componentes)
-    toast('Iniciaste sesión en otro dispositivo', {
+    toast(reason, {
       duration: 5000,
       icon: '🔐',
       style: {
@@ -211,19 +248,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
 
-    // Limpiar canal de broadcast
+    // Limpiar canal de broadcast/realtime
     if (sessionBroadcastChannelRef.current) {
       supabase.removeChannel(sessionBroadcastChannelRef.current);
       sessionBroadcastChannelRef.current = null;
     }
-    
-    // Limpiar intervalo de verificación
-    if (sessionCheckIntervalRef.current) {
-      clearInterval(sessionCheckIntervalRef.current);
-      sessionCheckIntervalRef.current = null;
-    }
 
-    // Limpiar localStorage
+    // Limpiar localStorage (session_id se limpia en authService.logout)
     localStorage.removeItem('auth_token');
     
     // ⚠️ CRÍTICO: Invalidar caché de permisos

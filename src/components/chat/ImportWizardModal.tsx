@@ -408,8 +408,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       return { canImport: true, reason: null };
     }
 
-    // Coordinador: verificar coordinación
-    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador';
+    // Coordinador y Supervisor: verificar coordinación
+    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador' || user?.role_name === 'supervisor';
     
     if (isCoordinador && user?.coordinacion_id && prospect.coordinacion_id) {
       const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
@@ -456,9 +456,9 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       return { canImport: true, reason: null };
     }
 
-    // Coordinador: verificar coordinación
+    // Coordinador y Supervisor: verificar coordinación
     // Usar is_coordinador O role_name como fallback
-    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador';
+    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador' || user?.role_name === 'supervisor';
     
     if (isCoordinador) {
       if (!user.coordinacion_id) {
