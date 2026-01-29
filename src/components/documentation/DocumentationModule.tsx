@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-29', author: 'Team', message: 'v2.5.67: B10.1.43N2.5.67 - Hotfix: Validaciones preventivas coordinaciones + Fix coo...', isRelease: true },
+  { hash: '49d211b', date: '2026-01-29', author: 'Team', message: 'v2.5.67: B10.1.43N2.5.67 - Hotfix: Validaciones preventivas coordinaciones + Fix coo...', isRelease: true },
   { hash: '3523827', date: '2026-01-29', author: 'Team', message: 'v2.5.66: B10.1.43N2.5.66 - Toggles de configuración AI en WhatsApp - Permite control...', isRelease: true },
   { hash: 'ac0e80b', date: '2026-01-29', author: 'Team', message: 'v2.5.65: B10.1.43N2.5.65 - FIX: Agregar rol supervisor a permisos de importación', isRelease: true },
   { hash: '453d5c5', date: '2026-01-29', author: 'Team', message: 'v2.5.64: B10.1.43N2.5.64 - Hotfix: 401 auth bot pause + Detección duplicados WhatsAp...', isRelease: true },
