@@ -258,13 +258,6 @@ class EtapasService {
   }
 
   /**
-   * Verificar si el cache está cargado
-   */
-  isLoaded(): boolean {
-    return this.loaded;
-  }
-
-  /**
    * Obtener estadísticas de etapas
    */
   getStats() {

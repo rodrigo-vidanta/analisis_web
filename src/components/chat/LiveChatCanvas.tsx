@@ -2985,7 +2985,10 @@ const LiveChatCanvas: React.FC = () => {
         const customerName = waConv.nombre_contacto || prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre';
         
         // ✅ Obtener conversation_id del mensaje (ID real de UChat) con fallbacks
-        const uchatId = lastMessage?.conversacion_id || prospecto.id_uchat || waConv.id;
+        // CRÍTICO: Filtrar string vacío porque '' || fallback = '' (no evalúa el fallback)
+        const uchatId = (lastMessage?.conversacion_id && lastMessage.conversacion_id.trim() !== '') 
+          ? lastMessage.conversacion_id 
+          : (prospecto.id_uchat || waConv.id);
         
         const processedConv: UChatConversation = {
           id: prospectoId,  // ← CRÍTICO: Debe ser prospecto_id para que carguen los mensajes
@@ -3362,10 +3365,15 @@ const LiveChatCanvas: React.FC = () => {
           .eq('prospecto_id', prospectoId);
 
       if (lastMessage) {
+          // CRÍTICO: Filtrar string vacío porque '' || fallback = '' (no evalúa el fallback)
+          const uchatId = (lastMessage.conversacion_id && lastMessage.conversacion_id.trim() !== '')
+            ? lastMessage.conversacion_id
+            : (prospecto?.id_uchat || '');
+          
           conversations.push({
             id: lastMessage.conversacion_id || prospectoId, // Usar conversacion_id o prospecto_id como fallback
             prospecto_id: prospectoId,
-            conversation_id: lastMessage.conversacion_id || prospecto?.id_uchat || '', // ✅ ID real de UChat para API (priority: mensaje.conversacion_id > prospectos.id_uchat)
+            conversation_id: uchatId, // ✅ ID real de UChat para API (priority: mensaje.conversacion_id > prospectos.id_uchat)
             nombre_contacto: prospecto?.nombre_completo || 'Sin nombre',
             customer_name: prospecto?.nombre_completo || 'Sin nombre', // ✅ Agregar para UI
             customer_phone: prospecto?.whatsapp || '',
@@ -3383,7 +3391,7 @@ const LiveChatCanvas: React.FC = () => {
           message_count: count || 0,
             // Agregar metadata para compatibilidad
             metadata: {
-              id_uchat: lastMessage.conversacion_id || prospecto?.id_uchat || '',
+              id_uchat: uchatId, // Usar el mismo uchatId calculado arriba
               prospect_id: prospectoId
             }
           });

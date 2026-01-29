@@ -1711,13 +1711,15 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           prospectosFiltrados.push(...validResults);
         }
         
-        enrichedProspectos = prospectosFiltrados;
+        // No podemos reasignar enrichedProspectos (es const), así que usamos el array filtrado directamente
+        // enrichedProspectos = prospectosFiltrados;
       }
 
       // Agregar nuevos prospectos a los existentes (o reemplazar si es reset)
       if (reset) {
-        setAllProspectos(enrichedProspectos);
-        setProspectos(enrichedProspectos);
+        // Usar el array filtrado directamente ya que enrichedProspectos es const
+        setAllProspectos(prospectosFiltrados);
+        setProspectos(prospectosFiltrados);
         setCurrentPage(1); // Siguiente página será 1
         
         // Actualizar estados de columnas para Kanban
