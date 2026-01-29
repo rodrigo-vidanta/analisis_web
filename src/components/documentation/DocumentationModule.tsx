@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-29', author: 'Team', message: 'v2.5.65: B10.1.43N2.5.65 - FIX: Agregar rol supervisor a permisos de importación', isRelease: true },
+  { hash: 'ac0e80b', date: '2026-01-29', author: 'Team', message: 'v2.5.65: B10.1.43N2.5.65 - FIX: Agregar rol supervisor a permisos de importación', isRelease: true },
   { hash: '453d5c5', date: '2026-01-29', author: 'Team', message: 'v2.5.64: B10.1.43N2.5.64 - Hotfix: 401 auth bot pause + Detección duplicados WhatsAp...', isRelease: true },
   { hash: 'c8bdb60', date: '2026-01-29', author: 'Team', message: 'v2.5.63: B10.1.43N2.5.63 - Hotfix: Dashboard crash (etapas dinámicas) + Recharts war...', isRelease: true },
   { hash: '43ad9dc', date: '2026-01-29', author: 'Team', message: 'v2.5.62: B10.1.43N2.5.62 - HOTFIX: Fix error scope prospectosFiltrados - módulo de p...', isRelease: true },
