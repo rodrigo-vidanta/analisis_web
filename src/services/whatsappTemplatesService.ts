@@ -448,11 +448,11 @@ class WhatsAppTemplatesService {
       };
 
 
-      // Crear AbortController para timeout de 15 segundos
+      // Crear AbortController para timeout de 25 segundos
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
         controller.abort();
-      }, 15000); // 15 segundos
+      }, 25000); // 25 segundos
 
       try {
         const response = await fetch(EDGE_FUNCTION_URL, {

@@ -43,6 +43,7 @@ import {
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService } from '../../../services/whatsappTemplatesService';
 import { whatsappTemplateSuggestionsService } from '../../../services/whatsappTemplateSuggestionsService';
+import { renderWhatsAppFormattedText } from '../../../utils/whatsappTextFormatter';
 import type {
   WhatsAppTemplate,
   CreateTemplateInput,
@@ -2006,9 +2007,9 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
 
         {/* Preview del contenido */}
         <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-          <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-            {truncatedPreview}
-          </p>
+          <div className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            {renderWhatsAppFormattedText(truncatedPreview)}
+          </div>
         </div>
 
         {/* Información expandida */}
@@ -2335,7 +2336,7 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
           className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed mb-3 min-h-[40px] cursor-pointer hover:text-gray-800 dark:hover:text-gray-300 transition-colors"
           onClick={onViewPreview}
         >
-          {truncated}
+          {renderWhatsAppFormattedText(truncated)}
         </div>
 
         {/* Audiencias asignadas con nombres y conteos reales */}
@@ -2764,9 +2765,9 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                         </div>
                       ) : (
                         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
-                          <p className="text-gray-900 dark:text-white whitespace-pre-wrap font-normal leading-relaxed">
-                            {previewText || 'No hay contenido para previsualizar'}
-                          </p>
+                          <div className="text-gray-900 dark:text-white whitespace-pre-wrap font-normal leading-relaxed">
+                            {previewText ? renderWhatsAppFormattedText(previewText) : 'No hay contenido para previsualizar'}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -2775,7 +2776,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <span className="italic">
-                        La vista previa muestra datos reales del primer registro de cada tabla mapeada. Las variables del sistema (fecha, hora, ejecutivo) se muestran con valores de ejemplo.
+                        La vista previa muestra datos reales del primer registro de cada tabla mapeada. Las variables del sistema (fecha, hora, ejecutivo) se muestran con valores de ejemplo. Los modificadores de texto (*negrita*, _cursiva_, ~tachado~, ```monospace```) se renderizan como en WhatsApp.
                       </span>
                     </div>
                   </div>
@@ -3119,8 +3120,8 @@ const ComponentEditor: React.FC<ComponentEditorProps> = ({
                       );
                     }
                   }
-                  // Renderizar texto normal preservando espacios y saltos de línea
-                  return <span key={`text-${idx}`}>{part.content}</span>;
+                  // Renderizar texto normal con soporte para modificadores de WhatsApp
+                  return <span key={`text-${idx}`}>{renderWhatsAppFormattedText(part.content)}</span>;
                 })
               ) : (
                 <span className="text-gray-400 italic">Sin contenido</span>
@@ -4093,9 +4094,9 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
                           Mensaje
                         </span>
                       </div>
-                      <p className="text-gray-900 dark:text-white whitespace-pre-wrap">
-                        {preview || 'No hay contenido para previsualizar'}
-                      </p>
+                      <div className="text-gray-900 dark:text-white whitespace-pre-wrap">
+                        {preview ? renderWhatsAppFormattedText(preview) : 'No hay contenido para previsualizar'}
+                      </div>
                     </div>
 
                     {/* Mapeo de variables */}

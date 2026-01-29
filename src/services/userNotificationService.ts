@@ -18,8 +18,8 @@ import { isNetworkOnline } from '../hooks/useNetworkStatus';
 export interface UserNotification {
   id: string;
   user_id: string;
-  notification_type: 'new_message' | 'new_call';
-  module: 'live-chat' | 'live-monitor';
+  notification_type: 'new_message' | 'new_call' | 'template_approved';
+  module: 'live-chat' | 'live-monitor' | 'campaigns';
   message_id?: string;
   conversation_id?: string;
   prospect_id?: string;
@@ -28,6 +28,7 @@ export interface UserNotification {
   message_preview?: string;
   call_id?: string;
   call_status?: string;
+  metadata?: any;
   is_read: boolean;
   read_at?: string;
   is_muted: boolean;
@@ -39,6 +40,7 @@ export interface NotificationCounts {
   unread: number;
   activeCalls: number;
   newMessages: number;
+  templatesApproved: number;
 }
 
 class UserNotificationService {
@@ -59,24 +61,24 @@ class UserNotificationService {
   async getUnreadCount(): Promise<NotificationCounts> {
     if (!this.userId) {
       console.log('⚠️ [UserNotificationService] getUnreadCount: No userId configurado');
-      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
     }
 
     // Verificar conexión antes de consultar
     if (!isNetworkOnline()) {
       // Retornar silenciosamente sin loguear error
-      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
     }
 
     try {
       console.log(`🔍 [UserNotificationService] Consultando notificaciones para usuario: ${this.userId}`);
       
-      if (!pqncSupabase) {
-        console.error('❌ [UserNotificationService] pqncSupabase no está configurado');
-        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+      if (!supabaseSystemUI) {
+        console.error('❌ [UserNotificationService] supabaseSystemUI no está configurado');
+        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
       }
 
-      const { data, error, count } = await pqncSupabase
+      const { data, error, count } = await supabaseSystemUI
         .from('user_notifications')
         .select('notification_type, is_read', { count: 'exact' })
         .eq('user_id', this.userId)
@@ -85,11 +87,11 @@ class UserNotificationService {
       if (error) {
         if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
           console.log('⚠️ [UserNotificationService] Tabla user_notifications no existe');
-          return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+          return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
         }
         console.error('❌ [UserNotificationService] Error obteniendo contador de notificaciones:', error);
         console.error('❌ [UserNotificationService] Error details:', JSON.stringify(error, null, 2));
-        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
       }
 
       console.log(`📊 [UserNotificationService] Total de registros encontrados: ${count || 0}`);
@@ -97,13 +99,15 @@ class UserNotificationService {
 
       const unreadMessages = data?.filter(n => n.notification_type === 'new_message').length || 0;
       const unreadCalls = data?.filter(n => n.notification_type === 'new_call').length || 0;
-      const total = unreadMessages + unreadCalls;
+      const unreadTemplates = data?.filter(n => n.notification_type === 'template_approved').length || 0;
+      const total = unreadMessages + unreadCalls + unreadTemplates;
 
       console.log(`📊 [UserNotificationService] Contadores calculados:`, {
         total,
         unread: total,
         activeCalls: unreadCalls,
         newMessages: unreadMessages,
+        templatesApproved: unreadTemplates,
       });
 
       return {
@@ -111,14 +115,15 @@ class UserNotificationService {
         unread: total,
         activeCalls: unreadCalls,
         newMessages: unreadMessages,
+        templatesApproved: unreadTemplates,
       };
     } catch (error: any) {
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
         console.log('⚠️ [UserNotificationService] Tabla user_notifications no existe (catch)');
-        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+        return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
       }
       console.error('❌ [UserNotificationService] Error en getUnreadCount:', error);
-      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0 };
+      return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
     }
   }
 
@@ -129,9 +134,9 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
-      const { error } = await pqncSupabase
+      const { error } = await supabaseSystemUI
         .from('user_notifications')
         .update({
           is_read: true,
@@ -155,13 +160,13 @@ class UserNotificationService {
   /**
    * Marcar todas las notificaciones de un tipo como leídas
    */
-  async markAllAsRead(type?: 'new_message' | 'new_call'): Promise<boolean> {
+  async markAllAsRead(type?: 'new_message' | 'new_call' | 'template_approved'): Promise<boolean> {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
-      let query = pqncSupabase
+      let query = supabaseSystemUI
         .from('user_notifications')
         .update({
           is_read: true,
@@ -189,22 +194,60 @@ class UserNotificationService {
   }
 
   /**
+   * Marcar notificaciones de plantillas aprobadas como leídas
+   */
+  async markTemplateNotificationsAsRead(templateId?: string): Promise<boolean> {
+    if (!this.userId) return false;
+
+    try {
+      if (!supabaseSystemUI) return false;
+
+      let query = supabaseSystemUI
+        .from('user_notifications')
+        .update({
+          is_read: true,
+          read_at: new Date().toISOString(),
+        })
+        .eq('user_id', this.userId)
+        .eq('notification_type', 'template_approved')
+        .eq('is_read', false);
+
+      // Si se proporciona templateId, solo marcar esa específica
+      if (templateId) {
+        query = query.eq('metadata->>template_id', templateId);
+      }
+
+      const { error } = await query;
+
+      if (error) {
+        console.error('❌ Error marcando notificaciones de plantillas como leídas:', error);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error en markTemplateNotificationsAsRead:', error);
+      return false;
+    }
+  }
+
+  /**
    * Marcar notificaciones de mensaje como leídas cuando se marca una conversación como leída
    */
   async markMessageNotificationsAsRead(conversationId: string): Promise<boolean> {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
-      const { error } = await pqncSupabase.rpc('mark_message_notifications_as_read', {
+      const { error } = await supabaseSystemUI.rpc('mark_message_notifications_as_read', {
         p_conversation_id: conversationId,
         p_user_id: this.userId,
       });
 
       if (error) {
         // Si la función RPC no existe, usar UPDATE directo
-        const { error: updateError } = await pqncSupabase
+        const { error: updateError } = await supabaseSystemUI
           .from('user_notifications')
           .update({
             is_read: true,
@@ -235,16 +278,16 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
-      const { error } = await pqncSupabase.rpc('mark_call_notifications_as_read', {
+      const { error } = await supabaseSystemUI.rpc('mark_call_notifications_as_read', {
         p_call_id: callId,
         p_user_id: this.userId,
       });
 
       if (error) {
         // Si la función RPC no existe, usar UPDATE directo
-        const { error: updateError } = await pqncSupabase
+        const { error: updateError } = await supabaseSystemUI
           .from('user_notifications')
           .update({
             is_read: true,
@@ -275,9 +318,9 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
-      const { error } = await pqncSupabase
+      const { error } = await supabaseSystemUI
         .from('user_notifications')
         .update({ is_muted: isMuted })
         .eq('id', notificationId)
@@ -302,10 +345,10 @@ class UserNotificationService {
     if (!this.userId) return false;
 
     try {
-      if (!pqncSupabase) return false;
+      if (!supabaseSystemUI) return false;
 
       // Verificar si hay alguna notificación sin silenciar
-      const { data, error } = await pqncSupabase
+      const { data, error } = await supabaseSystemUI
         .from('user_notifications')
         .select('is_muted')
         .eq('user_id', this.userId)
@@ -345,12 +388,12 @@ class UserNotificationService {
       this.realtimeChannels.get(channelName)?.unsubscribe();
     }
 
-    if (!pqncSupabase) {
-      console.warn('⚠️ [UserNotificationService] pqncSupabase no está configurado');
+    if (!supabaseSystemUI) {
+      console.warn('⚠️ [UserNotificationService] supabaseSystemUI no está configurado');
       return () => {};
     }
 
-    const channel = pqncSupabase
+    const channel = supabaseSystemUI
       .channel(channelName)
       .on(
         'postgres_changes',
