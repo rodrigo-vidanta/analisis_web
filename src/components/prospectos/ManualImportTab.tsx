@@ -8,8 +8,7 @@
  * 
  * Incluye:
  * - Menú vertical lateral (Importación Individual, Masiva, Nuevo Prospecto)
- * - Búsqueda optimizada de prospectos en CRM
- * - Importación de contactos via webhook N8N
+ * - Modal de importación (REUTILIZA ImportWizardModal de WhatsApp)
  * - Columna lateral de prospectos importados
  * - Navegación directa a conversaciones WhatsApp
  */
@@ -18,44 +17,23 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { 
-  Search, Phone, User, Mail, MapPin, Building, 
-  AlertCircle, Loader2, CheckCircle, Download,
-  Tag, Upload, UserPlus, MessageCircle, X
+  Search, Upload, UserPlus, MessageCircle, CheckCircle, Phone
 } from 'lucide-react';
-import { dynamicsLeadService, type DynamicsLeadInfo } from '../../services/dynamicsLeadService';
-import { importContactService, type ImportContactPayload } from '../../services/importContactService';
+import { ImportWizardModal } from '../chat/ImportWizardModal';
 import { analysisSupabase } from '../../config/analysisSupabase';
-import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
-/**
- * Normaliza número de teléfono a 10 dígitos
- */
-const normalizePhone = (phone: string): string => {
-  const digits = phone.replace(/\D/g, '');
-  return digits.slice(-10);
-};
 
 /**
  * Formatea número de teléfono para visualización
  */
 const formatPhoneDisplay = (phone: string): string => {
-  const normalized = normalizePhone(phone);
+  const normalized = phone.replace(/\D/g, '').slice(-10);
   if (normalized.length === 10) {
     return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
   }
   return phone;
 };
-
-/**
- * Información de prospecto existente en BD
- */
-interface ExistingProspect {
-  id: string;
-  nombre_completo: string;
-  ejecutivo_nombre: string | null;
-  coordinacion_nombre: string | null;
-}
 
 /**
  * Prospecto importado exitosamente
@@ -75,197 +53,48 @@ type MenuView = 'individual' | 'masiva' | 'nuevo';
 
 export const ManualImportTab: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
   
   // Estado del menú lateral
   const [currentView, setCurrentView] = useState<MenuView>('individual');
   
-  // Estado de búsqueda
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [isSearching, setIsSearching] = useState(false);
-  const [leadData, setLeadData] = useState<DynamicsLeadInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [searchAttempted, setSearchAttempted] = useState(false);
-  const [existingProspect, setExistingProspect] = useState<ExistingProspect | null>(null);
+  // Estado del modal de importación (REUTILIZA ImportWizardModal)
+  const [showImportModal, setShowImportModal] = useState(false);
   
-  // Estado de importación
-  const [isImporting, setIsImporting] = useState(false);
+  // Estado de prospectos importados
   const [importedProspects, setImportedProspects] = useState<ImportedProspect[]>([]);
 
   /**
-   * Maneja la búsqueda por teléfono
+   * Maneja el éxito de la importación
    */
-  const handleSearch = async () => {
-    if (!phoneNumber.trim()) {
-      toast.error('Ingresa un número de teléfono');
-      return;
-    }
-
-    const normalized = normalizePhone(phoneNumber);
-    if (normalized.length !== 10) {
-      toast.error('El número debe tener 10 dígitos');
-      return;
-    }
-
-    setIsSearching(true);
-    setError(null);
-    setLeadData(null);
-    setExistingProspect(null);
-    setSearchAttempted(true);
-
+  const handleImportSuccess = async (prospectoId: string, conversacionId?: string) => {
+    setShowImportModal(false);
+    
+    // Agregar a la lista de importados (buscar datos del prospecto)
     try {
-      // 🔍 PASO 1: Buscar primero en BD LOCAL por teléfono
-      const { data: localData, error: localError } = await analysisSupabase
-        .from('prospectos_con_ejecutivo_y_coordinacion')
-        .select('id, nombre_completo, ejecutivo_nombre, coordinacion_nombre, whatsapp, telefono_principal')
-        .or(`whatsapp.eq.${normalized},telefono_principal.eq.${normalized}`)
-        .maybeSingle();
-
-      if (localError && localError.code !== 'PGRST116') {
-        console.error('Error al verificar prospecto en BD local:', localError);
-      }
-
-      if (localData) {
-        // ✅ Ya existe en BD local
-        setExistingProspect({
-          id: localData.id,
-          nombre_completo: localData.nombre_completo,
-          ejecutivo_nombre: localData.ejecutivo_nombre,
-          coordinacion_nombre: localData.coordinacion_nombre,
-        });
-        toast.error('Este prospecto ya existe en la base de datos');
-        setIsSearching(false);
-        return; // ⛔ Detener aquí, no buscar en Dynamics
-      }
-
-      // 🔍 PASO 2: Si NO existe en BD, buscar en Dynamics
-      const result = await dynamicsLeadService.searchLead({ phone: normalized });
-
-      if (result.success && result.data) {
-        setLeadData(result.data);
-        toast.success('Lead encontrado en Dynamics CRM');
-      } else {
-        setError(result.error || 'Lead no encontrado en Dynamics CRM');
-        toast.error(result.error || 'No se encontró el lead');
-      }
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al buscar en Dynamics';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  /**
-   * Limpia la búsqueda
-   */
-  const handleClear = () => {
-    setPhoneNumber('');
-    setLeadData(null);
-    setError(null);
-    setSearchAttempted(false);
-    setExistingProspect(null);
-  };
-
-  /**
-   * Importa el prospecto al sistema
-   */
-  const handleImport = async () => {
-    if (!leadData || !user) {
-      toast.error('Faltan datos requeridos para la importación');
-      return;
-    }
-
-    setIsImporting(true);
-
-    try {
-      const payload: ImportContactPayload = {
-        // Datos del ejecutivo que solicita
-        ejecutivo_nombre: user.full_name || user.email || 'Desconocido',
-        ejecutivo_id: user.id,
-        coordinacion_id: user.coordinacion_id || '',
-        fecha_solicitud: new Date().toISOString(),
-        // Datos completos del lead de Dynamics
-        lead_dynamics: {
-          LeadID: leadData.LeadID,
-          Nombre: leadData.Nombre,
-          Email: leadData.Email,
-          EstadoCivil: leadData.EstadoCivil || null,
-          Ocupacion: leadData.Ocupacion || null,
-          Pais: leadData.Pais || null,
-          EntidadFederativa: leadData.EntidadFederativa || null,
-          Coordinacion: leadData.Coordinacion || null,
-          CoordinacionID: leadData.CoordinacionID || null,
-          Propietario: leadData.Propietario || null,
-          OwnerID: leadData.OwnerID || null,
-          FechaUltimaLlamada: leadData.FechaUltimaLlamada || null,
-          Calificacion: leadData.Calificacion || null,
-        },
-        // Datos adicionales
-        telefono: normalizePhone(phoneNumber),
-        nombre_completo: leadData.Nombre,
-        id_dynamics: leadData.LeadID,
-      };
-
-      const result = await importContactService.importContact(payload);
-
-      if (result.success && result.prospecto_id) {
-        // Mensaje personalizado según el status code
-        let successMessage = result.message || 'Usuario importado exitosamente';
-        
-        if (result.statusCode === 200) {
-          toast.success(successMessage, {
-            duration: 4000,
-            icon: '✅'
-          });
-        }
-        
-        // Agregar a la lista de importados
+      // Esperar un poco para que la BD se actualice
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Consultar datos del prospecto recién importado
+      const { data: prospectoData } = await analysisSupabase
+        .from('prospectos')
+        .select('id, nombre_completo, telefono_principal, whatsapp')
+        .eq('id', prospectoId)
+        .single();
+      
+      if (prospectoData) {
         const newImported: ImportedProspect = {
-          id: result.prospecto_id,
-          nombre_completo: leadData.Nombre,
-          telefono: normalizePhone(phoneNumber),
-          conversacion_id: result.conversacion_id || '',
+          id: prospectoData.id,
+          nombre_completo: prospectoData.nombre_completo,
+          telefono: prospectoData.telefono_principal || prospectoData.whatsapp || '',
+          conversacion_id: conversacionId || '',
           fecha_importacion: new Date().toISOString()
         };
         
         setImportedProspects(prev => [newImported, ...prev]);
-        
-        // Limpiar el formulario
-        handleClear();
-      } else {
-        // Mensajes de error personalizados según código
-        let errorMessage = result.message || 'Error al importar el contacto';
-        let errorIcon = '❌';
-        
-        switch (result.statusCode) {
-          case 400:
-            errorIcon = '⚠️';
-            errorMessage = `${errorMessage}\n${result.error || 'Datos inválidos o incompletos'}`;
-            break;
-          case 401:
-            errorIcon = '🔒';
-            errorMessage = 'Error de autenticación. Por favor, recarga la página e intenta de nuevo.';
-            break;
-          case 500:
-            errorIcon = '🔥';
-            errorMessage = 'Error interno del servidor. Intenta de nuevo en unos momentos.';
-            break;
-          default:
-            errorMessage = `${errorMessage}\n${result.error || 'Error desconocido'}`;
-        }
-        
-        toast.error(errorMessage, {
-          duration: 5000,
-          icon: errorIcon
-        });
+        toast.success(`Prospecto ${prospectoData.nombre_completo} importado exitosamente`);
       }
     } catch (error) {
-      console.error('Error en importación:', error);
-      toast.error('Error al importar el contacto');
-    } finally {
-      setIsImporting(false);
+      console.error('Error al cargar datos del prospecto importado:', error);
     }
   };
 
@@ -273,7 +102,18 @@ export const ManualImportTab: React.FC = () => {
    * Navega a la conversación de WhatsApp
    */
   const handleGoToConversation = (conversacionId: string) => {
-    navigate(`/live-chat?conversation=${conversacionId}`);
+    if (conversacionId) {
+      navigate(`/live-chat?conversation=${conversacionId}`);
+    } else {
+      toast.error('No hay conversación de WhatsApp asociada');
+    }
+  };
+
+  /**
+   * Abre el modal de importación
+   */
+  const handleOpenImportModal = () => {
+    setShowImportModal(true);
   };
 
   return (
@@ -375,16 +215,7 @@ export const ManualImportTab: React.FC = () => {
                   {currentView === 'individual' && (
                     <IndividualImportView
                       key="individual"
-                      phoneNumber={phoneNumber}
-                      setPhoneNumber={setPhoneNumber}
-                      isSearching={isSearching}
-                      leadData={leadData}
-                      error={error}
-                      existingProspect={existingProspect}
-                      isImporting={isImporting}
-                      handleSearch={handleSearch}
-                      handleClear={handleClear}
-                      handleImport={handleImport}
+                      onOpenImportModal={handleOpenImportModal}
                     />
                   )}
                   {currentView === 'masiva' && (
@@ -477,6 +308,15 @@ export const ManualImportTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* ============================================
+          MODAL DE IMPORTACIÓN (REUTILIZA ImportWizardModal de WhatsApp)
+          ============================================ */}
+      <ImportWizardModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onSuccess={handleImportSuccess}
+      />
     </div>
   );
 };
@@ -486,266 +326,73 @@ export const ManualImportTab: React.FC = () => {
 // ============================================
 
 interface IndividualImportViewProps {
-  phoneNumber: string;
-  setPhoneNumber: (value: string) => void;
-  isSearching: boolean;
-  leadData: DynamicsLeadInfo | null;
-  error: string | null;
-  existingProspect: ExistingProspect | null;
-  isImporting: boolean;
-  handleSearch: () => void;
-  handleClear: () => void;
-  handleImport: () => void;
+  onOpenImportModal: () => void;
 }
 
 const IndividualImportView: React.FC<IndividualImportViewProps> = ({
-  phoneNumber,
-  setPhoneNumber,
-  isSearching,
-  leadData,
-  error,
-  existingProspect,
-  isImporting,
-  handleSearch,
-  handleClear,
-  handleImport
+  onOpenImportModal
 }) => {
   return (
     <div className="space-y-6">
-      {/* Buscador */}
-      <div className="bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-        <div className="space-y-4">
-          {/* Label */}
-          <label className="flex items-center space-x-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-            <Phone size={16} className="text-gray-400" />
-            <span>Número de Teléfono</span>
-          </label>
-
-          {/* Input */}
-          <input
-            type="tel"
-            value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                handleSearch();
-              }
-            }}
-            placeholder="3331234567"
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm"
-            disabled={isSearching}
-          />
-
-          {/* Botones */}
-          <div className="flex gap-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleSearch}
-              disabled={isSearching || !phoneNumber.trim()}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-500/20 text-sm"
-            >
-              {isSearching ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" />
-                  <span>Buscando...</span>
-                </>
-              ) : (
-                <>
-                  <Search size={18} />
-                  <span>Buscar en CRM</span>
-                </>
-              )}
-            </motion.button>
-
-            {leadData && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleClear}
-                className="px-6 py-3 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm"
-              >
-                <X size={18} />
-                <span>Limpiar</span>
-              </motion.button>
-            )}
-          </div>
-        </div>
+      {/* Header */}
+      <div className="text-center">
+        <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+          Importar Prospecto Individual
+        </h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          Busca un prospecto en Dynamics CRM, verifica sus datos y valida permisos antes de importar
+        </p>
       </div>
 
-      {/* Resultados */}
-      <AnimatePresence mode="wait">
-        {/* Error */}
-        {error && !leadData && (
-          <motion.div
-            key="error"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center flex-shrink-0">
-                <AlertCircle size={18} className="text-white" />
-              </div>
-              <div>
-                <h4 className="text-sm font-bold text-red-900 dark:text-red-200 mb-1">
-                  Lead no encontrado
-                </h4>
-                <p className="text-xs text-red-700 dark:text-red-300">
-                  {error}
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Prospecto ya existe */}
-        {existingProspect && leadData && (
-          <motion.div
-            key="warning"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-xl p-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center flex-shrink-0">
-                <AlertCircle size={18} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-bold text-amber-900 dark:text-amber-200 mb-2">
-                  Prospecto ya existe en el sistema
-                </h4>
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <User size={14} className="text-amber-700 dark:text-amber-400" />
-                    <span className="text-xs text-amber-800 dark:text-amber-300">
-                      <span className="font-semibold">Nombre:</span> {existingProspect.nombre_completo}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User size={14} className="text-amber-700 dark:text-amber-400" />
-                    <span className="text-xs text-amber-800 dark:text-amber-300">
-                      <span className="font-semibold">Ejecutivo:</span> {existingProspect.ejecutivo_nombre || 'Sin asignar'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Building size={14} className="text-amber-700 dark:text-amber-400" />
-                    <span className="text-xs text-amber-800 dark:text-amber-300">
-                      <span className="font-semibold">Coordinación:</span> {existingProspect.coordinacion_nombre || 'Sin coordinación'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Lead encontrado */}
-        {leadData && (
-          <motion.div
-            key="data"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-4"
-          >
-            {/* Botón importar */}
-            {!existingProspect && (
-              <motion.button
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleImport}
-                disabled={isImporting}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/25 text-sm"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 size={20} className="animate-spin" />
-                    <span>Importando prospecto...</span>
-                  </>
-                ) : (
-                  <>
-                    <Download size={20} />
-                    <span>Importar Prospecto al Sistema</span>
-                  </>
-                )}
-              </motion.button>
-            )}
-
-            {/* Info del lead */}
-            <div className="bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-800 dark:via-gray-800 dark:to-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-              <div className="px-6 py-4 bg-emerald-50 dark:bg-emerald-900/20 border-b border-emerald-200 dark:border-emerald-800">
-                <div className="flex items-center gap-3">
-                  <CheckCircle size={20} className="text-emerald-600 dark:text-emerald-400" />
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">
-                      Lead Encontrado
-                    </h3>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
-                      Información de Dynamics CRM
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-3">
-                <DataField icon={<User />} label="Nombre Completo" value={leadData.Nombre} />
-                <DataField icon={<Mail />} label="Correo Electrónico" value={leadData.Email} />
-                <DataField icon={<MapPin />} label="País" value={leadData.Pais} />
-                <DataField icon={<Building />} label="Coordinación" value={leadData.Coordinacion} badge />
-                <DataField icon={<User />} label="Propietario" value={leadData.Propietario} />
-                <DataField icon={<Tag />} label="ID de Lead" value={leadData.LeadID} mono />
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-};
-
-// ============================================
-// COMPONENTE DE CAMPO DE DATOS
-// ============================================
-
-interface DataFieldProps {
-  icon: React.ReactNode;
-  label: string;
-  value: string | null;
-  badge?: boolean;
-  mono?: boolean;
-}
-
-const DataField: React.FC<DataFieldProps> = ({ icon, label, value, badge = false, mono = false }) => {
-  const displayValue = value || '—';
-
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-lg bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-      <div className="flex-shrink-0 text-gray-400 mt-0.5">
-        {React.cloneElement(icon as React.ReactElement, { size: 16 })}
+      {/* Botón principal para abrir modal */}
+      <div className="flex justify-center py-12">
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onOpenImportModal}
+          className="flex items-center justify-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-semibold transition-all shadow-lg shadow-blue-500/25 text-base"
+        >
+          <Search size={20} />
+          <span>Buscar e Importar Prospecto</span>
+        </motion.button>
       </div>
-      <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
-          {label}
-        </div>
-        {badge && value ? (
-          <span className="inline-flex items-center px-2.5 py-1 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-            {displayValue}
-          </span>
-        ) : (
-          <div className={`text-xs font-medium text-gray-900 dark:text-white ${mono ? 'font-mono' : ''} break-words`}>
-            {displayValue}
-          </div>
-        )}
+
+      {/* Info adicional */}
+      <div className="bg-gradient-to-br from-blue-50 via-white to-blue-50 dark:from-blue-900/10 dark:via-gray-800 dark:to-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800 p-6">
+        <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">
+          ¿Qué incluye el proceso de importación?
+        </h4>
+        <ul className="space-y-2 text-xs text-gray-700 dark:text-gray-300">
+          <li className="flex items-start gap-2">
+            <CheckCircle size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <span><strong>Búsqueda en BD Local:</strong> Verifica si el prospecto ya existe en el sistema</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <span><strong>Búsqueda en Dynamics CRM:</strong> Si no existe, busca en la base de datos de Microsoft Dynamics</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <span><strong>Validación de Permisos:</strong> Verifica que tienes permisos para importar según la coordinación del prospecto</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <span><strong>Selección de Plantilla:</strong> Opcional - Puedes enviar una plantilla de WhatsApp al prospecto recién importado</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <CheckCircle size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+            <span><strong>Confirmación:</strong> Revisa toda la información antes de confirmar la importación</span>
+          </li>
+        </ul>
       </div>
     </div>
   );
 };
+
+
+// ============================================
+// COMPONENTE DE CAMPO DE DATOS (Eliminado - Ya no se usa)
+// ============================================
 
 // ============================================
 // VISTA DE IMPORTACIÓN MASIVA (Placeholder)

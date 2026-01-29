@@ -1160,6 +1160,26 @@ const LiveChatCanvas: React.FC = () => {
   // v6.6.0: Filtro por conversaciones no leídas
   const [filterByUnread, setFilterByUnread] = useState(false);
   
+  // ============================================
+  // 🤖 ESTADOS PARA TOGGLES DE CONFIGURACIÓN AI
+  // ============================================
+  const [aiConfig, setAiConfig] = useState<{
+    ai_responde: boolean;
+    mensajes_reactivacion: boolean;
+    permite_llamadas_auto: boolean;
+    plantillas_reactivacion: boolean;
+  } | null>(null);
+  
+  // Valores DEFAULT de la etapa (necesarios para lógica de toggle)
+  const [etapaDefaults, setEtapaDefaults] = useState<{
+    ai_responde_auto: boolean;
+    mensajes_reactivacion_auto: boolean;
+    permite_llamadas_auto: boolean;
+    plantillas_reactivacion_auto: boolean;
+  } | null>(null);
+  
+  const [updatingAiConfig, setUpdatingAiConfig] = useState(false);
+  
   // Cerrar dropdown de etapas al hacer click fuera
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1518,6 +1538,17 @@ const LiveChatCanvas: React.FC = () => {
     // ⚡ Actualizar ref de estado para evitar closures
     selectedConversationStateRef.current = selectedConversation;
   }, [selectedConversation?.id]); // ✅ Cambiar dependencia a selectedConversation?.id para detectar cambios
+
+  // ============================================
+  // 🤖 CARGAR CONFIGURACIÓN AI AL SELECCIONAR CONVERSACIÓN
+  // ============================================
+  useEffect(() => {
+    if (selectedConversation?.prospecto_id) {
+      loadAiConfig(selectedConversation.prospecto_id);
+    } else {
+      setAiConfig(null);
+    }
+  }, [selectedConversation?.prospecto_id]);
 
   // ⚡ Sincronizar ref de mensajes con estado
   useEffect(() => {
@@ -4757,6 +4788,176 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
+  // ============================================
+  // 🤖 FUNCIONES PARA CONFIGURACIÓN AI
+  // ============================================
+  
+  /**
+   * Carga la configuración AI del prospecto desde v_prospectos_ai_config
+   * Y los valores DEFAULT de la etapa
+   */
+  const loadAiConfig = async (prospectoId: string, etapaId?: string) => {
+    try {
+      // Cargar configuración efectiva del prospecto
+      const { data: configData, error: configError } = await analysisSupabase
+        .from('v_prospectos_ai_config')
+        .select('ai_responde, mensajes_reactivacion, permite_llamadas_auto, plantillas_reactivacion, etapa_id')
+        .eq('id', prospectoId)
+        .single();
+
+      if (configError) {
+        console.error('❌ Error cargando configuración AI:', configError);
+        setAiConfig(null);
+        setEtapaDefaults(null);
+        return;
+      }
+
+      setAiConfig({
+        ai_responde: configData.ai_responde,
+        mensajes_reactivacion: configData.mensajes_reactivacion,
+        permite_llamadas_auto: configData.permite_llamadas_auto,
+        plantillas_reactivacion: configData.plantillas_reactivacion,
+      });
+
+      // Cargar valores DEFAULT de la etapa (necesarios para lógica de toggle)
+      const etapaIdToUse = etapaId || configData.etapa_id;
+      if (etapaIdToUse) {
+        const { data: etapaData, error: etapaError } = await analysisSupabase
+          .from('etapas')
+          .select('ai_responde_auto, mensajes_reactivacion_auto, permite_llamadas_auto, plantillas_reactivacion_auto')
+          .eq('id', etapaIdToUse)
+          .single();
+
+        if (etapaError) {
+          console.error('❌ Error cargando defaults de etapa:', etapaError);
+          setEtapaDefaults(null);
+        } else {
+          setEtapaDefaults({
+            ai_responde_auto: etapaData.ai_responde_auto,
+            mensajes_reactivacion_auto: etapaData.mensajes_reactivacion_auto,
+            permite_llamadas_auto: etapaData.permite_llamadas_auto,
+            plantillas_reactivacion_auto: etapaData.plantillas_reactivacion_auto,
+          });
+        }
+      } else {
+        setEtapaDefaults(null);
+      }
+    } catch (error) {
+      console.error('❌ Error en loadAiConfig:', error);
+      setAiConfig(null);
+      setEtapaDefaults(null);
+    }
+  };
+
+  /**
+   * Actualiza un valor de override en la tabla prospectos
+   * LÓGICA:
+   * - Si el nuevo valor coincide con el DEFAULT de la etapa → override = null (heredar)
+   * - Si el nuevo valor difiere del DEFAULT de la etapa → override = true/false (forzar)
+   */
+  const updateAiConfigOverride = async (
+    prospectoId: string,
+    field: 'override_ai_responde' | 'override_mensajes_reactivacion' | 'override_permite_llamadas_auto' | 'override_plantillas_reactivacion',
+    currentValue: boolean
+  ) => {
+    try {
+      setUpdatingAiConfig(true);
+
+      // Determinar el campo DEFAULT correspondiente
+      const defaultFieldMap = {
+        'override_ai_responde': 'ai_responde_auto',
+        'override_mensajes_reactivacion': 'mensajes_reactivacion_auto',
+        'override_permite_llamadas_auto': 'permite_llamadas_auto',
+        'override_plantillas_reactivacion': 'plantillas_reactivacion_auto',
+      } as const;
+
+      const defaultField = defaultFieldMap[field];
+      const defaultValue = etapaDefaults?.[defaultField];
+
+      if (defaultValue === undefined) {
+        console.error('❌ No se pudo determinar valor default de etapa');
+        toast.error('Error: Configuración de etapa no disponible');
+        return;
+      }
+
+      // Nuevo valor será el opuesto del actual
+      const newValue = !currentValue;
+
+      // Lógica: Si el nuevo valor coincide con el default → null, sino → newValue
+      const overrideValue = newValue === defaultValue ? null : newValue;
+
+      console.log(`🔄 Actualizando ${field}:`, {
+        currentValue,
+        newValue,
+        defaultValue,
+        overrideValue: overrideValue === null ? 'null (heredar)' : overrideValue,
+      });
+
+      const { error } = await analysisSupabase
+        .from('prospectos')
+        .update({ [field]: overrideValue })
+        .eq('id', prospectoId);
+
+      if (error) {
+        console.error(`❌ Error actualizando ${field}:`, error);
+        toast.error('Error al actualizar configuración');
+        return;
+      }
+
+      // Recargar config
+      await loadAiConfig(prospectoId);
+      
+      const actionText = overrideValue === null 
+        ? 'restaurado a default de etapa' 
+        : (overrideValue ? 'activado' : 'desactivado');
+      toast.success(`Configuración ${actionText}`);
+    } catch (error) {
+      console.error('❌ Error en updateAiConfigOverride:', error);
+      toast.error('Error al actualizar configuración');
+    } finally {
+      setUpdatingAiConfig(false);
+    }
+  };
+
+  /**
+   * Handlers para cada toggle
+   */
+  const handleToggleAiResponde = () => {
+    if (!selectedConversation?.prospecto_id || updatingAiConfig || !aiConfig) return;
+    updateAiConfigOverride(
+      selectedConversation.prospecto_id, 
+      'override_ai_responde', 
+      aiConfig.ai_responde
+    );
+  };
+
+  const handleToggleMensajesReactivacion = () => {
+    if (!selectedConversation?.prospecto_id || updatingAiConfig || !aiConfig) return;
+    updateAiConfigOverride(
+      selectedConversation.prospecto_id, 
+      'override_mensajes_reactivacion', 
+      aiConfig.mensajes_reactivacion
+    );
+  };
+
+  const handleTogglePermiteLlamadasAuto = () => {
+    if (!selectedConversation?.prospecto_id || updatingAiConfig || !aiConfig) return;
+    updateAiConfigOverride(
+      selectedConversation.prospecto_id, 
+      'override_permite_llamadas_auto', 
+      aiConfig.permite_llamadas_auto
+    );
+  };
+
+  const handleTogglePlantillasReactivacion = () => {
+    if (!selectedConversation?.prospecto_id || updatingAiConfig || !aiConfig) return;
+    updateAiConfigOverride(
+      selectedConversation.prospecto_id, 
+      'override_plantillas_reactivacion', 
+      aiConfig.plantillas_reactivacion
+    );
+  };
+
   const loadMessagesAndBlocks = async (conversationId: string, prospectoId: string | undefined) => {
     try {
       // El conversationId de la UI es el prospecto_id. Usamos este para la consulta.
@@ -7530,100 +7731,108 @@ const LiveChatCanvas: React.FC = () => {
             >
               <div className="px-4 pb-4 pt-2 border-t border-slate-200/50 dark:border-gray-700/50">
                 <div className="grid grid-cols-2 gap-3">
-                  {/* Toggle IA */}
-                  <div 
-                    className="group relative"
-                    title="Controla la interacción de la inteligencia artificial en este chat"
-                  >
-                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer transition-all duration-200">
+                  {/* Toggle IA Responde Chat */}
+                  <div className="group relative">
+                    <label 
+                      onClick={handleToggleAiResponde}
+                      className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
+                        updatingAiConfig || !aiConfig 
+                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-slate-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer'
+                      }`}
+                    >
                       <div className="flex items-center space-x-2.5">
-                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
-                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out transform translate-x-5"></div>
+                        <div className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                          aiConfig?.ai_responde ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out ${
+                            aiConfig?.ai_responde ? 'transform translate-x-5' : ''
+                          }`}></div>
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA</span>
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Responde chat</span>
                         </div>
                       </div>
-                      <input type="checkbox" className="sr-only" defaultChecked disabled />
                     </label>
-                    {/* Tooltip hover */}
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
-                      Activa o desactiva la interacción automática de la IA
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
-                    </div>
                   </div>
 
-                  {/* Toggle Programación */}
-                  <div 
-                    className="group relative"
-                    title="Permite que la IA programe llamadas automáticamente según el interés del prospecto"
-                  >
-                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer transition-all duration-200">
+                  {/* Toggle IA Programa llamada */}
+                  <div className="group relative">
+                    <label 
+                      onClick={handleTogglePermiteLlamadasAuto}
+                      className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
+                        updatingAiConfig || !aiConfig 
+                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-slate-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer'
+                      }`}
+                    >
                       <div className="flex items-center space-x-2.5">
-                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
-                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        <div className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                          aiConfig?.permite_llamadas_auto ? 'bg-purple-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out ${
+                            aiConfig?.permite_llamadas_auto ? 'transform translate-x-5' : ''
+                          }`}></div>
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Programación</span>
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Programa llamada</span>
                         </div>
                       </div>
-                      <input type="checkbox" className="sr-only" disabled />
                     </label>
-                    {/* Tooltip hover */}
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
-                      La IA puede programar llamadas según el nivel de interés detectado
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
-                    </div>
                   </div>
 
-                  {/* Toggle Reactivación */}
-                  <div 
-                    className="group relative"
-                    title="Permite que la IA retome conversaciones inactivas dentro de la ventana de 24 horas"
-                  >
-                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer transition-all duration-200">
+                  {/* Toggle IA Reactiva chat */}
+                  <div className="group relative">
+                    <label 
+                      onClick={handleToggleMensajesReactivacion}
+                      className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
+                        updatingAiConfig || !aiConfig 
+                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-slate-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer'
+                      }`}
+                    >
                       <div className="flex items-center space-x-2.5">
-                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
-                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        <div className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                          aiConfig?.mensajes_reactivacion ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out ${
+                            aiConfig?.mensajes_reactivacion ? 'transform translate-x-5' : ''
+                          }`}></div>
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Reactivación</span>
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Reactiva chat <span className="text-xs opacity-70">(en desarrollo)</span></span>
                         </div>
                       </div>
-                      <input type="checkbox" className="sr-only" disabled />
                     </label>
-                    {/* Tooltip hover */}
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
-                      La IA puede retomar conversaciones después de inactividad (ventana 24h)
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
-                    </div>
                   </div>
 
-                  {/* Toggle Secuencias */}
-                  <div 
-                    className="group relative"
-                    title="Permite que la IA reactivate al prospecto a lo largo del tiempo con plantillas o actividades"
-                  >
-                    <label className="flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-slate-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer transition-all duration-200">
+                  {/* Toggle IA Manda plantillas */}
+                  <div className="group relative">
+                    <label 
+                      onClick={handleTogglePlantillasReactivacion}
+                      className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
+                        updatingAiConfig || !aiConfig 
+                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-slate-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer'
+                      }`}
+                    >
                       <div className="flex items-center space-x-2.5">
-                        <div className="relative w-11 h-6 bg-gray-300 dark:bg-gray-600 rounded-full transition-all duration-300 ease-in-out">
-                          <div className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out"></div>
+                        <div className={`relative w-11 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                          aiConfig?.plantillas_reactivacion ? 'bg-amber-500' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <div className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform duration-300 ease-in-out ${
+                            aiConfig?.plantillas_reactivacion ? 'transform translate-x-5' : ''
+                          }`}></div>
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">Secuencias</span>
+                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Manda plantillas <span className="text-xs opacity-70">(en desarrollo)</span></span>
                         </div>
                       </div>
-                      <input type="checkbox" className="sr-only" disabled />
                     </label>
-                    {/* Tooltip hover */}
-                    <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-3 py-1.5 bg-slate-900 dark:bg-gray-950 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 whitespace-nowrap z-10 shadow-xl">
-                      La IA puede reactivar al prospecto de forma inteligente con plantillas y actividades
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900 dark:border-t-gray-950"></div>
-                    </div>
                   </div>
                 </div>
               </div>
