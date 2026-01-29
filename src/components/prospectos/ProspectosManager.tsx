@@ -1684,12 +1684,14 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
       // Para ejecutivos: verificación adicional usando canUserAccessProspect (verifica prospect_assignments)
       // ⚠️ MODO NINJA: Usar queryUserId para verificar permisos como el usuario suplantado
+      let prospectosFiltrados: Prospecto[] = enrichedProspectos; // Por defecto, usar todos los prospectos
+      
       if (queryUserId && ejecutivosIdsParaFiltro && ejecutivosIdsParaFiltro.length > 0) {
         // Filtrar prospectos usando el servicio de permisos (verifica prospect_assignments)
         // Los datos de backup ya están pre-cargados arriba
         // Procesar en batches pequeños para evitar saturar el navegador
         const BATCH_SIZE = 50; // Procesar 50 prospectos a la vez
-        const prospectosFiltrados: Prospecto[] = [];
+        const filtradosTemp: Prospecto[] = [];
         
         for (let i = 0; i < enrichedProspectos.length; i += BATCH_SIZE) {
           const batch = enrichedProspectos.slice(i, i + BATCH_SIZE);
@@ -1708,16 +1710,16 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           
           // Filtrar nulls y agregar al resultado
           const validResults = batchResults.filter((p: Prospecto | null) => p !== null) as Prospecto[];
-          prospectosFiltrados.push(...validResults);
+          filtradosTemp.push(...validResults);
         }
         
-        // No podemos reasignar enrichedProspectos (es const), así que usamos el array filtrado directamente
-        // enrichedProspectos = prospectosFiltrados;
+        // Asignar el resultado filtrado
+        prospectosFiltrados = filtradosTemp;
       }
 
       // Agregar nuevos prospectos a los existentes (o reemplazar si es reset)
       if (reset) {
-        // Usar el array filtrado directamente ya que enrichedProspectos es const
+        // Usar el array filtrado (que puede ser igual a enrichedProspectos si no hubo filtrado)
         setAllProspectos(prospectosFiltrados);
         setProspectos(prospectosFiltrados);
         setCurrentPage(1); // Siguiente página será 1
