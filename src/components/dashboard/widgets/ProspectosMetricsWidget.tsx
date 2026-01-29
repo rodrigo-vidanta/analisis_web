@@ -650,7 +650,7 @@ export const ProspectosMetricsWidget: React.FC<ProspectosMetricsWidgetProps> = (
             <RefreshCw className="w-5 h-5 animate-spin text-blue-500" />
           </div>
         ) : metrics && metrics.byPeriod.length > 0 ? (
-          <ResponsiveContainer width="100%" height={150}>
+          <ResponsiveContainer width="100%" height={150} minHeight={150}>
             <AreaChart data={metrics.byPeriod} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
               <defs>
                 <linearGradient id="colorProspectosCollapsed" x1="0" y1="0" x2="0" y2="1">
@@ -796,7 +796,7 @@ export const ProspectosMetricsWidget: React.FC<ProspectosMetricsWidgetProps> = (
                   <RefreshCw className="w-8 h-8 animate-spin text-blue-500" />
                 </div>
               ) : metrics && metrics.byPeriod.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                   <AreaChart data={metrics.byPeriod} margin={{ top: 10, right: 50, left: 0, bottom: 10 }}>
                     <defs>
                       <linearGradient id="colorProspectosExp" x1="0" y1="0" x2="0" y2="1">
@@ -1040,7 +1040,7 @@ export const ProspectosMetricsWidget: React.FC<ProspectosMetricsWidgetProps> = (
             </h4>
             <div className="h-[220px]">
               {metrics && metrics.byDestino.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                   <BarChart 
                     data={metrics.byDestino} 
                     layout="vertical" 

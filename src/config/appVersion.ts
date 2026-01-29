@@ -5,7 +5,7 @@
  * Cambios: Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos
  */
 
-export const APP_VERSION = 'B10.1.43N2.5.62';
+export const APP_VERSION = 'B10.1.43N2.5.63';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

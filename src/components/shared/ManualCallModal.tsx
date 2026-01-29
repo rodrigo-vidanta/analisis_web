@@ -17,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { horariosService, type HorarioBase } from '../../services/horariosService';
 import { getApiToken } from '../../services/apiTokensService';
+import { getAuthTokenOrThrow } from '../../utils/authToken';
 
 interface ScheduledCall {
   id: string;
@@ -417,9 +418,18 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       // Usar Edge Function en lugar de webhook directo
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
       
-      // Obtener JWT del usuario autenticado
-      const { data: { session } } = await analysisSupabase.auth.getSession();
-      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      console.log('🔍 [ManualCallModal] Configuración:', {
+        edgeFunctionUrl,
+        baseUrl: import.meta.env.VITE_EDGE_FUNCTIONS_URL,
+        action,
+        prospectoId,
+        scheduleType
+      });
+      
+      // Obtener JWT del usuario autenticado (desde supabaseSystemUI donde está la sesión)
+      const authToken = await getAuthTokenOrThrow();
+      
+      console.log('🔑 [ManualCallModal] Auth token:', authToken ? 'JWT válido obtenido' : 'ERROR: Sin token');
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
@@ -433,11 +443,17 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Error desconocido');
+        console.error('❌ [ManualCallModal] Error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText
+        });
         throw new Error(`Error ${response.status}: ${errorText}`);
       }
 
       // Éxito
-      await response.json().catch(() => ({}));
+      const result = await response.json().catch(() => ({}));
+      console.log('✅ [ManualCallModal] Éxito:', result);
 
       toast.success(
         action === 'UPDATE'
@@ -461,11 +477,26 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       }
     } catch (error) {
       console.error('❌ Error programando llamada:', error);
-      toast.error(
-        error instanceof Error 
-          ? `Error: ${error.message}` 
-          : 'Error al programar la llamada. Intenta nuevamente.'
-      );
+      
+      // Mostrar información detallada del error
+      let errorMessage = 'Error al programar la llamada';
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        
+        // Errores específicos
+        if (errorMessage.includes('404')) {
+          errorMessage = 'Edge Function no encontrada. Verifica que trigger-manual-proxy esté desplegada.';
+        } else if (errorMessage.includes('401') || errorMessage.includes('403')) {
+          errorMessage = 'Error de autenticación. Por favor recarga la página.';
+        } else if (errorMessage.includes('500')) {
+          errorMessage = 'Error en el servidor. Verifica los logs de N8N.';
+        } else if (errorMessage.includes('Failed to fetch')) {
+          errorMessage = 'Error de red. Verifica tu conexión a internet.';
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }

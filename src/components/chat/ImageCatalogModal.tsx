@@ -9,6 +9,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { ParaphraseModal } from './ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
 import { getSignedGcsUrl } from '../../services/gcsUrlService';
+import { getAuthTokenOrThrow } from '../../utils/authToken';
 
 interface ContentItem {
   id: string;
@@ -402,9 +403,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       // Usar Supabase Edge Function como proxy para evitar CORS
       const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
       
-      // Obtener JWT del usuario autenticado (igual que otras Edge Functions)
-      const { data: { session } } = await analysisSupabase.auth.getSession();
-      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      // Obtener JWT del usuario autenticado
+      const authToken = await getAuthTokenOrThrow();
       
       const response = await fetch(proxyUrl, {
         method: 'POST',

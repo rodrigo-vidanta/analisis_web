@@ -440,7 +440,7 @@ export const EjecutivosMetricsWidget: React.FC<EjecutivosMetricsWidgetProps> = (
                 <h4 className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-3">Comparativa</h4>
                 <div className="h-[350px]">
                   {datos.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={350}>
                       <BarChart 
                         data={datos.slice(0, 10)} 
                         layout="vertical" 
@@ -595,7 +595,7 @@ export const EjecutivosMetricsWidget: React.FC<EjecutivosMetricsWidgetProps> = (
               Resumen de Actividad
             </h4>
             <div className="h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={200}>
                 <BarChart 
                   data={[
                     { metric: 'Mensajes', value: ejecutivo.mensajes_enviados, fill: '#3B82F6' },

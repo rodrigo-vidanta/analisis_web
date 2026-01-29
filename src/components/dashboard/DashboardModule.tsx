@@ -1247,7 +1247,7 @@ const CallStatusContent: React.FC<{
 
   return (
     <div className="h-full flex flex-col">
-        <ResponsiveContainer width="100%" height={isExpandedView ? 525 : 270}>
+        <ResponsiveContainer width="100%" height={isExpandedView ? 525 : 270} minHeight={270}>
           {showComparative ? (
             // Vista comparativa: barras agrupadas por coordinación
             <BarChart data={comparativeChartData} layout="vertical" margin={{ top: 10, right: 40, left: 10, bottom: 10 }} barCategoryGap="25%">
@@ -1506,7 +1506,7 @@ const CommunicationWidget: React.FC<CommunicationWidgetProps> = ({
                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: card.color }} />
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">{card.label}</h4>
                   </div>
-                  <ResponsiveContainer width="100%" height={150}>
+                  <ResponsiveContainer width="100%" height={150} minHeight={150}>
                     <AreaChart data={metrics.monthlyData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                       <defs>
                         <linearGradient id={`gradient-${card.key}`} x1="0" y1="0" x2="0" y2="1">
@@ -1828,11 +1828,9 @@ const FunnelContent: React.FC<{
     
     // Vista comparativa: Stacked por coordinación
     return funnelData.map((coord) => {
-      const stageNames = FUNNEL_CONVERSION_STAGES.map(s => s.name);
-      const values = FUNNEL_CONVERSION_STAGES.map(s => {
-        const found = coord.stages.find(cs => cs.stage === s.name);
-        return found?.count || 0;
-      });
+      // Usar las etapas dinámicas desde coord.stages
+      const stageNames = coord.stages.map(s => s.stage);
+      const values = coord.stages.map(s => s.count);
       
       return {
         type: 'funnel' as const,
@@ -1988,7 +1986,7 @@ const FunnelContent: React.FC<{
                       </span>
                     </div>
                     <div className="h-[120px]">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                         <AreaChart data={trend.data} margin={{ top: 5, right: 5, left: 0, bottom: 5 }}>
                           <defs>
                             <linearGradient id={`colorTrend${idx}`} x1="0" y1="0" x2="0" y2="1">
@@ -2622,7 +2620,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                 Evolución {getTimelineLabel()}
               </h4>
               {timelineData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={200} minHeight={200}>
                   <AreaChart data={timelineData}>
                     <defs>
                       <linearGradient id="colorCerts" x1="0" y1="0" x2="0" y2="1">
@@ -2672,7 +2670,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                 <span className="text-xs text-gray-400 font-normal ml-2">(clic para ver detalle)</span>
               </h4>
               {coordData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200}>
+                <ResponsiveContainer width="100%" height={200} minHeight={200}>
                   <BarChart data={coordData} layout="vertical">
                     <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
                     <YAxis 
@@ -3645,211 +3643,18 @@ const DashboardModule: React.FC = () => {
     }
   }, [filters, getStartDate, getSelectedCoordinacionIds]);
 
-  // Cargar pipeline de prospectos (funnel de conversión + etapas de seguimiento)
-  const loadPipelineData = useCallback(async () => {
-    try {
-      const coordIds = getSelectedCoordinacionIds();
-      const startDate = getStartDate(filters.period); // Aplicar filtro de tiempo
-      
-      // Función para clasificar etapas según el flujo de conversión
-      // Flujo: Validando → Discovery → Interesado → Atendió → Ejecutivo → Certificado
-      // Actualizado 2026-01-26: Compatibilidad con nuevas etapas
-      const classifyEtapa = (etapa: string): { category: 'conversion' | 'out_of_funnel'; name: string } => {
-        const e = (etapa || '').toLowerCase().trim();
-        
-        // Etapas de CONVERSIÓN (flujo principal - 6 etapas)
-        if (e.includes('validando')) return { category: 'conversion', name: 'Validando Membresía' };
-        // "En seguimiento" ahora es "Discovery"
-        if (e.includes('seguimiento') || e.includes('discovery')) return { category: 'conversion', name: 'Discovery' };
-        if (e.includes('interesado') || e.includes('interesada')) return { category: 'conversion', name: 'Interesado' };
-        if (e.includes('atendi')) return { category: 'conversion', name: 'Atendió Llamada' };
-        if (e.includes('ejecutiv')) return { category: 'conversion', name: 'Con Ejecutivo' };
-        if (e.includes('certificado')) return { category: 'conversion', name: 'Certificado Adquirido' };
-        
-        // Etapas FUERA DEL FUNNEL (descartados pero cuentan para el total)
-        if (e.includes('activo pqnc') || e === 'activo pqnc') return { category: 'out_of_funnel', name: 'Activo PQNC' };
-        if (e.includes('miembro')) return { category: 'out_of_funnel', name: 'Es Miembro' };
-        
-        // Por defecto, va a Validando (entrada del funnel)
-        return { category: 'conversion', name: 'Validando Membresía' };
-      };
+  // ============================================
+  // FUNCIÓN LEGACY ELIMINADA: loadPipelineData
+  // ============================================
+  // Esta función fue reemplazada por loadPipelineOptimized el 2026-01-27
+  // La nueva función usa etapas dinámicas desde BD en lugar de constantes hardcodeadas
+  // Ver: .cursor/handovers/2026-01-27-dashboard-etapas-dinamicas.md
+  // Eliminada completamente para evitar referencias a FUNNEL_CONVERSION_STAGES (no definida)
+  // ============================================
 
-      // Cargar prospectos - con filtro de coordinación y tiempo
-      // Usar paginación para evitar límite de 1000 de Supabase
-      let allProspectos: { id: string; etapa: string; coordinacion_id: string; created_at: string }[] = [];
-      const pageSize = 1000;
-      let page = 0;
-      let hasMore = true;
-
-      while (hasMore) {
-        let query = analysisSupabase
-          .from('prospectos')
-          .select('id, etapa, coordinacion_id, created_at')
-          .gte('created_at', startDate.toISOString()) // Filtro de tiempo
-          .range(page * pageSize, (page + 1) * pageSize - 1);
-        
-        if (coordIds && coordIds.length > 0) {
-          query = query.in('coordinacion_id', coordIds);
-        }
-
-        const { data: pageData, error: pageError } = await query;
-        if (pageError) throw pageError;
-
-        if (pageData && pageData.length > 0) {
-          allProspectos = [...allProspectos, ...pageData];
-          page++;
-          hasMore = pageData.length === pageSize; // Si devolvió menos de pageSize, no hay más
-        } else {
-          hasMore = false;
-        }
-      }
-
-      const filteredProspectos = allProspectos;
-
-      // Procesar conteos por etapa - SEPARANDO conversión y fuera del funnel
-      const conversionCounts: Record<string, number> = {};
-      const outOfFunnelCounts: Record<string, number> = {};
-      
-      FUNNEL_CONVERSION_STAGES.forEach(s => { conversionCounts[s.name] = 0; });
-      OUT_OF_FUNNEL_STAGES.forEach(s => { outOfFunnelCounts[s.name] = 0; });
-
-      filteredProspectos.forEach(p => {
-        const { category, name } = classifyEtapa(p.etapa);
-        if (category === 'conversion' && conversionCounts[name] !== undefined) {
-          conversionCounts[name]++;
-        } else if (category === 'out_of_funnel' && outOfFunnelCounts[name] !== undefined) {
-          outOfFunnelCounts[name]++;
-        }
-      });
-
-      // ⭐ TOTAL = TODOS los prospectos (conversión + fuera del funnel)
-      // Esto incluye Activo PQNC, Es Miembro, En Seguimiento
-      const conversionTotal = Object.values(conversionCounts).reduce((sum, c) => sum + c, 0);
-      const outOfFunnelTotal = Object.values(outOfFunnelCounts).reduce((sum, c) => sum + c, 0);
-      const grandTotal = conversionTotal + outOfFunnelTotal;
-      
-      // Guardar el total real de prospectos
-      setTotalProspectsReal(grandTotal);
-
-      // Crear etapas de conversión para el funnel
-      // IMPORTANTE: Cada etapa muestra el ACUMULADO (esa etapa + todas las siguientes)
-      // Esto representa cuántos "llegaron" a cada punto del funnel
-      
-      // Primero calculamos los acumulados de atrás hacia adelante
-      const stageNames = FUNNEL_CONVERSION_STAGES.map(s => s.name);
-      const rawCounts = stageNames.map(name => conversionCounts[name] || 0);
-      
-      // Calcular acumulados: cada etapa = su count + suma de todas las siguientes
-      const cumulativeCounts: number[] = [];
-      let cumSum = 0;
-      for (let i = rawCounts.length - 1; i >= 0; i--) {
-        cumSum += rawCounts[i];
-        cumulativeCounts[i] = cumSum;
-      }
-      
-      const conversionStages: PipelineStage[] = FUNNEL_CONVERSION_STAGES.map((stage, idx) => {
-        const count = cumulativeCounts[idx]; // Valor acumulado
-        const prevCount = idx > 0 ? cumulativeCounts[idx - 1] : count;
-        const conversionFromPrevious = prevCount > 0 && idx > 0 ? (count / prevCount) * 100 : undefined;
-
-        return {
-          name: stage.name,
-          shortName: stage.shortName,
-          count,
-          percentage: grandTotal > 0 ? (count / grandTotal) * 100 : 0, // % del total global
-          fill: '#3B82F6',
-          conversionFromPrevious
-        };
-      });
-
-      // Crear etapas fuera del funnel (para mostrar aparte)
-      const outOfFunnelStages: PipelineStage[] = OUT_OF_FUNNEL_STAGES.map(stage => ({
-        name: stage.name,
-        shortName: stage.shortName,
-        count: outOfFunnelCounts[stage.name],
-        percentage: grandTotal > 0 ? (outOfFunnelCounts[stage.name] / grandTotal) * 100 : 0, // % del total global
-        fill: '#6B7280'
-      }));
-
-      setPipelineStages(conversionStages);
-      setTrackingStagesData(outOfFunnelStages);
-
-      // Calcular asignación total por coordinación (para la vista expandida)
-      // Excluir: CALIDAD, BOOM, Sin Coordinación
-      const EXCLUDED_COORDS = ['CALIDAD', 'BOOM', 'N/A'];
-      
-      const coordAssignmentMap: Record<string, number> = {};
-      filteredProspectos.forEach(p => {
-        if (p.coordinacion_id) { // Solo prospectos con coordinación asignada
-          coordAssignmentMap[p.coordinacion_id] = (coordAssignmentMap[p.coordinacion_id] || 0) + 1;
-        }
-      });
-
-      const assignments: CoordAssignment[] = Object.entries(coordAssignmentMap)
-        .map(([coordId, count]) => {
-          const coord = coordinaciones.find(c => c.id === coordId);
-          return {
-            coordName: coord?.nombre || 'Desconocida',
-            coordCode: coord?.codigo || 'N/A',
-            count,
-            color: getCoordColorGlobal(coord?.codigo)
-          };
-        })
-        .filter(a => !EXCLUDED_COORDS.includes(a.coordCode.toUpperCase())) // Filtrar excluidas
-        .sort((a, b) => b.count - a.count); // Ordenar por cantidad descendente
-
-      setAssignmentByCoord(assignments);
-
-      // Si no es vista global, preparar datos por coordinación para el funnel
-      if (!isGlobalView && coordIds && coordIds.length > 0) {
-        const coordDataMap: Record<string, FunnelCoordData> = {};
-        
-        for (const coordId of coordIds) {
-          const coord = coordinaciones.find(c => c.id === coordId);
-          if (!coord) continue;
-
-          // Filtrar prospectos de esta coordinación
-          const prospectosCoord = filteredProspectos.filter(p => p.coordinacion_id === coordId);
-
-          // Solo etapas de conversión para el funnel comparativo
-          // Calcular counts raw por etapa
-          const rawCoordCounts = FUNNEL_CONVERSION_STAGES.map(s => {
-            return prospectosCoord.filter(p => {
-              const { category, name } = classifyEtapa(p.etapa);
-              return category === 'conversion' && name === s.name;
-            }).length;
-          });
-          
-          // Calcular acumulados (cada etapa = su count + siguientes)
-          const cumulativeCoordCounts: number[] = [];
-          let coordCumSum = 0;
-          for (let i = rawCoordCounts.length - 1; i >= 0; i--) {
-            coordCumSum += rawCoordCounts[i];
-            cumulativeCoordCounts[i] = coordCumSum;
-          }
-          
-          const coordStages = FUNNEL_CONVERSION_STAGES.map((s, idx) => ({
-            stage: s.name,
-            count: cumulativeCoordCounts[idx]
-          }));
-
-          coordDataMap[coordId] = {
-            coordinacionId: coordId,
-            coordinacionNombre: coord.nombre || coord.codigo || 'N/A',
-            color: getCoordColorGlobal(coord.codigo),
-            stages: coordStages
-          };
-        }
-
-        setFunnelCoordData(Object.values(coordDataMap));
-      } else {
-        setFunnelCoordData([]);
-      }
-
-    } catch (error) {
-      console.error('Error loading pipeline:', error);
-    }
-  }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate]);
+  // LEGACY: const loadPipelineData = useCallback(async () => {
+  // }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate]);
+  // ============================================
 
   // Cargar ventas CRM - CORREGIDO: Usando tabla crm_data con transactions
   const loadCRMData = useCallback(async () => {

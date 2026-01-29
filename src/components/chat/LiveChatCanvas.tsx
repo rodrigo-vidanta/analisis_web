@@ -82,10 +82,11 @@ import { getDisplayName } from '../../utils/conversationNameHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
-import { coordinacionService } from '../../services/coordinacionService';
+import { getAuthTokenOrThrow } from '../../utils/authToken';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { useAppStore } from '../../stores/appStore';
 import { etapasService } from '../../services/etapasService';
+import { coordinacionService } from '../../services/coordinacionService';
 import { ManualCallModal } from '../shared/ManualCallModal';
 import BotPauseButton from './BotPauseButton';
 import { Avatar } from '../shared/Avatar';
@@ -5571,8 +5572,7 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
-        const { data: { session } } = await analysisSupabase.auth.getSession();
-        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        const authToken = await getAuthTokenOrThrow();
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5687,8 +5687,7 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
-        const { data: { session } } = await analysisSupabase.auth.getSession();
-        const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+        const authToken = await getAuthTokenOrThrow();
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5936,9 +5935,8 @@ const LiveChatCanvas: React.FC = () => {
         payload.id_sender = idSender;
       }
       
-      // Obtener JWT del usuario autenticado (igual que pause-bot y otras Edge Functions)
-      const { data: { session } } = await analysisSupabase.auth.getSession();
-      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      // Obtener JWT del usuario autenticado
+      const authToken = await getAuthTokenOrThrow();
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
