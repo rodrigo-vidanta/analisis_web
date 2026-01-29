@@ -152,6 +152,17 @@ const LinearLiveMonitor: React.FC = () => {
       });
 
       if (response.ok) {
+        // Leer respuesta de forma segura (puede estar vacía)
+        const contentType = response.headers.get('content-type');
+        try {
+          const text = await response.text();
+          if (text && text.trim() && contentType?.includes('application/json')) {
+            JSON.parse(text);
+          }
+        } catch (parseError) {
+          console.warn('⚠️ Respuesta no es JSON, pero la transferencia fue exitosa:', parseError);
+        }
+        
         setShowTransferModal(false);
         setFeedbackType('transferida');
         setShowFeedbackModal(true);
@@ -187,6 +198,17 @@ const LinearLiveMonitor: React.FC = () => {
       });
 
       if (response.ok) {
+        // Leer respuesta de forma segura (puede estar vacía)
+        const contentType = response.headers.get('content-type');
+        try {
+          const text = await response.text();
+          if (text && text.trim() && contentType?.includes('application/json')) {
+            JSON.parse(text);
+          }
+        } catch (parseError) {
+          console.warn('⚠️ Respuesta no es JSON, pero colgar fue exitoso:', parseError);
+        }
+        
         setFeedbackType('colgada');
         setShowFeedbackModal(true);
         await liveMonitorService.updateCallStatus(selectedCall.call_id, 'colgada');

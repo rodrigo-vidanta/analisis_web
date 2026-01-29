@@ -87,14 +87,23 @@ serve(async (req) => {
         // Intentar parsear como JSON solo si hay contenido
         try {
           responseData = JSON.parse(text)
-        } catch {
+          // Asegurar que tiene el campo success
+          if (typeof responseData.success === 'undefined') {
+            responseData.success = true
+          }
+        } catch (jsonError) {
           // No es JSON válido, usar el texto como mensaje
-          responseData = { success: true, message: text.substring(0, 200) }
+          responseData = { 
+            success: true, 
+            action: payload.action || 'executed',
+            message: text.substring(0, 200) 
+          }
         }
       }
       // Si text está vacío, usamos el responseData por defecto (success: true)
-    } catch {
+    } catch (readError) {
       // Error leyendo respuesta, pero N8N respondió OK así que lo consideramos exitoso
+      console.warn(`⚠️ [tools-proxy] No se pudo leer respuesta de N8N (pero OK):`, readError)
     }
     
     console.log(`✅ [tools-proxy] Acción ejecutada exitosamente`)

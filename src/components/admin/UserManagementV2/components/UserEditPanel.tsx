@@ -537,6 +537,32 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     setError(null);
     
     try {
+      // ========================================
+      // FIX 2026-01-29: VALIDACIONES PREVENTIVAS
+      // ========================================
+      
+      // Validar que coordinadores tengan al menos una coordinación
+      if (selectedRole?.name === 'coordinador') {
+        if (!formData.coordinaciones_ids || formData.coordinaciones_ids.length === 0) {
+          setError('Los coordinadores deben tener al menos una coordinación asignada');
+          setIsSaving(false);
+          return;
+        }
+      }
+      
+      // Validar que ejecutivos/supervisores tengan exactamente una coordinación
+      if (selectedRole?.name === 'ejecutivo' || selectedRole?.name === 'supervisor') {
+        if (!formData.coordinacion_id) {
+          setError(`Los ${selectedRole.name === 'supervisor' ? 'supervisores' : 'ejecutivos'} deben tener una coordinación asignada`);
+          setIsSaving(false);
+          return;
+        }
+      }
+      
+      // ========================================
+      // LÓGICA EXISTENTE (sin cambios)
+      // ========================================
+      
       // REGLA DE NEGOCIO: Si no tiene id_dynamics, no puede ser operativo
       const hasIdDynamics = !!formData.id_dynamics?.trim();
       const finalIsOperativo = hasIdDynamics ? formData.is_operativo : false;
@@ -1163,7 +1189,31 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
               <label className="flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-400">
                 <Building2 className="w-4 h-4 text-gray-400" />
                 <span>Coordinaciones *</span>
+                {/* FIX 2026-01-29: Indicador visual de validación */}
+                {formData.coordinaciones_ids.length === 0 && (
+                  <span className="ml-auto px-2 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3" />
+                    Requerido
+                  </span>
+                )}
               </label>
+              
+              {/* FIX 2026-01-29: Mensaje de advertencia si no hay coordinaciones seleccionadas */}
+              {formData.coordinaciones_ids.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-center gap-2 p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg"
+                >
+                  <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    Selecciona al menos una coordinación para este coordinador
+                  </p>
+                </motion.div>
+              )}
+              
               <div className="space-y-2 max-h-48 overflow-y-auto scrollbar-none">
                 {activeCoordinaciones.map(coord => {
                   const isChecked = formData.coordinaciones_ids.includes(coord.id);

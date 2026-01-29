@@ -915,6 +915,19 @@ export function useUserManagement(): UseUserManagementReturn {
         // FIX 2026-01-22: Asegurar que coordinaciones_ids siempre sea un array
         const coordinacionesIds = updates.coordinaciones_ids || [];
         
+        // ========================================
+        // FIX 2026-01-29: VALIDACIÓN PREVENTIVA
+        // ========================================
+        if (coordinacionesIds.length === 0) {
+          console.error('❌ [COORDINACION] Intento de guardar coordinador sin coordinaciones', {
+            userId,
+            role: newRole.name,
+            coordinacionesIds
+          });
+          toast.error('Los coordinadores deben tener al menos una coordinación asignada');
+          return false;
+        }
+        
         if (coordinacionesIds.length > 0) {
           const relaciones = coordinacionesIds.map(coordId => ({
             user_id: userId,
@@ -939,8 +952,6 @@ export function useUserManagement(): UseUserManagementReturn {
           
           // ✅ MIGRACIÓN COMPLETADA (2025-12-29): Ya no se necesita escritura dual
           // permissionsService ahora usa auth_user_coordinaciones
-        } else {
-          console.log('⚠️ [COORDINACION] Coordinador sin coordinaciones asignadas (se limpiaron todas)');
         }
 
         // Actualizar flags del usuario
@@ -955,6 +966,19 @@ export function useUserManagement(): UseUserManagementReturn {
           userId,
           coordinacion_id: updates.coordinacion_id
         });
+        
+        // ========================================
+        // FIX 2026-01-29: VALIDACIÓN PREVENTIVA
+        // ========================================
+        if (!updates.coordinacion_id) {
+          console.error(`❌ [COORDINACION] Intento de guardar ${newRole.name} sin coordinación`, {
+            userId,
+            role: newRole.name,
+            coordinacion_id: updates.coordinacion_id
+          });
+          toast.error(`Los ${newRole.name === 'supervisor' ? 'supervisores' : 'ejecutivos'} deben tener una coordinación asignada`);
+          return false;
+        }
         
         // ⚠️ DOWNGRADE: Limpiar TODAS las relaciones de coordinador si las tenía
         await cleanAllCoordinadorRelations(userId);
@@ -977,11 +1001,10 @@ export function useUserManagement(): UseUserManagementReturn {
 
           if (relacionError) {
             console.error('❌ [COORDINACION] Error asignando coordinación:', relacionError);
+            throw new Error(`Error al asignar coordinación: ${relacionError.message}`);
           } else {
             console.log('✅ [COORDINACION] Coordinación insertada exitosamente');
           }
-        } else {
-          console.warn('⚠️ [COORDINACION] No hay coordinacion_id para insertar');
         }
 
         updates.is_coordinator = false;

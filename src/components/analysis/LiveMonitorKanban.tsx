@@ -2906,6 +2906,17 @@ const LiveMonitorKanban: React.FC = () => {
       });
 
       if (response.ok) {
+        // Leer respuesta de forma segura (puede estar vacía)
+        const contentType = response.headers.get('content-type');
+        try {
+          const text = await response.text();
+          if (text && text.trim() && contentType?.includes('application/json')) {
+            JSON.parse(text);
+          }
+        } catch (parseError) {
+          console.warn('⚠️ Respuesta no es JSON, pero colgar fue exitoso:', parseError);
+        }
+        
         // Abrir modal de feedback para colgar
         setGlobalFeedbackType('colgada' as any);
         setShowGlobalFeedbackModal(true);

@@ -15,8 +15,8 @@
  * Webhook: https://primary-dev-d75a.up.railway.app/webhook/trigger-manual
  * Header Auth: Auth (estándar N8N para este webhook específico)
  * 
- * Fecha: 20 Enero 2026
- * Fix: Corregido para llamar webhook N8N en lugar de BD directa
+ * Fecha: 29 Enero 2026
+ * Fix: Revertido a campos originales (motivo/action) - estos SÍ funcionan
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -113,12 +113,12 @@ serve(async (req) => {
     // Construir payload para N8N
     // El webhook espera recibir toda la información para procesarla
     const n8nPayload: Record<string, unknown> = {
-      // Campos originales (compatibilidad con el webhook original)
+      // Campos principales (nombres esperados por N8N)
       prospecto_id,
       motivo: justificacion || 'Llamada programada desde UI',
-      
-      // Campos extendidos para la lógica de N8N
       action: action || 'INSERT',
+      
+      // Campos adicionales
       user_id: user_id || user.id,
       user_email: user.email,
       programada_por_nombre: programadaPorNombre,

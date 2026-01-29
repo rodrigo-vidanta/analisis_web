@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-29', author: 'Team', message: 'v2.5.67: B10.1.43N2.5.67 - Hotfix: Validaciones preventivas coordinaciones + Fix coo...', isRelease: true },
   { hash: '3523827', date: '2026-01-29', author: 'Team', message: 'v2.5.66: B10.1.43N2.5.66 - Toggles de configuración AI en WhatsApp - Permite control...', isRelease: true },
   { hash: 'ac0e80b', date: '2026-01-29', author: 'Team', message: 'v2.5.65: B10.1.43N2.5.65 - FIX: Agregar rol supervisor a permisos de importación', isRelease: true },
   { hash: '453d5c5', date: '2026-01-29', author: 'Team', message: 'v2.5.64: B10.1.43N2.5.64 - Hotfix: 401 auth bot pause + Detección duplicados WhatsAp...', isRelease: true },
@@ -498,6 +499,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-354', date: '29/01/2026, 17:29', version: 'B10.1.43N2.5.67', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-405', date: '29/01/2026, 15:48', version: 'B10.1.43N2.5.66', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-392', date: '29/01/2026, 12:50', version: 'B10.1.43N2.5.65', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-651', date: '29/01/2026, 11:51', version: 'B10.1.43N2.5.64', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -646,8 +648,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.66', highlight: true },
-  { label: 'Release', value: 'B10.1.43N2.5.66', highlight: false },
+  { label: 'Version', value: 'v2.5.67', highlight: true },
+  { label: 'Release', value: 'B10.1.43N2.5.67', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '29 ene 2026', highlight: false },
 ];
