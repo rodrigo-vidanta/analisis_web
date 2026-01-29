@@ -8,6 +8,22 @@ const originalLog = console.log;
 console.log = (...args: any[]) => {
   const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
   
+  // Silenciar logs de Vite dev server
+  if (fullMessage.includes('[vite]') ||
+      fullMessage.includes('connecting...') ||
+      fullMessage.includes('connected.') ||
+      fullMessage.includes('Navigated to')) {
+    return;
+  }
+  
+  // Silenciar logs de Realtime
+  if (fullMessage.includes('[Realtime]') ||
+      fullMessage.includes('Suscribiendo a notificaciones') ||
+      fullMessage.includes('Estado de suscripción:') ||
+      fullMessage.includes('user_notifications_')) {
+    return;
+  }
+  
   // Silenciar logs de fetch del navegador
   if (fullMessage.includes('Fetch finished loading') || 
       fullMessage.includes('Fetch failed loading') ||
@@ -19,6 +35,8 @@ console.log = (...args: any[]) => {
   if (fullMessage.includes('[ConversacionesWidget]') ||
       fullMessage.includes('[AdminDashboardTabs]') ||
       fullMessage.includes('[CallDetailModalSidebar]') ||
+      fullMessage.includes('[DailyView]') ||
+      fullMessage.includes('[DynamicsLead]') ||
       fullMessage.includes('EVENTO RECIBIDO') ||
       fullMessage.includes('Cambio en keys') ||
       fullMessage.includes('Estado actualizado') ||
@@ -37,13 +55,22 @@ console.log = (...args: any[]) => {
       fullMessage.includes('Estados actualizados - selectedCallId') ||
       fullMessage.includes('Abriendo CallDetailModalSidebar') ||
       fullMessage.includes('Cerrando CallDetailModalSidebar') ||
-      fullMessage.includes('Cambiando llamada a:')) {
-    return;
-  }
-  
-  // Silenciar mensaje de React DevTools
-  if (fullMessage.includes('Download the React DevTools') ||
-      fullMessage.includes('react.dev/link/react-devtools')) {
+      fullMessage.includes('Cambiando llamada a:') ||
+      fullMessage.includes('puede ver llamadas programadas') ||
+      fullMessage.includes('puede ver conversaciones') ||
+      fullMessage.includes('ejecutivos como backup') ||
+      fullMessage.includes('Carga inicial') ||
+      fullMessage.includes('Columna') ||
+      fullMessage.includes('cargada:') ||
+      fullMessage.includes('Fecha seleccionada:') ||
+      fullMessage.includes('Total llamadas:') ||
+      fullMessage.includes('Filtradas:') ||
+      fullMessage.includes('loadEtapaTotals') ||
+      fullMessage.includes('prospectos procesados') ||
+      fullMessage.includes('Cambiando tema a:') ||
+      fullMessage.includes('Header:') ||
+      fullMessage.includes('Buscando lead') ||
+      fullMessage.includes('Respuesta recibida')) {
     return;
   }
   
@@ -61,6 +88,22 @@ const originalInfo = console.info;
 console.info = (...args: any[]) => {
   const fullMessage = args.map(arg => arg?.toString() || '').join(' ');
   
+  // Silenciar logs de Vite dev server
+  if (fullMessage.includes('[vite]') ||
+      fullMessage.includes('connecting...') ||
+      fullMessage.includes('connected.') ||
+      fullMessage.includes('Navigated to')) {
+    return;
+  }
+  
+  // Silenciar logs de Realtime
+  if (fullMessage.includes('[Realtime]') ||
+      fullMessage.includes('Suscribiendo a notificaciones') ||
+      fullMessage.includes('Estado de suscripción:') ||
+      fullMessage.includes('user_notifications_')) {
+    return;
+  }
+  
   // Silenciar logs de fetch del navegador
   if (fullMessage.includes('Fetch finished loading') || 
       fullMessage.includes('Fetch failed loading') ||
@@ -72,6 +115,8 @@ console.info = (...args: any[]) => {
   if (fullMessage.includes('[ConversacionesWidget]') ||
       fullMessage.includes('[AdminDashboardTabs]') ||
       fullMessage.includes('[CallDetailModalSidebar]') ||
+      fullMessage.includes('[DailyView]') ||
+      fullMessage.includes('[DynamicsLead]') ||
       fullMessage.includes('EVENTO RECIBIDO') ||
       fullMessage.includes('Cambio en keys') ||
       fullMessage.includes('Estado actualizado') ||
@@ -90,7 +135,22 @@ console.info = (...args: any[]) => {
       fullMessage.includes('Estados actualizados - selectedCallId') ||
       fullMessage.includes('Abriendo CallDetailModalSidebar') ||
       fullMessage.includes('Cerrando CallDetailModalSidebar') ||
-      fullMessage.includes('Cambiando llamada a:')) {
+      fullMessage.includes('Cambiando llamada a:') ||
+      fullMessage.includes('puede ver llamadas programadas') ||
+      fullMessage.includes('puede ver conversaciones') ||
+      fullMessage.includes('ejecutivos como backup') ||
+      fullMessage.includes('Carga inicial') ||
+      fullMessage.includes('Columna') ||
+      fullMessage.includes('cargada:') ||
+      fullMessage.includes('Fecha seleccionada:') ||
+      fullMessage.includes('Total llamadas:') ||
+      fullMessage.includes('Filtradas:') ||
+      fullMessage.includes('loadEtapaTotals') ||
+      fullMessage.includes('prospectos procesados') ||
+      fullMessage.includes('Cambiando tema a:') ||
+      fullMessage.includes('Header:') ||
+      fullMessage.includes('Buscando lead') ||
+      fullMessage.includes('Respuesta recibida')) {
     return;
   }
   
@@ -128,11 +188,17 @@ console.warn = (...args: any[]) => {
   }
   
   // Silenciar warnings sobre system_config (tabla puede no existir en todas las BDs)
+  // Y warnings de Realtime que son esperados
   if (fullMessage.includes('system_config') || 
       fullMessage.includes('selected_logo') ||
       fullMessage.includes('error cargando logo') ||
       fullMessage.includes('could not find the table') ||
-      fullMessage.includes('schema cache')) {
+      fullMessage.includes('schema cache') ||
+      fullMessage.includes('[Realtime] Estado de suscripción') ||
+      fullMessage.includes('CHANNEL_ERROR') ||
+      fullMessage.includes('posible sobrecarga de conexiones') ||
+      fullMessage.includes('[REALTIME V4]') ||
+      fullMessage.includes('[Widget] Error en suscripción realtime')) {
     return;
   }
   

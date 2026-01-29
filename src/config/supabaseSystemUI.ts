@@ -46,8 +46,16 @@ const supabaseAnonKey = SUPABASE_ANON_KEY;
 
 // ⚠️ SEGURIDAD: SIEMPRE usar anon_key en el frontend
 // Operaciones admin van via Edge Functions (auth-admin-proxy)
+// 
+// ⚠️ IMPORTANTE: Configurar auth para persistir sesión correctamente
 export const supabaseSystemUI = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
   : null;
     
 if (!supabaseSystemUI) {

@@ -41,8 +41,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
     const selectedMonth = selectedDate.getMonth();
     const selectedDay = selectedDate.getDate();
     
-    console.log('🔍 [DailyView] Fecha seleccionada:', { selectedYear, selectedMonth, selectedDay });
-    console.log('  Total llamadas:', calls.length);
+    // Filtrado de llamadas por fecha - silencioso
     
     // Para las llamadas (que vienen en UTC desde la BD), convertir a Guadalajara
     const filtered = calls.filter(call => {
@@ -63,7 +62,7 @@ export const DailyView: React.FC<DailyViewProps> = ({
              callDay === selectedDay;
     });
     
-    console.log('  Filtradas:', filtered.length);
+    // Llamadas filtradas - silencioso
     
     return filtered.sort((a, b) => {
       const timeA = new Date(a.fecha_programada).getTime();

@@ -292,7 +292,7 @@ const Header = ({
 
   // Manejar cambio de tema
   const handleThemeChange = (mode: ThemeMode) => {
-    console.log('🎨 Header: Cambiando tema a:', mode);
+    // Cambio de tema - silencioso
     setCurrentThemeMode(mode);
     
     // Aplicar directamente al documento

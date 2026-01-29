@@ -262,67 +262,30 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     try {
       const normalizedPhone = normalizePhone(phone);
       
-      // Query simplificada sin joins para evitar errores 400
-      const { data: existingData, error: dbError } = await analysisSupabase
+      // Buscar usando LIKE para últimos 10 dígitos
+      // Maneja formatos: 3333243333, 523333243333, +523333243333, 5213333243333
+      const { data: candidates, error: dbError } = await analysisSupabase
         .from('prospectos')
-        .select('id, nombre_completo, ejecutivo_id, coordinacion_id')
-        .eq('whatsapp', normalizedPhone)
-        .maybeSingle();
+        .select('id, nombre_completo, ejecutivo_id, coordinacion_id, whatsapp, telefono_principal')
+        .or(`whatsapp.like.%${normalizedPhone},telefono_principal.like.%${normalizedPhone}`)
+        .limit(10); // Traer hasta 10 candidatos para validar localmente
 
       if (dbError) {
-        console.error('Error al verificar prospecto:', dbError);
-        // Si hay error, intentar con telefono_principal como fallback
-        const { data: fallbackData, error: fallbackError } = await analysisSupabase
-          .from('prospectos')
-          .select('id, nombre_completo, ejecutivo_id, coordinacion_id')
-          .eq('telefono_principal', normalizedPhone)
-          .maybeSingle();
-        
-        if (fallbackError || !fallbackData) {
-          return null;
-        }
-        
-        // Usar fallbackData si whatsapp falló
-        const { data: conversacionData } = await analysisSupabase
-          .from('conversaciones_whatsapp')
-          .select('id')
-          .eq('prospecto_id', fallbackData.id)
-          .maybeSingle();
-
-        // Obtener nombres de coordinación y ejecutivo por separado
-        let coordinacionNombre = null;
-        let ejecutivoNombre = null;
-        
-        if (fallbackData.coordinacion_id) {
-          const { data: coordData } = await analysisSupabase
-            .from('coordinaciones')
-            .select('nombre')
-            .eq('id', fallbackData.coordinacion_id)
-            .maybeSingle();
-          coordinacionNombre = coordData?.nombre || null;
-        }
-        
-        if (fallbackData.ejecutivo_id) {
-          const { data: userDataFallback } = await analysisSupabase
-            .from('auth_users')
-            .select('full_name')
-            .eq('id', fallbackData.ejecutivo_id)
-            .maybeSingle();
-          ejecutivoNombre = userDataFallback?.full_name || null;
-        }
-
-        return {
-          id: fallbackData.id,
-          nombre_completo: fallbackData.nombre_completo,
-          conversacion_id: conversacionData?.id || null,
-          ejecutivo_id: fallbackData.ejecutivo_id,
-          coordinacion_id: fallbackData.coordinacion_id,
-          coordinacion_nombre: coordinacionNombre,
-          ejecutivo_nombre: ejecutivoNombre,
-        };
+        return null;
       }
 
-      if (!existingData) {
+      if (!candidates || candidates.length === 0) {
+        return null;
+      }
+      
+      // Filtrar candidatos que realmente terminen en los 10 dígitos (validación estricta)
+      const exactMatch = candidates.find(candidate => {
+        const whatsappNorm = candidate.whatsapp?.replace(/\D/g, '').slice(-10);
+        const telefonoNorm = candidate.telefono_principal?.replace(/\D/g, '').slice(-10);
+        return whatsappNorm === normalizedPhone || telefonoNorm === normalizedPhone;
+      });
+      
+      if (!exactMatch) {
         return null;
       }
 
@@ -330,42 +293,41 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       const { data: conversacionData } = await analysisSupabase
         .from('conversaciones_whatsapp')
         .select('id')
-        .eq('prospecto_id', existingData.id)
+        .eq('prospecto_id', exactMatch.id)
         .maybeSingle();
 
-      // Obtener nombres de coordinación y ejecutivo por separado para evitar errores de join
+      // Obtener nombres de coordinación y ejecutivo
       let coordinacionNombre = null;
       let ejecutivoNombre = null;
       
-      if (existingData.coordinacion_id) {
+      if (exactMatch.coordinacion_id) {
         const { data: coordData } = await analysisSupabase
           .from('coordinaciones')
           .select('nombre')
-          .eq('id', existingData.coordinacion_id)
+          .eq('id', exactMatch.coordinacion_id)
           .maybeSingle();
         coordinacionNombre = coordData?.nombre || null;
       }
       
-      if (existingData.ejecutivo_id) {
+      if (exactMatch.ejecutivo_id) {
         const { data: userData } = await analysisSupabase
-          .from('auth_users')
+          .from('user_profiles_v2')
           .select('full_name')
-          .eq('id', existingData.ejecutivo_id)
+          .eq('id', exactMatch.ejecutivo_id)
           .maybeSingle();
         ejecutivoNombre = userData?.full_name || null;
       }
 
       return {
-        id: existingData.id,
-        nombre_completo: existingData.nombre_completo,
+        id: exactMatch.id,
+        nombre_completo: exactMatch.nombre_completo,
         conversacion_id: conversacionData?.id || null,
-        ejecutivo_id: existingData.ejecutivo_id,
-        coordinacion_id: existingData.coordinacion_id,
+        ejecutivo_id: exactMatch.ejecutivo_id,
+        coordinacion_id: exactMatch.coordinacion_id,
         coordinacion_nombre: coordinacionNombre,
         ejecutivo_nombre: ejecutivoNombre,
       };
     } catch (error) {
-      console.error('Error en búsqueda local:', error);
       return null;
     }
   };
@@ -941,6 +903,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const canGoNext = (): boolean => {
     switch (currentStep) {
       case 'search':
+        // NO permitir avanzar si existe un prospecto en BD local
+        if (existingProspect) {
+          return false;
+        }
         return !!leadData && !!permissionValidation?.canImport;
       case 'permissions':
         return !!leadData && !!permissionValidation?.canImport;
@@ -1162,14 +1128,12 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                               </p>
                             </div>
                             
-                            {existingProspect.ejecutivo_nombre && (
-                              <div>
-                                <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Ejecutivo Asignado</p>
-                                <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">
-                                  {existingProspect.ejecutivo_nombre}
-                                </p>
-                              </div>
-                            )}
+                            <div>
+                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Ejecutivo Asignado</p>
+                              <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">
+                                {existingProspect.ejecutivo_nombre || 'Sin asignar'}
+                              </p>
+                            </div>
                             
                             {existingProspect.coordinacion_nombre && (
                               <div>
@@ -1195,22 +1159,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                               <strong>No se puede importar:</strong> Este prospecto ya está registrado en el sistema. No es necesario volver a importarlo.
                             </p>
                           </div>
-                          
-                          {existingProspect.conversacion_id && (
-                            <button
-                              onClick={() => {
-                                // Navegar a la conversación existente
-                                window.dispatchEvent(new CustomEvent('select-livechat-conversation', { 
-                                  detail: existingProspect.conversacion_id 
-                                }));
-                                onClose();
-                              }}
-                              className="mt-4 w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
-                            >
-                              <MessageSquare className="w-4 h-4" />
-                              <span>Ver conversación existente</span>
-                            </button>
-                          )}
                         </div>
                       </div>
                     </motion.div>

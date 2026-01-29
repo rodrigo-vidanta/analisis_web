@@ -311,7 +311,7 @@ class ScheduledCallsService {
           const ejecutivosIds = [ejecutivoFilter]; // Sus propios prospectos
           if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
             ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
-            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver llamadas programadas de ${ejecutivosConBackup.length} ejecutivos como backup`);
+            // Backup feature activo - silencioso
           }
           
           // Necesitamos obtener los prospectos primero para filtrar

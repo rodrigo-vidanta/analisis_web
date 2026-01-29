@@ -1507,7 +1507,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
         counts[etapaId] = (counts[etapaId] || 0) + 1;
       });
       
-      console.log(`✅ loadEtapaTotals: ${allData.length} prospectos procesados`, counts);
+      // Totales de etapas cargados - silencioso
       
       setEtapaTotals(counts);
       return counts;

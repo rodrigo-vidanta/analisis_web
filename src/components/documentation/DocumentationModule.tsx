@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-29', author: 'Team', message: 'v2.5.64: B10.1.43N2.5.64 - Hotfix: 401 auth bot pause + Detección duplicados WhatsAp...', isRelease: true },
   { hash: 'c8bdb60', date: '2026-01-29', author: 'Team', message: 'v2.5.63: B10.1.43N2.5.63 - Hotfix: Dashboard crash (etapas dinámicas) + Recharts war...', isRelease: true },
   { hash: '43ad9dc', date: '2026-01-29', author: 'Team', message: 'v2.5.62: B10.1.43N2.5.62 - HOTFIX: Fix error scope prospectosFiltrados - módulo de p...', isRelease: true },
   { hash: '442e7d0', date: '2026-01-29', author: 'Team', message: 'v2.5.61: B10.1.43N2.5.61 - Notificaciones de plantillas aprobadas + Fix timeout What...', isRelease: true },
@@ -495,6 +496,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-651', date: '29/01/2026, 11:51', version: 'B10.1.43N2.5.64', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-298', date: '29/01/2026, 11:09', version: 'B10.1.43N2.5.63', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-330', date: '28/01/2026, 23:16', version: 'B10.1.43N2.5.62', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-583', date: '28/01/2026, 23:05', version: 'B10.1.43N2.5.61', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -640,8 +642,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.63', highlight: true },
-  { label: 'Release', value: 'B10.1.43N2.5.63', highlight: false },
+  { label: 'Version', value: 'v2.5.64', highlight: true },
+  { label: 'Release', value: 'B10.1.43N2.5.64', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '29 ene 2026', highlight: false },
 ];

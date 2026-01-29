@@ -47,8 +47,20 @@ serve(async (req) => {
     const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
 
     if (authError || !user) {
+      console.error('❌ [pause-bot-proxy] Auth verification failed:', {
+        hasError: !!authError,
+        errorMessage: authError?.message,
+        errorStatus: authError?.status,
+        hasUser: !!user,
+        jwtPrefix: jwt.substring(0, 20) + '...'
+      });
+      
       return new Response(
-        JSON.stringify({ error: 'Authentication required', success: false }),
+        JSON.stringify({ 
+          error: 'Authentication required', 
+          details: authError?.message || 'Invalid JWT',
+          success: false 
+        }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

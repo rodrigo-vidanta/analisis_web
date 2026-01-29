@@ -25,21 +25,46 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
  */
 export async function getAuthToken(): Promise<string | null> {
   try {
+    console.log('🔐 [getAuthToken] Obteniendo sesión de Supabase...');
+    
     const { data: { session }, error } = await supabaseSystemUI.auth.getSession();
     
     if (error) {
-      console.error('❌ Error obteniendo sesión:', error);
+      console.error('❌ [getAuthToken] Error obteniendo sesión:', error);
       return null;
     }
     
-    if (!session?.access_token) {
-      console.warn('⚠️ No hay sesión activa. El usuario debe iniciar sesión.');
+    if (!session) {
+      console.warn('⚠️ [getAuthToken] No hay sesión activa (session es null)');
       return null;
+    }
+    
+    if (!session.access_token) {
+      console.warn('⚠️ [getAuthToken] Sesión existe pero no tiene access_token');
+      return null;
+    }
+    
+    // Verificar expiración del token
+    const expiresAt = session.expires_at;
+    if (expiresAt) {
+      const expiryDate = new Date(expiresAt * 1000);
+      const now = new Date();
+      const timeUntilExpiry = expiryDate.getTime() - now.getTime();
+      
+      if (timeUntilExpiry < 0) {
+        console.error('❌ [getAuthToken] Token expirado:', {
+          expiresAt: expiryDate.toISOString(),
+          now: now.toISOString()
+        });
+        return null;
+      }
+      
+      console.log(`✅ [getAuthToken] Token válido (expira en ${Math.round(timeUntilExpiry / 1000 / 60)} minutos)`);
     }
     
     return session.access_token;
   } catch (error) {
-    console.error('❌ Error inesperado obteniendo token:', error);
+    console.error('❌ [getAuthToken] Error inesperado obteniendo token:', error);
     return null;
   }
 }

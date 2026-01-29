@@ -1546,7 +1546,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           
           if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
             ejecutivosIdsParaFiltrar.push(...ejecutivosConBackup.map(e => e.id));
-            console.log(`✅ Ejecutivo ${ejecutivoFilter} puede ver conversaciones de ${ejecutivosConBackup.length} ejecutivos como backup`);
+            // Backup feature activo - silencioso
           }
         } catch (error) {
           console.error('Error obteniendo ejecutivos donde es backup:', error);

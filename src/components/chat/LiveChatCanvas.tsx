@@ -5572,7 +5572,9 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
+        console.log('🔐 [pauseBot] Obteniendo token de autenticación...');
         const authToken = await getAuthTokenOrThrow();
+        console.log('✅ [pauseBot] Token obtenido:', authToken.substring(0, 20) + '...');
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5587,9 +5589,24 @@ const LiveChatCanvas: React.FC = () => {
         
         clearTimeout(timeoutId);
         
+        console.log(`🔍 [pauseBot] Response status: ${resp.status}`);
+        
         // Manejar respuesta según código HTTP
         if (resp.status === 200) {
           // Éxito - no hacer nada (como solicitado)
+        } else if (resp.status === 401) {
+          // Error de autenticación - logging detallado
+          const errorData = await resp.json().catch(() => ({ error: 'Error parsing response' }));
+          console.error('❌ [pauseBot] Error 401 - Autenticación fallida:', {
+            status: resp.status,
+            errorData,
+            tokenPrefix: authToken.substring(0, 20) + '...'
+          });
+          toast.error('Error de autenticación. Por favor, recarga la página e intenta nuevamente.', {
+            duration: 5000,
+            icon: '🔒'
+          });
+          return false;
         } else if (resp.status === 400) {
           // Error del servidor - mostrar mensaje al usuario
           const errorText = await resp.text().catch(() => 'Error desconocido al pausar el bot');
@@ -5687,7 +5704,9 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
+        console.log('🔐 [resumeBot] Obteniendo token de autenticación...');
         const authToken = await getAuthTokenOrThrow();
+        console.log('✅ [resumeBot] Token obtenido:', authToken.substring(0, 20) + '...');
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5702,9 +5721,24 @@ const LiveChatCanvas: React.FC = () => {
         
         clearTimeout(timeoutId);
         
+        console.log(`🔍 [resumeBot] Response status: ${resp.status}`);
+        
         // Manejar respuesta según código HTTP
         if (resp.status === 200) {
           // Éxito - no hacer nada (como solicitado)
+        } else if (resp.status === 401) {
+          // Error de autenticación - logging detallado
+          const errorData = await resp.json().catch(() => ({ error: 'Error parsing response' }));
+          console.error('❌ [resumeBot] Error 401 - Autenticación fallida:', {
+            status: resp.status,
+            errorData,
+            tokenPrefix: authToken.substring(0, 20) + '...'
+          });
+          toast.error('Error de autenticación. Por favor, recarga la página e intenta nuevamente.', {
+            duration: 5000,
+            icon: '🔒'
+          });
+          return false;
         } else if (resp.status === 400) {
           // Error del servidor - mostrar mensaje al usuario
           const errorText = await resp.text().catch(() => 'Error desconocido al reactivar el bot');
@@ -5716,8 +5750,8 @@ const LiveChatCanvas: React.FC = () => {
           return false;
         } else {
           // Otro código de error
-          const errorText = await resp.text().catch(() => 'Error desconocido');
-          console.error(`❌ Error pause_bot webhook (resume, ${resp.status}):`, errorText);
+          const errorData = await resp.json().catch(() => null);
+          console.error(`❌ Error pause_bot webhook (resume, ${resp.status}):`, errorData);
           toast.error('Error al reactivar el bot. Por favor, intenta nuevamente.', {
             duration: 4000,
             icon: '▶️'

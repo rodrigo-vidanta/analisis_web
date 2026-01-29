@@ -155,10 +155,10 @@ class DynamicsLeadService {
   async searchLead(request: LeadSearchRequest): Promise<LeadSearchResponse> {
     const searchType = request.id_dynamics ? 'id_dynamics' : request.email ? 'email' : 'phone';
 
-    // Solo log en desarrollo, sin datos sensibles (email, phone)
-    if (import.meta.env.DEV) {
-      console.log(`🔍 [DynamicsLead] Buscando lead por ${searchType}`);
-    }
+      // Solo log en desarrollo, sin datos sensibles (email, phone)
+      if (import.meta.env.DEV) {
+        // Log de búsqueda - silencioso en producción
+      }
 
     try {
       // Usar Edge Function en lugar de webhook directo
@@ -221,7 +221,7 @@ class DynamicsLeadService {
       const data = await response.json();
       // Solo log en desarrollo, sin exponer datos del lead
       if (import.meta.env.DEV) {
-        console.log('✅ [DynamicsLead] Respuesta recibida');
+        // Respuesta recibida - silencioso en producción
       }
 
       // El webhook devuelve un array, tomamos el primer elemento

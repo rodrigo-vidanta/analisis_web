@@ -36,8 +36,17 @@ if (!analysisSupabaseUrl || !analysisSupabaseAnonKey) {
 
 // ⚠️ SEGURIDAD: NUNCA usar service_role_key en el bundle frontend
 // El cliente SIEMPRE usa anon_key. Operaciones admin van via Edge Functions.
+// 
+// ⚠️ NOTA: Este cliente NO maneja auth directamente, pero compartir la configuración
+// ayuda a mantener consistencia en el manejo de sesiones entre clientes.
 export const analysisSupabase = analysisSupabaseUrl && analysisSupabaseAnonKey
-  ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey)
+  ? createClient(analysisSupabaseUrl, analysisSupabaseAnonKey, {
+      auth: {
+        autoRefreshToken: true,
+        persistSession: true,
+        detectSessionInUrl: true
+      }
+    })
   : null;
 
 if (!analysisSupabase) {
