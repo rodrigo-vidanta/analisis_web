@@ -205,6 +205,7 @@ class OptimizedConversationsService {
         id_uchat: conv.id_uchat,
         id_dynamics: conv.id_dynamics,
         etapa: conv.etapa,
+        etapa_id: conv.etapa_id, // ✅ AGREGADO: FK a tabla etapas
         coordinacion_id: conv.coordinacion_id,
         coordinacion_codigo: conv.coordinacion_codigo,
         coordinacion_nombre: conv.coordinacion_nombre,

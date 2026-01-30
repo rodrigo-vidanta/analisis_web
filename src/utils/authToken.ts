@@ -25,8 +25,6 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
  */
 export async function getAuthToken(): Promise<string | null> {
   try {
-    console.log('🔐 [getAuthToken] Obteniendo sesión de Supabase...');
-    
     const { data: { session }, error } = await supabaseSystemUI.auth.getSession();
     
     if (error) {
@@ -34,13 +32,7 @@ export async function getAuthToken(): Promise<string | null> {
       return null;
     }
     
-    if (!session) {
-      console.warn('⚠️ [getAuthToken] No hay sesión activa (session es null)');
-      return null;
-    }
-    
-    if (!session.access_token) {
-      console.warn('⚠️ [getAuthToken] Sesión existe pero no tiene access_token');
+    if (!session || !session.access_token) {
       return null;
     }
     
@@ -58,8 +50,6 @@ export async function getAuthToken(): Promise<string | null> {
         });
         return null;
       }
-      
-      console.log(`✅ [getAuthToken] Token válido (expira en ${Math.round(timeUntilExpiry / 1000 / 60)} minutos)`);
     }
     
     return session.access_token;

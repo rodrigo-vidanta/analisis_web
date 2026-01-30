@@ -418,18 +418,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       // Usar Edge Function en lugar de webhook directo
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
       
-      console.log('🔍 [ManualCallModal] Configuración:', {
-        edgeFunctionUrl,
-        baseUrl: import.meta.env.VITE_EDGE_FUNCTIONS_URL,
-        action,
-        prospectoId,
-        scheduleType
-      });
-      
       // Obtener JWT del usuario autenticado (desde supabaseSystemUI donde está la sesión)
       const authToken = await getAuthTokenOrThrow();
-      
-      console.log('🔑 [ManualCallModal] Auth token:', authToken ? 'JWT válido obtenido' : 'ERROR: Sin token');
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
@@ -453,7 +443,6 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
 
       // Éxito
       const result = await response.json().catch(() => ({}));
-      console.log('✅ [ManualCallModal] Éxito:', result);
 
       toast.success(
         action === 'UPDATE'

@@ -948,7 +948,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
           <div className="mb-2">
             <EtapaBadge 
               prospecto={{ 
-                etapa_id: prospectoData?.etapa_id, 
+                etapa_id: prospectoData?.etapa_id || conversation.metadata?.etapa_id, 
                 etapa: prospectoData?.etapa || conversation.metadata?.etapa 
               }} 
               size="sm" 
@@ -1737,8 +1737,6 @@ const LiveChatCanvas: React.FC = () => {
             const newConvs = convertedResults.filter(c => !existingIds.has(c.id));
             return [...prev, ...newConvs];
           });
-          
-          console.log(`✅ Búsqueda en servidor: ${searchResults.length} resultados`);
         }
         
         setIsSearchingAllBatches(false);
@@ -5777,9 +5775,7 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
-        console.log('🔐 [pauseBot] Obteniendo token de autenticación...');
         const authToken = await getAuthTokenOrThrow();
-        console.log('✅ [pauseBot] Token obtenido:', authToken.substring(0, 20) + '...');
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5793,8 +5789,6 @@ const LiveChatCanvas: React.FC = () => {
         });
         
         clearTimeout(timeoutId);
-        
-        console.log(`🔍 [pauseBot] Response status: ${resp.status}`);
         
         // Manejar respuesta según código HTTP
         if (resp.status === 200) {
@@ -5909,9 +5903,7 @@ const LiveChatCanvas: React.FC = () => {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
         
         // Obtener JWT del usuario autenticado
-        console.log('🔐 [resumeBot] Obteniendo token de autenticación...');
         const authToken = await getAuthTokenOrThrow();
-        console.log('✅ [resumeBot] Token obtenido:', authToken.substring(0, 20) + '...');
         
         const resp = await fetch(edgeFunctionUrl, {
           method: 'POST',
@@ -5925,8 +5917,6 @@ const LiveChatCanvas: React.FC = () => {
         });
         
         clearTimeout(timeoutId);
-        
-        console.log(`🔍 [resumeBot] Response status: ${resp.status}`);
         
         // Manejar respuesta según código HTTP
         if (resp.status === 200) {

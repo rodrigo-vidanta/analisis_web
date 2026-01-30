@@ -461,9 +461,6 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
 
     // CONGELAR las imágenes seleccionadas en este momento
     imagesToSendRef.current = [...selectedImages];
-    if (import.meta.env.DEV) {
-      console.log('🔒 Imágenes congeladas para envío:', imagesToSendRef.current.map(s => s.item.nombre_archivo));
-    }
 
     // DEPRECATED: Lógica de caption/parafraseo comentada
     // if (caption.trim()) {
@@ -512,21 +509,11 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
     // DEPRECATED: setCaption(''); - caption deshabilitado
     onClose();
 
-    if (import.meta.env.DEV) {
-      console.log('📤 Iniciando envío de', imagesToSend.length, 'imágenes');
-      imagesToSend.forEach((img, i) => {
-        console.log(`  ${i + 1}. ${img.item.nombre_archivo} (${img.item.id})`);
-      });
-    }
-
     isSendingRef.current = true;
     const totalImages = imagesToSend.length;
     
     // Generar ID de batch único para esta sesión de envío
     const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
-    if (import.meta.env.DEV) {
-      console.log(`🚀 Batch ID: ${batchId}`);
-    }
 
     try {
       for (let i = 0; i < totalImages; i++) {
@@ -537,11 +524,6 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
         
         // ID único para ESTA imagen específica
         const imageRequestId = `${batchId}_img${i + 1}`;
-        
-        if (import.meta.env.DEV) {
-          console.log(`📸 [${i + 1}/${totalImages}] ID: ${imageRequestId}`);
-          console.log(`   Archivo: ${currentItem.nombre_archivo}`);
-        }
         
         // CAPTION SOLO EN LA ÚLTIMA IMAGEN
         const captionForThisImage = (isLast && finalCaption && finalCaption.trim()) ? finalCaption.trim() : null;
@@ -567,19 +549,9 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
         // Solo agregar caption si corresponde
         if (captionForThisImage) {
           payloadItem.caption = captionForThisImage;
-          if (import.meta.env.DEV) {
-            console.log(`   ✍️ Con caption: "${captionForThisImage}"`);
-          }
-        } else {
-          if (import.meta.env.DEV) {
-            console.log(`   📷 Sin caption`);
-          }
         }
 
         const payload = [payloadItem];
-        if (import.meta.env.DEV) {
-          console.log(`   📦 Payload:`, JSON.stringify(payload));
-        }
 
         // Usar Edge Functions URL específica
         const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
@@ -603,9 +575,8 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
           throw new Error(`Error al enviar imagen ${i + 1}`);
         }
 
-        // Esperar y leer respuesta completa
-        const responseData = await response.json();
-        console.log(`   ✅ Respuesta:`, responseData);
+        // Esperar respuesta completa
+        await response.json();
 
         // Pausa MUY LARGA entre envíos para evitar race condition en uChat
         // N8N setea una variable en uChat y luego dispara un flujo

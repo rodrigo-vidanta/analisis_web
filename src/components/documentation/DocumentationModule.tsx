@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-01-30', author: 'Team', message: 'v2.5.71: B10.1.44N2.5.71 - HOTFIX: Conversaciones WhatsApp mostraban 'Sin etapa' - F...', isRelease: true },
   { hash: '67cd1b3', date: '2026-01-30', author: 'Team', message: 'v2.5.70: B10.1.44N2.5.70 - HOTFIX: Eliminación campo is_active en coordinaciones - S...', isRelease: true },
   { hash: '372d44c', date: '2026-01-30', author: 'Team', message: 'v2.5.68: B10.1.43N2.5.68 - 🔒 HOTFIX Seguridad: Fix permisos en widget Llamadas Acti...', isRelease: true },
   { hash: '49d211b', date: '2026-01-29', author: 'Team', message: 'v2.5.67: B10.1.43N2.5.67 - Hotfix: Validaciones preventivas coordinaciones + Fix coo...', isRelease: true },
@@ -652,8 +653,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.70', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.70', highlight: false },
+  { label: 'Version', value: 'v2.5.71', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.71', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '30 ene 2026', highlight: false },
 ];
