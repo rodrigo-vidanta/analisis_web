@@ -77,7 +77,23 @@ const canSchedule = canScheduleCall(etapaId, etapaLegacy, userRole);
 
 **Beneficio:** El componente NO se renderiza hasta que `user` esté disponible.
 
-### 2. Código Defensivo en Helper
+### 2. Hook useAuth en ProspectoSidebar ⚡ **CRÍTICO**
+
+**Archivo:** `src/components/prospectos/ProspectosManager.tsx` (línea 254)
+
+```typescript
+const ProspectoSidebar: React.FC<SidebarProps> = ({ ... }) => {
+  // ✅ AGREGADO: Hook de autenticación
+  const { user } = useAuth();
+  
+  // ... resto del código
+```
+
+**Problema:** `ProspectoSidebar` es un **componente interno** de `ProspectosManager` y NO tenía acceso a `user`.
+
+**Solución:** Agregado `useAuth()` dentro de `ProspectoSidebar` para obtener el usuario actual.
+
+### 3. Código Defensivo en Helper
 
 **Archivo:** `src/utils/prospectRestrictions.ts`
 
@@ -90,7 +106,7 @@ if (userRole && typeof userRole === 'string' && userRole.trim() !== '' && EXEMPT
 
 **Beneficio:** Manejo seguro de `undefined`, `null`, strings vacíos.
 
-### 3. Normalización de Props
+### 4. Normalización de Props
 
 **Archivo:** `src/components/shared/ScheduledCallsSection.tsx`
 
@@ -111,11 +127,22 @@ const canSchedule = canScheduleCall(
 
 | Archivo | Cambio | Impacto |
 |---------|--------|---------|
-| `src/components/prospectos/ProspectosManager.tsx` | Guard clause `{user && ...}` | Previene render sin user |
+| `src/components/prospectos/ProspectosManager.tsx` | ⚡ **useAuth en ProspectoSidebar** + Guard clause | **CRÍTICO** - Previene error "user is not defined" |
 | `src/utils/prospectRestrictions.ts` | Validación robusta de userRole | Manejo seguro de undefined |
 | `src/components/shared/ScheduledCallsSection.tsx` | Normalización `?? null` | Consistencia de tipos |
 
-**Total:** 3 archivos, 14 líneas agregadas, 10 modificadas
+**Total:** 3 archivos, 17 líneas agregadas, 10 modificadas
+
+### ⚡ Cambio Crítico
+
+El error **"user is not defined"** fue causado porque `ProspectoSidebar` es un **componente interno** que NO tenía el hook `useAuth()`. La solución fue agregar:
+
+```typescript
+// Línea 254 en ProspectosManager.tsx
+const ProspectoSidebar: React.FC<SidebarProps> = ({ ... }) => {
+  const { user } = useAuth(); // ← AGREGADO
+  // ...
+```
 
 ---
 
@@ -153,10 +180,11 @@ const canSchedule = canScheduleCall(
 
 | Métrica | Valor |
 |---------|-------|
-| **Commit** | 5417a13 |
-| **Tiempo build** | 16.52s |
+| **Commit 1** | 5417a13 (initial fix - incompleto) |
+| **Commit 2** | 6f500d1 (fix final - useAuth en ProspectoSidebar) ⚡ |
+| **Tiempo build** | 17.69s |
 | **Tamaño bundle** | 9.3 MB (2.6 MB gzip) |
-| **Deploy** | ✅ Completado |
+| **Deploy** | ✅ Completado (2026-01-29 20:35 UTC) |
 | **CloudFront** | Cache invalidado |
 
 ---
