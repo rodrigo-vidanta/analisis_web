@@ -251,6 +251,9 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
   zIndexBackdrop = 'z-[180]', // Default para módulos normales
   zIndexSidebar = 'z-[190]'   // Default para módulos normales
 }) => {
+  // ✅ Hook de autenticación para restricciones
+  const { user } = useAuth();
+  
   const [hasActiveChat, setHasActiveChat] = useState(false);
   const [llamadas, setLlamadas] = useState<LlamadaVenta[]>([]);
   const [whatsappConversations, setWhatsappConversations] = useState<WhatsAppConversation[]>([]);
