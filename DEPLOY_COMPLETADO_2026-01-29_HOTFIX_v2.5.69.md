@@ -4,7 +4,7 @@
 **Versión:** v2.5.69  
 **Build:** B10.1.44N2.5.69  
 **Tipo:** 🔒 HOTFIX (Crítico)  
-**Estado:** ✅ Desplegado en Main
+**Estado:** ✅ **COMPLETADO - Frontend y BD Actualizados**
 
 ---
 
@@ -72,6 +72,32 @@ Se desplegó hotfix crítico que corrige la aplicación incorrecta de restriccio
 
 **Archivos modificados:** 1 archivo
 - `VERSIONS.md` - Historial de versiones actualizado
+
+### Commit 3: Reporte de Deploy
+```
+d4dc5ab - docs: Deploy report v2.5.69 - HOTFIX restricciones UI
+```
+
+**Archivos modificados:** 1 archivo
+- `DEPLOY_COMPLETADO_2026-01-29_HOTFIX_v2.5.69.md` - Reporte completo del deploy
+
+### Commit 4: Actualización BD ✅
+```
+14d3c7f - fix: Actualizar versión en BD a v2.5.69 (EJECUTADO)
+```
+
+**Archivos modificados:** 1 archivo
+- `scripts/sql/update_app_version_2.5.69.sql` - Script ejecutado
+
+**BD Actualizada:**
+```json
+{
+  "version": "B10.1.44N2.5.69",
+  "force_update": true
+}
+```
+
+**Timestamp:** 2026-01-29 19:49:01 UTC
 
 ---
 
