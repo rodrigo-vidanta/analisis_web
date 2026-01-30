@@ -1,5 +1,96 @@
 # Control de Versiones - PQNC QA AI Platform
 
+## Versión v2.5.69 (29 Enero 2026) - HOTFIX: Restricciones UI "Importado Manual"
+
+### 🔒 HOTFIX - Corrección Crítica de Restricciones UI
+
+#### Resumen Ejecutivo
+Corrección de bug crítico donde las restricciones de UI para prospectos en etapa "Importado Manual" se aplicaban incorrectamente, causando que prospectos de otras etapas perdieran funcionalidad y viceversa.
+
+#### Bug Crítico Corregido
+
+| Problema | Causa | Impacto |
+|----------|-------|---------|
+| Código de etapa incorrecto | `'IMPORTADO_MANUAL'` (mayúsculas) vs `'importado_manual'` (BD) | Comparación case-sensitive fallaba |
+| Campo `etapa_id` faltante | Queries solo traían campo legacy `etapa` | Restricción nunca se aplicaba correctamente |
+| Falsos positivos | Sin validación robusta | Prospectos "Activo PQNC" perdían botones |
+
+#### Restricciones Implementadas
+
+**Para prospectos en etapa "Importado Manual" (código: `importado_manual`):**
+
+**Módulo WhatsApp:**
+- ❌ Botón de iniciar llamada → Oculto
+- ❌ Botón de pausar bot → Oculto
+- ❌ Botón de requiere atención humana → Oculto
+
+**Widget Últimas Conversaciones:**
+- ❌ Botón de pausar bot → Oculto
+- ❌ Botón de requiere atención humana → Oculto
+
+**Sidebar de Prospecto (todas las vistas):**
+- ❌ Botón "Programar llamada" → Deshabilitado con tooltip
+
+**Roles afectados:** Ejecutivos, Supervisores, Coordinadores
+
+#### Implementación Técnica
+
+**Helper Centralizado:** `src/utils/prospectRestrictions.ts`
+```typescript
+const RESTRICTED_STAGES: string[] = [
+  'importado_manual', // ✅ Minúsculas, coincide con BD
+];
+
+// Funciones públicas:
+- canStartCall()
+- canPauseBot()
+- canToggleAttentionRequired()
+- canScheduleCall()
+- getRestrictionMessage()
+```
+
+**Para liberar restricciones:**
+```typescript
+// Comentar o vaciar array:
+const RESTRICTED_STAGES: string[] = [];
+```
+
+#### Archivos Modificados
+
+**Core:**
+- `src/utils/prospectRestrictions.ts` (nuevo)
+- `src/config/appVersion.ts`
+- `src/components/Footer.tsx`
+
+**Módulos:**
+- `src/components/chat/LiveChatCanvas.tsx` - Query + restricciones
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx` - Query + restricciones
+- `src/components/shared/ScheduledCallsSection.tsx` - Props + lógica
+
+**Sidebars (props de etapa):**
+- `src/components/chat/ProspectDetailSidebar.tsx`
+- `src/components/prospectos/ProspectosManager.tsx`
+- `src/components/analysis/LiveMonitor.tsx`
+- `src/components/scheduled-calls/ProspectoSidebar.tsx`
+- `src/components/analysis/AnalysisIAComplete.tsx`
+
+#### Documentación
+- `BUG_FIX_RESTRICCIONES_INCORRECTAS_2026-01-29.md` - Análisis técnico del bug
+- `RESTRICCIONES_TEMPORALES_IMPORTADO_MANUAL.md` - Guía de uso
+- `RESTRICCIONES_ANALISIS_COMPLETO_2026-01-29.md` - Análisis completo
+- `CHANGELOG.md` - Actualizado con v2.5.69
+
+#### Testing
+Console logs en desarrollo:
+```javascript
+[prospectRestrictions] Verificando por etapa_id: {
+  etapaCodigo: "importado_manual",
+  isRestricted: true
+}
+```
+
+---
+
 ## Versión v2.5.38 (23 Enero 2026) - Fix Módulo Programación + Optimización
 
 ### 🗓️ RELEASE - Correcciones Críticas en Módulo de Programación
