@@ -695,18 +695,6 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
     }
   }, [user.id, onRefresh, onClose]);
 
-  const handleToggleOperativo = useCallback(() => {
-    // REGLA DE NEGOCIO: No se puede habilitar operativo sin id_dynamics
-    const hasIdDynamics = !!formData.id_dynamics?.trim();
-    
-    if (!hasIdDynamics && !formData.is_operativo) {
-      setError('No se puede habilitar operativo sin ID Dynamics. Por favor, asigne un ID Dynamics primero.');
-      return;
-    }
-    setFormData(prev => ({ ...prev, is_operativo: !prev.is_operativo }));
-    setError(null);
-  }, [formData.id_dynamics, formData.is_operativo]);
-
   // Manejar toggle de grupos de permisos
   const handleToggleGroup = useCallback(async (groupId: string) => {
     const isCurrentlyAssigned = userGroups.includes(groupId);
@@ -1515,44 +1503,36 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
                   </h4>
                 </div>
 
-                {/* Operativo Toggle - Solo para coordinadores y ejecutivos */}
-                {(user.role_name === 'coordinador' || user.role_name === 'ejecutivo') && (
-                  <div
-                    onClick={handleToggleOperativo}
-                    className={`flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      user.role_name === 'ejecutivo' && !user.id_dynamics && formData.is_operativo
-                        ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 opacity-60 cursor-not-allowed'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <div className={`relative w-10 sm:w-12 h-5 sm:h-6 rounded-full transition-all duration-300 flex-shrink-0 ${
-                        formData.is_operativo ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
-                      }`}>
-                        <motion.div
-                          animate={{ x: formData.is_operativo ? 20 : 0 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                          className="absolute top-0.5 left-0.5 w-4 sm:w-5 h-4 sm:h-5 bg-white rounded-full shadow-lg"
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                          Usuario Operativo
-                        </span>
-                        <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {user.role_name === 'ejecutivo' && !user.id_dynamics
-                            ? 'Requiere ID_Dynamics'
-                            : 'Estado lógico sin limitar acceso'}
-                        </p>
-                      </div>
+                {/* Indicador de Usuario en Línea - Solo visualización */}
+                <div className="flex items-center justify-between p-3 sm:p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 transition-all">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="relative flex-shrink-0">
+                      <div className={`w-3 h-3 rounded-full ${
+                        formData.is_operativo ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-600'
+                      } shadow-lg`}></div>
+                      {formData.is_operativo && (
+                        <div className="absolute inset-0 w-3 h-3 rounded-full bg-emerald-500 animate-ping opacity-75"></div>
+                      )}
                     </div>
-                    {formData.is_operativo ? (
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 flex-shrink-0" />
-                    )}
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Usuario en Línea
+                      </span>
+                      <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400">
+                        {formData.is_operativo 
+                          ? 'El usuario está actualmente conectado' 
+                          : 'El usuario está desconectado'}
+                      </p>
+                    </div>
                   </div>
-                )}
+                  <span className={`text-[10px] sm:text-xs font-medium px-2 sm:px-3 py-1 rounded-full flex-shrink-0 ${
+                    formData.is_operativo
+                      ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}>
+                    {formData.is_operativo ? 'En línea' : 'Desconectado'}
+                  </span>
+                </div>
 
                 {/* Estado Activo */}
                 <div

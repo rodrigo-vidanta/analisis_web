@@ -41,7 +41,6 @@ interface UserTableProps {
   onItemsPerPageChange: (count: number) => void;
   totalResults: number;
   onEditUser: (user: UserV2) => void;
-  onToggleStatus: (user: UserV2, field: 'is_active' | 'is_operativo') => void;
   onManagePermissions: (user: UserV2) => void;
   onViewUser: (user: UserV2) => void;
   onUnblockUser?: (user: UserV2) => Promise<boolean>;
@@ -158,7 +157,6 @@ const UserTable: React.FC<UserTableProps> = ({
   onItemsPerPageChange,
   totalResults,
   onEditUser,
-  onToggleStatus,
   onManagePermissions,
   onViewUser,
   onUnblockUser,
@@ -258,11 +256,6 @@ const UserTable: React.FC<UserTableProps> = ({
                 <span className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
                   Teléfono
                 </span>
-              </th>
-              <th className="px-3 py-2 text-center">
-                <SortButton column="operativo" currentSort={sortConfig} onSort={onSortChange}>
-                  Operativo
-                </SortButton>
               </th>
               <th className="px-3 py-2 text-left hidden md:table-cell">
                 <SortButton column="status" currentSort={sortConfig} onSort={onSortChange}>
@@ -439,36 +432,6 @@ const UserTable: React.FC<UserTableProps> = ({
                   ) : (
                     <span className="text-xs text-gray-400">-</span>
                   )}
-                </td>
-
-                {/* Operativo - Columna con toggle prominente y labels descriptivos */}
-                <td className="px-3 py-2 text-center">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleStatus(user, 'is_operativo');
-                    }}
-                    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-sm ${
-                      user.is_operativo
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white hover:from-emerald-600 hover:to-teal-600 shadow-emerald-500/25'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600'
-                    }`}
-                    title={user.is_operativo ? 'Click para marcar No Operativo' : 'Click para marcar Operativo'}
-                  >
-                    {user.is_operativo ? (
-                      <>
-                        <CheckCircle className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">Operativo</span>
-                        <span className="sm:hidden">Op</span>
-                      </>
-                    ) : (
-                      <>
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span className="hidden sm:inline">No Operativo</span>
-                        <span className="sm:hidden">No Op</span>
-                      </>
-                    )}
-                  </button>
                 </td>
 
                 {/* Status */}

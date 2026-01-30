@@ -210,11 +210,6 @@ const UserManagementV2: React.FC = () => {
     setShowPermissionsModal(true);
   }, []);
 
-  const handleToggleStatus = useCallback(async (user: UserV2, field: 'is_active' | 'is_operativo') => {
-    const currentValue = field === 'is_active' ? user.is_active : user.is_operativo;
-    await updateUserStatus(user.id, { [field]: !currentValue });
-  }, [updateUserStatus]);
-
   // ============================================
   // FILTERED USERS BY SELECTED NODE
   // ============================================
@@ -451,7 +446,6 @@ const UserManagementV2: React.FC = () => {
                     onItemsPerPageChange={setItemsPerPage}
                     totalResults={filteredUsers.length}
                     onEditUser={handleEditUser}
-                    onToggleStatus={handleToggleStatus}
                     onManagePermissions={handleManagePermissions}
                     onViewUser={handleViewUser}
                     onUnblockUser={unblockUser}
@@ -461,7 +455,6 @@ const UserManagementV2: React.FC = () => {
                   <UserGridView
                     users={displayedUsers}
                     onEditUser={handleEditUser}
-                    onToggleStatus={handleToggleStatus}
                     loading={loading}
                   />
                 ) : (
@@ -499,7 +492,6 @@ const UserManagementV2: React.FC = () => {
 const UserGridView: React.FC<{
   users: UserV2[];
   onEditUser: (user: UserV2) => void;
-  onToggleStatus: (user: UserV2, field: 'is_active' | 'is_operativo') => void;
   loading: boolean;
 }> = ({ users, onEditUser, loading }) => {
   if (loading && users.length === 0) {

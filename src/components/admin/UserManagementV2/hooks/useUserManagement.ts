@@ -527,10 +527,8 @@ export function useUserManagement(): UseUserManagementReturn {
     if (filters.status !== 'all') {
       switch (filters.status) {
         case 'online':
-          // "Activo Ahora" - Ejecutivos operativos y activos
-          result = result.filter(u => 
-            u.role_name === 'ejecutivo' && u.is_operativo === true && u.is_active === true
-          );
+          // "Activo Ahora" - TODOS los usuarios con is_operativo = true (realmente conectados)
+          result = result.filter(u => u.is_operativo === true);
           break;
         case 'active':
           result = result.filter(u => u.is_active && !u.is_blocked && !u.archivado);

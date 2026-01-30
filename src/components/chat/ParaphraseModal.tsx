@@ -139,10 +139,24 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
     try {
       // Obtener JWT del usuario autenticado
       const { supabaseSystemUI } = await import('../../config/supabaseSystemUI');
-      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
+      let { data: { session } } = await supabaseSystemUI!.auth.getSession();
+      
+      // Si no hay sesión o el token está por expirar, intentar refrescar
+      if (!session || (session.expires_at && session.expires_at * 1000 < Date.now() + 60000)) {
+        console.log('🔄 Sesión expirada o por expirar, intentando refrescar...');
+        const { data: refreshData, error: refreshError } = await supabaseSystemUI!.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          console.error('❌ No se pudo refrescar la sesión:', refreshError);
+          throw new Error('Tu sesión ha expirado. Por favor, recarga la página e inicia sesión nuevamente.');
+        }
+        
+        session = refreshData.session;
+        console.log('✅ Sesión refrescada exitosamente');
+      }
       
       if (!session) {
-        throw new Error('Sesión no disponible');
+        throw new Error('Sesión no disponible. Por favor, inicia sesión nuevamente.');
       }
 
       // Crear un AbortController para timeout

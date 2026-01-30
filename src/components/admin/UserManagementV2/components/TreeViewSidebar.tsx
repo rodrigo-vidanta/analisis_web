@@ -566,7 +566,7 @@ const TreeViewSidebar: React.FC<TreeViewSidebarProps> = ({
               {/* Separador - Operativos */}
               <div className="my-2 border-t border-gray-100 dark:border-gray-800"></div>
 
-              {/* Activo Ahora - Ejecutivos operativos activos */}
+              {/* Activo Ahora - Usuarios con is_operativo = true */}
               <button
                 onClick={() => onStatusFilterChange(currentStatusFilter === 'online' ? 'all' : 'online')}
                 className={`
@@ -585,7 +585,7 @@ const TreeViewSidebar: React.FC<TreeViewSidebarProps> = ({
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
                   </span>
                 </div>
-                <span className="text-xs flex-1">Activo Ahora</span>
+                <span className="text-xs flex-1">En Línea Ahora</span>
               </button>
 
               {/* Operativo */}

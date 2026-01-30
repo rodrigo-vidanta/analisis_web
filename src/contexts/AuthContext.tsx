@@ -16,6 +16,7 @@ import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useLiveActivityStore } from '../stores/liveActivityStore';
+import { useHeartbeat } from '../hooks/useHeartbeat';
 import toast from 'react-hot-toast';
 
 // Tipos para el contexto
@@ -58,6 +59,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const sessionBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const backupRealtimeChannelRef = useRef<any>(null);
+
+  // ============================================
+  // HEARTBEAT - Mantener sesión activa
+  // ============================================
+  useHeartbeat({
+    userId: authState.user?.id || '',
+    sessionId: localStorage.getItem('session_id') || '',
+    enabled: authState.isAuthenticated,
+    intervalMs: 30000 // 30 segundos
+  });
 
   // Inicializar autenticación al cargar la aplicación
   useEffect(() => {
@@ -235,7 +246,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [authState.isAuthenticated, authState.user?.id]);
 
   // Handler para forzar logout cuando la sesión es invalidada externamente
-  const handleForceLogout = (reason: string) => {
+  const handleForceLogout = async (reason: string) => {
     console.log(`🔐 Cerrando sesión automáticamente: ${reason}`);
     
     // Mostrar notificación PRIMERO (antes de desmontar componentes)
@@ -247,6 +258,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         color: '#fff',
       }
     });
+
+    // Actualizar is_operativo a false antes de forzar logout
+    if (authState.user?.id) {
+      try {
+        await supabaseSystemUI.rpc('update_user_metadata', {
+          p_user_id: authState.user.id,
+          p_updates: { is_operativo: false }
+        });
+      } catch (metadataError) {
+        console.error('Error actualizando is_operativo en force logout:', metadataError);
+      }
+    }
 
     // Limpiar canal de broadcast/realtime
     if (sessionBroadcastChannelRef.current) {
@@ -260,6 +283,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // ⚠️ CRÍTICO: Invalidar caché de permisos
     permissionsService.invalidateAllCache();
     
+    // Limpiar el store de Live Activity Widget
+    useLiveActivityStore.getState().cleanup();
+    
     // Pequeño delay para que el toast se renderice antes de desmontar
     setTimeout(() => {
       setAuthState({
@@ -271,6 +297,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
     }, 100);
   };
+
+  // ============================================
+  // LISTENER PARA EVENTOS DE SESIÓN EXPIRADA
+  // ============================================
+  // Escucha eventos disparados desde authenticatedFetch u otros lugares
+  useEffect(() => {
+    const handleSessionExpired = (event: CustomEvent<{ reason: string }>) => {
+      console.log('🔐 [AuthContext] Evento de sesión expirada recibido:', event.detail.reason);
+      handleForceLogout(event.detail.reason);
+    };
+
+    window.addEventListener('auth:session-expired', handleSessionExpired as EventListener);
+    
+    return () => {
+      window.removeEventListener('auth:session-expired', handleSessionExpired as EventListener);
+    };
+  }, []);
 
   const initializeAuth = async () => {
     try {

@@ -45,6 +45,8 @@ import ChangePasswordModal from './auth/ChangePasswordModal';
 import Timeline from './direccion/Timeline';
 // Hook de inactividad
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
+// Hook de monitoreo de expiración de token
+import { useTokenExpiryMonitor } from '../hooks/useTokenExpiryMonitor';
 // Panel Lateral (llamadas activas en tiempo real)
 import { LiveCallActivityWidget } from './live-activity';
 // Control de versiones forzado
@@ -92,6 +94,9 @@ function MainApp() {
   
   // Hook para detectar inactividad y hacer logout automático después de 2 horas
   useInactivityTimeout();
+  
+  // Hook para monitorear expiración de token y refrescar proactivamente
+  useTokenExpiryMonitor();
   
   // Verificación de versión forzada (solo después del login)
   const { requiresUpdate, currentVersion, requiredVersion, isLoading: isVersionLoading } = useVersionCheck({

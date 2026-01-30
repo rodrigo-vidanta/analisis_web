@@ -5,7 +5,7 @@
  * Cambios: HOTFIX - Restricciones UI para prospectos "Importado Manual"
  */
 
-export const APP_VERSION = 'B10.1.44N2.5.71';
+export const APP_VERSION = 'B10.1.44N2.5.72';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

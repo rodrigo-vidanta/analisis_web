@@ -213,12 +213,18 @@ class AuthService {
 
       // Supabase Auth resetea intentos automáticamente
 
-      // 6. Manejar lógica especial para ejecutivos
+      // 6. Actualizar is_operativo a true para TODOS los usuarios al iniciar sesión
+      await this.updateUserMetadata(data.user.id, { is_operativo: true });
+      if (this.currentUser) {
+        this.currentUser.is_operativo = true;
+      }
+
+      // 7. Manejar lógica especial para ejecutivos (eliminar backup)
       if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
         await this.handleExecutiveLogin(data.user.id);
       }
 
-      // 7. Registrar login exitoso
+      // 8. Registrar login exitoso
       await loginLogService.logLogin({
         user_id: data.user.id,
         email: normalizedEmail,
@@ -275,6 +281,8 @@ class AuthService {
   // ============================================
   async logout(backupId?: string): Promise<void> {
     try {
+      const userId = this.currentUser?.id;
+      
       // Manejar backup para ejecutivos/supervisores
       if (this.currentUser) {
         const isEjecutivoOrSupervisor = 
@@ -284,6 +292,11 @@ class AuthService {
         if (isEjecutivoOrSupervisor) {
           await this.handleExecutiveLogout(this.currentUser.id, backupId);
         }
+      }
+
+      // Actualizar is_operativo a false para TODOS los usuarios al cerrar sesión
+      if (userId) {
+        await this.updateUserMetadata(userId, { is_operativo: false });
       }
 
       // Limpiar sesión única antes de cerrar sesión con Supabase
@@ -353,17 +366,13 @@ class AuthService {
       const cached = permissionsService.backupCache?.get(userId);
       const ejecutivoData = cached?.data;
       
+      // Eliminar backup si existe
       if (ejecutivoData && ejecutivoData.has_backup === true) {
         const { backupService } = await import('./backupService');
         await backupService.removeBackup(userId);
       }
-
-      // Actualizar is_operativo a true
-      await this.updateUserMetadata(userId, { is_operativo: true });
       
-      if (this.currentUser) {
-        this.currentUser.is_operativo = true;
-      }
+      // Nota: is_operativo se actualiza a true en el método login() para TODOS los usuarios
     } catch (error) {
       console.error('Error en handleExecutiveLogin:', error);
     }
@@ -376,9 +385,8 @@ class AuthService {
         const { backupService } = await import('./backupService');
         await backupService.assignBackup(userId, backupId);
       }
-
-      // Actualizar is_operativo a false
-      await this.updateUserMetadata(userId, { is_operativo: false });
+      
+      // Nota: is_operativo se actualiza a false en el método logout() para TODOS los usuarios
     } catch (error) {
       console.error('Error en handleExecutiveLogout:', error);
     }

@@ -2299,52 +2299,6 @@ const UserManagement: React.FC = () => {
                     </td>
                     <td className="px-4 sm:px-5 lg:px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end items-center space-x-4">
-                        {/* Toggle Operativo/No Operativo - Solo para coordinadores y ejecutivos */}
-                        {canEdit && !user.archivado && (user.role_name === 'coordinador' || user.role_name === 'ejecutivo') && (
-                          <label className={`relative inline-flex items-center ${
-                            user.role_name === 'ejecutivo' && !user.id_dynamics && user.is_operativo !== false
-                              ? 'cursor-not-allowed opacity-60'
-                              : 'cursor-pointer'
-                          }`}>
-                            <input
-                              type="checkbox"
-                              checked={user.is_operativo !== false}
-                              disabled={
-                                user.role_name === 'ejecutivo' && !user.id_dynamics && user.is_operativo !== false
-                              }
-                              onChange={async (e) => {
-                                // Validar: ejecutivos no pueden habilitar operativo sin id_dynamics
-                                if (user.role_name === 'ejecutivo' && !user.id_dynamics && e.target.checked) {
-                                  setError('No se puede habilitar operativo un ejecutivo sin ID_Dynamics');
-                                  return;
-                                }
-                                try {
-                                  const nuevoEstado = e.target.checked;
-                                  
-                                  // Usar servicio centralizado (con type safety)
-                                  const success = await authAdminProxyService.updateUserMetadata(user.id, {
-                                    is_operativo: nuevoEstado
-                                  });
-                                  
-                                  if (!success) {
-                                    throw new Error('Error al actualizar estado operativo');
-                                  }
-                                  
-                                  await loadUsers();
-                                } catch (error) {
-                                  console.error('Error actualizando is_operativo:', error);
-                                  setError('Error al actualizar estado operativo');
-                                }
-                              }}
-                              className="sr-only peer"
-                            />
-                            <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-emerald-500"></div>
-                            <span className="ml-2 text-xs font-medium text-gray-700 dark:text-gray-300">
-                              {user.is_operativo !== false ? 'Operativo' : 'No Operativo'}
-                            </span>
-                          </label>
-                        )}
-
                         {canEdit && (() => {
                           // Administrador Operativo: solo puede editar coordinadores y ejecutivos
                           if (isAdminOperativo && !['coordinador', 'ejecutivo'].includes(user.role_name)) {
@@ -3621,62 +3575,42 @@ const UserManagement: React.FC = () => {
                       />
                     </motion.label>
 
-                    {/* Toggle Switch para Usuario Operativo - Solo para coordinadores y ejecutivos */}
-                    {selectedUser && (selectedUser.role_name === 'coordinador' || selectedUser.role_name === 'ejecutivo') && (
-                    <motion.label
+                    {/* Indicador de Usuario en Línea - Solo visualización */}
+                    {selectedUser && (
+                    <motion.div
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.45 }}
-                        className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-200 group ${
-                          // Deshabilitar si es ejecutivo sin id_dynamics y se intenta habilitar operativo
-                          selectedUser.role_name === 'ejecutivo' && 
-                          !selectedUser.id_dynamics && 
-                          formData.is_operativo !== false
-                            ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 cursor-not-allowed opacity-60'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 cursor-pointer'
-                        }`}
+                      className="flex items-center justify-between p-4 rounded-xl border-2 border-gray-200 dark:border-gray-700 transition-all duration-200"
                     >
                       <div className="flex items-center space-x-3">
-                        <div className={`relative w-12 h-6 rounded-full transition-all duration-300 ${
-                          formData.is_operativo !== false ? 'bg-emerald-500' : 'bg-gray-300 dark:bg-gray-700'
-                        }`}>
-                          <motion.div
-                            animate={{ x: formData.is_operativo !== false ? 24 : 0 }}
-                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                            className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-lg"
-                          />
+                        <div className="relative">
+                          <div className={`w-3 h-3 rounded-full ${
+                            formData.is_operativo !== false ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-600'
+                          } shadow-lg`}></div>
+                          {formData.is_operativo !== false && (
+                            <div className="absolute inset-0 w-3 h-3 rounded-full bg-emerald-500 animate-ping opacity-75"></div>
+                          )}
                         </div>
-                          <div className="flex-1">
+                        <div className="flex-1">
                           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Usuario Operativo
+                            Usuario en Línea
                           </span>
                           <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {selectedUser.role_name === 'ejecutivo' && !selectedUser.id_dynamics
-                                ? 'Se requiere ID_Dynamics para habilitar operativo'
-                                : 'Estado lógico que no limita acceso ni permisos'}
+                            {formData.is_operativo !== false 
+                              ? 'El usuario está actualmente conectado' 
+                              : 'El usuario está desconectado'}
                           </p>
                         </div>
                       </div>
-                <input
-                  type="checkbox"
-                        className="sr-only"
-                  checked={formData.is_operativo !== false}
-                          disabled={
-                            selectedUser.role_name === 'ejecutivo' && 
-                            !selectedUser.id_dynamics && 
-                            formData.is_operativo !== false
-                          }
-                          onChange={(e) => {
-                            // Validar: ejecutivos no pueden habilitar operativo sin id_dynamics
-                            if (selectedUser.role_name === 'ejecutivo' && !selectedUser.id_dynamics && e.target.checked) {
-                              setError('No se puede habilitar operativo un ejecutivo sin ID_Dynamics');
-                              return;
-                            }
-                            setFormData({ ...formData, is_operativo: e.target.checked });
-                            setError(null);
-                          }}
-                      />
-                    </motion.label>
+                      <span className={`text-xs font-medium px-3 py-1 rounded-full ${
+                        formData.is_operativo !== false
+                          ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}>
+                        {formData.is_operativo !== false ? 'En línea' : 'Desconectado'}
+                      </span>
+                    </motion.div>
                     )}
                   </motion.div>
                 </form>
