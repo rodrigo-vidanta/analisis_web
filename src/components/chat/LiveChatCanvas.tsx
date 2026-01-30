@@ -3865,6 +3865,7 @@ const LiveChatCanvas: React.FC = () => {
         requiere_atencion_humana?: boolean;
         motivo_handoff?: string | null;
         etapa?: string | null;
+        etapa_id?: string | null; // ✅ AGREGADO para restricciones
       }>> => {
         const resultMap = new Map<string, {
           coordinacion_id?: string;
@@ -3878,6 +3879,7 @@ const LiveChatCanvas: React.FC = () => {
           requiere_atencion_humana?: boolean;
           motivo_handoff?: string | null;
           etapa?: string | null;
+          etapa_id?: string | null; // ✅ AGREGADO para restricciones
         }>();
         
         // Procesar en batches para evitar URL demasiado larga
@@ -3886,7 +3888,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { data, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id')
               .in('id', batch);
             
             if (error) {
@@ -3931,6 +3933,7 @@ const LiveChatCanvas: React.FC = () => {
                 requiere_atencion_humana: p.requiere_atencion_humana || false,
                 motivo_handoff: p.motivo_handoff || null,
                 etapa: p.etapa || null,
+                etapa_id: p.etapa_id || null, // ✅ AGREGADO para restricciones
               });
               if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
               if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);

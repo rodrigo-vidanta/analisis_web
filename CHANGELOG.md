@@ -2,6 +2,143 @@
 
 ## [Unreleased]
 
+### 🔒 v2.5.69 - HOTFIX: Restricciones UI para Prospectos "Importado Manual" [29-01-2026]
+
+#### 🐛 Bug Crítico Corregido
+
+**Problema:** Las restricciones de UI se aplicaban incorrectamente debido a:
+1. **Código de etapa incorrecto:** Se usaba `'IMPORTADO_MANUAL'` (mayúsculas) cuando en BD es `'importado_manual'` (minúsculas)
+2. **Campo faltante en queries:** Los queries de prospectos no incluían `etapa_id` (UUID FK), solo el campo legacy `etapa`
+3. **Comparación case-sensitive:** JavaScript comparaba strings con case-sensitivity, causando fallos en la detección
+
+**Impacto:** 
+- Prospectos "Activo PQNC" perdían botones (falso positivo)
+- Prospectos "Importado Manual" mantenían botones (falso negativo)
+
+**Solución:**
+- ✅ Código corregido a `'importado_manual'` (minúsculas)
+- ✅ Queries actualizados para incluir `etapa_id` en LiveChatCanvas y ConversacionesWidget
+- ✅ Tipos TypeScript actualizados para incluir `etapa_id` en Maps de prospectos
+- ✅ Logging agregado para debugging (solo en desarrollo)
+
+#### ✨ Restricciones Implementadas
+
+**Para prospectos en etapa "Importado Manual" (código: `importado_manual`):**
+
+**Módulo WhatsApp (LiveChat):**
+- ❌ Botón de iniciar llamada → **Oculto** (con tooltip explicativo cuando deshabilitado)
+- ❌ Botón de pausar bot → **Oculto**
+- ❌ Botón de requiere atención humana → **Oculto**
+
+**Widget Últimas Conversaciones (Módulo Inicio):**
+- ❌ Botón de pausar bot → **Oculto**
+- ❌ Botón de requiere atención humana → **Oculto**
+
+**Sidebar de Prospecto (todas las vistas):**
+- ❌ Botón "Programar llamada" → **Deshabilitado** (con tooltip explicativo)
+  - Aplica en: Widget Últimas Conversaciones, Módulo WhatsApp, Módulo Prospectos, Live Monitor, Análisis IA
+
+**Roles afectados:** Ejecutivos, Supervisores, Coordinadores
+
+#### 🛠️ Implementación Técnica
+
+**Helper Centralizado:**
+```typescript
+// src/utils/prospectRestrictions.ts
+const RESTRICTED_STAGES: string[] = [
+  'importado_manual', // ✅ Case-sensitive, coincide con BD
+];
+
+// Funciones públicas:
+- canStartCall()
+- canPauseBot()
+- canToggleAttentionRequired()
+- canScheduleCall()
+- getRestrictionMessage()
+```
+
+**Arquitectura:**
+- ✅ Centralizado en un solo archivo para fácil gestión
+- ✅ Logging automático en modo desarrollo
+- ✅ Validaciones adicionales para casos edge
+- ✅ Soporte para `etapa_id` (UUID) y `etapa` (string legacy)
+
+#### 🔓 Para Liberar Restricciones
+
+Editar `src/utils/prospectRestrictions.ts` (línea 36):
+
+```typescript
+// Opción 1: Comentar
+const RESTRICTED_STAGES: string[] = [
+  // 'importado_manual', // ✅ Comentar esta línea
+];
+
+// Opción 2: Vaciar array
+const RESTRICTED_STAGES: string[] = [];
+```
+
+Las restricciones se levantarán automáticamente en toda la aplicación.
+
+#### 📁 Archivos Modificados
+
+**Core:**
+- `src/utils/prospectRestrictions.ts` - Helper centralizado (nuevo)
+- `src/config/appVersion.ts` - Versión actualizada
+- `src/components/Footer.tsx` - Comentario de versión
+
+**LiveChat (Módulo WhatsApp):**
+- `src/components/chat/LiveChatCanvas.tsx`
+  - Query incluye `etapa_id` (línea 3889)
+  - Tipos actualizados (líneas 3856-3881)
+  - Restricciones aplicadas (líneas 7657, 7696, 8618)
+
+**Dashboard (Módulo Inicio):**
+- `src/components/dashboard/widgets/ConversacionesWidget.tsx`
+  - Query incluye `etapa_id` (línea 1373)
+  - Restricciones aplicadas (líneas 2920, 2952)
+
+**Sidebars (Todas las Vistas):**
+- `src/components/shared/ScheduledCallsSection.tsx` - Props y lógica de restricción
+- `src/components/chat/ProspectDetailSidebar.tsx` - Props de etapa
+- `src/components/prospectos/ProspectosManager.tsx` - Props de etapa
+- `src/components/analysis/LiveMonitor.tsx` - Props de etapa
+- `src/components/scheduled-calls/ProspectoSidebar.tsx` - Props de etapa
+- `src/components/analysis/AnalysisIAComplete.tsx` - Props de etapa
+
+#### 📚 Documentación
+
+**Nuevos archivos:**
+- `BUG_FIX_RESTRICCIONES_INCORRECTAS_2026-01-29.md` - Análisis técnico del bug
+- `RESTRICCIONES_TEMPORALES_IMPORTADO_MANUAL.md` - Guía de uso y reversión
+- `RESTRICCIONES_ANALISIS_COMPLETO_2026-01-29.md` - Análisis completo de implementación
+
+#### 🧪 Testing
+
+**Consola de desarrollo (modo dev):**
+```javascript
+[prospectRestrictions] Verificando por etapa_id: {
+  etapaId: "eed28f88-...",
+  etapaCodigo: "importado_manual",
+  isRestricted: true  // ✅ Botones ocultos
+}
+```
+
+**Checklist:**
+- [ ] Prospecto "Importado Manual" → Botones NO visibles
+- [ ] Prospecto "Activo PQNC" → Botones VISIBLES
+- [ ] Tooltip explicativo aparece en botón deshabilitado (Sidebar)
+- [ ] Sin errores en consola
+
+#### ⚙️ Configuración de Etapas
+
+**Código real en BD:** `'importado_manual'` (minúsculas, snake_case)  
+**UUID:** `eed28f88-2734-4d48-914d-daee97fe7232`  
+**Nombre:** "Importado Manual"
+
+**Migración:** Script `migrations/20260127_migrate_etapa_string_to_uuid.sql` (línea 76)
+
+---
+
 ### 🗓️ v2.5.41 - Importación Manual de Prospectos desde Dynamics [27-01-2026]
 
 #### ✨ Nueva Funcionalidad

@@ -23,7 +23,7 @@ interface AIDivisionMember {
 import { APP_VERSION } from '../config/appVersion';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.45: Fix búsqueda WhatsApp server-side + Performance optimization
+  // Versión actual - v2.5.69: HOTFIX - Restricciones UI para prospectos "Importado Manual"
   const version = APP_VERSION;
   
   // Legacy feature flag check (deprecated)

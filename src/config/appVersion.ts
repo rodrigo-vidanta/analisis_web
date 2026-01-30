@@ -1,11 +1,11 @@
 /**
  * APP VERSION - Versión de la aplicación
  * 
- * Actualizado: 2026-01-28
- * Cambios: Fix navegación SPA en Quick Import WhatsApp + Listeners de eventos
+ * Actualizado: 2026-01-29
+ * Cambios: HOTFIX - Restricciones UI para prospectos "Importado Manual"
  */
 
-export const APP_VERSION = 'B10.1.43N2.5.68';
+export const APP_VERSION = 'B10.1.44N2.5.69';
 
 /**
  * CHANGELOG v2.5.45 (2026-01-24)

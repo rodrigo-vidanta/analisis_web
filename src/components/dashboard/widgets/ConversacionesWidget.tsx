@@ -1370,7 +1370,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           try {
             const { data, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat')
+              .select('id, coordinacion_id, ejecutivo_id, requiere_atencion_humana, motivo_handoff, nombre_completo, nombre_whatsapp, id_uchat, etapa, etapa_id')
               .in('id', batch);
             
             if (error) {
