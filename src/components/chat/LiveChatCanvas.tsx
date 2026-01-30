@@ -7657,8 +7657,8 @@ const LiveChatCanvas: React.FC = () => {
                     const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
                     const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
                     
-                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
-                    const canToggle = canToggleAttentionRequired(prospectoData?.etapa_id, prospectoData?.etapa);
+                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
+                    const canToggle = canToggleAttentionRequired(prospectoData?.etapa_id, prospectoData?.etapa, user?.role_name);
                     if (!canToggle) return null;
                     
                     // Mostrar siempre el botón, pero en diferentes estados según requiere_atencion_humana
@@ -7694,10 +7694,10 @@ const LiveChatCanvas: React.FC = () => {
                       return null;
                     }
                     
-                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
                     const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
                     const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-                    const canPause = canPauseBot(prospectoData?.etapa_id, prospectoData?.etapa);
+                    const canPause = canPauseBot(prospectoData?.etapa_id, prospectoData?.etapa, user?.role_name);
                     if (!canPause) return null;
                     
                     const status = botPauseStatus[uchatId];
@@ -8619,7 +8619,7 @@ const LiveChatCanvas: React.FC = () => {
               {(() => {
                 const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
                 const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-                const canCall = canStartCall(prospectoData?.etapa_id, prospectoData?.etapa);
+                const canCall = canStartCall(prospectoData?.etapa_id, prospectoData?.etapa, user?.role_name);
                 
                 if (!canCall) {
                   // Botón deshabilitado con tooltip explicativo

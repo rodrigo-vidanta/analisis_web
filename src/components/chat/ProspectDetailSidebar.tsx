@@ -36,6 +36,7 @@ import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
 import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CallHistory {
   call_id: string;
@@ -134,6 +135,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
   prospectoId
 }) => {
   
+  const { user } = useAuth();
   const [prospecto, setProspecto] = useState<ProspectData | null>(null);
   const [callHistory, setCallHistory] = useState<CallHistory[]>([]);
   const [whatsappConversations, setWhatsappConversations] = useState<WhatsAppConversation[]>([]);
@@ -756,6 +758,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   delay={0.45}
                   etapaId={prospecto?.etapa_id}
                   etapaLegacy={prospecto?.etapa}
+                  userRole={user?.role_name}
                 />
 
                 {/* Observaciones */}

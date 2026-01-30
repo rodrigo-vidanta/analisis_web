@@ -7,10 +7,17 @@
  * basadas en la etapa del prospecto.
  * 
  * FECHA: 29 de Enero 2026
+ * ACTUALIZACIÓN: 29 de Enero 2026 20:05 UTC
  * ESTADO: Activo
  * 
  * RESTRICCIONES ACTUALES:
  * - Etapa "Importado Manual": Restricciones completas (ver abajo)
+ * 
+ * ROLES AFECTADOS:
+ * - ✅ Ejecutivos
+ * - ✅ Supervisores
+ * - ✅ Coordinadores
+ * - ❌ Administradores (EXENTOS)
  * 
  * PARA LIBERAR/MODIFICAR:
  * 1. Cambiar RESTRICTED_STAGES o los getters específicos
@@ -36,6 +43,16 @@ const RESTRICTED_STAGES: string[] = [
   'importado_manual', // ✅ CORRECTO: minúsculas con guion bajo (código real en BD)
 ];
 
+/**
+ * Roles exentos de restricciones (sin importar la etapa)
+ * 
+ * Estos roles NUNCA tienen restricciones, incluso para prospectos en etapas restringidas
+ */
+const EXEMPT_ROLES: string[] = [
+  'admin',
+  'administrador_operativo',
+];
+
 // ============================================
 // HELPERS PRINCIPALES
 // ============================================
@@ -45,14 +62,27 @@ const RESTRICTED_STAGES: string[] = [
  * 
  * @param etapaId - UUID de la etapa (campo etapa_id)
  * @param etapaLegacy - Nombre legacy (campo etapa) - fallback si no hay etapa_id
- * @returns true si el prospecto está restringido
+ * @param userRole - Rol del usuario actual (para verificar si está exento)
+ * @returns true si el prospecto está restringido PARA ESTE USUARIO
  */
 export const isProspectRestricted = (
   etapaId?: string | null,
-  etapaLegacy?: string | null
+  etapaLegacy?: string | null,
+  userRole?: string | null
 ): boolean => {
   // Si no hay restricciones configuradas, nadie está restringido
   if (RESTRICTED_STAGES.length === 0) return false;
+  
+  // Si el usuario está exento, nunca está restringido
+  if (userRole && EXEMPT_ROLES.includes(userRole)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[prospectRestrictions] Usuario exento de restricciones:', {
+        userRole,
+        exemptRoles: EXEMPT_ROLES
+      });
+    }
+    return false;
+  }
   
   // Si no hay etapa, no está restringido
   if (!etapaId && !etapaLegacy) {
@@ -73,8 +103,10 @@ export const isProspectRestricted = (
           etapaId,
           etapaCodigo: etapa.codigo,
           etapaNombre: etapa.nombre,
+          userRole,
           isRestricted,
-          restrictedStages: RESTRICTED_STAGES
+          restrictedStages: RESTRICTED_STAGES,
+          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
         });
       }
       
@@ -101,8 +133,10 @@ export const isProspectRestricted = (
           etapaLegacy,
           etapaCodigo: etapa.codigo,
           etapaNombre: etapa.nombre,
+          userRole,
           isRestricted,
-          restrictedStages: RESTRICTED_STAGES
+          restrictedStages: RESTRICTED_STAGES,
+          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
         });
       }
       
@@ -113,7 +147,11 @@ export const isProspectRestricted = (
     // (caso edge: si alguien pone el código en el campo legacy)
     if (RESTRICTED_STAGES.includes(etapaLegacy.toLowerCase().replace(/\s+/g, '_'))) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('[prospectRestrictions] Match directo con código:', etapaLegacy);
+        console.log('[prospectRestrictions] Match directo con código:', {
+          etapaLegacy,
+          userRole,
+          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
+        });
       }
       return true;
     }
@@ -138,13 +176,15 @@ export const isProspectRestricted = (
  * AFECTA:
  * - Módulo WhatsApp: botón de iniciar llamada
  * 
- * ROLES: Ejecutivos, Supervisores, Coordinadores
+ * ROLES RESTRINGIDOS: Ejecutivos, Supervisores, Coordinadores
+ * ROLES EXENTOS: Administradores
  */
 export const canStartCall = (
   etapaId?: string | null,
-  etapaLegacy?: string | null
+  etapaLegacy?: string | null,
+  userRole?: string | null
 ): boolean => {
-  return !isProspectRestricted(etapaId, etapaLegacy);
+  return !isProspectRestricted(etapaId, etapaLegacy, userRole);
 };
 
 /**
@@ -154,13 +194,15 @@ export const canStartCall = (
  * - Módulo WhatsApp: botón de pausar bot
  * - Widget Últimas Conversaciones: botón de pausar bot
  * 
- * ROLES: Ejecutivos, Supervisores, Coordinadores
+ * ROLES RESTRINGIDOS: Ejecutivos, Supervisores, Coordinadores
+ * ROLES EXENTOS: Administradores
  */
 export const canPauseBot = (
   etapaId?: string | null,
-  etapaLegacy?: string | null
+  etapaLegacy?: string | null,
+  userRole?: string | null
 ): boolean => {
-  return !isProspectRestricted(etapaId, etapaLegacy);
+  return !isProspectRestricted(etapaId, etapaLegacy, userRole);
 };
 
 /**
@@ -170,13 +212,15 @@ export const canPauseBot = (
  * - Módulo WhatsApp: botón de requiere atención
  * - Widget Últimas Conversaciones: botón de requiere atención
  * 
- * ROLES: Ejecutivos, Supervisores, Coordinadores
+ * ROLES RESTRINGIDOS: Ejecutivos, Supervisores, Coordinadores
+ * ROLES EXENTOS: Administradores
  */
 export const canToggleAttentionRequired = (
   etapaId?: string | null,
-  etapaLegacy?: string | null
+  etapaLegacy?: string | null,
+  userRole?: string | null
 ): boolean => {
-  return !isProspectRestricted(etapaId, etapaLegacy);
+  return !isProspectRestricted(etapaId, etapaLegacy, userRole);
 };
 
 /**
@@ -188,13 +232,15 @@ export const canToggleAttentionRequired = (
  *   - Módulo WhatsApp > clic en nombre
  *   - Módulo Prospectos > clic en prospecto
  * 
- * ROLES: Ejecutivos, Supervisores, Coordinadores
+ * ROLES RESTRINGIDOS: Ejecutivos, Supervisores, Coordinadores
+ * ROLES EXENTOS: Administradores
  */
 export const canScheduleCall = (
   etapaId?: string | null,
-  etapaLegacy?: string | null
+  etapaLegacy?: string | null,
+  userRole?: string | null
 ): boolean => {
-  return !isProspectRestricted(etapaId, etapaLegacy);
+  return !isProspectRestricted(etapaId, etapaLegacy, userRole);
 };
 
 // ============================================

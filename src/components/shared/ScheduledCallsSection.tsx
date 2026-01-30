@@ -27,6 +27,7 @@ interface ScheduledCallsSectionProps {
   // ✅ AGREGADO: Datos de etapa para restricciones
   etapaId?: string | null;
   etapaLegacy?: string | null;
+  userRole?: string | null; // ✅ AGREGADO: Rol del usuario para verificar restricciones
 }
 
 export const ScheduledCallsSection: React.FC<ScheduledCallsSectionProps> = ({
@@ -34,14 +35,15 @@ export const ScheduledCallsSection: React.FC<ScheduledCallsSectionProps> = ({
   prospectoNombre,
   delay = 0.55,
   etapaId,
-  etapaLegacy
+  etapaLegacy,
+  userRole
 }) => {
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([]);
   const [loadingScheduledCalls, setLoadingScheduledCalls] = useState(true);
   const [scheduleCallModalOpen, setScheduleCallModalOpen] = useState(false);
   
-  // ✅ RESTRICCIÓN TEMPORAL: Verificar si se puede programar llamadas
-  const canSchedule = canScheduleCall(etapaId, etapaLegacy);
+  // ✅ RESTRICCIÓN TEMPORAL: Verificar si se puede programar llamadas (excepto admins)
+  const canSchedule = canScheduleCall(etapaId, etapaLegacy, userRole);
 
   useEffect(() => {
     if (prospectoId) {

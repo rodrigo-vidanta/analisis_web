@@ -2916,9 +2916,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   selectedConversation.conversation_id || 
                   selectedConversation.id;
                 
-                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
                 const prospectData = prospectosData.get(selectedConversation.prospect_id);
-                const canPause = canPauseBot(prospectData?.etapa_id, prospectData?.etapa);
+                const canPause = canPauseBot(prospectData?.etapa_id, prospectData?.etapa, user?.role_name);
                 if (!canPause) return null;
                 
                 const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
@@ -2948,8 +2948,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 const prospectData = prospectosData.get(selectedConversation.prospect_id);
                 const requiereAtencion = prospectData?.requiere_atencion_humana || false;
                 
-                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
-                const canToggle = canToggleAttentionRequired(prospectData?.etapa_id, prospectData?.etapa);
+                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
+                const canToggle = canToggleAttentionRequired(prospectData?.etapa_id, prospectData?.etapa, user?.role_name);
                 if (!canToggle) return null;
                 
                 return (

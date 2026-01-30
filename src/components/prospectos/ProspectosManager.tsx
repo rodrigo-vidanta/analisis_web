@@ -802,6 +802,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                   delay={0.45}
                   etapaId={prospecto.etapa_id}
                   etapaLegacy={prospecto.etapa}
+                  userRole={user?.role_name}
                 />
 
                 {/* Observaciones */}

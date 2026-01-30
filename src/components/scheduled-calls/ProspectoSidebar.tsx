@@ -14,6 +14,7 @@ import { Avatar } from '../shared/Avatar';
 import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CallHistory {
   call_id: string;
@@ -85,6 +86,7 @@ interface ProspectoSidebarProps {
 
 export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ prospectoId, isOpen, onClose, onNavigateToLiveChat }) => {
   const componentIdRef = useRef(Math.random().toString(36).substr(2, 9));
+  const { user } = useAuth();
   const [prospecto, setProspecto] = useState<ProspectoData | null>(null);
   const [loading, setLoading] = useState(true);
   const [llamadas, setLlamadas] = useState<any[]>([]);
@@ -591,6 +593,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                       delay={0.6}
                       etapaId={prospecto.etapa_id}
                       etapaLegacy={prospecto.etapa}
+                      userRole={user?.role_name}
                     />
                   )}
 
