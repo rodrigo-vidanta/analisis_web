@@ -64,7 +64,8 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
   const loadCoordinaciones = async () => {
     try {
       const coordinacionesData = await coordinacionService.getCoordinaciones();
-      setCoordinaciones(coordinacionesData.filter(c => c.is_active && !c.archivado));
+      // Solo filtrar por archivado (is_active ya no existe)
+      setCoordinaciones(coordinacionesData.filter(c => !c.archivado));
     } catch (error) {
       console.error('Error cargando coordinaciones:', error);
       toast.error('Error al cargar coordinaciones');
@@ -100,9 +101,9 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
             
             // Mostrar TODOS los coordinadores activos con coordinación asignada
             allCoordinadores = todosCoordinadores.filter(coord => {
-              const isActive = coord.is_active;
+              // Solo verificar que tenga coordinación asignada (is_active ya no existe en coord)
               const hasCoordinacion = !!coord.coordinacion_id;
-              return isActive && hasCoordinacion;
+              return hasCoordinacion;
             });
             
             console.log(`✅ [BulkAssignmentModal] ${allCoordinadores.length} coordinadores filtrados de ${todosCoordinadores.length} totales`);
@@ -141,11 +142,11 @@ export const BulkAssignmentModal: React.FC<BulkAssignmentModalProps> = ({
         }
       }
       
-      // Filtrar ejecutivos activos con coordinación asignada
+      // Filtrar ejecutivos con coordinación asignada
       let ejecutivosFiltrados = allEjecutivos.filter(e => {
-        const isActive = e.is_active;
+        // Solo verificar que tenga coordinación asignada
         const hasCoordinacion = !!e.coordinacion_id;
-        return isActive && hasCoordinacion;
+        return hasCoordinacion;
       });
       
       console.log(`✅ [BulkAssignmentModal] ${ejecutivosFiltrados.length} ejecutivos activos cargados (de ${allEjecutivos.length} totales)`);

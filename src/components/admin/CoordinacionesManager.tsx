@@ -83,7 +83,6 @@ const CoordinacionesManager: React.FC = () => {
   const loadCoordinaciones = async () => {
     try {
       setLoading(true);
-      // Cargar todas las coordinaciones (activas e inactivas)
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
@@ -91,17 +90,12 @@ const CoordinacionesManager: React.FC = () => {
 
       if (error) throw error;
 
-      // Enriquecer con estadísticas y normalizar campos
+      // Enriquecer con estadísticas
       const coordinacionesWithStats = await Promise.all(
         (data || []).map(async (coord: any) => {
-          // Normalizar campos: si no existen archivado/is_operativo, usar is_active
-          const archivado = coord.archivado !== undefined ? coord.archivado : !coord.is_active;
-          const is_operativo = coord.is_operativo !== undefined ? coord.is_operativo : true;
-
           // Contar ejecutivos asignados (solo si no está archivada)
           let ejecutivosCount = 0;
-          if (!archivado) {
-            // Usar user_profiles_v2 que ya tiene role_name incluido
+          if (!coord.archivado) {
             const { count } = await supabaseSystemUI
               .from('user_profiles_v2')
               .select('id', { count: 'exact', head: true })
@@ -111,21 +105,11 @@ const CoordinacionesManager: React.FC = () => {
             ejecutivosCount = count || 0;
           }
 
-          // Contar prospectos asignados (desde base de análisis)
-          // Esto requeriría una consulta a la base de análisis, por ahora lo dejamos como 0
-          const prospectsCount = 0;
-
-          // Contar llamadas asignadas (desde base de análisis)
-          // Esto requeriría una consulta a la base de análisis, por ahora lo dejamos como 0
-          const callsCount = 0;
-
           return {
             ...coord,
-            archivado,
-            is_operativo: is_operativo !== undefined ? is_operativo : (coord.is_active !== false), // Si is_active es true o null, es operativa
             ejecutivos_count: ejecutivosCount,
-            prospects_count: prospectsCount,
-            calls_count: callsCount,
+            prospects_count: 0,
+            calls_count: 0,
           };
         })
       );
@@ -167,32 +151,13 @@ const CoordinacionesManager: React.FC = () => {
 
     try {
       setLoading(true);
-      
-      // Intentar crear con nuevos campos, pero manejar errores
-      try {
-        await coordinacionService.createCoordinacion({
-          codigo: formData.codigo.trim().toUpperCase(),
-          nombre: formData.nombre.trim(),
-          descripcion: formData.descripcion.trim() || undefined,
-          archivado: formData.archivado,
-          is_operativo: formData.is_operativo,
-        });
-      } catch (createError: any) {
-        // Si falla por columnas nuevas, crear solo con campos básicos
-        if (createError.code === 'PGRST204' || createError.message?.includes('archivado') || createError.message?.includes('is_operativo')) {
-          console.warn('Usando fallback: creando solo con campos básicos');
-          await supabaseSystemUI
-            .from('coordinaciones')
-            .insert({
-              codigo: formData.codigo.trim().toUpperCase(),
-              nombre: formData.nombre.trim(),
-              descripcion: formData.descripcion.trim() || null,
-              is_active: !formData.archivado, // Mapear archivado a is_active
-            });
-        } else {
-          throw createError;
-        }
-      }
+      await coordinacionService.createCoordinacion({
+        codigo: formData.codigo.trim().toUpperCase(),
+        nombre: formData.nombre.trim(),
+        descripcion: formData.descripcion.trim() || undefined,
+        archivado: formData.archivado,
+        is_operativo: formData.is_operativo,
+      });
 
       toast.success('Coordinación creada exitosamente');
       setShowCreateModal(false);
@@ -215,8 +180,6 @@ const CoordinacionesManager: React.FC = () => {
     try {
       setLoading(true);
       
-      // Actualizar coordinación normalmente (sin archivado, eso se maneja en el botón de archivar)
-      // Simplificar: solo actualizar campos básicos directamente
       const { error } = await supabaseSystemUI
         .from('coordinaciones')
         .update({
@@ -227,9 +190,7 @@ const CoordinacionesManager: React.FC = () => {
         })
         .eq('id', selectedCoordinacion.id);
       
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       toast.success('Coordinación actualizada exitosamente');
       setShowEditModal(false);
@@ -422,20 +383,17 @@ const CoordinacionesManager: React.FC = () => {
     setSelectedCoordinacion(null);
   };
 
-  // Filtrar coordinaciones (por defecto solo mostrar activas/no archivadas)
+  // Filtrar coordinaciones
   const filteredCoordinaciones = coordinaciones.filter((coord) => {
     const matchesSearch = 
       coord.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
       coord.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (coord.descripcion && coord.descripcion.toLowerCase().includes(searchTerm.toLowerCase()));
     
-    // Normalizar archivado (si no existe, usar is_active)
-    const archivado = coord.archivado !== undefined ? coord.archivado : !coord.is_active;
-    
     const matchesFilter = 
       filterActive === 'all' ||
-      (filterActive === 'active' && !archivado) ||
-      (filterActive === 'archived' && archivado);
+      (filterActive === 'active' && !coord.archivado) ||
+      (filterActive === 'archived' && coord.archivado);
 
     return matchesSearch && matchesFilter;
   });
@@ -560,52 +518,78 @@ const CoordinacionesManager: React.FC = () => {
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
             {filteredCoordinaciones.map((coord) => {
-              const archivado = coord.archivado !== undefined ? coord.archivado : !coord.is_active;
-              const isOperativo = coord.is_operativo !== undefined ? coord.is_operativo : true;
-              
               return (
                 <div
                   key={coord.id}
                   className={`group flex items-center gap-4 px-6 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors ${
-                    archivado ? 'opacity-50' : ''
+                    coord.archivado ? 'opacity-50' : ''
                   }`}
                 >
                   {/* Indicador de estado */}
                   <div className="flex-shrink-0">
                     <button
                       onClick={async () => {
-                        if (archivado) return;
+                        if (coord.archivado) return;
                         try {
                           setLoading(true);
-                          const nuevoEstado = !isOperativo;
-                          const { error } = await supabaseSystemUI
-                            .from('coordinaciones')
-                            .update({ is_operativo: nuevoEstado, updated_at: new Date().toISOString() })
-                            .eq('id', coord.id);
+                          const nuevoEstado = !coord.is_operativo;
                           
-                          if (error) {
-                            toast.error(error.message || 'Error al actualizar');
-                            return;
+                          // Intentar usar función RPC segura primero
+                          let success = false;
+                          try {
+                            const { data: rpcData, error: rpcError } = await supabaseSystemUI.rpc('update_coordinacion_safe', {
+                              p_id: coord.id,
+                              p_codigo: null,
+                              p_nombre: null,
+                              p_descripcion: null,
+                              p_archivado: null,
+                              p_is_operativo: nuevoEstado,
+                            });
+
+                            if (!rpcError && rpcData) {
+                              success = true;
+                            }
+                          } catch (rpcErr) {
+                            console.warn('RPC no disponible, usando método directo:', rpcErr);
                           }
+
+                          // Fallback: método directo
+                          if (!success) {
+                            const { error } = await supabaseSystemUI
+                              .from('coordinaciones')
+                              .update({ 
+                                is_operativo: nuevoEstado,
+                                updated_at: new Date().toISOString() 
+                              })
+                              .eq('id', coord.id);
+                            
+                            if (error) {
+                              console.error('Error al actualizar coordinación:', error);
+                              toast.error(error.message || 'Error al actualizar estado');
+                              return;
+                            }
+                          }
+                          
                           toast.success(`Coordinación ${nuevoEstado ? 'operativa' : 'pausada'}`);
                           await loadCoordinaciones();
                         } catch (error: any) {
-                          toast.error(error.message || 'Error');
+                          console.error('Error en actualización:', error);
+                          toast.error(error.message || 'Error al cambiar estado');
                         } finally {
                           setLoading(false);
                         }
                       }}
-                      disabled={archivado}
+                      disabled={coord.archivado || loading}
                       className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                        archivado
+                        coord.archivado
                           ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed'
-                          : isOperativo
+                          : coord.is_operativo
                             ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-200 dark:hover:bg-emerald-900/50'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
-                      title={archivado ? 'Archivada' : isOperativo ? 'Operativa (clic para pausar)' : 'Pausada (clic para activar)'}
+                      title={coord.archivado ? 'Archivada' : coord.is_operativo ? 'Operativa (clic para pausar)' : 'Pausada (clic para activar)'}
                     >
-                      {isOperativo && !archivado ? (
+                      {coord.is_operativo && !coord.archivado ? (
                         <Power className="w-4 h-4" />
                       ) : (
                         <PowerOff className="w-4 h-4" />
@@ -622,7 +606,7 @@ const CoordinacionesManager: React.FC = () => {
                       <span className="text-xs font-mono text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
                         {coord.codigo}
                       </span>
-                      {archivado && (
+                      {coord.archivado && (
                         <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-1.5 py-0.5 rounded">
                           Archivada
                         </span>
@@ -662,7 +646,7 @@ const CoordinacionesManager: React.FC = () => {
                     >
                       <Edit className="w-4 h-4" />
                     </button>
-                    {!archivado && (coord.ejecutivos_count || 0) === 0 && (
+                    {!coord.archivado && (coord.ejecutivos_count || 0) === 0 && (
                       <button
                         onClick={() => openDeleteModal(coord)}
                         className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
@@ -786,14 +770,8 @@ const CoordinacionesManager: React.FC = () => {
                   </div>
 
                   {/* Botón para Archivar (solo en modal de edición, solo si no está archivada) */}
-                  {showEditModal && selectedCoordinacion && (() => {
-                    const archivadoActual = selectedCoordinacion.archivado !== undefined 
-                      ? selectedCoordinacion.archivado 
-                      : !selectedCoordinacion.is_active;
-                    
-                    if (!archivadoActual) {
-                      return (
-                        <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10">
+                  {showEditModal && selectedCoordinacion && !selectedCoordinacion.archivado && (
+                    <div className="p-4 rounded-xl border-2 border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
@@ -839,10 +817,9 @@ const CoordinacionesManager: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      );
-                    } else {
-                      return (
-                        <div className="p-4 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
+                      )}
+                  {showEditModal && selectedCoordinacion && selectedCoordinacion.archivado && (
+                    <div className="p-4 rounded-xl border-2 border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
@@ -858,33 +835,16 @@ const CoordinacionesManager: React.FC = () => {
                                 onClick={async () => {
                                   try {
                                     setLoading(true);
-                                    // Desarchivar: actualizar archivado a false e is_operativo a true
                                     const { error } = await supabaseSystemUI
                                       .from('coordinaciones')
                                       .update({
                                         archivado: false,
                                         is_operativo: true,
-                                        is_active: true,
                                         updated_at: new Date().toISOString(),
                                       })
                                       .eq('id', selectedCoordinacion.id);
                                     
-                                    if (error) {
-                                      // Si falla por columnas nuevas, usar solo is_active
-                                      if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
-                                        const { error: fallbackError } = await supabaseSystemUI
-                                          .from('coordinaciones')
-                                          .update({
-                                            is_active: true,
-                                            updated_at: new Date().toISOString(),
-                                          })
-                                          .eq('id', selectedCoordinacion.id);
-                                        
-                                        if (fallbackError) throw fallbackError;
-                                      } else {
-                                        throw error;
-                                      }
-                                    }
+                                    if (error) throw error;
                                     
                                     toast.success('Coordinación desarchivada exitosamente');
                                     setShowEditModal(false);
@@ -904,9 +864,7 @@ const CoordinacionesManager: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      );
-                    }
-                  })()}
+                      )}
                 </form>
               </div>
 

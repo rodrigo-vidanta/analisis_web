@@ -31,9 +31,8 @@ export interface Coordinacion {
   codigo: string;
   nombre: string;
   descripcion?: string;
-  is_active?: boolean; // Deprecated: usar archivado en su lugar
-  archivado?: boolean; // Nuevo: borrado lógico
-  is_operativo?: boolean; // Nuevo: status operativo para asignación de prospectos
+  archivado: boolean; // Borrado lógico: true = archivada, false = existe
+  is_operativo: boolean; // Estado operativo: true = recibe asignaciones, false = pausada
   created_at: string;
   updated_at: string;
 }
@@ -96,43 +95,15 @@ class CoordinacionService {
    */
   async getCoordinaciones(): Promise<Coordinacion[]> {
     try {
-      // Intentar obtener con filtro de archivado
-      let query = supabaseSystemUI
+      const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
+        .eq('archivado', false)
         .order('codigo');
 
-      // Intentar filtrar por archivado, pero si falla usar is_active
-      try {
-        const { data, error } = await query.eq('archivado', false);
-        if (!error) {
-          return (data || []).map((coord: any) => ({
-            ...coord,
-            archivado: coord.archivado !== undefined ? coord.archivado : !coord.is_active,
-            is_operativo: coord.is_operativo !== undefined ? coord.is_operativo : true,
-          }));
-        }
-        throw error;
-      } catch (err: any) {
-        // Si falla por columnas nuevas, usar is_active como fallback
-        if (err.code === 'PGRST204' || err.message?.includes('archivado')) {
-          console.warn('Usando is_active como fallback para archivado');
-          const { data, error } = await supabaseSystemUI
-            .from('coordinaciones')
-            .select('*')
-            .eq('is_active', true)
-            .order('codigo');
-          
-          if (error) throw error;
-          
-          return (data || []).map((coord: any) => ({
-            ...coord,
-            archivado: false,
-            is_operativo: true,
-          }));
-        }
-        throw err;
-      }
+      if (error) throw error;
+
+      return data || [];
     } catch (error) {
       console.error('Error obteniendo coordinaciones:', error);
       throw error;
@@ -141,43 +112,19 @@ class CoordinacionService {
 
   /**
    * Obtiene coordinaciones operativas para asignación de prospectos
-   * NOTA: Ya no usa función RPC, obtiene directamente desde la tabla
    */
   async getCoordinacionesParaAsignacion(): Promise<Coordinacion[]> {
     try {
-      // Obtener coordinaciones activas directamente (sin usar función RPC que no existe)
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
-        .eq('is_active', true);
+        .eq('archivado', false)
+        .eq('is_operativo', true)
+        .order('codigo');
 
-      if (error) {
-        console.error('Error obteniendo coordinaciones:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Filtrar coordinaciones archivadas si la columna existe
-      const coordinacionesFiltradas = (data || []).filter((coord: any) => {
-        // Si tiene campo archivado, filtrar por él
-        if (coord.archivado !== undefined) {
-          return coord.archivado === false;
-        }
-        // Si no tiene campo archivado, asumir que no está archivada si is_active es true
-        return true;
-      });
-
-      // Ordenar por código o nombre
-      coordinacionesFiltradas.sort((a: any, b: any) => {
-        if (a.codigo && b.codigo) {
-          return a.codigo.localeCompare(b.codigo);
-        }
-        if (a.nombre && b.nombre) {
-          return a.nombre.localeCompare(b.nombre);
-        }
-        return 0;
-      });
-
-      return coordinacionesFiltradas;
+      return data || [];
     } catch (error) {
       console.error('Error obteniendo coordinaciones para asignación:', error);
       throw error;
@@ -233,21 +180,13 @@ class CoordinacionService {
     is_operativo?: boolean;
   }): Promise<Coordinacion> {
     try {
-      const insertData: any = {
+      const insertData = {
         codigo: coordinacionData.codigo,
         nombre: coordinacionData.nombre,
         descripcion: coordinacionData.descripcion || null,
+        archivado: coordinacionData.archivado !== undefined ? coordinacionData.archivado : false,
+        is_operativo: coordinacionData.is_operativo !== undefined ? coordinacionData.is_operativo : true,
       };
-
-      // Intentar agregar campos nuevos, pero con fallback
-      try {
-        insertData.archivado = coordinacionData.archivado !== undefined ? coordinacionData.archivado : false;
-        insertData.is_operativo = coordinacionData.is_operativo !== undefined ? coordinacionData.is_operativo : true;
-        insertData.is_active = !insertData.archivado; // Mantener compatibilidad
-      } catch {
-        // Si falla, usar solo is_active
-        insertData.is_active = coordinacionData.archivado === false ? true : false;
-      }
 
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
@@ -255,33 +194,7 @@ class CoordinacionService {
         .select()
         .single();
 
-      if (error) {
-        // Si falla por columnas nuevas, intentar solo con campos básicos
-        if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
-          console.warn('Columnas nuevas no disponibles aún, usando campos básicos');
-          const basicInsertData = {
-            codigo: coordinacionData.codigo,
-            nombre: coordinacionData.nombre,
-            descripcion: coordinacionData.descripcion || null,
-            is_active: coordinacionData.archivado === false ? true : false,
-          };
-          
-          const { data: basicData, error: basicError } = await supabaseSystemUI
-            .from('coordinaciones')
-            .insert(basicInsertData)
-            .select()
-            .single();
-          
-          if (basicError) throw basicError;
-          
-          return {
-            ...basicData,
-            archivado: !basicData.is_active,
-            is_operativo: true,
-          } as Coordinacion;
-        }
-        throw error;
-      }
+      if (error) throw error;
       return data;
     } catch (error: any) {
       console.error('Error creando coordinación:', error);
@@ -313,22 +226,8 @@ class CoordinacionService {
       if (updates.codigo !== undefined) updateData.codigo = updates.codigo;
       if (updates.nombre !== undefined) updateData.nombre = updates.nombre;
       if (updates.descripcion !== undefined) updateData.descripcion = updates.descripcion || null;
-      
-      // Manejar campos nuevos con fallback a is_active si las columnas no existen aún
-      // Intentar actualizar archivado e is_operativo, pero si falla, usar is_active como fallback
-      if (updates.archivado !== undefined) {
-        updateData.archivado = updates.archivado;
-        // Fallback: si archivado = true, entonces is_active = false
-        if (updates.archivado) {
-          updateData.is_active = false;
-        } else {
-          updateData.is_active = true;
-        }
-      }
-      
-      if (updates.is_operativo !== undefined) {
-        updateData.is_operativo = updates.is_operativo;
-      }
+      if (updates.archivado !== undefined) updateData.archivado = updates.archivado;
+      if (updates.is_operativo !== undefined) updateData.is_operativo = updates.is_operativo;
 
       // Intentar usar función RPC segura primero
       try {
@@ -348,7 +247,7 @@ class CoordinacionService {
         console.warn('RPC no disponible, usando método directo:', rpcErr);
       }
 
-      // Fallback: método directo con manejo de errores
+      // Fallback: método directo
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .update(updateData)
@@ -356,41 +255,7 @@ class CoordinacionService {
         .select()
         .single();
 
-      if (error) {
-        // Si el error es porque las columnas no existen, intentar solo con campos básicos
-        if (error.code === 'PGRST204' || error.message?.includes('archivado') || error.message?.includes('is_operativo')) {
-          console.warn('Columnas nuevas no disponibles aún, usando campos básicos');
-          const basicUpdateData: any = {
-            updated_at: new Date().toISOString(),
-          };
-          
-          if (updates.codigo !== undefined) basicUpdateData.codigo = updates.codigo;
-          if (updates.nombre !== undefined) basicUpdateData.nombre = updates.nombre;
-          if (updates.descripcion !== undefined) basicUpdateData.descripcion = updates.descripcion || null;
-          
-          // Mapear archivado a is_active
-          if (updates.archivado !== undefined) {
-            basicUpdateData.is_active = !updates.archivado;
-          }
-          
-          const { data: basicData, error: basicError } = await supabaseSystemUI
-            .from('coordinaciones')
-            .update(basicUpdateData)
-            .eq('id', coordinacionId)
-            .select()
-            .single();
-          
-          if (basicError) throw basicError;
-          
-          // Retornar datos con mapeo inverso
-          return {
-            ...basicData,
-            archivado: !basicData.is_active,
-            is_operativo: updates.is_operativo !== undefined ? updates.is_operativo : true,
-          } as Coordinacion;
-        }
-        throw error;
-      }
+      if (error) throw error;
       return data;
     } catch (error: any) {
       console.error('Error actualizando coordinación:', error);
@@ -573,25 +438,16 @@ class CoordinacionService {
     try {
       if (ids.length === 0) return new Map();
 
-      // Obtener todas las coordinaciones solicitadas (incluso archivadas para historial)
       const { data, error } = await supabaseSystemUI
         .from('coordinaciones')
         .select('*')
         .in('id', ids);
 
-      if (error) {
-        console.error('Error en query getCoordinacionesByIds:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       const map = new Map<string, Coordinacion>();
       (data || []).forEach((coord: any) => {
-        // Normalizar datos para compatibilidad
-        map.set(coord.id, {
-          ...coord,
-          archivado: coord.archivado !== undefined ? coord.archivado : !coord.is_active,
-          is_operativo: coord.is_operativo !== undefined ? coord.is_operativo : true,
-        });
+        map.set(coord.id, coord);
       });
 
       return map;
