@@ -74,7 +74,8 @@ export const isProspectRestricted = (
   if (RESTRICTED_STAGES.length === 0) return false;
   
   // Si el usuario está exento, nunca está restringido
-  if (userRole && EXEMPT_ROLES.includes(userRole)) {
+  // Manejo defensivo: verificar que userRole exista y sea string no vacío
+  if (userRole && typeof userRole === 'string' && userRole.trim() !== '' && EXEMPT_ROLES.includes(userRole)) {
     if (process.env.NODE_ENV === 'development') {
       console.log('[prospectRestrictions] Usuario exento de restricciones:', {
         userRole,

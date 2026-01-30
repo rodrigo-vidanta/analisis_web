@@ -43,7 +43,8 @@ export const ScheduledCallsSection: React.FC<ScheduledCallsSectionProps> = ({
   const [scheduleCallModalOpen, setScheduleCallModalOpen] = useState(false);
   
   // ✅ RESTRICCIÓN TEMPORAL: Verificar si se puede programar llamadas (excepto admins)
-  const canSchedule = canScheduleCall(etapaId, etapaLegacy, userRole);
+  // Manejo defensivo: si userRole es undefined, se aplicarán restricciones normalmente
+  const canSchedule = canScheduleCall(etapaId ?? null, etapaLegacy ?? null, userRole ?? null);
 
   useEffect(() => {
     if (prospectoId) {
