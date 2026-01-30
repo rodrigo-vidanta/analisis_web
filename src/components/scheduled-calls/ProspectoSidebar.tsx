@@ -589,6 +589,8 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
                       prospectoId={prospecto.id}
                       prospectoNombre={prospecto.nombre_completo || `${prospecto.nombre || ''} ${prospecto.apellido_paterno || ''} ${prospecto.apellido_materno || ''}`.trim() || prospecto.nombre_whatsapp || ''}
                       delay={0.6}
+                      etapaId={prospecto.etapa_id}
+                      etapaLegacy={prospecto.etapa}
                     />
                   )}
 

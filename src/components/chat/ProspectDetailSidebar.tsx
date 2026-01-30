@@ -754,6 +754,8 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
                   prospectoId={prospectoId}
                   prospectoNombre={prospecto?.nombre || prospecto?.nombre_whatsapp}
                   delay={0.45}
+                  etapaId={prospecto?.etapa_id}
+                  etapaLegacy={prospecto?.etapa}
                 />
 
                 {/* Observaciones */}

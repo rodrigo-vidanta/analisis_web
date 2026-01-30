@@ -800,6 +800,8 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                   prospectoId={prospecto.id}
                   prospectoNombre={prospecto.nombre_completo || `${prospecto.nombre} ${prospecto.apellido_paterno} ${prospecto.apellido_materno}`.trim()}
                   delay={0.45}
+                  etapaId={prospecto.etapa_id}
+                  etapaLegacy={prospecto.etapa}
                 />
 
                 {/* Observaciones */}

@@ -32,6 +32,7 @@ import { botPauseService } from '../../../services/botPauseService';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
 import { getAvatarGradient } from '../../../utils/avatarGradient';
 import { getApiToken } from '../../../services/apiTokensService';
+import { canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../../utils/prospectRestrictions';
 
 interface Message {
   id: string;
@@ -2914,6 +2915,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   selectedConversation.id_uchat || 
                   selectedConversation.conversation_id || 
                   selectedConversation.id;
+                
+                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                const prospectData = prospectosData.get(selectedConversation.prospect_id);
+                const canPause = canPauseBot(prospectData?.etapa_id, prospectData?.etapa);
+                if (!canPause) return null;
+                
                 const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
                 const isBotPaused = pauseStatus?.isPaused && (
                   pauseStatus.pausedUntil === null || 
@@ -2940,6 +2947,10 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               {selectedConversation?.prospect_id && (() => {
                 const prospectData = prospectosData.get(selectedConversation.prospect_id);
                 const requiereAtencion = prospectData?.requiere_atencion_humana || false;
+                
+                // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                const canToggle = canToggleAttentionRequired(prospectData?.etapa_id, prospectData?.etapa);
+                if (!canToggle) return null;
                 
                 return (
                   <motion.button

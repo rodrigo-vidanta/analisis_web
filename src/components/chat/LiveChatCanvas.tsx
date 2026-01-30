@@ -97,6 +97,7 @@ import { getApiToken } from '../../services/apiTokensService';
 import { WhatsAppLabelsModal } from './WhatsAppLabelsModal';
 import { whatsappLabelsService, type ConversationLabel } from '../../services/whatsappLabelsService';
 import { optimizedConversationsService, USE_OPTIMIZED_VIEW } from '../../services/optimizedConversationsService';
+import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../utils/prospectRestrictions';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -7653,6 +7654,10 @@ const LiveChatCanvas: React.FC = () => {
                     const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
                     const requiereAtencion = prospectoData?.requiere_atencion_humana || false;
                     
+                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                    const canToggle = canToggleAttentionRequired(prospectoData?.etapa_id, prospectoData?.etapa);
+                    if (!canToggle) return null;
+                    
                     // Mostrar siempre el botón, pero en diferentes estados según requiere_atencion_humana
                     return (
                       <RequiereAtencionFlag
@@ -7685,6 +7690,12 @@ const LiveChatCanvas: React.FC = () => {
                       console.warn('⚠️ No se puede pausar bot: uchat_id no disponible para prospecto', selectedConversation.id);
                       return null;
                     }
+                    
+                    // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual"
+                    const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                    const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                    const canPause = canPauseBot(prospectoData?.etapa_id, prospectoData?.etapa);
+                    if (!canPause) return null;
                     
                     const status = botPauseStatus[uchatId];
                     const timeRemaining = getBotPauseTimeRemaining(uchatId);
@@ -8602,14 +8613,40 @@ const LiveChatCanvas: React.FC = () => {
               </button>
 
               {/* Botón Llamada */}
-              <button
-                onClick={() => setShowCallModal(true)}
-                className="p-3 text-gray-500 hover:text-green-500 hover:bg-green-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                title="Iniciar llamada"
-                style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Phone className="w-5 h-5" />
-              </button>
+              {(() => {
+                const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
+                const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+                const canCall = canStartCall(prospectoData?.etapa_id, prospectoData?.etapa);
+                
+                if (!canCall) {
+                  // Botón deshabilitado con tooltip explicativo
+                  return (
+                    <div className="relative group">
+                      <button
+                        disabled
+                        className="p-3 text-gray-300 dark:text-gray-600 bg-gray-100 dark:bg-gray-800 rounded-xl cursor-not-allowed"
+                        style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        <Phone className="w-5 h-5" />
+                      </button>
+                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                        {getRestrictionMessage('call')}
+                      </div>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <button
+                    onClick={() => setShowCallModal(true)}
+                    className="p-3 text-gray-500 hover:text-green-500 hover:bg-green-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                    title="Iniciar llamada"
+                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Phone className="w-5 h-5" />
+                  </button>
+                );
+              })()}
 
               <div className="flex-1 relative">
                 <label htmlFor="livechat-message-input" className="sr-only">

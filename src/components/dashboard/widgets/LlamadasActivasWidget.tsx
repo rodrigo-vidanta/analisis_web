@@ -13,6 +13,7 @@ import { ActiveCallDetailModal } from './ActiveCallDetailModal';
 import { notificationSoundService } from '../../../services/notificationSoundService';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { classifyCallStatus, isCallReallyActive } from '../../../services/callStatusClassifier';
+import { permissionsService } from '../../../services/permissionsService';
 
 // Helper para parsear datos_proceso
 const parseDatosProceso = (datos: any): any => {
@@ -45,6 +46,79 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
   const channelRef = useRef<any>(null);
   const processedCallsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
+  
+  // Caché de filtros de permisos para validación en realtime
+  const permissionsCache = useRef<{
+    coordinacionesFilter: string[] | null;
+    ejecutivoFilter: string | null;
+    timestamp: number;
+  } | null>(null);
+  const PERMISSIONS_CACHE_TTL = 60000; // 1 minuto
+
+  // Helper para obtener y cachear filtros de permisos
+  const getPermissionsFilters = useCallback(async () => {
+    if (!userId) return { coordinacionesFilter: null, ejecutivoFilter: null };
+    
+    // Verificar caché
+    const now = Date.now();
+    if (permissionsCache.current && (now - permissionsCache.current.timestamp < PERMISSIONS_CACHE_TTL)) {
+      return {
+        coordinacionesFilter: permissionsCache.current.coordinacionesFilter,
+        ejecutivoFilter: permissionsCache.current.ejecutivoFilter
+      };
+    }
+    
+    // Cargar filtros
+    const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
+    const ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
+    
+    // Actualizar caché
+    permissionsCache.current = {
+      coordinacionesFilter,
+      ejecutivoFilter,
+      timestamp: now
+    };
+    
+    return { coordinacionesFilter, ejecutivoFilter };
+  }, [userId]);
+
+  // Helper para validar si una llamada cumple con los permisos del usuario
+  const canUserSeeCall = useCallback(async (call: any): Promise<boolean> => {
+    if (!userId) return true; // Sin userId, no hay restricciones
+    
+    const { coordinacionesFilter, ejecutivoFilter } = await getPermissionsFilters();
+    
+    // Admin: sin filtros
+    if (!coordinacionesFilter && !ejecutivoFilter) return true;
+    
+    // Necesitamos datos del prospecto para validar permisos
+    if (!call.prospecto) return false;
+    
+    try {
+      const { data: prospecto, error } = await analysisSupabase
+        .from('prospectos')
+        .select('ejecutivo_id, coordinacion_id')
+        .eq('id', call.prospecto)
+        .single();
+      
+      if (error || !prospecto) return false;
+      
+      // Ejecutivo: solo sus prospectos asignados
+      if (ejecutivoFilter) {
+        return prospecto.ejecutivo_id === ejecutivoFilter;
+      }
+      
+      // Coordinador/Supervisor: prospectos de sus coordinaciones
+      if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        return prospecto.coordinacion_id && coordinacionesFilter.includes(prospecto.coordinacion_id);
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error validando permisos de llamada:', error);
+      return false;
+    }
+  }, [userId, getPermissionsFilters]);
 
   const loadLlamadas = useCallback(async () => {
     if (!userId) {
@@ -116,11 +190,23 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
           schema: 'public',
           table: 'llamadas_ventas'
         },
-        (payload) => {
+        async (payload) => {
           const newCall = payload.new as any;
-          // Solo recargar si la nueva llamada es activa y no ha sido procesada antes
+          
+          // Validar permisos ANTES de notificar
           if (newCall?.call_status === 'activa' && newCall?.call_id && !processedCallsRef.current.has(newCall.call_id)) {
+            // 🔒 VALIDACIÓN DE PERMISOS antes de notificar
+            const canSee = await canUserSeeCall(newCall);
+            
+            if (!canSee) {
+              // Usuario NO tiene permisos para ver esta llamada - ignorar completamente
+              console.debug(`[LlamadasActivasWidget] Llamada ${newCall.call_id.slice(-8)} filtrada por permisos`);
+              return;
+            }
+            
+            // Usuario SÍ tiene permisos - proceder con notificación
             processedCallsRef.current.add(newCall.call_id);
+            
             // Reproducir sonido de notificación
             notificationSoundService.playNotification('call');
             
@@ -144,16 +230,28 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
           schema: 'public',
           table: 'llamadas_ventas'
         },
-        (payload) => {
+        async (payload) => {
           const newCall = payload.new as any;
           const oldCall = payload.old as any;
           
           // Si cambió el estado de activa a otra cosa, o viceversa, recargar
           if ((oldCall?.call_status === 'activa' && newCall?.call_status !== 'activa') ||
               (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa')) {
-            // Reproducir sonido solo si se convirtió en activa (nueva llamada activa) y no ha sido procesada antes
+            
+            // 🔒 VALIDACIÓN DE PERMISOS antes de notificar
+            // Solo validar si se convirtió en activa (nueva llamada activa)
             if (oldCall?.call_status !== 'activa' && newCall?.call_status === 'activa' && 
                 newCall?.call_id && !processedCallsRef.current.has(newCall.call_id)) {
+              
+              const canSee = await canUserSeeCall(newCall);
+              
+              if (!canSee) {
+                // Usuario NO tiene permisos - ignorar notificación
+                console.debug(`[LlamadasActivasWidget] Llamada actualizada ${newCall.call_id.slice(-8)} filtrada por permisos`);
+                return;
+              }
+              
+              // Usuario SÍ tiene permisos - notificar
               processedCallsRef.current.add(newCall.call_id);
               notificationSoundService.playNotification('call');
               
@@ -166,6 +264,7 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
                 prospectId: newCall.prospecto
               });
             }
+            
             loadLlamadas();
           }
           // Si sigue siendo activa pero cambió checkpoint u otros datos importantes, actualizar sin recargar todo

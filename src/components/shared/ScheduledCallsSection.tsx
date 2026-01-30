@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { Calendar, Clock, FileText, Plus } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { ScheduleCallModal } from '../chat/ScheduleCallModal';
+import { canScheduleCall, getRestrictionMessage } from '../../utils/prospectRestrictions';
 
 interface ScheduledCall {
   id: string;
@@ -23,16 +24,24 @@ interface ScheduledCallsSectionProps {
   prospectoId: string;
   prospectoNombre?: string;
   delay?: number;
+  // ✅ AGREGADO: Datos de etapa para restricciones
+  etapaId?: string | null;
+  etapaLegacy?: string | null;
 }
 
 export const ScheduledCallsSection: React.FC<ScheduledCallsSectionProps> = ({
   prospectoId,
   prospectoNombre,
-  delay = 0.55
+  delay = 0.55,
+  etapaId,
+  etapaLegacy
 }) => {
   const [scheduledCalls, setScheduledCalls] = useState<ScheduledCall[]>([]);
   const [loadingScheduledCalls, setLoadingScheduledCalls] = useState(true);
   const [scheduleCallModalOpen, setScheduleCallModalOpen] = useState(false);
+  
+  // ✅ RESTRICCIÓN TEMPORAL: Verificar si se puede programar llamadas
+  const canSchedule = canScheduleCall(etapaId, etapaLegacy);
 
   useEffect(() => {
     if (prospectoId) {
@@ -79,13 +88,28 @@ export const ScheduledCallsSection: React.FC<ScheduledCallsSectionProps> = ({
             <Calendar size={18} className="text-blue-600 dark:text-blue-400" />
             Llamadas Programadas ({scheduledCalls.length})
           </h3>
-          <button
-            onClick={() => setScheduleCallModalOpen(true)}
-            className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-            title="Programar nueva llamada"
-          >
-            <Plus size={16} />
-          </button>
+          {canSchedule ? (
+            <button
+              onClick={() => setScheduleCallModalOpen(true)}
+              className="p-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+              title="Programar nueva llamada"
+            >
+              <Plus size={16} />
+            </button>
+          ) : (
+            <div className="relative group">
+              <button
+                disabled
+                className="p-1.5 rounded-lg bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed"
+                title={getRestrictionMessage('schedule')}
+              >
+                <Plus size={16} />
+              </button>
+              <div className="absolute bottom-full right-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 max-w-xs">
+                {getRestrictionMessage('schedule')}
+              </div>
+            </div>
+          )}
         </div>
         {loadingScheduledCalls ? (
           <div className="text-center py-4">
