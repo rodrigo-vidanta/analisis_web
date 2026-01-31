@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-01-31', author: 'Team', message: 'v2.5.73: B10.1.44N2.5.73 - HOTFIX: Revertir permisos supervisor (NO pueden programar...', isRelease: true },
+  { hash: '2bf4c92', date: '2026-01-31', author: 'Team', message: 'v2.5.73: B10.1.44N2.5.73 - HOTFIX: Revertir permisos supervisor (NO pueden programar...', isRelease: true },
   { hash: '1cb6705', date: '2026-01-30', author: 'Team', message: 'v2.5.72: B10.1.44N2.5.72 - Sistema de Heartbeat completo + Indicador usuario en líne...', isRelease: true },
   { hash: '50ea931', date: '2026-01-30', author: 'Team', message: 'v2.5.71: B10.1.44N2.5.71 - HOTFIX: Conversaciones WhatsApp mostraban Sin etapa - Fix metadata.etapa_id', isRelease: true },
   { hash: '67cd1b3', date: '2026-01-30', author: 'Team', message: 'v2.5.70: B10.1.44N2.5.70 - HOTFIX: Eliminación campo is_active en coordinaciones - S...', isRelease: true },
