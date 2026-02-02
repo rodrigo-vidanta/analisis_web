@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-02-02', author: 'Team', message: 'v2.5.75: B10.1.44N2.5.75 - FIX CRÍTICO: Triggers soporte tickets con auth_users → us...', isRelease: true },
+  { hash: '43046fa', date: '2026-02-02', author: 'Team', message: 'v2.5.75: B10.1.44N2.5.75 - FIX CRÍTICO: Triggers soporte tickets con auth_users → us...', isRelease: true },
   { hash: '2bf4c92', date: '2026-01-31', author: 'Team', message: 'v2.5.73: B10.1.44N2.5.73 - HOTFIX: Revertir permisos supervisor (NO pueden programar...', isRelease: true },
   { hash: '1cb6705', date: '2026-01-30', author: 'Team', message: 'v2.5.72: B10.1.44N2.5.72 - Sistema de Heartbeat completo + Indicador usuario en líne...', isRelease: true },
   { hash: '50ea931', date: '2026-01-30', author: 'Team', message: 'v2.5.71: B10.1.44N2.5.71 - HOTFIX: Conversaciones WhatsApp mostraban Sin etapa - Fix metadata.etapa_id', isRelease: true },
