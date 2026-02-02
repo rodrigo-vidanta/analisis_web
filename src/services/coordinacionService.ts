@@ -77,7 +77,9 @@ export interface Ejecutivo {
   email_verified: boolean;
   last_login?: string;
   created_at: string;
+  role_name?: string; // Rol del usuario (ejecutivo, supervisor, coordinador)
   is_coordinator?: boolean; // Indica si es coordinador (para diferenciar de ejecutivos)
+  is_supervisor?: boolean; // Indica si es supervisor
 }
 
 // ============================================

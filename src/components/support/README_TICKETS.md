@@ -256,6 +256,19 @@ idx_notifications_user ON support_ticket_notifications(user_id, is_read)
 
 ## 🔒 Seguridad
 
+### ⚠️ Actualización Crítica 02-02-2026
+
+**Problema resuelto:** Funciones SQL `is_support_admin()` y `get_support_admin_ids()` causaban error 404 en comentarios porque usaban tabla `auth_users` (eliminada en migración de BD unificada).
+
+**Solución aplicada:**
+- ✅ Migradas a `user_profiles_v2`
+- ✅ Cambiado `role_id` (UUID) → `role_name` (string)
+- ✅ Script: `scripts/sql/FIX_TRIGGER_AUTH_USERS.sql`
+
+**Trigger afectado:** `trigger_notify_new_comment` → `notify_new_comment()` → `is_support_admin()`
+
+---
+
 ### Row Level Security (RLS)
 
 Todas las tablas tienen RLS habilitado con las siguientes políticas:
@@ -266,19 +279,62 @@ Todas las tablas tienen RLS habilitado con las siguientes políticas:
 | `support_tickets` | INSERT | `reporter_id = auth.uid()` |
 | `support_tickets` | UPDATE | `is_support_admin()` |
 | `support_tickets` | DELETE | `is_support_admin()` |
-| `support_ticket_comments` | SELECT | Owner (no internos) OR admin |
+| **`support_ticket_comments`** | **SELECT** | **Owner ticket + no interno** OR admin |
+| **`support_ticket_comments`** | **INSERT** | **Owner ticket + user_id = auth.uid() + no interno** |
+| **`support_ticket_comments`** | **ALL** | **is_admin (acceso completo)** |
 | `support_ticket_notifications` | SELECT/UPDATE | `user_id = auth.uid()` |
+
+#### 🆕 Actualización RLS (02-02-2026)
+
+**Políticas actualizadas en `support_ticket_comments`:**
+
+1. **`RLS: users can read own ticket comments`** (SELECT)
+   - Usuarios ven comentarios públicos de sus tickets
+   - Excluye `is_internal = TRUE`
+
+2. **`RLS: users can add comments to own tickets`** (INSERT)
+   - Usuarios pueden comentar sus tickets
+   - Fuerza `is_internal = FALSE`
+   - Permite `.insert().select().single()` (fix 404)
+
+3. **`RLS: admins full access to comments`** (ALL)
+   - Admins ven y gestionan todos los comentarios
+   - Incluye comentarios internos
+
+**Fix aplicado:**
+- ✅ Error 404 al enviar comentarios (corregido)
+- ✅ SELECT inmediato después de INSERT (ahora permitido)
+- ✅ Seguridad mantenida (usuarios no ven internos)
+
+**Script:** `scripts/sql/fix_support_ticket_comments_rls.sql`
 
 ### Función is_support_admin()
 
+**⚠️ ACTUALIZADO 02-02-2026:** Migrado de `auth_users` a `user_profiles_v2`
+
 ```sql
-CREATE FUNCTION is_support_admin() RETURNS BOOLEAN
+CREATE FUNCTION is_support_admin(user_id_param UUID) 
+RETURNS BOOLEAN
 SECURITY DEFINER  -- Ejecuta con permisos elevados
+STABLE
 AS $$
-  -- Verifica si el usuario es admin, admin_op o developer
-  -- Retorna TRUE/FALSE (no expone datos)
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM user_profiles_v2
+    WHERE id = user_id_param
+    AND role_name IN ('admin', 'administrador_operativo', 'developer')
+    AND is_active = true
+  );
+END;
 $$;
 ```
+
+**Cambios:**
+- ✅ Usa `user_profiles_v2` en lugar de `auth_users` (tabla eliminada)
+- ✅ Usa `role_name` (string) en lugar de `role_id` (UUID)
+- ✅ Verifica `is_active = true`
+
+**Script de corrección:** `scripts/sql/FIX_TRIGGER_AUTH_USERS.sql`
 
 ### Roles con Acceso Administrativo
 

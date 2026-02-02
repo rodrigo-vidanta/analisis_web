@@ -1203,33 +1203,33 @@ const DynamicsCRMManager: React.FC = () => {
                         </option>
                       ))}
                     
-                    {/* Ejecutivos operativos */}
-                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true).length > 0 && (
+                    {/* Ejecutivos activos */}
+                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true).length > 0 && (
                       <option disabled className="text-slate-500 font-semibold">── Ejecutivos ──</option>
                     )}
                     {ejecutivosFiltered
-                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true)
+                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true)
                       .map(e => (
                         <option key={e.id} value={e.id}>
                           {e.full_name}
                         </option>
                       ))}
                     
-                    {/* Ejecutivos no operativos (deshabilitados) */}
-                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo !== true).length > 0 && (
+                    {/* Ejecutivos inactivos (deshabilitados) */}
+                    {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active !== true).length > 0 && (
                       <option disabled className="text-slate-400">── No disponibles ──</option>
                     )}
                     {ejecutivosFiltered
-                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo !== true)
+                      .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active !== true)
                       .map(e => (
                         <option key={e.id} value={e.id} disabled className="text-slate-400">
-                          {e.full_name} (No operativo)
+                          {e.full_name} (Inactivo)
                         </option>
                       ))}
                   </select>
                   {selectedCoordinacion && ejecutivosFiltered.length > 0 && (
                     <p className="mt-1 text-xs text-slate-400">
-                      {ejecutivosFiltered.filter(e => e.is_coordinator === true).length} coordinadores, {ejecutivosFiltered.filter(e => e.is_supervisor === true).length} supervisores, {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_operativo === true).length} ejecutivos operativos
+                      {ejecutivosFiltered.filter(e => e.is_coordinator === true).length} coordinadores, {ejecutivosFiltered.filter(e => e.is_supervisor === true).length} supervisores, {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true).length} ejecutivos activos
                     </p>
                   )}
                   {selectedCoordinacion && ejecutivosFiltered.length === 0 && (

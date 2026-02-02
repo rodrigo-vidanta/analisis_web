@@ -266,6 +266,35 @@ Todas las tablas tienen RLS habilitado con las siguientes políticas:
 | `support_tickets` | INSERT | `reporter_id = auth.uid()` |
 | `support_tickets` | UPDATE | `is_support_admin()` |
 | `support_tickets` | DELETE | `is_support_admin()` |
+| **`support_ticket_comments`** | **SELECT** | **Owner ticket + no interno** OR admin |
+| **`support_ticket_comments`** | **INSERT** | **Owner ticket + user_id = auth.uid() + no interno** |
+| **`support_ticket_comments`** | **ALL** | **is_admin (acceso completo)** |
+| `support_ticket_notifications` | SELECT/UPDATE | `user_id = auth.uid()` |
+
+#### 🆕 Actualización RLS (02-02-2026)
+
+**Políticas actualizadas en `support_ticket_comments`:**
+
+1. **`RLS: users can read own ticket comments`** (SELECT)
+   - Usuarios ven comentarios públicos de sus tickets
+   - Excluye `is_internal = TRUE`
+
+2. **`RLS: users can add comments to own tickets`** (INSERT)
+   - Usuarios pueden comentar sus tickets
+   - Fuerza `is_internal = FALSE`
+   - Permite `.insert().select().single()` (fix 404)
+
+3. **`RLS: admins full access to comments`** (ALL)
+   - Admins ven y gestionan todos los comentarios
+   - Incluye comentarios internos
+
+**Fix aplicado:**
+- ✅ Error 404 al enviar comentarios (corregido)
+- ✅ SELECT inmediato después de INSERT (ahora permitido)
+- ✅ Seguridad mantenida (usuarios no ven internos)
+
+**Script:** `scripts/sql/fix_support_ticket_comments_rls.sql`
+| `support_tickets` | DELETE | `is_support_admin()` |
 | `support_ticket_comments` | SELECT | Owner (no internos) OR admin |
 | `support_ticket_notifications` | SELECT/UPDATE | `user_id = auth.uid()` |
 

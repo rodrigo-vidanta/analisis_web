@@ -2,6 +2,105 @@
 
 ## [Unreleased]
 
+### 🔧 v2.5.76 - FIX CRÍTICO: Triggers con auth_users en Support Tickets [02-02-2026]
+
+**Hotfix definitivo para error 404 en comentarios (causa raíz: triggers rotos)**
+
+#### 🐛 Bug Corregido
+- ✅ Error 404 al enviar comentarios causado por trigger `notify_new_comment()`
+- ✅ Funciones SQL `is_support_admin()` y `get_support_admin_ids()` migradas a `user_profiles_v2`
+- ✅ Eliminadas referencias a tabla `auth_users` (deprecada en migración BD unificada)
+
+#### 🔍 Causa Raíz
+**El problema NO era RLS, era un TRIGGER roto:**
+
+```
+POST /support_ticket_comments → INSERT exitoso
+  → trigger_notify_new_comment se dispara
+    → notify_new_comment() llama is_support_admin()
+      → is_support_admin() busca en auth_users
+        → ❌ ERROR: relation "auth_users" does not exist
+          → Frontend recibe 404 (Not Found)
+```
+
+#### 🛠️ Solución Aplicada
+
+**Funciones corregidas:**
+
+1. **`is_support_admin(UUID)`**
+   - Antes: Usaba `auth_users.role_id` (UUID)
+   - Ahora: Usa `user_profiles_v2.role_name` (string)
+
+2. **`get_support_admin_ids()`**
+   - Antes: `SELECT id FROM auth_users WHERE role_id IN (...)`
+   - Ahora: `SELECT id FROM user_profiles_v2 WHERE role_name IN (...)`
+
+**Cambio clave:**
+```sql
+-- ANTES (ROTO)
+SELECT 1 FROM auth_users 
+WHERE role_id IN ('12690827-...', '34cc26d1-...', '59386336-...')
+
+-- DESPUÉS (CORRECTO)
+SELECT 1 FROM user_profiles_v2
+WHERE role_name IN ('admin', 'administrador_operativo', 'developer')
+```
+
+#### 📁 Archivos Modificados
+- `scripts/sql/FIX_TRIGGER_AUTH_USERS.sql` (nuevo script de corrección)
+- `FIX_TRIGGER_AUTH_USERS_README.md` (documentación del fix)
+- `src/components/support/README_TICKETS.md` (actualizado)
+- `public/docs/README_TICKETS.md` (actualizado)
+
+#### 🔗 Contexto Histórico
+- Migración de BD unificada (Enero 2025) eliminó tabla `auth_users`
+- Funciones SQL de notificaciones no se actualizaron en su momento
+- Trigger fallaba silenciosamente, causando 404 en frontend
+
+#### 🚀 Deployment
+**Script a ejecutar:** `scripts/sql/FIX_TRIGGER_AUTH_USERS.sql` en SQL Editor de Supabase
+
+---
+
+### 🔧 v2.5.75 - FIX: RLS en Support Ticket Comments [02-02-2026]
+
+**Hotfix para error 404 al enviar comentarios en tickets**
+
+#### 🐛 Bug Corregido
+- ✅ Error 404 al enviar comentarios en tickets de soporte
+- ✅ Políticas RLS actualizadas en `support_ticket_comments`
+- ✅ Ahora permite SELECT inmediatamente después de INSERT
+
+#### 📝 Detalles Técnicos
+**Problema:**
+- Frontend hace `.insert().select().single()`
+- Política antigua: INSERT ✅ pero SELECT ❌ (causa 404)
+
+**Solución:**
+- 3 políticas RLS nuevas en `support_ticket_comments`:
+  1. `RLS: users can read own ticket comments` (SELECT)
+  2. `RLS: users can add comments to own tickets` (INSERT)
+  3. `RLS: admins full access to comments` (ALL)
+
+**Seguridad Mantenida:**
+- ✅ Usuarios NO ven comentarios internos
+- ✅ Usuarios NO comentan en tickets ajenos
+- ✅ Admins tienen acceso completo
+
+#### 📁 Archivos Modificados
+- `scripts/sql/fix_support_ticket_comments_rls.sql` (nuevo)
+- `FIX_SUPPORT_COMMENTS_READY.md` (documentación)
+
+#### 🧪 Test
+```bash
+# Verificar políticas
+SELECT policyname, cmd FROM pg_policies 
+WHERE tablename = 'support_ticket_comments';
+# Esperado: 3 políticas (SELECT, INSERT, ALL)
+```
+
+---
+
 ### 🔒 v2.5.74 - SECURITY UPGRADE: RLS Restrictivo + SECURITY INVOKER [02-02-2026]
 
 **Deploy de seguridad crítica sin impacto funcional visible**

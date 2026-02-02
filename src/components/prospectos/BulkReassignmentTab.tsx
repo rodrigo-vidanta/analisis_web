@@ -25,6 +25,7 @@ import {
   Zap, BarChart3, ListChecks, UserX, Calendar
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { useAuth } from '../../contexts/AuthContext';
 import { coordinacionService, type Coordinacion, type Ejecutivo } from '../../services/coordinacionService';
 import { dynamicsReasignacionService, type ReasignacionRequest } from '../../services/dynamicsReasignacionService';
@@ -239,35 +240,30 @@ export const BulkReassignmentTab: React.FC = () => {
     if (targetCoordinacionId) {
       const loadTargetEjecutivos = async () => {
         try {
-          // Cargar ejecutivos y coordinadores en paralelo
-          const [ejs, coords] = await Promise.all([
-            coordinacionService.getEjecutivosByCoordinacion(targetCoordinacionId),
-            coordinacionService.getCoordinadoresByCoordinacion(targetCoordinacionId)
-          ]);
+          // Cargar TODOS los usuarios de la coordinación (incluye ejecutivos, coordinadores y supervisores)
+          const allUsers = await coordinacionService.getEjecutivosByCoordinacion(targetCoordinacionId);
           
-          // Crear set de IDs de coordinadores para marcar duplicados
-          const coordinadorIds = new Set(coords.map(c => c.id));
+          // Obtener IDs de coordinadores desde auth_user_coordinaciones
+          const { data: coordRelations } = await supabaseSystemUI
+            .from('auth_user_coordinaciones')
+            .select('user_id')
+            .eq('coordinacion_id', targetCoordinacionId);
           
-          // Marcar coordinadores con is_coordinator = true (siempre habilitados)
-          const coordinadoresMarcados = coords.map(c => ({
-            ...c,
-            is_coordinator: true
+          const coordinadorIds = new Set(
+            (coordRelations || []).map(r => r.user_id).filter(Boolean)
+          );
+          
+          // Marcar cada usuario según su rol
+          const usersWithFlags = allUsers.map(user => ({
+            ...user,
+            is_coordinator: coordinadorIds.has(user.id) || user.role_name === 'coordinador',
+            is_supervisor: user.role_name === 'supervisor'
           }));
           
-          // Marcar ejecutivos que también son coordinadores, y filtrar los que ya están en coordinadores
-          const ejecutivosSinDuplicar = ejs
-            .filter(e => !coordinadorIds.has(e.id)) // Evitar duplicados
-            .map(e => ({
-              ...e,
-              is_coordinator: false // Explícitamente marcados como no coordinadores
-            }));
-          
-          // Combinar: primero coordinadores (siempre habilitados), luego ejecutivos
-          const combined = [...coordinadoresMarcados, ...ejecutivosSinDuplicar];
-          
-          setTargetEjecutivos(combined);
+          setTargetEjecutivos(usersWithFlags);
           setTargetEjecutivoId('');
-        } catch {
+        } catch (error) {
+          console.error('Error cargando usuarios de coordinación:', error);
           setTargetEjecutivos([]);
         }
       };
@@ -1809,33 +1805,45 @@ export const BulkReassignmentTab: React.FC = () => {
                       </option>
                     ))}
                   
-                  {/* Ejecutivos operativos */}
-                  {targetEjecutivos.filter(e => !e.is_coordinator && e.is_operativo === true).length > 0 && (
+                  {/* Supervisores activos */}
+                  {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length > 0 && (
+                    <option disabled className="text-slate-500 font-semibold">── Supervisores ──</option>
+                  )}
+                  {targetEjecutivos
+                    .filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true)
+                    .map(e => (
+                      <option key={e.id} value={e.id}>
+                        {e.full_name} (Sup.)
+                      </option>
+                    ))}
+                  
+                  {/* Ejecutivos activos */}
+                  {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length > 0 && (
                     <option disabled className="text-slate-500 font-semibold">── Ejecutivos ──</option>
                   )}
                   {targetEjecutivos
-                    .filter(e => !e.is_coordinator && e.is_operativo === true)
+                    .filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
                         {e.full_name}
                       </option>
                     ))}
                   
-                  {/* Ejecutivos no operativos (deshabilitados) */}
-                  {targetEjecutivos.filter(e => !e.is_coordinator && e.is_operativo !== true).length > 0 && (
+                  {/* Usuarios inactivos (deshabilitados) */}
+                  {targetEjecutivos.filter(e => !e.is_coordinator && e.is_active !== true).length > 0 && (
                     <option disabled className="text-slate-400">── No disponibles ──</option>
                   )}
                   {targetEjecutivos
-                    .filter(e => !e.is_coordinator && e.is_operativo !== true)
+                    .filter(e => !e.is_coordinator && e.is_active !== true)
                     .map(e => (
                       <option key={e.id} value={e.id} disabled className="text-slate-400">
-                        {e.full_name} (No operativo)
+                        {e.full_name} (Inactivo)
                       </option>
                     ))}
                 </select>
                 {targetCoordinacionId && targetEjecutivos.length > 0 && (
                   <p className="mt-1 text-xs text-slate-400">
-                    {targetEjecutivos.filter(e => e.is_coordinator === true).length} coordinadores, {targetEjecutivos.filter(e => !e.is_coordinator && e.is_operativo === true).length} ejecutivos operativos
+                    {targetEjecutivos.filter(e => e.is_coordinator === true).length} coordinadores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length} supervisores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length} ejecutivos activos
                   </p>
                 )}
               </div>
