@@ -23,7 +23,7 @@ interface AIDivisionMember {
 import { APP_VERSION } from '../config/appVersion';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.69: HOTFIX - Restricciones UI para prospectos "Importado Manual"
+  // Versión actual - v2.5.74: SECURITY UPGRADE - RLS restrictivo + SECURITY INVOKER (sin cambios visibles)
   const version = APP_VERSION;
   
   // Legacy feature flag check (deprecated)
