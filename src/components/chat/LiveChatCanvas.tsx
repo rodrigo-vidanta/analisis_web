@@ -1626,11 +1626,28 @@ const LiveChatCanvas: React.FC = () => {
     // Diferir carga de conversación nueva
     setTimeout(async () => {
       try {
-        const { data: convData, error } = await analysisSupabase.rpc('get_conversations_ordered');
+        // Usar vista materializada en lugar de RPC (v6.5.2 - HOTFIX timeout)
+        const { data: convData, error } = await analysisSupabase
+          .from('mv_conversaciones_dashboard')
+          .select('*')
+          .eq('prospecto_id', targetProspectoId)
+          .single();
+        
         if (error || !convData) return;
         
-        const newConv = convData.find((c: any) => c.prospecto_id === targetProspectoId);
-        if (!newConv) return;
+        // Transformar de vista a formato esperado
+        const newConv = {
+          prospecto_id: convData.prospecto_id,
+          nombre_contacto: convData.nombre_contacto,
+          numero_telefono: convData.numero_telefono,
+          estado_prospecto: convData.etapa,
+          fecha_ultimo_mensaje: convData.fecha_ultimo_mensaje,
+          mensajes_totales: convData.mensajes_totales,
+          mensajes_no_leidos: convData.mensajes_no_leidos,
+          ultimo_mensaje: convData.ultimo_mensaje_preview,
+          fecha_creacion_prospecto: convData.fecha_creacion,
+          id_uchat: convData.id_uchat
+        };
         
         const adaptedConv: Conversation = {
           id: newConv.prospecto_id,
@@ -3799,11 +3816,49 @@ const LiveChatCanvas: React.FC = () => {
           userId: queryUserId,
           limit: 100
         }),
-        // Consulta 2: Conversaciones de WhatsApp (RPC PAGINADO)
-        analysisSupabase
-          .rpc('get_conversations_ordered', { p_limit: CONVERSATIONS_BATCH_SIZE, p_offset: from })
-          .then(({ data, error }) => ({ data, error }))
-          .catch(() => ({ data: null, error: null }))
+        // Consulta 2: Conversaciones de WhatsApp (Vista Materializada v6.5.2 - HOTFIX timeout)
+        (async () => {
+          // Obtener filtros de permisos
+          const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
+          const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
+          const isUserAdmin = !coordinacionesFilter && !ejecutivoFilter;
+          
+          // Construir query con filtros
+          let query = analysisSupabase
+            .from('mv_conversaciones_dashboard')
+            .select('*')
+            .order('fecha_ultimo_mensaje', { ascending: false, nullsFirst: false });
+          
+          // Aplicar filtros según permisos
+          if (!isUserAdmin) {
+            if (ejecutivoFilter) {
+              query = query.eq('ejecutivo_id', ejecutivoFilter);
+            } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              query = query.in('coordinacion_id', coordinacionesFilter);
+            }
+          }
+          
+          query = query.range(from, from + CONVERSATIONS_BATCH_SIZE - 1);
+          
+          const { data, error } = await query;
+          
+          // Transformar datos de vista a formato esperado
+          const transformedData = (data || []).map((row: any) => ({
+            prospecto_id: row.prospecto_id,
+            nombre_contacto: row.nombre_contacto,
+            nombre_whatsapp: row.nombre_whatsapp,
+            numero_telefono: row.numero_telefono,
+            estado_prospecto: row.etapa,
+            fecha_ultimo_mensaje: row.fecha_ultimo_mensaje,
+            fecha_creacion_prospecto: row.fecha_creacion,
+            mensajes_totales: row.mensajes_totales,
+            mensajes_no_leidos: row.mensajes_no_leidos,
+            ultimo_mensaje: row.ultimo_mensaje_preview,
+            id_uchat: row.id_uchat
+          }));
+          
+          return { data: transformedData, error };
+        })()
       ]);
 
       // ============================================
