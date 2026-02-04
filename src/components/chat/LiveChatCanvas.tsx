@@ -4038,6 +4038,12 @@ const LiveChatCanvas: React.FC = () => {
       const prospectosData = prospectosIdsArray.length > 0
         ? await loadProspectosInBatches(prospectosIdsArray)
             .then(map => {
+              console.log('[LiveChatCanvas] Prospectos cargados:', {
+                prospectosIdsArray: prospectosIdsArray.length,
+                mapSize: map.size,
+                sample: Array.from(map.keys()).slice(0, 3)
+              });
+              
               // ✅ FIX v6.4.1: FUSIONAR datos en lugar de sobrescribir para preservar datos de batches anteriores
               if (reset) {
                 // Reset: Sobrescribir todo el cache
@@ -4298,6 +4304,14 @@ const LiveChatCanvas: React.FC = () => {
           }
         }
       }
+
+      console.log('[LiveChatCanvas] Después de filtros:', {
+        uchatConversations: uchatConversations.length,
+        whatsappConversations: whatsappConversations.length,
+        total: uchatConversations.length + whatsappConversations.length,
+        ejecutivoFilter,
+        coordinacionesFilter
+      });
 
       // Combinar conversaciones de uchat y whatsapp, eliminando duplicados
       const allConversations = [...uchatConversations, ...whatsappConversations];
