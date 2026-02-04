@@ -1165,12 +1165,29 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 // La conversación no está en la lista, cargarla y añadirla al top 15
                 (async () => {
                   try {
-                    // Cargar la conversación desde RPC
-                    const { data: rpcData } = await analysisSupabase.rpc('get_conversations_ordered');
-                    if (!rpcData) return;
+                    // Cargar la conversación desde vista materializada
+                    const { data: viewData } = await analysisSupabase
+                      .from('mv_conversaciones_dashboard')
+                      .select('*')
+                      .eq('prospecto_id', newMessage.prospecto_id)
+                      .single();
                     
-                    const newConvData = rpcData.find((c: any) => c.prospecto_id === newMessage.prospecto_id);
-                    if (!newConvData) return;
+                    if (!viewData) return;
+                    
+                    // Transformar a formato esperado
+                    const newConvData = {
+                      prospecto_id: viewData.prospecto_id,
+                      nombre_contacto: viewData.nombre_contacto,
+                      nombre_whatsapp: viewData.nombre_whatsapp,
+                      numero_telefono: viewData.numero_telefono,
+                      estado_prospecto: viewData.etapa,
+                      fecha_ultimo_mensaje: viewData.fecha_ultimo_mensaje,
+                      fecha_creacion_prospecto: viewData.fecha_creacion,
+                      mensajes_totales: viewData.mensajes_totales,
+                      mensajes_no_leidos: viewData.mensajes_no_leidos,
+                      ultimo_mensaje: viewData.ultimo_mensaje_preview,
+                      id_uchat: viewData.id_uchat
+                    };
                     
                     // Verificar permisos antes de agregar (solo si no es admin)
                     if (user?.role_name !== 'admin' && user?.role_name !== 'administrador_operativo') {
@@ -1291,19 +1308,56 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       // Para ejecutivos: cargar más batches porque sus conversaciones están dispersas
       const batchesToLoad = isUserAdmin ? 1 : 5; // Admin: 1 batch (200), Ejecutivo: 5 batches (1000)
       
+      // ============================================
+      // OPTIMIZACIÓN v6.5.2: Usar vista materializada
+      // ============================================
+      // PROBLEMA: get_conversations_ordered tarda >8s (timeout)
+      // SOLUCIÓN: Usar mv_conversaciones_dashboard (ya precalculada)
+      // + Filtros manuales por permisos (vista no tiene RLS)
+      
       while (hasMoreData && batchCount < batchesToLoad) {
-        const { data: batchData, error } = await analysisSupabase
-          .rpc('get_conversations_ordered', { 
-            p_limit: WIDGET_BATCH_SIZE, 
-            p_offset: currentOffset 
-          });
+        // Construir query con filtros de permisos
+        let query = analysisSupabase
+          .from('mv_conversaciones_dashboard')
+          .select('*')
+          .order('fecha_ultimo_mensaje', { ascending: false, nullsFirst: false });
+        
+        // Aplicar filtros según permisos
+        if (!isUserAdmin) {
+          if (ejecutivoFilter) {
+            // Ejecutivo: solo sus prospectos asignados
+            query = query.eq('ejecutivo_id', ejecutivoFilter);
+          } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+            // Coordinador: sus coordinaciones
+            query = query.in('coordinacion_id', coordinacionesFilter);
+          }
+        }
+        // Admin: sin filtros (ve todo)
+        
+        query = query.range(currentOffset, currentOffset + WIDGET_BATCH_SIZE - 1);
+        
+        const { data: batchData, error } = await query;
         
         if (error) {
           console.error(`❌ [ConversacionesWidget] Error cargando batch ${batchCount + 1}:`, error);
           break;
         }
         
-        const batch = batchData || [];
+        // Transformar datos de vista a formato esperado por widget
+        const batch = (batchData || []).map((row: any) => ({
+          prospecto_id: row.prospecto_id,
+          nombre_contacto: row.nombre_contacto,
+          nombre_whatsapp: row.nombre_whatsapp,
+          numero_telefono: row.numero_telefono,
+          estado_prospecto: row.etapa,
+          fecha_ultimo_mensaje: row.fecha_ultimo_mensaje,
+          fecha_creacion_prospecto: row.fecha_creacion,
+          mensajes_totales: row.mensajes_totales,
+          mensajes_no_leidos: row.mensajes_no_leidos,
+          ultimo_mensaje: row.ultimo_mensaje_preview,
+          id_uchat: row.id_uchat
+        }));
+        
         allRpcData = [...allRpcData, ...batch];
         currentOffset += WIDGET_BATCH_SIZE;
         batchCount++;
