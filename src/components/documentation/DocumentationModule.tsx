@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-02-04', author: 'Team', message: 'v2.5.83: B10.1.44N2.5.83 - Implementar auto-refresh vista conversaciones + cron job ...', isRelease: true },
+  { hash: '9c85be4', date: '2026-02-04', author: 'Team', message: 'v2.5.83: B10.1.44N2.5.83 - Implementar auto-refresh vista conversaciones + cron job ...', isRelease: true },
   { hash: 'aa56b6a', date: '2026-02-04', author: 'Team', message: 'v2.5.82: B10.1.44N2.5.82 - Debug batch loading prospectos', isRelease: true },
   { hash: 'ee6eea3', date: '2026-02-04', author: 'Team', message: 'v2.5.81: B10.1.44N2.5.81 - Debug adicional filtro vacío', isRelease: true },
   { hash: '65d97ed', date: '2026-02-04', author: 'Team', message: 'v2.5.80: B10.1.44N2.5.80 - Fix filtro ejecutivo - eliminar verificación coordinación', isRelease: true },
