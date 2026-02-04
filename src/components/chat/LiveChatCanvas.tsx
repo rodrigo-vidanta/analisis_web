@@ -3972,6 +3972,11 @@ const LiveChatCanvas: React.FC = () => {
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
           const batch = ids.slice(i, i + BATCH_SIZE);
           try {
+            console.log(`[LiveChatCanvas] Cargando batch ${i / BATCH_SIZE + 1}/${Math.ceil(ids.length / BATCH_SIZE)}:`, {
+              batchSize: batch.length,
+              firstId: batch[0]
+            });
+            
             const { data, error } = await analysisSupabase
               .from('prospectos')
               .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id')
@@ -3981,6 +3986,11 @@ const LiveChatCanvas: React.FC = () => {
               console.error(`❌ [LiveChatCanvas] Error cargando prospectos batch ${i / BATCH_SIZE + 1}:`, error);
               continue;
             }
+            
+            console.log(`✅ [LiveChatCanvas] Batch ${i / BATCH_SIZE + 1} cargado:`, {
+              requested: batch.length,
+              received: data?.length || 0
+            });
             
             // Obtener ids_dynamics desde crm_data para los que no tienen en prospectos
             const prospectosSinIdDynamics = (data || []).filter(p => !p.id_dynamics).map(p => p.id);
