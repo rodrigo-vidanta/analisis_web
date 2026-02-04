@@ -293,6 +293,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       // ============================================
       
       const permissions = await permissionsService.getUserPermissions(userId);
+      let hasFullAccess = false; // Declarar fuera para usar en validación final
       
       if (permissions) {
         const isAdmin = permissions.role === 'admin';
@@ -302,7 +303,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
           : false;
         
         // Admin, Admin Operativo y Coordinador Calidad ven TODO (sin filtro)
-        const hasFullAccess = isAdmin || isAdminOperativo || isCoordinadorCalidad;
+        hasFullAccess = isAdmin || isAdminOperativo || isCoordinadorCalidad;
         
         if (!hasFullAccess) {
           // Obtener filtros específicos del usuario
@@ -347,18 +348,42 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             // en sus coordinaciones asignadas
             // ============================================
             
-            // Obtener IDs de prospectos en las coordinaciones del usuario
-            const { data: prospectosCoordinacion } = await analysisSupabase
-              .from('prospectos')
-              .select('id')
-              .in('coordinacion_id', coordinacionesFilter);
-            
-            const prospectosIds = new Set(prospectosCoordinacion?.map(p => p.id) || []);
-            
-            // Filtrar llamadas: solo las de prospectos en sus coordinaciones
-            activeCalls = activeCalls.filter(call => 
-              call.prospecto_id && prospectosIds.has(call.prospecto_id)
-            );
+            try {
+              // Obtener IDs de prospectos en las coordinaciones del usuario
+              const { data: prospectosCoordinacion, error: prospectosError } = await analysisSupabase
+                .from('prospectos')
+                .select('id')
+                .in('coordinacion_id', coordinacionesFilter);
+              
+              // ✅ FIX 1: VALIDACIÓN ESTRICTA - Si hay error, NO mostrar NADA (seguridad primero)
+              if (prospectosError) {
+                console.error('[LiveActivityStore] Error obteniendo prospectos por coordinación:', prospectosError);
+                console.warn('[LiveActivityStore] Por seguridad, no se mostrarán llamadas hasta resolver el error');
+                set({ widgetCalls: [], isLoadingCalls: false });
+                return;
+              }
+              
+              // ✅ FIX 1: VALIDACIÓN ESTRICTA - Si no hay prospectos, no hay llamadas que mostrar
+              if (!prospectosCoordinacion || prospectosCoordinacion.length === 0) {
+                console.warn('[LiveActivityStore] No hay prospectos en las coordinaciones del usuario:', coordinacionesFilter);
+                set({ widgetCalls: [], isLoadingCalls: false });
+                return;
+              }
+              
+              const prospectosIds = new Set(prospectosCoordinacion.map(p => p.id));
+              
+              // Filtrar llamadas: solo las de prospectos en sus coordinaciones
+              activeCalls = activeCalls.filter(call => 
+                call.prospecto_id && prospectosIds.has(call.prospecto_id)
+              );
+              
+              console.log(`[LiveActivityStore] Filtrado por coordinaciones [${coordinacionesFilter.join(', ')}]: ${activeCalls.length} llamadas permitidas de ${prospectosIds.size} prospectos`);
+            } catch (err) {
+              console.error('[LiveActivityStore] Excepción crítica filtrando por coordinación:', err);
+              // ✅ FIX 1: En caso de excepción, NO mostrar NADA (seguridad primero)
+              set({ widgetCalls: [], isLoadingCalls: false });
+              return;
+            }
           }
         }
       }
@@ -473,6 +498,49 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
           }
         }
       });
+      
+      // ============================================
+      // FIX 2: VALIDACIÓN FINAL DE SEGURIDAD
+      // Verificar que cada llamada pertenece a prospectos con permisos
+      // ============================================
+      if (permissions && !hasFullAccess && activeCalls.length > 0) {
+        console.log(`[LiveActivityStore] Ejecutando validación final de seguridad para ${activeCalls.length} llamadas...`);
+        
+        // Verificar permisos de cada llamada en paralelo
+        const verificacionPromises = activeCalls.map(async (call) => {
+          if (!call.prospecto_id) {
+            console.warn(`[LiveActivityStore] ALERTA: Llamada ${call.call_id} sin prospecto_id`);
+            return false;
+          }
+          
+          try {
+            const check = await permissionsService.canUserAccessProspect(userId, call.prospecto_id);
+            if (!check.canAccess) {
+              console.warn(`[LiveActivityStore] 🔒 ALERTA DE SEGURIDAD: Usuario ${userId} no tiene permisos para prospecto ${call.prospecto_id}`, {
+                reason: check.reason,
+                call_id: call.call_id,
+                nombre_completo: call.nombre_completo
+              });
+            }
+            return check.canAccess;
+          } catch (err) {
+            console.error(`[LiveActivityStore] Error verificando permisos para prospecto ${call.prospecto_id}:`, err);
+            // En caso de error, denegar por seguridad
+            return false;
+          }
+        });
+        
+        const verificacionResultados = await Promise.all(verificacionPromises);
+        const llamadasAntesValidacion = activeCalls.length;
+        activeCalls = activeCalls.filter((_, index) => verificacionResultados[index]);
+        const llamadasDespuesValidacion = activeCalls.length;
+        
+        if (llamadasAntesValidacion !== llamadasDespuesValidacion) {
+          console.warn(`[LiveActivityStore] ⚠️ Validación final bloqueó ${llamadasAntesValidacion - llamadasDespuesValidacion} llamadas sin permisos`);
+        } else {
+          console.log(`[LiveActivityStore] ✅ Validación final aprobó todas las ${llamadasDespuesValidacion} llamadas`);
+        }
+      }
       
       set({ widgetCalls: activeCalls });
     } catch (error) {

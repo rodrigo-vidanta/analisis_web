@@ -1,0 +1,52 @@
+fix(security): Corregir filtrado de permisos en LiveActivityWidget para prevenir fuga de información
+
+PROBLEMA CRÍTICO DETECTADO:
+- Supervisores/Coordinadores veían llamadas de prospectos fuera de su coordinación
+- Irving Aquino (supervisor MVP) vio llamada de prospecto de coordinación VEN
+- Bug causado por falta de validación de errores en query de prospectos
+
+CAUSA RAÍZ:
+Query para obtener prospectos por coordinación podía fallar silenciosamente,
+resultando en Set vacío que NO filtraba ninguna llamada.
+
+FIXES IMPLEMENTADOS:
+
+1. VALIDACIÓN ESTRICTA (líneas 345-387):
+   - Validar error de query explícitamente
+   - Validar que existan prospectos antes de filtrar
+   - Try/catch para capturar excepciones
+   - Política "denegar por defecto" en caso de error
+   - Logging detallado para debugging
+
+2. VALIDACIÓN FINAL DE SEGURIDAD (líneas 502-542):
+   - Verificación doble con permissionsService.canUserAccessProspect()
+   - Ejecuta DESPUÉS de filtrado inicial como catch-all
+   - Verifica permisos en paralelo para mantener performance
+   - Solo aplica a usuarios sin hasFullAccess (Admin, AdminOp, CoordCalidad)
+   - Logging de alertas de seguridad con detalles
+
+IMPACTO:
+- ✅ Query fallida → NO muestra llamadas (antes: mostraba todas)
+- ✅ Prospecto sin permisos → Bloqueado en validación final
+- ✅ Excepción durante filtrado → NO muestra llamadas
+- ✅ Logging completo para auditoría de seguridad
+
+TESTING REQUERIDO:
+- [ ] Supervisor ve solo llamadas de su coordinación
+- [ ] Coordinador Calidad ve todas las llamadas
+- [ ] Admin/AdminOp ven todas las llamadas
+- [ ] Ejecutivo ve solo sus prospectos + backups
+- [ ] Error de conexión NO crashea el widget
+- [ ] Validación final bloquea llamadas sin permisos
+
+FILES CHANGED:
+- src/stores/liveActivityStore.ts
+
+RELATED DOCS:
+- ANALISIS_BUG_LIVE_WIDGET_IRVING.md
+- FIX_APLICADO_LIVE_WIDGET_2026-02-04.md
+
+SEVERITY: CRÍTICA - Vulnerabilidad de seguridad
+PRIORITY: Deploy inmediato requerido
+
+Refs: #bug-live-widget-permissions

@@ -102,7 +102,7 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'Authorization': webhookToken,
+        '2025_livechat_auth': webhookToken,
       },
       body: JSON.stringify(n8nPayload),
     });
