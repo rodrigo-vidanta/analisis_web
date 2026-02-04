@@ -3823,6 +3823,15 @@ const LiveChatCanvas: React.FC = () => {
           const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
           const isUserAdmin = !coordinacionesFilter && !ejecutivoFilter;
           
+          console.log('[LiveChatCanvas] Filtros de permisos:', { 
+            queryUserId, 
+            ejecutivoFilter, 
+            coordinacionesFilter, 
+            isUserAdmin,
+            from,
+            batchSize: CONVERSATIONS_BATCH_SIZE
+          });
+          
           // Construir query con filtros
           let query = analysisSupabase
             .from('mv_conversaciones_dashboard')
@@ -3832,15 +3841,25 @@ const LiveChatCanvas: React.FC = () => {
           // Aplicar filtros según permisos
           if (!isUserAdmin) {
             if (ejecutivoFilter) {
+              console.log('[LiveChatCanvas] Aplicando filtro ejecutivo:', ejecutivoFilter);
               query = query.eq('ejecutivo_id', ejecutivoFilter);
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+              console.log('[LiveChatCanvas] Aplicando filtro coordinaciones:', coordinacionesFilter);
               query = query.in('coordinacion_id', coordinacionesFilter);
             }
+          } else {
+            console.log('[LiveChatCanvas] Sin filtros (admin)');
           }
           
           query = query.range(from, from + CONVERSATIONS_BATCH_SIZE - 1);
           
           const { data, error } = await query;
+          
+          console.log('[LiveChatCanvas] Resultado de vista:', { 
+            count: data?.length || 0, 
+            error: error?.message,
+            firstRecord: data?.[0]
+          });
           
           // Transformar datos de vista a formato esperado
           const transformedData = (data || []).map((row: any) => ({
