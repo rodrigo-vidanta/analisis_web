@@ -291,12 +291,46 @@ npx supabase@latest sql --db-url "tu-connection-string" < scripts/sql/setup_auto
 
 ---
 
-## 🚨 Acción Requerida (URGENTE)
+## 🚨 Acción Requerida
 
-### Pasos Inmediatos
+### ✅ Estado: COMPLETADO (2026-02-04)
 
 1. ✅ **HECHO:** Refresh manual ejecutado
-2. ⏳ **PENDIENTE:** Implementar auto-actualización (triggers o cron)
+2. ✅ **HECHO:** Auto-actualización implementada (Cron Job)
+3. ✅ **HECHO:** Osmara ve sus 29 conversaciones correctamente
+4. ⏳ **PENDIENTE:** Monitoreo 24 horas para validar estabilidad
+
+### Detalles de Implementación
+
+**Cron Job Creado:**
+- Job ID: 3
+- Nombre: `refresh-conversaciones-dashboard`
+- Frecuencia: Cada 5 minutos (`*/5 * * * *`)
+- Estado: ✅ Activo
+- Comando: `REFRESH MATERIALIZED VIEW CONCURRENTLY mv_conversaciones_dashboard`
+
+**Verificación:**
+```sql
+-- Ver estado del cron
+SELECT jobid, jobname, schedule, active 
+FROM cron.job 
+WHERE jobname = 'refresh-conversaciones-dashboard';
+
+-- Ver últimas ejecuciones
+SELECT start_time, end_time, status 
+FROM cron.job_run_details 
+WHERE jobid = 3 
+ORDER BY start_time DESC 
+LIMIT 5;
+```
+
+### Próximos Pasos
+
+1. ⏳ Monitorear `cron.job_run_details` durante 24 horas
+2. ⏳ Validar que otros usuarios ven conversaciones correctamente
+3. ⏳ Ajustar frecuencia si es necesario (actual: 5 min)
+
+**Documentación completa:** `docs/SETUP_AUTO_REFRESH_CONVERSACIONES_2026-02-04.md`
 3. ⏳ **PENDIENTE:** Monitorear que vista se mantenga actualizada
 4. ⏳ **PENDIENTE:** Documentar proceso en runbook de operaciones
 

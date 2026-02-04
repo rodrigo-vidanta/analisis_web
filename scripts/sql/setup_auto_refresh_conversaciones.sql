@@ -2,6 +2,12 @@
 -- SOLUCIÓN DEFINITIVA: Auto-actualización de mv_conversaciones_dashboard
 -- Fecha: 2026-02-04
 -- Problema: Vista materializada se desactualiza al cambiar datos
+-- 
+-- ✅ APLICADO EN PRODUCCIÓN: 2026-02-04
+-- OPCIÓN ELEGIDA: OPCIÓN B - Cron Job (pg_cron)
+-- JOB ID: 3
+-- FRECUENCIA: Cada 5 minutos (*/5 * * * *)
+-- ESTADO: Activo
 -- ============================================
 
 -- PASO 1: Ver definición actual de la vista
