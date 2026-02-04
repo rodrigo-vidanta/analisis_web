@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-04', author: 'Team', message: 'v2.5.79: B10.1.44N2.5.79 - Debug logs filtros LiveChatCanvas', isRelease: true },
   { hash: '3df19f2', date: '2026-02-04', author: 'Team', message: 'v2.5.78: B10.1.44N2.5.78 - HOTFIX timeout LiveChatCanvas - Vista materializada', isRelease: true },
   { hash: '2fe745c', date: '2026-02-04', author: 'Team', message: 'v2.5.77: B10.1.44N2.5.77 - HOTFIX timeout ConversacionesWidget - Vista materializada', isRelease: true },
   { hash: '7d36e39', date: '2026-02-04', author: 'Team', message: 'v2.5.76: B10.1.44N2.5.76 - Fix is_operativo ejecutivos - 42 usuarios WhatsApp', isRelease: true },
@@ -508,6 +509,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-504', date: '03/02/2026, 18:54', version: 'B10.1.44N2.5.79', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-742', date: '03/02/2026, 18:46', version: 'B10.1.44N2.5.78', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-381', date: '03/02/2026, 18:42', version: 'B10.1.44N2.5.77', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-779', date: '03/02/2026, 18:35', version: 'B10.1.44N2.5.76', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -664,8 +666,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.78', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.78', highlight: false },
+  { label: 'Version', value: 'v2.5.79', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.79', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '3 feb 2026', highlight: false },
 ];
