@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-02-04', author: 'Team', message: 'v2.5.79: B10.1.44N2.5.79 - Debug logs filtros LiveChatCanvas', isRelease: true },
+  { hash: '3bca2f9', date: '2026-02-04', author: 'Team', message: 'v2.5.79: B10.1.44N2.5.79 - Debug logs filtros LiveChatCanvas', isRelease: true },
   { hash: '3df19f2', date: '2026-02-04', author: 'Team', message: 'v2.5.78: B10.1.44N2.5.78 - HOTFIX timeout LiveChatCanvas - Vista materializada', isRelease: true },
   { hash: '2fe745c', date: '2026-02-04', author: 'Team', message: 'v2.5.77: B10.1.44N2.5.77 - HOTFIX timeout ConversacionesWidget - Vista materializada', isRelease: true },
   { hash: '7d36e39', date: '2026-02-04', author: 'Team', message: 'v2.5.76: B10.1.44N2.5.76 - Fix is_operativo ejecutivos - 42 usuarios WhatsApp', isRelease: true },
