@@ -154,13 +154,11 @@ export const useTokenExpiryMonitor = () => {
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
-        console.log('👁️ [TokenMonitor] Ventana visible, verificando token...');
         checkAndRefreshToken();
       }
     };
 
     const handleFocus = () => {
-      console.log('👁️ [TokenMonitor] Ventana en foco, verificando token...');
       checkAndRefreshToken();
     };
 

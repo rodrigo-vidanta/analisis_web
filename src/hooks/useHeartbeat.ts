@@ -57,8 +57,6 @@ export const useHeartbeat = ({
 
       if (error) {
         console.error('⚠️ Error enviando heartbeat:', error);
-      } else {
-        console.log('💓 Heartbeat enviado:', new Date().toLocaleTimeString());
       }
     } catch (err) {
       console.error('⚠️ Excepción en sendHeartbeat:', err);

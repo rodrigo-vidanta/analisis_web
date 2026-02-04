@@ -307,15 +307,9 @@ export const LiveCallActivityWidget: React.FC = () => {
   }, [restoreCall]);
   
   const handleListen = useCallback((call: { call_id: string; monitor_url?: string }) => {
-    console.log('[LiveActivityWidget] handleListen llamado:', { 
-      call_id: call.call_id, 
-      monitor_url: call.monitor_url 
-    });
-    
     if (call.monitor_url) {
       startAudioMonitoring(call.monitor_url, call.call_id);
     } else {
-      console.warn('[LiveActivityWidget] No hay monitor_url disponible para esta llamada');
       toast.error('No hay URL de monitoreo disponible para esta llamada', {
         duration: 3000,
         position: 'top-right'

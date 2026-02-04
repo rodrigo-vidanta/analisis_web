@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-04', author: 'Team', message: 'v2.5.76: B10.1.44N2.5.76 - Fix is_operativo ejecutivos - 42 usuarios WhatsApp', isRelease: true },
   { hash: '43046fa', date: '2026-02-02', author: 'Team', message: 'v2.5.75: B10.1.44N2.5.75 - FIX CRÍTICO: Triggers soporte tickets con auth_users → us...', isRelease: true },
   { hash: '2bf4c92', date: '2026-01-31', author: 'Team', message: 'v2.5.73: B10.1.44N2.5.73 - HOTFIX: Revertir permisos supervisor (NO pueden programar...', isRelease: true },
   { hash: '1cb6705', date: '2026-01-30', author: 'Team', message: 'v2.5.72: B10.1.44N2.5.72 - Sistema de Heartbeat completo + Indicador usuario en líne...', isRelease: true },
@@ -505,6 +506,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-779', date: '03/02/2026, 18:35', version: 'B10.1.44N2.5.76', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-728', date: '02/02/2026, 12:47', version: 'B10.1.44N2.5.75', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-423', date: '30/01/2026, 18:23', version: 'B10.1.44N2.5.73', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-442', date: '30/01/2026, 10:14', version: 'B10.1.44N2.5.70', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -658,10 +660,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.75', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.75', highlight: false },
+  { label: 'Version', value: 'v2.5.76', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.76', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '2 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '3 feb 2026', highlight: false },
 ];
 
 // ============================================

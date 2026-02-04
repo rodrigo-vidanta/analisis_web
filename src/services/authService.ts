@@ -151,6 +151,16 @@ class AuthService {
         this.supabaseSession = session;
         await this.loadUserData(session.user);
         
+        // 🔧 FIX: Restaurar is_operativo a true al recargar sesión
+        // Esto soluciona el problema cuando usuarios cierran el navegador sin logout
+        // o cuando hay errores de red que dejan is_operativo en false
+        if (this.currentUser && (this.currentUser.is_ejecutivo || this.currentUser.is_coordinador)) {
+          await this.updateUserMetadata(session.user.id, { is_operativo: true });
+          if (this.currentUser) {
+            this.currentUser.is_operativo = true;
+          }
+        }
+        
         return {
           user: this.currentUser,
           permissions: this.userPermissions,

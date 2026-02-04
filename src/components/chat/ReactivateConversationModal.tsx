@@ -962,9 +962,9 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       // Usar Edge Function en lugar de webhook directo
       const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
       
-      // Timeout de 30 segundos para evitar colgarse indefinidamente
+      // Timeout de 90 segundos (1:30 minutos) para evitar colgarse indefinidamente
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
         const response = await fetch(edgeFunctionUrl, {

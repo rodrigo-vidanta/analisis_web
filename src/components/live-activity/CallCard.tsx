@@ -121,7 +121,6 @@ export const CallCard: React.FC<CallCardProps> = ({
 
   const handleListenClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    console.log('[CallCard] Botón Escuchar clickeado, monitor_url:', call.monitor_url, 'isListening:', isListening);
     
     // Si está escuchando, detener
     if (isListening && onStopListening) {

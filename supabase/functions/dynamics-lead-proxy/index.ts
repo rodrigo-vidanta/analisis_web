@@ -73,9 +73,9 @@ serve(async (req) => {
 
     const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
 
-    // Timeout de 30 segundos
+    // Timeout de 90 segundos (1:30 minutos)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
       // Llamar al webhook de N8N con los headers correctos (igual que dynamics-reasignar-proxy)
@@ -125,7 +125,7 @@ serve(async (req) => {
       
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
         return new Response(
-          JSON.stringify({ error: 'Timeout: La operación tardó más de 30 segundos', success: false }),
+          JSON.stringify({ error: 'Timeout: La operación tardó más de 90 segundos', success: false }),
           { status: 408, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

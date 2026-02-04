@@ -80,8 +80,8 @@ async function getDynamicsCredentials(): Promise<{ url: string; token: string }>
   return { url, token };
 }
 
-// Timeout para el webhook (30 segundos)
-const WEBHOOK_TIMEOUT_MS = 30000;
+// Timeout para el webhook (90 segundos - 1:30 minutos)
+const WEBHOOK_TIMEOUT_MS = 90000;
 
 // ============================================
 // INTERFACES
@@ -186,13 +186,22 @@ class DynamicsLeadService {
 
       // Obtener JWT del usuario autenticado
       const { data: { session } } = await analysisSupabase.auth.getSession();
-      const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+      
+      if (!session?.access_token) {
+        console.error('❌ [DynamicsLead] No hay sesión activa');
+        return {
+          success: false,
+          data: null,
+          error: 'Sesión expirada. Por favor, inicia sesión nuevamente.',
+          searchType,
+        };
+      }
       
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -206,7 +215,10 @@ class DynamicsLeadService {
         
         // Mensaje según código de error
         let errorMessage = `Error ${response.status}: ${errorText || 'Error al consultar Dynamics'}`;
-        if (response.status === 500 && errorText.includes('DYNAMICS_TOKEN')) {
+        
+        if (response.status === 401) {
+          errorMessage = 'Sesión expirada. Por favor, recarga la página e inicia sesión nuevamente.';
+        } else if (response.status === 500 && errorText.includes('DYNAMICS_TOKEN')) {
           errorMessage = 'Error: El token de Dynamics no está configurado en los secrets de Edge Functions. Contacta al administrador.';
         }
         
@@ -263,13 +275,13 @@ class DynamicsLeadService {
         data: normalizedData as DynamicsLeadInfo,
         searchType,
       };
-    } catch (error) {
+      } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.error('⏱️ [DynamicsLead] Timeout al consultar Dynamics');
         return {
           success: false,
           data: null,
-          error: 'Timeout: Dynamics no respondió en 30 segundos',
+          error: 'Timeout: Dynamics no respondió en 90 segundos',
           searchType,
         };
       }
