@@ -48,6 +48,8 @@ import {
   Bot,
   FileText,
   Sparkles,
+  Mic,
+  Square,
   PhoneForwarded,
   PhoneCall,
   PhoneMissed,
@@ -1207,6 +1209,30 @@ const LiveChatCanvas: React.FC = () => {
   const lastSentMessagesRef = useRef<Map<string, number>>(new Map()); // mensaje -> timestamp
   const isSendingRef = useRef(false); // Bloqueo adicional para evitar race conditions
   const [showImageCatalog, setShowImageCatalog] = useState(false);
+  
+  // ============================================
+  // 🎤 ESTADOS PARA GRABACIÓN DE AUDIO
+  // ============================================
+  const [isRecording, setIsRecording] = useState(false);
+  const [sendingAudio, setSendingAudio] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const recordingIntervalRef = useRef<number | null>(null);
+
+  // Limpieza de grabación al desmontar o cambiar conversación
+  useEffect(() => {
+    return () => {
+      if (isRecording && mediaRecorderRef.current) {
+        mediaRecorderRef.current.stop();
+        mediaRecorderRef.current.stream?.getTracks().forEach(track => track.stop());
+      }
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+      }
+    };
+  }, [selectedConversation?.id]);
+  
   const [showProspectSidebar, setShowProspectSidebar] = useState(false);
   
   // Estado para modal de parafraseo con IA
@@ -1618,6 +1644,8 @@ const LiveChatCanvas: React.FC = () => {
   }, [agentNamesById]); // Dependencia mínima
 
   // ⚡ Función separada para cargar conversación nueva (solo cuando no existe)
+  // v6.5.3: Usa tabla directa conversaciones_whatsapp en lugar de vista materializada
+  // para evitar error 406 cuando el prospecto aún no está en la vista (se actualiza cada 5min)
   const loadNewConversationIfNeeded = useCallback((targetProspectoId: string) => {
     // Verificar si la conversación ya existe antes de cargar
     const exists = messagesByConversationRef.current[targetProspectoId];
@@ -1626,46 +1654,58 @@ const LiveChatCanvas: React.FC = () => {
     // Diferir carga de conversación nueva
     setTimeout(async () => {
       try {
-        // Usar vista materializada en lugar de RPC (v6.5.2 - HOTFIX timeout)
-        const { data: convData, error } = await analysisSupabase
-          .from('mv_conversaciones_dashboard')
+        // v6.5.3: Usar tabla directa con .maybeSingle() (más tolerante, siempre actualizada)
+        // Evita error 406 que ocurría con vista materializada cuando prospecto no existía aún
+        const { data: waConv, error } = await analysisSupabase
+          .from('conversaciones_whatsapp')
           .select('*')
           .eq('prospecto_id', targetProspectoId)
-          .single();
+          .order('last_message_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
         
-        if (error || !convData) return;
+        if (error || !waConv) return;
         
-        // Transformar de vista a formato esperado
-        const newConv = {
-          prospecto_id: convData.prospecto_id,
-          nombre_contacto: convData.nombre_contacto,
-          numero_telefono: convData.numero_telefono,
-          estado_prospecto: convData.etapa,
-          fecha_ultimo_mensaje: convData.fecha_ultimo_mensaje,
-          mensajes_totales: convData.mensajes_totales,
-          mensajes_no_leidos: convData.mensajes_no_leidos,
-          ultimo_mensaje: convData.ultimo_mensaje_preview,
-          fecha_creacion_prospecto: convData.fecha_creacion,
-          id_uchat: convData.id_uchat
-        };
+        // Obtener datos adicionales del prospecto desde cache o BD
+        let prospectoData = prospectosDataRef.current.get(targetProspectoId);
+        
+        if (!prospectoData) {
+          // Si no está en cache, cargar desde BD
+          const { data: prospecto } = await analysisSupabase
+            .from('prospectos')
+            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics')
+            .eq('id', targetProspectoId)
+            .maybeSingle();
+          
+          if (prospecto) {
+            prospectoData = prospecto;
+            prospectosDataRef.current.set(targetProspectoId, prospecto);
+          }
+        }
+        
+        // Transformar de tabla a formato esperado
+        const customerName = waConv.nombre_contacto || prospectoData?.nombre_completo || prospectoData?.nombre_whatsapp || waConv.numero_telefono || 'Sin nombre';
+        const uchatId = prospectoData?.id_uchat || waConv.id;
         
         const adaptedConv: Conversation = {
-          id: newConv.prospecto_id,
-          prospecto_id: newConv.prospecto_id,
-          nombre_contacto: newConv.nombre_contacto || newConv.numero_telefono,
-          customer_name: newConv.nombre_contacto,
-          status: newConv.estado_prospecto,
-          last_message_at: newConv.fecha_ultimo_mensaje,
-          message_count: newConv.mensajes_totales,
-          unread_count: newConv.mensajes_no_leidos,
-          ultimo_mensaje_preview: newConv.ultimo_mensaje,
-          numero_telefono: newConv.numero_telefono,
-          updated_at: newConv.fecha_ultimo_mensaje,
-          fecha_inicio: newConv.fecha_creacion_prospecto,
+          id: targetProspectoId,
+          prospecto_id: targetProspectoId,
+          nombre_contacto: customerName,
+          customer_name: customerName,
+          status: waConv.estado || 'active',
+          last_message_at: waConv.last_message_at,
+          message_count: 0, // Se actualizará con el mensaje que disparó esta carga
+          unread_count: 1, // Nuevo mensaje = 1 no leído
+          ultimo_mensaje_preview: '',
+          numero_telefono: waConv.numero_telefono || prospectoData?.whatsapp,
+          updated_at: waConv.last_message_at || waConv.updated_at,
+          fecha_inicio: waConv.created_at,
           tipo: 'whatsapp',
           metadata: { 
-            prospecto_id: newConv.prospecto_id,
-            id_uchat: newConv.id_uchat
+            prospecto_id: targetProspectoId,
+            id_uchat: uchatId,
+            coordinacion_id: prospectoData?.coordinacion_id,
+            ejecutivo_id: prospectoData?.ejecutivo_id
           }
         };
         
@@ -1681,7 +1721,7 @@ const LiveChatCanvas: React.FC = () => {
           setAllConversationsLoaded(addNewConversation);
         });
       } catch (error) {
-        // Silenciar errores
+        // Silenciar errores - la conversación aparecerá en el próximo refresh
       }
     }, 1000); // Muy diferido
   }, []);
@@ -3604,7 +3644,6 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     const handleSelectConversation = (event: CustomEvent) => {
       const conversacionId = event.detail;
-      console.log('🎯 [LiveChatCanvas] Evento recibido: seleccionar conversación', conversacionId);
       
       if (!conversacionId) return;
       
@@ -3612,7 +3651,6 @@ const LiveChatCanvas: React.FC = () => {
       const conversation = allConversationsLoaded.find(c => c.id === conversacionId);
       
       if (conversation) {
-        console.log('✅ [LiveChatCanvas] Conversación encontrada, seleccionando...');
         // Marcar como selección manual para que se marque como leída
         isManualSelectionRef.current = true;
         setSelectedConversation(conversation);
@@ -3641,7 +3679,6 @@ const LiveChatCanvas: React.FC = () => {
     };
     
     const handleRefreshConversations = () => {
-      console.log('🔄 [LiveChatCanvas] Refrescando lista de conversaciones...');
       // Recargar conversaciones desde cero
       loadConversationsWrapper('', true);
     };
@@ -3823,15 +3860,6 @@ const LiveChatCanvas: React.FC = () => {
           const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
           const isUserAdmin = !coordinacionesFilter && !ejecutivoFilter;
           
-          console.log('[LiveChatCanvas] Filtros de permisos:', { 
-            queryUserId, 
-            ejecutivoFilter, 
-            coordinacionesFilter, 
-            isUserAdmin,
-            from,
-            batchSize: CONVERSATIONS_BATCH_SIZE
-          });
-          
           // Construir query con filtros
           let query = analysisSupabase
             .from('mv_conversaciones_dashboard')
@@ -3841,25 +3869,15 @@ const LiveChatCanvas: React.FC = () => {
           // Aplicar filtros según permisos
           if (!isUserAdmin) {
             if (ejecutivoFilter) {
-              console.log('[LiveChatCanvas] Aplicando filtro ejecutivo:', ejecutivoFilter);
               query = query.eq('ejecutivo_id', ejecutivoFilter);
             } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
-              console.log('[LiveChatCanvas] Aplicando filtro coordinaciones:', coordinacionesFilter);
               query = query.in('coordinacion_id', coordinacionesFilter);
             }
-          } else {
-            console.log('[LiveChatCanvas] Sin filtros (admin)');
           }
           
           query = query.range(from, from + CONVERSATIONS_BATCH_SIZE - 1);
           
           const { data, error } = await query;
-          
-          console.log('[LiveChatCanvas] Resultado de vista:', { 
-            count: data?.length || 0, 
-            error: error?.message,
-            firstRecord: data?.[0]
-          });
           
           // Transformar datos de vista a formato esperado
           const transformedData = (data || []).map((row: any) => ({
@@ -3875,12 +3893,6 @@ const LiveChatCanvas: React.FC = () => {
             ultimo_mensaje: row.ultimo_mensaje_preview,
             id_uchat: row.id_uchat
           }));
-          
-          console.log('[LiveChatCanvas] Datos transformados:', {
-            count: transformedData.length,
-            first: transformedData[0],
-            sample: transformedData.slice(0, 3).map(d => d.prospecto_id)
-          });
           
           return { data: transformedData, error };
         })()
@@ -3916,13 +3928,6 @@ const LiveChatCanvas: React.FC = () => {
 
       // Recolectar IDs de WhatsApp conversations
       const rpcData = rpcDataResult.data || [];
-      
-      console.log('[LiveChatCanvas] rpcData después de Promise.all:', {
-        count: rpcData.length,
-        hasError: !!rpcDataResult.error,
-        error: rpcDataResult.error,
-        first: rpcData[0]
-      });
       
       rpcData.forEach((c: any) => {
         if (c.prospecto_id) prospectoIds.add(c.prospecto_id);
@@ -3972,11 +3977,6 @@ const LiveChatCanvas: React.FC = () => {
         for (let i = 0; i < ids.length; i += BATCH_SIZE) {
           const batch = ids.slice(i, i + BATCH_SIZE);
           try {
-            console.log(`[LiveChatCanvas] Cargando batch ${i / BATCH_SIZE + 1}/${Math.ceil(ids.length / BATCH_SIZE)}:`, {
-              batchSize: batch.length,
-              firstId: batch[0]
-            });
-            
             const { data, error } = await analysisSupabase
               .from('prospectos')
               .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id')
@@ -3986,11 +3986,6 @@ const LiveChatCanvas: React.FC = () => {
               console.error(`❌ [LiveChatCanvas] Error cargando prospectos batch ${i / BATCH_SIZE + 1}:`, error);
               continue;
             }
-            
-            console.log(`✅ [LiveChatCanvas] Batch ${i / BATCH_SIZE + 1} cargado:`, {
-              requested: batch.length,
-              received: data?.length || 0
-            });
             
             // Obtener ids_dynamics desde crm_data para los que no tienen en prospectos
             const prospectosSinIdDynamics = (data || []).filter(p => !p.id_dynamics).map(p => p.id);
@@ -4048,12 +4043,6 @@ const LiveChatCanvas: React.FC = () => {
       const prospectosData = prospectosIdsArray.length > 0
         ? await loadProspectosInBatches(prospectosIdsArray)
             .then(map => {
-              console.log('[LiveChatCanvas] Prospectos cargados:', {
-                prospectosIdsArray: prospectosIdsArray.length,
-                mapSize: map.size,
-                sample: Array.from(map.keys()).slice(0, 3)
-              });
-              
               // ✅ FIX v6.4.1: FUSIONAR datos en lugar de sobrescribir para preservar datos de batches anteriores
               if (reset) {
                 // Reset: Sobrescribir todo el cache
@@ -4314,14 +4303,6 @@ const LiveChatCanvas: React.FC = () => {
           }
         }
       }
-
-      console.log('[LiveChatCanvas] Después de filtros:', {
-        uchatConversations: uchatConversations.length,
-        whatsappConversations: whatsappConversations.length,
-        total: uchatConversations.length + whatsappConversations.length,
-        ejecutivoFilter,
-        coordinacionesFilter
-      });
 
       // Combinar conversaciones de uchat y whatsapp, eliminando duplicados
       const allConversations = [...uchatConversations, ...whatsappConversations];
@@ -6294,6 +6275,254 @@ const LiveChatCanvas: React.FC = () => {
     } catch (error) {
       console.error('❌ Error enviando a UChat webhook:', error);
       return false;
+    }
+  };
+
+  // ============================================
+  // MÉTODOS DE GRABACIÓN DE AUDIO
+  // ============================================
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 44100
+        } 
+      });
+      
+      // Verificar compatibilidad del navegador con codecs
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/ogg;codecs=opus';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = ''; // Dejar que el navegador elija
+      }
+      
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType: mimeType || undefined 
+      });
+      
+      console.log('🎤 MediaRecorder iniciado con mimeType:', mimeType || 'default');
+      
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          console.log('📦 Chunk recibido:', event.data.size, 'bytes');
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = async () => {
+        console.log('⏹️ Grabación detenida. Chunks:', audioChunksRef.current.length);
+        const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
+        console.log('🎵 Audio blob creado:', audioBlob.size, 'bytes, type:', audioBlob.type);
+        
+        if (audioBlob.size === 0) {
+          toast.error('Error: No se grabó audio');
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
+        await sendAudioMessage(audioBlob);
+        
+        // Detener el stream
+        stream.getTracks().forEach(track => track.stop());
+      };
+      
+      // Solicitar datos cada 100ms para asegurar captura continua
+      mediaRecorder.start(100);
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Iniciar contador de tiempo
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      
+      // Sonido de inicio de grabación
+      playRecordingSound('start');
+      
+    } catch (error) {
+      console.error('❌ Error iniciando grabación:', error);
+      toast.error('No se pudo acceder al micrófono');
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      // Detener contador de tiempo
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      
+      // Sonido de fin de grabación
+      playRecordingSound('stop');
+    }
+  };
+
+  const cancelRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      // Detener MediaRecorder sin procesar el audio
+      mediaRecorderRef.current.stop();
+      
+      // Detener el stream
+      mediaRecorderRef.current.stream?.getTracks().forEach(track => track.stop());
+      
+      // Limpiar chunks para que no se envíe nada
+      audioChunksRef.current = [];
+      
+      setIsRecording(false);
+      setRecordingTime(0);
+      
+      // Detener contador de tiempo
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+      
+      // Sonido de cancelación (tono más grave)
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 400; // Tono más grave para cancelación
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+      
+      toast.success('Grabación cancelada');
+    }
+  };
+
+  const playRecordingSound = (type: 'start' | 'stop') => {
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = type === 'start' ? 800 : 600;
+    oscillator.type = 'sine';
+    
+    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.1);
+  };
+
+  const sendAudioMessage = async (audioBlob: Blob) => {
+    if (!selectedConversation) return;
+    
+    // No enviar si no hay audio (cancelado)
+    if (audioChunksRef.current.length === 0) {
+      return;
+    }
+    
+    try {
+      setSendingAudio(true);
+      
+      console.log('🎵 Audio blob:', {
+        size: audioBlob.size,
+        type: audioBlob.type,
+        chunks: audioChunksRef.current.length
+      });
+      
+      // Verificar que el blob tenga contenido
+      if (audioBlob.size === 0) {
+        toast.error('Error: El audio está vacío');
+        setSendingAudio(false);
+        return;
+      }
+      
+      // Convertir blob a base64
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          console.log('📦 Base64 generado:', base64.substring(0, 50) + '... (length:', base64.length, ')');
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
+      });
+      
+      const audioBase64 = await base64Promise;
+      
+      // Obtener uchatId de múltiples fuentes posibles
+      const uchatId = selectedConversation.conversation_id || 
+                     selectedConversation.metadata?.id_uchat || 
+                     selectedConversation.id_uchat;
+      
+      if (!uchatId) {
+        console.error('❌ No se encontró id_uchat para esta conversación');
+        toast.error('Error: No se pudo identificar el chat');
+        return;
+      }
+      
+      // Pausar el bot antes de enviar
+      await pauseBot(uchatId, 1, false);
+      
+      // Usar Edge Function en lugar de webhook directo
+      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-audio-proxy`;
+      const payload = {
+        audio_base64: audioBase64,
+        uchat_id: uchatId,
+        filename: `audio_${Date.now()}.mp3`,
+        id_sender: user?.id
+      };
+      
+      // Obtener JWT del usuario autenticado
+      const authToken = await getAuthTokenOrThrow();
+      
+      const response = await fetch(edgeFunctionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.status === 200) {
+        toast.success('Audio enviado correctamente');
+      } else if (response.status === 400) {
+        const errorData = await response.json();
+        toast.error(`Error: ${errorData.error || 'Solicitud inválida'}`);
+      } else if (response.status === 500) {
+        toast.error('Error del servidor al enviar audio');
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Error del webhook:', errorText);
+        toast.error('Error al enviar audio');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error enviando audio:', error);
+      toast.error('Error al enviar audio');
+    } finally {
+      setSendingAudio(false);
     }
   };
 
@@ -8765,20 +8994,43 @@ const LiveChatCanvas: React.FC = () => {
                   placeholder="Escribe un mensaje..."
                   rows={1}
                   autoComplete="off"
-                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide"
+                  disabled={isRecording}
+                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     minHeight: '44px',
                     maxHeight: '96px', // 3 renglones máximo (24px * 3 + padding)
                     transition: 'height 0.1s ease-out'
                   }}
                 />
+                
+                {/* Indicador de grabación sobre el textarea */}
+                {isRecording && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute inset-0 bg-red-50 dark:bg-red-900/20 rounded-xl border-2 border-red-500 dark:border-red-400 flex items-center justify-center pointer-events-none"
+                  >
+                    <div className="flex items-center space-x-3 text-red-600 dark:text-red-400">
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                        className="w-3 h-3 bg-red-500 rounded-full"
+                      />
+                      <span className="text-sm font-medium">
+                        Grabando... {Math.floor(recordingTime / 60)}:{(recordingTime % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </motion.div>
+                )}
               </div>
 
+              {/* Botón de Enviar Mensaje */}
               <button
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending || isUserBlocked}
+                disabled={!newMessage.trim() || sending || isUserBlocked || isRecording}
                 className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
                 style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                title={isRecording ? 'Deten la grabación para enviar mensaje' : 'Enviar mensaje'}
               >
                 {sending ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -8786,6 +9038,52 @@ const LiveChatCanvas: React.FC = () => {
                   <Send className="w-5 h-5" />
                 )}
               </button>
+
+              {/* Botones de Audio: Grabar o Controles de Grabación */}
+              {!isRecording ? (
+                // Botón de Iniciar Grabación (cuando NO está grabando)
+                <button
+                  onClick={startRecording}
+                  disabled={sendingAudio || isUserBlocked}
+                  className="px-4 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                  style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="Grabar mensaje de voz"
+                >
+                  {sendingAudio ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <Mic className="w-5 h-5" />
+                  )}
+                </button>
+              ) : (
+                // Botones de Controles de Grabación (cuando SÍ está grabando)
+                <div className="flex items-center space-x-2">
+                  {/* Botón Detener y Enviar */}
+                  <motion.button
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    onClick={stopRecording}
+                    className="px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-200 shadow-sm"
+                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Detener y enviar audio"
+                  >
+                    <Square className="w-5 h-5" />
+                  </motion.button>
+                  
+                  {/* Botón Cancelar */}
+                  <motion.button
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                    onClick={cancelRecording}
+                    className="px-4 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition-all duration-200 shadow-sm"
+                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Cancelar grabación"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </motion.button>
+                </div>
+              )}
             </div>
             )}
             </div>

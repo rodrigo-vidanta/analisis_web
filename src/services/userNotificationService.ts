@@ -60,7 +60,6 @@ class UserNotificationService {
    */
   async getUnreadCount(): Promise<NotificationCounts> {
     if (!this.userId) {
-      console.log('⚠️ [UserNotificationService] getUnreadCount: No userId configurado');
       return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
     }
 
@@ -71,8 +70,6 @@ class UserNotificationService {
     }
 
     try {
-      console.log(`🔍 [UserNotificationService] Consultando notificaciones para usuario: ${this.userId}`);
-      
       if (!supabaseSystemUI) {
         console.error('❌ [UserNotificationService] supabaseSystemUI no está configurado');
         return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
@@ -86,7 +83,6 @@ class UserNotificationService {
 
       if (error) {
         if (error.code === 'PGRST205' || error.message?.includes('Could not find the table')) {
-          console.log('⚠️ [UserNotificationService] Tabla user_notifications no existe');
           return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
         }
         console.error('❌ [UserNotificationService] Error obteniendo contador de notificaciones:', error);
@@ -94,21 +90,10 @@ class UserNotificationService {
         return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
       }
 
-      console.log(`📊 [UserNotificationService] Total de registros encontrados: ${count || 0}`);
-      console.log(`📊 [UserNotificationService] Datos recibidos:`, data);
-
       const unreadMessages = data?.filter(n => n.notification_type === 'new_message').length || 0;
       const unreadCalls = data?.filter(n => n.notification_type === 'new_call').length || 0;
       const unreadTemplates = data?.filter(n => n.notification_type === 'template_approved').length || 0;
       const total = unreadMessages + unreadCalls + unreadTemplates;
-
-      console.log(`📊 [UserNotificationService] Contadores calculados:`, {
-        total,
-        unread: total,
-        activeCalls: unreadCalls,
-        newMessages: unreadMessages,
-        templatesApproved: unreadTemplates,
-      });
 
       return {
         total,
@@ -119,7 +104,6 @@ class UserNotificationService {
       };
     } catch (error: any) {
       if (error?.code === 'PGRST205' || error?.message?.includes('Could not find the table')) {
-        console.log('⚠️ [UserNotificationService] Tabla user_notifications no existe (catch)');
         return { total: 0, unread: 0, activeCalls: 0, newMessages: 0, templatesApproved: 0 };
       }
       console.error('❌ [UserNotificationService] Error en getUnreadCount:', error);
@@ -389,7 +373,7 @@ class UserNotificationService {
     }
 
     if (!supabaseSystemUI) {
-      console.warn('⚠️ [UserNotificationService] supabaseSystemUI no está configurado');
+      console.error('⚠️ [UserNotificationService] supabaseSystemUI no está configurado');
       return () => {};
     }
 
@@ -404,37 +388,27 @@ class UserNotificationService {
           filter: `user_id=eq.${this.userId}`,
         },
         async (payload) => {
-          console.log(`📨 [UserNotificationService] Evento recibido:`, payload.eventType, payload.new);
-          
           if (payload.eventType === 'INSERT') {
             const notification = payload.new as UserNotification;
-            console.log(`✅ [UserNotificationService] Nueva notificación INSERT:`, notification);
             onNotification(notification);
             
             // Actualizar contador
             if (onCountChange) {
               const counts = await this.getUnreadCount();
-              console.log(`📊 [UserNotificationService] Contadores actualizados después de INSERT:`, counts);
               onCountChange(counts);
             }
           } else if (payload.eventType === 'UPDATE') {
-            console.log(`🔄 [UserNotificationService] Notificación UPDATE:`, payload.new);
             // Si se marca como leída, actualizar contador
             if (onCountChange) {
               const counts = await this.getUnreadCount();
-              console.log(`📊 [UserNotificationService] Contadores actualizados después de UPDATE:`, counts);
               onCountChange(counts);
             }
           }
         }
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`✅ [UserNotificationService] Suscrito a notificaciones del usuario ${this.userId}`);
-        } else if (status === 'CHANNEL_ERROR') {
+        if (status === 'CHANNEL_ERROR') {
           console.error(`❌ [UserNotificationService] Error en canal de suscripción`);
-        } else {
-          console.log(`⚠️ [UserNotificationService] Estado de suscripción: ${status}`);
         }
       });
 
@@ -442,7 +416,6 @@ class UserNotificationService {
 
     // Retornar función de limpieza
     return () => {
-      console.log(`🛑 [UserNotificationService] Limpiando suscripción: ${channelName}`);
       channel.unsubscribe();
       this.realtimeChannels.delete(channelName);
     };

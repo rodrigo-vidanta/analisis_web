@@ -34,8 +34,6 @@ export const useTokenExpiryMonitor = () => {
       const { data: { session }, error } = await supabaseSystemUI.auth.getSession();
       
       if (error || !session) {
-        console.log('🔐 [TokenMonitor] No hay sesión activa, forzando logout...');
-        
         // Actualizar is_operativo a false antes de logout
         if (user?.id) {
           try {
@@ -65,7 +63,6 @@ export const useTokenExpiryMonitor = () => {
 
       // Token ya expirado
       if (timeUntilExpiry <= 0) {
-        console.log('🔐 [TokenMonitor] Token expirado, intentando refrescar...');
         const { error: refreshError } = await supabaseSystemUI.auth.refreshSession();
         
         if (refreshError) {
@@ -89,7 +86,6 @@ export const useTokenExpiryMonitor = () => {
           });
           await logout();
         } else {
-          console.log('✅ [TokenMonitor] Token refrescado exitosamente');
           hasWarnedRef.current = false;
         }
         return;
@@ -97,7 +93,6 @@ export const useTokenExpiryMonitor = () => {
 
       // Token próximo a expirar (menos de 10 minutos)
       if (timeUntilExpiry < REFRESH_THRESHOLD) {
-        console.log(`🔄 [TokenMonitor] Token expira en ${Math.round(timeUntilExpiry / 60000)} minutos, refrescando...`);
         const { error: refreshError } = await supabaseSystemUI.auth.refreshSession();
         
         if (refreshError) {
@@ -113,7 +108,6 @@ export const useTokenExpiryMonitor = () => {
             });
           }
         } else {
-          console.log('✅ [TokenMonitor] Token refrescado preventivamente');
           hasWarnedRef.current = false;
         }
       }

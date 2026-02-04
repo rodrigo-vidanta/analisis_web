@@ -237,7 +237,8 @@ class DynamicsReasignacionService {
 
       try {
         // Obtener JWT del usuario autenticado para la Edge Function
-        const { data: { session } } = await analysisSupabase.auth.getSession();
+        // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+        const { data: { session } } = await supabaseSystemUI!.auth.getSession();
         if (!session?.access_token) {
           throw new Error('No hay sesión de usuario activa');
         }

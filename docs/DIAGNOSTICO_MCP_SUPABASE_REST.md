@@ -143,7 +143,7 @@ curl --data '{"query":"CREATE OR REPLACE FUNCTION get_dashboard_conversations(..
 ```bash
 curl -X POST \
   "https://api.supabase.com/v1/projects/glsmifhkoaifvaegsozd/database/query" \
-  -H "Authorization: Bearer sbp_cf20ef17a23fc72d04085cac9d55ddeb966eabdb" \
+  -H "Authorization: Bearer YOUR_SUPABASE_ACCESS_TOKEN" \
   --data '{"query":"DROP FUNCTION ..."}'
 ```
 

@@ -608,7 +608,8 @@ class ScheduledCallsService {
         const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
         
         // Obtener JWT del usuario autenticado
-        const { data: { session } } = await analysisSupabase.auth.getSession();
+        // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+        const { data: { session } } = await supabaseSystemUI!.auth.getSession();
         const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
         
         const response = await fetch(edgeFunctionUrl, {

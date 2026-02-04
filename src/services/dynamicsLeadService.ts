@@ -20,6 +20,7 @@
 
 import { credentialsService } from './credentialsService';
 import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // CONFIGURACIÓN
@@ -185,7 +186,8 @@ class DynamicsLeadService {
       }
 
       // Obtener JWT del usuario autenticado
-      const { data: { session } } = await analysisSupabase.auth.getSession();
+      // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
       
       if (!session?.access_token) {
         console.error('❌ [DynamicsLead] No hay sesión activa');

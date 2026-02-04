@@ -108,7 +108,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           });
         } else if (event === 'TOKEN_REFRESHED' && session) {
           // Token fue refrescado - silencioso
-          console.log('🔐 Token refreshed');
         } else if (event === 'USER_UPDATED' && session) {
           // Usuario fue actualizado - recargar datos
           await refreshUser(true);
@@ -190,7 +189,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     const currentSessionId = localStorage.getItem('session_id');
     if (!currentSessionId) {
-      console.warn('⚠️ No se encontró session_id en localStorage');
       return;
     }
 
@@ -210,7 +208,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Si la sesión en BD cambió y NO es la nuestra, fuimos desconectados
           if (newSession.session_id !== currentSessionId) {
-            console.log('🔐 Sesión invalidada - Nueva sesión detectada en otro dispositivo');
             handleForceLogout('Iniciaste sesión en otro dispositivo');
           }
         }
@@ -228,7 +225,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           // Si eliminaron nuestra sesión desde otro lugar (admin, etc.)
           if (deletedSession.session_id === currentSessionId) {
-            console.log('🔐 Sesión eliminada remotamente');
             handleForceLogout('Tu sesión fue cerrada por un administrador');
           }
         }
@@ -247,8 +243,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Handler para forzar logout cuando la sesión es invalidada externamente
   const handleForceLogout = async (reason: string) => {
-    console.log(`🔐 Cerrando sesión automáticamente: ${reason}`);
-    
     // Mostrar notificación PRIMERO (antes de desmontar componentes)
     toast(reason, {
       duration: 5000,
@@ -304,7 +298,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Escucha eventos disparados desde authenticatedFetch u otros lugares
   useEffect(() => {
     const handleSessionExpired = (event: CustomEvent<{ reason: string }>) => {
-      console.log('🔐 [AuthContext] Evento de sesión expirada recibido:', event.detail.reason);
       handleForceLogout(event.detail.reason);
     };
 
@@ -452,7 +445,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Función para manejar la cancelación del modal de backup
   const handleCancelBackupSelection = (): void => {
-    console.log('❌ Modal cancelado, cerrando sin hacer logout');
     setShowBackupModal(false);
     // NO hacer logout, solo cerrar el modal y volver a la aplicación
   };

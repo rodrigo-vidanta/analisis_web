@@ -73,7 +73,7 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
-        'livechat_auth': livechatAuth,
+        '2025_livechat_auth': livechatAuth,
         'x-request-id': requestId
       },
       body: JSON.stringify(payload)

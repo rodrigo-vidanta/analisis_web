@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-04', author: 'Team', message: 'v2.5.83: B10.1.44N2.5.83 - Implementar auto-refresh vista conversaciones + cron job ...', isRelease: true },
   { hash: 'aa56b6a', date: '2026-02-04', author: 'Team', message: 'v2.5.82: B10.1.44N2.5.82 - Debug batch loading prospectos', isRelease: true },
   { hash: 'ee6eea3', date: '2026-02-04', author: 'Team', message: 'v2.5.81: B10.1.44N2.5.81 - Debug adicional filtro vacío', isRelease: true },
   { hash: '65d97ed', date: '2026-02-04', author: 'Team', message: 'v2.5.80: B10.1.44N2.5.80 - Fix filtro ejecutivo - eliminar verificación coordinación', isRelease: true },
@@ -512,6 +513,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-668', date: '04/02/2026, 16:55', version: 'B10.1.44N2.5.83', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-586', date: '03/02/2026, 19:09', version: 'B10.1.44N2.5.82', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-825', date: '03/02/2026, 19:06', version: 'B10.1.44N2.5.81', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-857', date: '03/02/2026, 19:03', version: 'B10.1.44N2.5.80', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -672,10 +674,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.82', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.82', highlight: false },
+  { label: 'Version', value: 'v2.5.83', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.83', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '3 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '4 feb 2026', highlight: false },
 ];
 
 // ============================================

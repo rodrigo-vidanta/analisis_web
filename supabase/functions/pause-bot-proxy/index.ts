@@ -109,7 +109,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'livechat_auth': webhookToken, // Mismo header que otros webhooks
+        '2025_livechat_auth': webhookToken, // Header correcto según credencial N8N
       },
       body: JSON.stringify({ uchat_id, ttl }),
     });

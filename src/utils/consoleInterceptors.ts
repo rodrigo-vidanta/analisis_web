@@ -70,7 +70,9 @@ console.log = (...args: any[]) => {
       fullMessage.includes('Cambiando tema a:') ||
       fullMessage.includes('Header:') ||
       fullMessage.includes('Buscando lead') ||
-      fullMessage.includes('Respuesta recibida')) {
+      fullMessage.includes('Respuesta recibida') ||
+      fullMessage.includes('Sesión única registrada') ||
+      fullMessage.includes('[LiveChatCanvas]')) {
     return;
   }
   
@@ -150,7 +152,9 @@ console.info = (...args: any[]) => {
       fullMessage.includes('Cambiando tema a:') ||
       fullMessage.includes('Header:') ||
       fullMessage.includes('Buscando lead') ||
-      fullMessage.includes('Respuesta recibida')) {
+      fullMessage.includes('Respuesta recibida') ||
+      fullMessage.includes('Sesión única registrada') ||
+      fullMessage.includes('[LiveChatCanvas]')) {
     return;
   }
   
@@ -213,11 +217,13 @@ window.fetch = async function(...args: any[]) {
   
   // Interceptar peticiones a tablas que no existen (se manejan con datos mock o fallbacks)
   // También interceptar queries muy largas que causan 400
+  // v6.5.3: Incluir mv_conversaciones_dashboard para silenciar 406 de consultas individuales
   if (url.includes('/rest/v1/tools') || 
       url.includes('/rest/v1/agent_templates') ||
       url.includes('/rest/v1/coordinaciones') ||
       url.includes('/rest/v1/ejecutivos') ||
       url.includes('/rest/v1/system_config') ||
+      url.includes('/rest/v1/mv_conversaciones_dashboard') ||
       (url.includes('/rest/v1/llamadas_ventas') && url.length > 8000) ||
       (url.includes('/rest/v1/mensajes_whatsapp') && url.length > 8000)) {
     try {
@@ -286,11 +292,13 @@ if (window.XMLHttpRequest) {
     
     // Interceptar peticiones a tablas que no existen
     // También interceptar queries muy largas que causan 400
+    // v6.5.3: Incluir mv_conversaciones_dashboard para silenciar 406
     if (url.includes('/rest/v1/tools') || 
         url.includes('/rest/v1/agent_templates') ||
         url.includes('/rest/v1/coordinaciones') ||
         url.includes('/rest/v1/ejecutivos') ||
         url.includes('/rest/v1/system_config') ||
+        url.includes('/rest/v1/mv_conversaciones_dashboard') ||
         (url.includes('/rest/v1/llamadas_ventas') && url.length > 8000) ||
         (url.includes('/rest/v1/mensajes_whatsapp') && url.length > 8000)) {
       this.addEventListener('error', (event) => {
@@ -405,6 +413,14 @@ console.error = (...args: any[]) => {
       (fullMessage.includes('system_config') || 
        fullMessage.includes('selected_logo') ||
        fullMessage.includes('/rest/v1/system_config'))) {
+    return;
+  }
+  
+  // Silenciar errores 406 de mv_conversaciones_dashboard (vista puede no tener el registro aún)
+  // v6.5.3: Respaldo para consultas legacy que aún usen la vista
+  if ((message.includes('406') || fullMessage.includes('406')) && 
+      (fullMessage.includes('mv_conversaciones_dashboard') || 
+       fullMessage.includes('prospecto_id=eq.'))) {
     return;
   }
   

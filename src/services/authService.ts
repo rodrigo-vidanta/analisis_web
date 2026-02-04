@@ -656,7 +656,6 @@ class AuthService {
 
       // Guardar session_id en localStorage para verificación posterior
       localStorage.setItem('session_id', sessionId);
-      console.log('✅ Sesión única registrada:', sessionId.substring(0, 8) + '...');
       
     } catch (err) {
       console.error('⚠️ Excepción en registerUniqueSession:', err);
@@ -684,8 +683,6 @@ class AuthService {
 
       if (error) {
         console.error('⚠️ Error limpiando sesión única:', error);
-      } else {
-        console.log('✅ Sesión única eliminada:', currentSessionId.substring(0, 8) + '...');
       }
 
       // Limpiar localStorage siempre

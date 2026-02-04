@@ -245,7 +245,7 @@ position: Ejecutivo Jr
 
 **Última verificación:** $(date)  
 **Método:** API REST de Supabase  
-**Access Token:** sbp_cf20ef1f03bc5ad49937710d77d91241ca2f8210 (primeros caracteres)  
+**Access Token:** sbp_XXXXXXX (token redactado por seguridad)  
 **Proyecto:** glsmifhkoaifvaegsozd (PQNC_AI)
 
 ✅ **TODAS LAS VERIFICACIONES PASARON EXITOSAMENTE**

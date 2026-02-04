@@ -98,12 +98,6 @@ export const useNinjaStore = create<NinjaState>()(
         coordinaciones: string[],
         adminId: string
       ) => {
-        console.log('🥷 Modo Ninja ACTIVADO');
-        console.log('   Usuario suplantado:', targetUser.full_name);
-        console.log('   Rol:', targetUser.role_name);
-        console.log('   Permisos cargados:', permissions.length);
-        console.log('   Coordinaciones:', coordinaciones.length);
-        
         set({
           isNinjaMode: true,
           targetUser,
@@ -122,12 +116,6 @@ export const useNinjaStore = create<NinjaState>()(
       // DESACTIVAR MODO NINJA
       // ============================================
       deactivateNinjaMode: () => {
-        const state = get();
-        console.log('🥷 Modo Ninja DESACTIVADO');
-        if (state.targetUser) {
-          console.log('   Usuario que estaba siendo suplantado:', state.targetUser.full_name);
-        }
-        
         set({
           isNinjaMode: false,
           targetUser: null,

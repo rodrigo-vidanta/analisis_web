@@ -81,8 +81,6 @@ export const useHeartbeat = ({
         .from('active_sessions')
         .delete()
         .eq('session_id', sessionId);
-
-      console.log('🧹 Sesión limpiada al cerrar ventana');
     } catch (err) {
       console.error('⚠️ Error limpiando sesión:', err);
     }
@@ -105,14 +103,11 @@ export const useHeartbeat = ({
     // Configurar intervalo para heartbeats periódicos
     intervalRef.current = setInterval(sendHeartbeat, intervalMs);
 
-    console.log(`💓 Heartbeat iniciado (cada ${intervalMs / 1000}s)`);
-
     // Cleanup al desmontar o deshabilitar
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
-        console.log('💓 Heartbeat detenido');
       }
     };
   }, [enabled, userId, sessionId, intervalMs]);
@@ -134,12 +129,9 @@ export const useHeartbeat = ({
     // Agregar listener
     window.addEventListener('beforeunload', handleBeforeUnload);
 
-    console.log('👋 beforeunload listener registrado');
-
     // Cleanup
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      console.log('👋 beforeunload listener removido');
     };
   }, [enabled, userId, sessionId]);
 

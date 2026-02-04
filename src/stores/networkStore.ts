@@ -61,10 +61,6 @@ export const useNetworkStore = create<NetworkStore>()(
 
     // Acciones
     setOnline: () => {
-      const wasOffline = !get().isOnline;
-      if (wasOffline) {
-        console.log('🌐 [Network] Conexión restaurada');
-      }
       set({
         isOnline: true,
         lastChanged: Date.now(),
@@ -74,10 +70,6 @@ export const useNetworkStore = create<NetworkStore>()(
     },
 
     setOffline: () => {
-      const wasOnline = get().isOnline;
-      if (wasOnline) {
-        console.log('🔌 [Network] Conexión perdida');
-      }
       set(state => ({
         isOnline: false,
         lastChanged: Date.now(),
@@ -87,12 +79,6 @@ export const useNetworkStore = create<NetworkStore>()(
 
     incrementNetworkErrors: () => {
       const newCount = get().consecutiveNetworkErrors + 1;
-      
-      // Si hay muchos errores consecutivos, probablemente estamos offline
-      if (newCount >= 3 && get().isOnline) {
-        console.log('⚠️ [Network] Múltiples errores de red detectados, posible desconexión');
-      }
-      
       set({ consecutiveNetworkErrors: newCount });
     },
 

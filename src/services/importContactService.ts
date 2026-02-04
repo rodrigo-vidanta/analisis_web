@@ -12,6 +12,7 @@
  */
 
 import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // ============================================
 // INTERFACES
@@ -92,7 +93,8 @@ class ImportContactService {
   async importContact(payload: ImportContactPayload): Promise<ImportContactResponse> {
     try {
       // Obtener la sesión actual (JWT token)
-      const { data: { session } } = await analysisSupabase.auth.getSession();
+      // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
       
       if (!session) {
         return {

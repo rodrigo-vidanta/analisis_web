@@ -2851,7 +2851,8 @@ const CreateCampaignModal: React.FC<CreateCampaignModalProps> = ({
       };
       
       // Obtener JWT del usuario autenticado
-      const { data: { session } } = await analysisSupabase.auth.getSession();
+      // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
       const jwtToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
       
       // Enviar via Edge Function (auth seguro via JWT de usuario)

@@ -1165,28 +1165,47 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                 // La conversación no está en la lista, cargarla y añadirla al top 15
                 (async () => {
                   try {
-                    // Cargar la conversación desde vista materializada
-                    const { data: viewData } = await analysisSupabase
-                      .from('mv_conversaciones_dashboard')
+                    // v6.5.3: Usar tabla directa con .maybeSingle() (más tolerante, siempre actualizada)
+                    // Evita error 406 que ocurría con vista materializada cuando prospecto no existía aún
+                    const { data: waConv, error: waError } = await analysisSupabase
+                      .from('conversaciones_whatsapp')
                       .select('*')
                       .eq('prospecto_id', newMessage.prospecto_id)
-                      .single();
+                      .order('last_message_at', { ascending: false })
+                      .limit(1)
+                      .maybeSingle();
                     
-                    if (!viewData) return;
+                    if (waError || !waConv) return;
                     
-                    // Transformar a formato esperado
+                    // Obtener datos adicionales del prospecto desde cache o BD
+                    let prospectoData = prospectosDataRef.current.get(newMessage.prospecto_id);
+                    
+                    if (!prospectoData) {
+                      const { data: prospecto } = await analysisSupabase
+                        .from('prospectos')
+                        .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat')
+                        .eq('id', newMessage.prospecto_id)
+                        .maybeSingle();
+                      
+                      if (prospecto) {
+                        prospectoData = prospecto;
+                        prospectosDataRef.current.set(newMessage.prospecto_id, prospecto);
+                      }
+                    }
+                    
+                    // Transformar a formato esperado (compatible con estructura anterior)
                     const newConvData = {
-                      prospecto_id: viewData.prospecto_id,
-                      nombre_contacto: viewData.nombre_contacto,
-                      nombre_whatsapp: viewData.nombre_whatsapp,
-                      numero_telefono: viewData.numero_telefono,
-                      estado_prospecto: viewData.etapa,
-                      fecha_ultimo_mensaje: viewData.fecha_ultimo_mensaje,
-                      fecha_creacion_prospecto: viewData.fecha_creacion,
-                      mensajes_totales: viewData.mensajes_totales,
-                      mensajes_no_leidos: viewData.mensajes_no_leidos,
-                      ultimo_mensaje: viewData.ultimo_mensaje_preview,
-                      id_uchat: viewData.id_uchat
+                      prospecto_id: newMessage.prospecto_id,
+                      nombre_contacto: waConv.nombre_contacto || prospectoData?.nombre_completo,
+                      nombre_whatsapp: prospectoData?.nombre_whatsapp,
+                      numero_telefono: waConv.numero_telefono || prospectoData?.whatsapp,
+                      estado_prospecto: waConv.estado || 'active',
+                      fecha_ultimo_mensaje: waConv.last_message_at,
+                      fecha_creacion_prospecto: waConv.created_at,
+                      mensajes_totales: 0,
+                      mensajes_no_leidos: 1,
+                      ultimo_mensaje: newMessage.mensaje?.substring(0, 100) || '',
+                      id_uchat: prospectoData?.id_uchat || waConv.id
                     };
                     
                     // Verificar permisos antes de agregar (solo si no es admin)
@@ -1197,8 +1216,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                       }
                     }
                     
-                    // Enriquecer con datos de prospecto
-                    const prospectoData = newConvData.prospecto_id ? prospectosDataRef.current.get(newConvData.prospecto_id) : null;
+                    // Enriquecer con datos de prospecto (prospectoData ya está definido arriba)
                     const coordinacionId = prospectoData?.coordinacion_id;
                     const ejecutivoId = prospectoData?.ejecutivo_id;
                     const coordinacionInfo = coordinacionId ? coordinacionesMapRef.current.get(coordinacionId) : null;
@@ -2012,7 +2030,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       
       try {
         // Usar Edge Function - auth via Authorization header con JWT del usuario
-        const { data: { session } } = await analysisSupabase.auth.getSession();
+        // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+        const { data: { session } } = await supabaseSystemUI!.auth.getSession();
         const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
         
         const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {
@@ -2100,7 +2119,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       
       try {
         // Usar Edge Function - auth via Authorization header con JWT del usuario
-        const { data: { session } } = await analysisSupabase.auth.getSession();
+        // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
+        const { data: { session } } = await supabaseSystemUI!.auth.getSession();
         const authToken = session?.access_token || import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
         
         const resp = await fetch(`${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`, {

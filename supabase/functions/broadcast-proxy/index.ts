@@ -99,7 +99,7 @@ serve(async (req) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'livechat_auth': webhookToken, // Header correcto (igual que otros proxies)
+        '2025_livechat_auth': webhookToken, // Header correcto (igual que otros proxies)
       },
       body: JSON.stringify(payload),
     });

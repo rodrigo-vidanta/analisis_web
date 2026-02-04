@@ -38,8 +38,6 @@ export const useInactivityTimeout = () => {
       
       // Verificar si realmente han pasado 2 horas de inactividad
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT && currentUser) {
-        console.log('⏰ Timeout de inactividad alcanzado (2 horas). Cerrando sesión...');
-        
         // Si es ejecutivo o supervisor, asignar backup automáticamente y actualizar is_operativo
         const isEjecutivoOrSupervisor = currentUser.role_name === 'ejecutivo' || currentUser.role_name === 'supervisor';
         
@@ -79,13 +77,9 @@ export const useInactivityTimeout = () => {
               if (backupId) {
                 // Asignar backup automáticamente
                 const result = await backupService.assignBackup(currentUser.id, backupId);
-                if (result.success) {
-                  console.log(`✅ Backup automático asignado por inactividad: ${backupId}`);
-                } else {
+                if (!result.success) {
                   console.error('Error asignando backup automático:', result.error);
                 }
-              } else {
-                console.warn('⚠️ No hay backups disponibles siguiendo el orden de prioridad');
               }
             }
 
@@ -116,8 +110,6 @@ export const useInactivityTimeout = () => {
               if (!response.ok || !result.success) {
                 throw new Error(result.error || 'Error al actualizar estado operativo');
               }
-              
-              console.log(`✅ ${currentUser.role_name} marcado como no operativo por inactividad`);
             } catch (error) {
               console.error(`Error actualizando ${currentUser.role_name} por inactividad:`, error);
             }
@@ -175,8 +167,6 @@ export const useInactivityTimeout = () => {
       
       // Si han pasado más de 2 horas desde la última actividad, hacer logout
       if (timeSinceLastActivity >= INACTIVITY_TIMEOUT && currentUser) {
-        console.log('⏰ Ventana recuperó foco después de 2+ horas de inactividad. Cerrando sesión...');
-        
         // Si es ejecutivo, asignar backup automáticamente y actualizar is_operativo
         if (currentUser.role_name === 'ejecutivo' && currentUser.id) {
           try {
@@ -198,13 +188,9 @@ export const useInactivityTimeout = () => {
               if (backupId) {
                 // Asignar backup automáticamente
                 const result = await backupService.assignBackup(currentUser.id, backupId);
-                if (result.success) {
-                  console.log(`✅ Backup automático asignado por inactividad: ${backupId}`);
-                } else {
+                if (!result.success) {
                   console.error('Error asignando backup automático:', result.error);
                 }
-              } else {
-                console.warn('⚠️ No hay backups disponibles siguiendo el orden de prioridad');
               }
             }
 
@@ -238,8 +224,6 @@ export const useInactivityTimeout = () => {
             } catch (error) {
               console.error('Error actualizando is_operativo por inactividad:', error);
             }
-            
-            console.log('✅ Ejecutivo marcado como no operativo por inactividad');
           } catch (error) {
             console.error('Error actualizando ejecutivo por inactividad:', error);
           }
