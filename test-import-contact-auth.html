@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Import Contact Auth</title>
+</head>
+<body>
+  <h1>Test Import Contact Authentication</h1>
+  <button onclick="testAuth()">Test Auth</button>
+  <pre id="result"></pre>
+
+  <script type="module">
+    import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+    
+    const supabase = createClient(
+      'https://glsmifhkoaifvaegsozd.supabase.co',
+      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdsxG1pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ2ODA1MDUsImV4cCI6MjA1MDI1NjUwNX0.lUl5ZYCxOBt0c-K08H3cFCj82ohDQvEyYGwfuTTbKKQ'
+    );
+
+    window.testAuth = async function() {
+      const resultEl = document.getElementById('result');
+      
+      try {
+        // Obtener sesión actual
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError || !session) {
+          resultEl.textContent = '❌ No hay sesión activa. Inicia sesión primero en la app.';
+          return;
+        }
+
+        resultEl.textContent = '🔄 Probando autenticación con edge function...\n\n';
+        resultEl.textContent += `📧 Usuario: ${session.user.email}\n`;
+        resultEl.textContent += `🔑 Token: ${session.access_token.substring(0, 50)}...\n\n`;
+
+        // Probar edge function
+        const response = await fetch('https://glsmifhkoaifvaegsozd.supabase.co/functions/v1/import-contact-proxy', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({
+            ejecutivo_nombre: 'Test User',
+            ejecutivo_id: 'test-uuid',
+            coordinacion_id: 'test-uuid',
+            fecha_solicitud: new Date().toISOString(),
+            telefono: '3333243333',
+            nombre_completo: 'Prospecto Test',
+            id_dynamics: 'test-123',
+            lead_dynamics: {
+              LeadID: 'test-123',
+              Nombre: 'Test',
+              Email: 'test@test.com',
+              EstadoCivil: null,
+              Ocupacion: null,
+              Pais: null,
+              EntidadFederativa: null,
+              Coordinacion: null,
+              CoordinacionID: null,
+              Propietario: null,
+              OwnerID: null,
+              FechaUltimaLlamada: null,
+              Calificacion: null
+            }
+          })
+        });
+
+        resultEl.textContent += `📊 Status: ${response.status}\n\n`;
+
+        const responseText = await response.text();
+        resultEl.textContent += `📥 Respuesta:\n${responseText}\n\n`;
+
+        if (response.status === 401) {
+          resultEl.textContent += '\n❌ ERROR 401: Problema de autenticación\n';
+          resultEl.textContent += '\nPosibles causas:\n';
+          resultEl.textContent += '1. Token JWT expirado (cierra sesión y vuelve a entrar)\n';
+          resultEl.textContent += '2. Edge function no validando JWT correctamente\n';
+          resultEl.textContent += '3. Secret LIVECHAT_AUTH no configurado\n';
+        } else if (response.ok) {
+          resultEl.textContent += '\n✅ Autenticación exitosa!\n';
+        }
+
+      } catch (error) {
+        resultEl.textContent = `❌ Error: ${error.message}`;
+      }
+    };
+  </script>
+</body>
+</html>

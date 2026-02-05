@@ -28,10 +28,17 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           supabase: ['@supabase/supabase-js'],
-          ui: ['zustand']
+          ui: ['zustand'],
+          audio: ['lamejs'] // Chunk separado para audio
         }
       }
     }
+  },
+  
+  // Soporte para Web Workers
+  worker: {
+    format: 'es',
+    plugins: []
   },
   
   // Preview para Railway

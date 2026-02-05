@@ -6279,6 +6279,67 @@ const LiveChatCanvas: React.FC = () => {
   };
 
   // ============================================
+  // CONVERSIÓN DE AUDIO CON WEB WORKER
+  // ============================================
+
+  /**
+   * Convierte audio WebM a MP3 usando Web Worker
+   * @param audioBlob - Blob de audio en formato WebM
+   * @param onProgress - Callback para reportar progreso (0-100)
+   * @returns Promise<Blob> - Blob de audio en formato MP3
+   */
+  const convertAudioToMp3 = async (
+    audioBlob: Blob, 
+    onProgress?: (progress: number) => void
+  ): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      // Crear Web Worker
+      const worker = new Worker(
+        new URL('../../workers/audioConverter.worker.ts', import.meta.url),
+        { type: 'module' }
+      );
+
+      // Leer el blob como ArrayBuffer
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const arrayBuffer = reader.result as ArrayBuffer;
+
+        // Enviar al worker
+        worker.postMessage({
+          audioBuffer: arrayBuffer,
+          sampleRate: 44100
+        });
+
+        // Escuchar mensajes del worker
+        worker.onmessage = (e: MessageEvent) => {
+          const { type, progress, mp3Blob, error } = e.data;
+
+          if (type === 'progress' && onProgress) {
+            onProgress(progress);
+          } else if (type === 'success') {
+            worker.terminate();
+            resolve(mp3Blob);
+          } else if (type === 'error') {
+            worker.terminate();
+            reject(new Error(error));
+          }
+        };
+
+        worker.onerror = (error) => {
+          worker.terminate();
+          reject(error);
+        };
+      };
+
+      reader.onerror = () => {
+        reject(new Error('Error leyendo el archivo de audio'));
+      };
+
+      reader.readAsArrayBuffer(audioBlob);
+    });
+  };
+
+  // ============================================
   // MÉTODOS DE GRABACIÓN DE AUDIO
   // ============================================
 
@@ -6344,7 +6405,18 @@ const LiveChatCanvas: React.FC = () => {
       
       // Iniciar contador de tiempo
       recordingIntervalRef.current = window.setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          
+          // Límite de 5 minutos (300 segundos)
+          if (newTime >= 300) {
+            toast.error('Tiempo máximo de grabación alcanzado (5 minutos)');
+            stopRecording();
+            return 300;
+          }
+          
+          return newTime;
+        });
       }, 1000);
       
       // Sonido de inicio de grabación
@@ -6442,7 +6514,7 @@ const LiveChatCanvas: React.FC = () => {
     try {
       setSendingAudio(true);
       
-      console.log('🎵 Audio blob:', {
+      console.log('🎵 Audio blob original:', {
         size: audioBlob.size,
         type: audioBlob.type,
         chunks: audioChunksRef.current.length
@@ -6455,76 +6527,113 @@ const LiveChatCanvas: React.FC = () => {
         return;
       }
       
-      // Convertir blob a base64
-      const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve, reject) => {
-        reader.onloadend = () => {
-          const base64 = (reader.result as string).split(',')[1];
-          console.log('📦 Base64 generado:', base64.substring(0, 50) + '... (length:', base64.length, ')');
-          resolve(base64);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(audioBlob);
-      });
-      
-      const audioBase64 = await base64Promise;
-      
-      // Obtener uchatId de múltiples fuentes posibles
-      const uchatId = selectedConversation.conversation_id || 
-                     selectedConversation.metadata?.id_uchat || 
-                     selectedConversation.id_uchat;
-      
-      if (!uchatId) {
-        console.error('❌ No se encontró id_uchat para esta conversación');
-        toast.error('Error: No se pudo identificar el chat');
+      // Verificar límite de 5 minutos (300 segundos)
+      const maxDurationSeconds = 300;
+      if (recordingTime > maxDurationSeconds) {
+        toast.error('El audio no puede exceder 5 minutos');
+        setSendingAudio(false);
         return;
       }
       
-      // Pausar el bot antes de enviar
-      await pauseBot(uchatId, 1, false);
+      // Mostrar toast de conversión
+      const conversionToast = toast.loading('Convirtiendo audio a MP3...');
       
-      // Usar Edge Function en lugar de webhook directo
-      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-audio-proxy`;
-      const payload = {
-        audio_base64: audioBase64,
-        uchat_id: uchatId,
-        filename: `audio_${Date.now()}.mp3`,
-        id_sender: user?.id
-      };
-      
-      // Obtener JWT del usuario autenticado
-      const authToken = await getAuthTokenOrThrow();
-      
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(payload)
-      });
-      
-      if (response.status === 200) {
-        toast.success('Audio enviado correctamente');
-      } else if (response.status === 400) {
-        const errorData = await response.json();
-        toast.error(`Error: ${errorData.error || 'Solicitud inválida'}`);
-      } else if (response.status === 500) {
-        toast.error('Error del servidor al enviar audio');
-      } else {
-        const errorText = await response.text();
-        console.error('❌ Error del webhook:', errorText);
-        toast.error('Error al enviar audio');
+      try {
+        // Convertir WebM a MP3 usando Web Worker
+        const mp3Blob = await convertAudioToMp3(audioBlob, (progress) => {
+          // Actualizar toast con progreso
+          if (progress < 100) {
+            toast.loading(`Convirtiendo audio... ${progress}%`, { id: conversionToast });
+          }
+        });
+        
+        toast.success('Audio convertido', { id: conversionToast });
+        
+        console.log('🎵 Audio MP3:', {
+          size: mp3Blob.size,
+          type: mp3Blob.type
+        });
+        
+        // Convertir MP3 blob a base64
+        const reader = new FileReader();
+        const base64Promise = new Promise<string>((resolve, reject) => {
+          reader.onloadend = () => {
+            const base64 = (reader.result as string).split(',')[1];
+            console.log('📦 Base64 generado:', base64.substring(0, 50) + '... (length:', base64.length, ')');
+            resolve(base64);
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(mp3Blob);
+        });
+        
+        const audioBase64 = await base64Promise;
+        
+        // Obtener uchatId de múltiples fuentes posibles
+        const uchatId = selectedConversation.conversation_id || 
+                       selectedConversation.metadata?.id_uchat || 
+                       selectedConversation.id_uchat;
+        
+        if (!uchatId) {
+          console.error('❌ No se encontró id_uchat para esta conversación');
+          toast.error('Error: No se pudo identificar el chat');
+          setSendingAudio(false);
+          return;
+        }
+        
+        // Pausar el bot antes de enviar
+        await pauseBot(uchatId, 1, false);
+        
+        // Usar Edge Function en lugar de webhook directo
+        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-audio-proxy`;
+        const payload = {
+          audio_base64: audioBase64,
+          uchat_id: uchatId,
+          filename: `audio_${Date.now()}.mp3`,
+          id_sender: user?.id
+        };
+        
+        // Obtener JWT del usuario autenticado
+        const authToken = await getAuthTokenOrThrow();
+        
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        if (response.status === 200) {
+          toast.success('Audio enviado correctamente');
+        } else if (response.status === 400) {
+          const errorData = await response.json();
+          toast.error(`Error: ${errorData.error || 'Solicitud inválida'}`);
+        } else if (response.status === 500) {
+          const errorData = await response.json();
+          toast.error(`Error del servidor: ${errorData.error || 'Error interno'}`);
+        } else {
+          const errorData = await response.json();
+          toast.error(`Error del webhook: ${JSON.stringify(errorData)}`);
+        }
+        
+      } catch (conversionError) {
+        console.error('❌ Error en conversión:', conversionError);
+        toast.error('Error al convertir el audio', { id: conversionToast });
+        setSendingAudio(false);
+        return;
       }
       
     } catch (error) {
       console.error('❌ Error enviando audio:', error);
-      toast.error('Error al enviar audio');
+      toast.error('Error al enviar el audio');
     } finally {
       setSendingAudio(false);
+      audioChunksRef.current = [];
     }
   };
+
 
   // Verificar bloqueo del usuario al cargar (usa contador optimizado)
   useEffect(() => {

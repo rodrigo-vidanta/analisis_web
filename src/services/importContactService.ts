@@ -13,6 +13,7 @@
 
 import { analysisSupabase } from '../config/analysisSupabase';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { getAuthTokenOrThrow } from '../utils/authToken';
 
 // ============================================
 // INTERFACES
@@ -92,40 +93,24 @@ class ImportContactService {
    */
   async importContact(payload: ImportContactPayload): Promise<ImportContactResponse> {
     try {
-      // Obtener la sesión actual (JWT token)
-      // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
-      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
-      
-      if (!session) {
-        return {
-          success: false,
-          message: 'No hay sesión activa',
-          error: 'Usuario no autenticado',
-          statusCode: 401
-        };
-      }
+      // Obtener JWT token (enviado pero no validado por Edge Function por ahora)
+      const authToken = await getAuthTokenOrThrow().catch(() => '');
 
-      // Llamar a la edge function con autenticación JWT
       const url = `${this.EDGE_FUNCTION_URL}/functions/v1/import-contact-proxy`;
-      
-      console.log('📤 [ImportContact] Llamando edge function:', url);
-      console.log('📦 [ImportContact] Payload:', payload);
 
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // JWT del usuario autenticado
+          'Authorization': `Bearer ${authToken}`,
         },
         body: JSON.stringify(payload)
       });
 
       const statusCode = response.status;
-      console.log(`📊 [ImportContact] Status Code: ${statusCode}`);
 
       // Manejar códigos de estado HTTP
       if (statusCode === 401) {
-        console.error('❌ [ImportContact] Error 401: Token inválido');
         return {
           success: false,
           message: 'Error de autenticación',
@@ -135,8 +120,6 @@ class ImportContactService {
       }
 
       if (statusCode === 500) {
-        const errorText = await response.text();
-        console.error('❌ [ImportContact] Error 500:', errorText);
         return {
           success: false,
           message: 'Error interno del servidor',
@@ -147,7 +130,6 @@ class ImportContactService {
 
       if (statusCode === 400) {
         const errorText = await response.text();
-        console.error('❌ [ImportContact] Error 400:', errorText);
         return {
           success: false,
           message: 'Datos inválidos',
@@ -158,7 +140,6 @@ class ImportContactService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ [ImportContact] Error ${statusCode}:`, errorText);
         return {
           success: false,
           message: 'Error en la importación',
@@ -169,16 +150,12 @@ class ImportContactService {
 
       // Leer respuesta como texto primero
       const responseText = await response.text();
-      console.log('📥 [ImportContact] Respuesta (raw):', responseText ? responseText.substring(0, 200) : '(vacía)');
 
       // Intentar parsear como JSON
       let result: WebhookImportResponse[] | WebhookImportResponse;
       try {
         result = JSON.parse(responseText);
-        console.log('📥 [ImportContact] Respuesta parseada:', result);
       } catch (parseError) {
-        console.error('❌ [ImportContact] Error al parsear JSON:', parseError);
-        console.error('Raw text:', responseText);
         return {
           success: false,
           message: 'Error al procesar la respuesta del servidor',
@@ -189,11 +166,9 @@ class ImportContactService {
 
       // Normalizar a array si viene como objeto
       const resultArray = Array.isArray(result) ? result : [result];
-      console.log('✅ [ImportContact] Resultado normalizado a array:', resultArray);
 
       // Verificar que haya al menos un elemento
       if (resultArray.length === 0) {
-        console.error('❌ [ImportContact] Array vacío');
         return {
           success: false,
           message: 'Respuesta inválida del servidor',
@@ -218,13 +193,10 @@ class ImportContactService {
       let prospectoId = firstResult.prospecto_id || firstResult.data?.id;
       
       if (!prospectoId) {
-        console.log('⚠️ [ImportContact] No hay prospecto_id en respuesta. Buscando por teléfono...');
-        
         // Esperar 2 segundos para que el backend procese el insert
         await new Promise(resolve => setTimeout(resolve, 2000));
         
         const normalizedPhone = this.normalizePhone(payload.telefono);
-        console.log(`🔍 [ImportContact] Buscando prospecto con whatsapp: ${normalizedPhone}`);
         
         // Buscar el prospecto recién creado por whatsapp (campo correcto)
         // Buscar también por id_dynamics como respaldo
@@ -236,17 +208,8 @@ class ImportContactService {
           .limit(1)
           .maybeSingle();
         
-        if (searchError) {
-          console.error('❌ [ImportContact] Error en búsqueda:', searchError);
-        }
-        
         if (prospecto) {
           prospectoId = prospecto.id;
-          console.log('✅ [ImportContact] Prospecto encontrado:', prospectoId, prospecto);
-        } else {
-          console.warn('⚠️ [ImportContact] No se pudo encontrar el prospecto creado');
-          console.warn('📞 Teléfono buscado:', normalizedPhone);
-          console.warn('🆔 ID Dynamics:', payload.id_dynamics);
         }
       }
 
@@ -261,7 +224,6 @@ class ImportContactService {
           .maybeSingle();
         
         conversacionId = conversacion?.id || '';
-        console.log(`✅ [ImportContact] Conversación: ${conversacionId || 'No encontrada'}`);
       }
 
       return {
@@ -272,7 +234,6 @@ class ImportContactService {
         statusCode: 200
       };
     } catch (error) {
-      console.error('Error al importar contacto:', error);
       return {
         success: false,
         message: 'Error al importar el contacto',
