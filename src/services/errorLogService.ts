@@ -622,6 +622,10 @@ class ErrorLogService {
    * MEJORA 2026-01-20: Verifica conexión antes de intentar enviar
    * para evitar spam de errores cuando no hay internet
    */
+  // ✅ Backoff para evitar cascada de errores con ERR_INSUFFICIENT_RESOURCES
+  private _webhookConsecutiveErrors = 0;
+  private _webhookLastErrorTime = 0;
+
   private async sendToWebhook(errorData: ErrorLogData): Promise<void> {
     if (!this.config?.webhook_url) {
       return;
@@ -629,23 +633,28 @@ class ErrorLogService {
 
     // MEJORA: No intentar enviar si no hay conexión a internet
     if (!isNetworkOnline()) {
-      // Silenciar - no tiene sentido intentar enviar sin conexión
       return;
     }
 
-    // MEJORA: No reportar errores de red cuando la causa es falta de internet
-    if (isNetworkError(errorData.mensaje) || isNetworkError(errorData.error_details)) {
-      // Verificar si realmente no hay internet
+    // ✅ Backoff exponencial: no enviar si hubo errores recientes en webhook
+    if (this._webhookConsecutiveErrors > 0) {
+      const backoffMs = Math.min(2000 * Math.pow(2, this._webhookConsecutiveErrors), 120000);
+      if (Date.now() - this._webhookLastErrorTime < backoffMs) {
+        return;
+      }
+    }
+
+    // MEJORA: No reportar errores de red / recursos insuficientes
+    const errorMsg = `${errorData.mensaje || ''} ${errorData.error_details || ''}`;
+    if (isNetworkError(errorMsg) || errorMsg.includes('ERR_INSUFFICIENT_RESOURCES') || errorMsg.includes('Failed to fetch')) {
       if (!isNetworkOnline()) {
         return;
       }
     }
 
     try {
-      // Obtener anon_key para autenticación con Edge Functions
       const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
       
-      // Preparar headers - Edge Functions requieren Authorization con anon_key
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${anonKey}`,
@@ -659,14 +668,13 @@ class ErrorLogService {
         body: payloadToSend,
       });
 
-      if (!response.ok) {
-        // Error silencioso para evitar loops - solo registrar en caso de fallo crítico
-        const errorText = await response.text().catch(() => 'Unable to read error');
-        // No loguear para mantener consola limpia
+      if (response.ok) {
+        this._webhookConsecutiveErrors = 0;
       }
     } catch (error) {
-      // No queremos que errores de red causen más errores
-      // Error silencioso para mantener consola limpia
+      // ✅ Incrementar backoff en errores para evitar cascada
+      this._webhookConsecutiveErrors++;
+      this._webhookLastErrorTime = Date.now();
     }
   }
 }

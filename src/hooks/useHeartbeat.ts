@@ -9,11 +9,16 @@
  * - Actualiza automáticamente last_activity en active_sessions
  * - Se detiene cuando el usuario hace logout
  * - Usa UPSERT para crear/actualizar sesión
- * - Implementa beforeunload para limpiar sesión al cerrar ventana
+ * - Implementa beforeunload con fetch keepalive para cleanup confiable
+ * 
+ * ⚠️ FIX 5 Febrero 2026:
+ * - beforeunload ahora usa fetch con keepalive:true en vez de async/await
+ * - El browser garantiza que requests con keepalive completen después de cerrar
+ * - Almacena access_token en ref para uso síncrono en beforeunload
  */
 
 import { useEffect, useRef } from 'react';
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { supabaseSystemUI, SUPABASE_URL, SUPABASE_ANON_KEY } from '../config/supabaseSystemUI';
 
 interface HeartbeatOptions {
   userId: string;
@@ -30,6 +35,31 @@ export const useHeartbeat = ({
 }: HeartbeatOptions) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const isUnloadingRef = useRef(false);
+  // Almacenar token para uso síncrono en beforeunload
+  const accessTokenRef = useRef<string | null>(null);
+
+  // Mantener token actualizado para beforeunload
+  useEffect(() => {
+    if (!enabled || !userId) {
+      accessTokenRef.current = null;
+      return;
+    }
+
+    const updateToken = async () => {
+      try {
+        const { data: { session } } = await supabaseSystemUI.auth.getSession();
+        accessTokenRef.current = session?.access_token || null;
+      } catch {
+        accessTokenRef.current = null;
+      }
+    };
+
+    updateToken();
+    // Actualizar token cada vez que el heartbeat se ejecuta (el token puede haber sido refrescado)
+    const tokenInterval = setInterval(updateToken, intervalMs);
+
+    return () => clearInterval(tokenInterval);
+  }, [enabled, userId, intervalMs]);
 
   // Función para actualizar last_activity
   const sendHeartbeat = async () => {
@@ -63,29 +93,6 @@ export const useHeartbeat = ({
     }
   };
 
-  // Función para limpiar sesión al cerrar ventana
-  const cleanupSession = async () => {
-    if (!userId || isUnloadingRef.current) return;
-    
-    isUnloadingRef.current = true;
-
-    try {
-      // Marcar is_operativo = false
-      await supabaseSystemUI.rpc('update_user_metadata', {
-        p_user_id: userId,
-        p_updates: { is_operativo: false }
-      });
-
-      // Eliminar sesión de active_sessions
-      await supabaseSystemUI
-        .from('active_sessions')
-        .delete()
-        .eq('session_id', sessionId);
-    } catch (err) {
-      console.error('⚠️ Error limpiando sesión:', err);
-    }
-  };
-
   // Efecto para configurar heartbeat
   useEffect(() => {
     if (!enabled || !userId || !sessionId) {
@@ -112,18 +119,49 @@ export const useHeartbeat = ({
     };
   }, [enabled, userId, sessionId, intervalMs]);
 
-  // Efecto para evento beforeunload
+  // Efecto para evento beforeunload con fetch keepalive
   useEffect(() => {
     if (!enabled || !userId || !sessionId) return;
 
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Intentar limpiar sesión de forma síncrona
-      // Nota: beforeunload es limitado, pero intentamos hacer lo mejor posible
-      cleanupSession();
-      
-      // No mostrar diálogo de confirmación (opcional)
-      // e.preventDefault();
-      // e.returnValue = '';
+    const handleBeforeUnload = () => {
+      if (isUnloadingRef.current) return;
+      isUnloadingRef.current = true;
+
+      const token = accessTokenRef.current;
+      if (!token || !SUPABASE_URL || !SUPABASE_ANON_KEY) return;
+
+      // 1. Marcar is_operativo = false via RPC (fetch con keepalive)
+      try {
+        fetch(`${SUPABASE_URL}/rest/v1/rpc/update_user_metadata`, {
+          method: 'POST',
+          keepalive: true, // Garantiza que el request complete después de cerrar
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            p_user_id: userId,
+            p_updates: { is_operativo: false }
+          })
+        }).catch(() => {}); // Ignorar errores (best-effort)
+      } catch {
+        // Silencioso - beforeunload es best-effort
+      }
+
+      // 2. Eliminar sesión de active_sessions (fetch con keepalive)
+      try {
+        fetch(`${SUPABASE_URL}/rest/v1/active_sessions?session_id=eq.${sessionId}`, {
+          method: 'DELETE',
+          keepalive: true,
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${token}`
+          }
+        }).catch(() => {});
+      } catch {
+        // Silencioso
+      }
     };
 
     // Agregar listener
@@ -131,6 +169,7 @@ export const useHeartbeat = ({
 
     // Cleanup
     return () => {
+      isUnloadingRef.current = false;
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, [enabled, userId, sessionId]);

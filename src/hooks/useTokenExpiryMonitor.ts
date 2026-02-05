@@ -8,7 +8,13 @@
  * 2. Intenta refrescar automáticamente si quedan menos de 10 minutos
  * 3. Fuerza logout si el refresh falla
  * 
- * Fecha: 30 Enero 2026
+ * ⚠️ FIX 5 Febrero 2026:
+ * - Usa refs para logout y user para evitar re-creación del callback
+ * - Esto estabiliza el setInterval (antes se reiniciaba en cada render
+ *   porque logout no estaba memoizado, causando que el monitor nunca
+ *   completara un ciclo de 5 minutos)
+ * 
+ * Fecha: 30 Enero 2026 (actualizado 5 Febrero 2026)
  */
 
 import { useEffect, useRef, useCallback } from 'react';
@@ -27,18 +33,25 @@ export const useTokenExpiryMonitor = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const hasWarnedRef = useRef(false);
 
+  // Refs estables para evitar re-creación del callback
+  const logoutRef = useRef(logout);
+  const userRef = useRef(user);
+  useEffect(() => { logoutRef.current = logout; }, [logout]);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   const checkAndRefreshToken = useCallback(async () => {
-    if (!supabaseSystemUI || !isAuthenticated) return;
+    if (!supabaseSystemUI || !userRef.current) return;
 
     try {
       const { data: { session }, error } = await supabaseSystemUI.auth.getSession();
       
       if (error || !session) {
         // Actualizar is_operativo a false antes de logout
-        if (user?.id) {
+        const currentUser = userRef.current;
+        if (currentUser?.id) {
           try {
             await supabaseSystemUI.rpc('update_user_metadata', {
-              p_user_id: user.id,
+              p_user_id: currentUser.id,
               p_updates: { is_operativo: false }
             });
           } catch (metadataError) {
@@ -50,7 +63,7 @@ export const useTokenExpiryMonitor = () => {
           duration: 5000,
           icon: '🔐'
         });
-        await logout();
+        await logoutRef.current();
         return;
       }
 
@@ -69,10 +82,11 @@ export const useTokenExpiryMonitor = () => {
           console.error('❌ [TokenMonitor] Refresh falló:', refreshError);
           
           // Actualizar is_operativo a false antes de logout
-          if (user?.id) {
+          const currentUser = userRef.current;
+          if (currentUser?.id) {
             try {
               await supabaseSystemUI.rpc('update_user_metadata', {
-                p_user_id: user.id,
+                p_user_id: currentUser.id,
                 p_updates: { is_operativo: false }
               });
             } catch (metadataError) {
@@ -84,7 +98,7 @@ export const useTokenExpiryMonitor = () => {
             duration: 5000,
             icon: '🔐'
           });
-          await logout();
+          await logoutRef.current();
         } else {
           hasWarnedRef.current = false;
         }
@@ -115,7 +129,7 @@ export const useTokenExpiryMonitor = () => {
     } catch (error) {
       console.error('❌ [TokenMonitor] Error verificando token:', error);
     }
-  }, [isAuthenticated, logout, user]);
+  }, []); // Sin deps: usa refs internamente
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -131,7 +145,7 @@ export const useTokenExpiryMonitor = () => {
     // Verificar inmediatamente al montar
     checkAndRefreshToken();
 
-    // Configurar intervalo de verificación
+    // Configurar intervalo de verificación (estable, no se reinicia en re-renders)
     intervalRef.current = setInterval(checkAndRefreshToken, CHECK_INTERVAL);
 
     return () => {

@@ -1,13 +1,18 @@
 /**
- * Web Worker para conversión de audio WebM a MP3
- * Usa lamejs para la conversión sin bloquear el UI thread
+ * Web Worker para conversión de audio PCM a MP3
+ * Recibe samples PCM (Int16Array) ya decodificados desde el main thread
+ * y los codifica a MP3 usando lamejs
+ * 
+ * NOTA: OfflineAudioContext NO está disponible en Web Workers,
+ * por lo que la decodificación del audio se hace en el main thread.
  */
 
 import lamejs from 'lamejs';
 
 interface ConversionMessage {
-  audioBuffer: ArrayBuffer;
+  samples: Int16Array;
   sampleRate: number;
+  channels: number;
 }
 
 interface ProgressMessage {
@@ -25,43 +30,28 @@ interface ErrorMessage {
   error: string;
 }
 
-type WorkerMessage = ProgressMessage | SuccessMessage | ErrorMessage;
-
-self.onmessage = async (e: MessageEvent<ConversionMessage>) => {
+self.onmessage = (e: MessageEvent<ConversionMessage>) => {
   try {
-    const { audioBuffer, sampleRate } = e.data;
+    const { samples, sampleRate, channels } = e.data;
 
-    // Paso 1: Decodificar audio (10%)
+    if (!samples || samples.length === 0) {
+      postMessage({ type: 'error', error: 'No se recibieron samples de audio' } as ErrorMessage);
+      return;
+    }
+
+    // Paso 1: Inicializar encoder (10%)
     postMessage({ type: 'progress', progress: 10 } as ProgressMessage);
 
-    const audioContext = new OfflineAudioContext(1, audioBuffer.byteLength, sampleRate);
-    const source = audioContext.createBufferSource();
-    
-    const decodedBuffer = await audioContext.decodeAudioData(audioBuffer);
-    postMessage({ type: 'progress', progress: 30 } as ProgressMessage);
-
-    // Paso 2: Obtener samples (40%)
-    const samples = decodedBuffer.getChannelData(0);
-    const actualSampleRate = decodedBuffer.sampleRate;
-    postMessage({ type: 'progress', progress: 40 } as ProgressMessage);
-
-    // Paso 3: Convertir a 16-bit PCM (50%)
-    const samples16 = new Int16Array(samples.length);
-    for (let i = 0; i < samples.length; i++) {
-      samples16[i] = Math.max(-32768, Math.min(32767, samples[i] * 32767));
-    }
-    postMessage({ type: 'progress', progress: 50 } as ProgressMessage);
-
-    // Paso 4: Codificar a MP3 (50-90%)
-    const mp3encoder = new lamejs.Mp3Encoder(1, actualSampleRate, 128);
+    const mp3encoder = new lamejs.Mp3Encoder(channels || 1, sampleRate, 128);
     const mp3Data: Uint8Array[] = [];
     const blockSize = 1152; // Tamaño de bloque estándar para MP3
 
-    const totalBlocks = Math.ceil(samples16.length / blockSize);
+    // Paso 2: Codificar a MP3 (10-90%)
+    const totalBlocks = Math.ceil(samples.length / blockSize);
     let processedBlocks = 0;
 
-    for (let i = 0; i < samples16.length; i += blockSize) {
-      const chunk = samples16.subarray(i, Math.min(i + blockSize, samples16.length));
+    for (let i = 0; i < samples.length; i += blockSize) {
+      const chunk = samples.subarray(i, Math.min(i + blockSize, samples.length));
       const mp3buf = mp3encoder.encodeBuffer(chunk);
       
       if (mp3buf.length > 0) {
@@ -69,18 +59,21 @@ self.onmessage = async (e: MessageEvent<ConversionMessage>) => {
       }
 
       processedBlocks++;
-      const progress = 50 + Math.floor((processedBlocks / totalBlocks) * 40);
-      postMessage({ type: 'progress', progress } as ProgressMessage);
+      // Reportar progreso cada 10 bloques para no saturar
+      if (processedBlocks % 10 === 0 || processedBlocks === totalBlocks) {
+        const progress = 10 + Math.floor((processedBlocks / totalBlocks) * 80);
+        postMessage({ type: 'progress', progress } as ProgressMessage);
+      }
     }
 
-    // Paso 5: Finalizar codificación (95%)
+    // Paso 3: Finalizar codificación (95%)
     const end = mp3encoder.flush();
     if (end.length > 0) {
       mp3Data.push(new Uint8Array(end));
     }
     postMessage({ type: 'progress', progress: 95 } as ProgressMessage);
 
-    // Paso 6: Crear Blob final (100%)
+    // Paso 4: Crear Blob final (100%)
     const mp3Blob = new Blob(mp3Data, { type: 'audio/mpeg' });
     postMessage({ type: 'progress', progress: 100 } as ProgressMessage);
 
@@ -93,7 +86,7 @@ self.onmessage = async (e: MessageEvent<ConversionMessage>) => {
   } catch (error) {
     postMessage({ 
       type: 'error', 
-      error: error instanceof Error ? error.message : 'Error desconocido en conversión'
+      error: error instanceof Error ? error.message : 'Error desconocido en codificación MP3'
     } as ErrorMessage);
   }
 };

@@ -120,17 +120,37 @@ export interface LiveMonitorViewData {
 
 class LiveMonitorOptimizedService {
   
+  // ✅ Backoff para evitar ERR_INSUFFICIENT_RESOURCES
+  private _lastErrorTime = 0;
+  private _consecutiveErrors = 0;
+  private _isLoading = false;
+  
   /**
    * Obtener datos desde la vista optimizada
    * YA NO necesita JOIN manual - todo está pre-calculado
-   * MEJORA 2026-01-20: Verificar conexión antes de consultar
+   * MEJORA 2026-01-20: Verificar conexión antes de queries
+   * MEJORA 2026-02-05: Backoff exponencial + protección contra concurrencia
    */
   async getOptimizedCalls(limit: number = 200): Promise<LiveMonitorViewData[]> {
     // Verificar conexión antes de consultar
     if (!isNetworkOnline()) {
-      // Retornar silenciosamente sin loguear error
       return [];
     }
+
+    // ✅ Evitar llamadas concurrentes
+    if (this._isLoading) {
+      return [];
+    }
+
+    // ✅ Backoff exponencial: esperar si hubo errores recientes
+    if (this._consecutiveErrors > 0) {
+      const backoffMs = Math.min(1000 * Math.pow(2, this._consecutiveErrors), 60000);
+      if (Date.now() - this._lastErrorTime < backoffMs) {
+        return [];
+      }
+    }
+
+    this._isLoading = true;
 
     try {
       // Cargar desde vista optimizada
@@ -146,6 +166,10 @@ class LiveMonitorOptimizedService {
       
       if (activeError) {
         console.error('❌ Error cargando llamadas activas:', activeError);
+        this._consecutiveErrors++;
+        this._lastErrorTime = Date.now();
+        this._isLoading = false;
+        return [];
       }
       
       // 2. Obtener llamadas recientes (no activas) para completar el límite
@@ -166,6 +190,9 @@ class LiveMonitorOptimizedService {
           recentCalls = recentData || [];
         }
       }
+      
+      // ✅ Reset de errores en éxito
+      this._consecutiveErrors = 0;
       
       // 3. Combinar: activas primero, luego recientes
       const data = [...(activeCalls || []), ...recentCalls];
@@ -194,8 +221,12 @@ class LiveMonitorOptimizedService {
       
       return data;
     } catch (error) {
+      this._consecutiveErrors++;
+      this._lastErrorTime = Date.now();
       console.error('💥 Error en getOptimizedCalls:', error);
       return [];
+    } finally {
+      this._isLoading = false;
     }
   }
   

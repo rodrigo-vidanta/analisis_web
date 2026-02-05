@@ -248,7 +248,10 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
           is_coordinator: true
         }));
         
-        ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresMarcados];
+        // ✅ DEDUP: Evitar duplicados cuando un coordinador ya existe como ejecutivo
+        const idsExistentes = new Set(ejecutivosFiltrados.map(e => e.id));
+        const coordinadoresSinDuplicar = coordinadoresMarcados.filter(c => !idsExistentes.has(c.id));
+        ejecutivosFiltrados = [...ejecutivosFiltrados, ...coordinadoresSinDuplicar];
       }
       
       // Si no hay ejecutivos filtrados pero hay ejecutivos activos, mostrar todos los activos
@@ -256,7 +259,9 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         ejecutivosFiltrados = allEjecutivos.filter(e => e.is_active && e.coordinacion_id);
       }
       
-      setEjecutivos(ejecutivosFiltrados);
+      // ✅ DEDUP final: garantizar IDs únicos antes de setear estado
+      const uniqueMap = new Map(ejecutivosFiltrados.map(e => [e.id, e]));
+      setEjecutivos(Array.from(uniqueMap.values()));
       
     } catch {
       toast.error('Error al cargar ejecutivos');
@@ -316,7 +321,10 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
             });
           }
           
-          ejecutivosData = [...ejecutivosData, ...coordinadoresMarcados];
+          // ✅ DEDUP: Evitar duplicados cuando un coordinador ya existe como ejecutivo
+          const idsExistentes = new Set(ejecutivosData.map(e => e.id));
+          const coordinadoresSinDuplicar = coordinadoresMarcados.filter(c => !idsExistentes.has(c.id));
+          ejecutivosData = [...ejecutivosData, ...coordinadoresSinDuplicar];
         } catch {
           // Continuar solo con ejecutivos si falla cargar coordinadores
         }
@@ -362,14 +370,18 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
         }
       }
       
+      // ✅ DEDUP final: garantizar IDs únicos antes de setear estado
+      const uniqueMap = new Map(ejecutivosData.map(e => [e.id, e]));
+      const ejecutivosUnicos = Array.from(uniqueMap.values());
+      
       // Guardar en cache
       ejecutivosCacheRef.current = {
         coordinacionId,
-        ejecutivos: ejecutivosData,
+        ejecutivos: ejecutivosUnicos,
         timestamp: Date.now()
       };
       
-      setEjecutivos(ejecutivosData);
+      setEjecutivos(ejecutivosUnicos);
     } catch (error) {
       toast.error('Error al cargar ejecutivos');
       setEjecutivos([]);

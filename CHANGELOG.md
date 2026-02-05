@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### 🚀 v2.5.86 - Fix Auth, WhatsApp Module y Notas de Voz PTT [05-02-2026]
+
+**Deploy consolidado de 3 sesiones de correcciones críticas**
+
+#### 🔐 Fix Autenticación y Sesiones
+- ✅ Fix race condition por doble cliente Supabase (51.7% refresh tokens revocados)
+- ✅ `analysisSupabase` ahora re-exporta `supabaseSystemUI` (cliente único)
+- ✅ Auth-aware fetch wrapper: intercepta 401, refresca token, reintenta
+- ✅ Fix stale closures en AuthContext con `authStateRef` + `useCallback`
+- ✅ Fix monitor de token: refs estables, interval no se reinicia
+- ✅ Fix `beforeunload` con `fetch(keepalive:true)` para limpiar `is_operativo`
+- ✅ Config server-side: `sessions_timebox: 86400`, `refresh_token_reuse_interval: 30`
+
+#### 🐛 Fix WhatsApp Module
+- ✅ Fix keys duplicadas React en AssignmentContextMenu (dedup ejecutivos+coordinadores)
+- ✅ Fix keys duplicadas en LiveChatCanvas (dedup conversaciones y mensajes)
+- ✅ Fix ERR_INSUFFICIENT_RESOURCES: backoff exponencial en liveMonitorOptimizedService y errorLogService
+- ✅ Fix CORS en dynamics-reasignar-proxy: migrado a Deno.serve() + verify_jwt:false
+
+#### 🎤 Notas de Voz WhatsApp (PTT)
+- ✅ Nuevo remuxer WebM→OGG sin re-encoding (`src/utils/webmToOgg.ts`)
+- ✅ Audios grabados ahora llegan como notas de voz (PTT) en WhatsApp
+- ✅ Eliminada conversión MP3 (lamejs) — reemplazada por remux de contenedor
+- ✅ Parser EBML minimal + Writer OGG con CRC-32 válido (~300 líneas, zero deps)
+
+#### 📁 Archivos Modificados (16 archivos)
+- `src/config/analysisSupabase.ts`, `src/config/supabaseSystemUI.ts`
+- `src/contexts/AuthContext.tsx`
+- `src/hooks/useTokenExpiryMonitor.ts`, `src/hooks/useHeartbeat.ts`, `src/hooks/useInactivityTimeout.ts`
+- `src/utils/syncSupabaseSessions.ts`, `src/utils/webmToOgg.ts` (nuevo)
+- `src/components/chat/LiveChatCanvas.tsx`
+- `src/components/shared/AssignmentContextMenu.tsx`
+- `src/services/liveMonitorOptimizedService.ts`, `src/services/errorLogService.ts`
+- `supabase/functions/dynamics-reasignar-proxy/index.ts`, `supabase/functions/send-audio-proxy/index.ts`
+
+---
+
 ### 🔧 v2.5.76 - FIX CRÍTICO: Triggers con auth_users en Support Tickets [02-02-2026]
 
 **Hotfix definitivo para error 404 en comentarios (causa raíz: triggers rotos)**

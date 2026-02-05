@@ -8,7 +8,7 @@
 // - Sesiones manejadas automáticamente por Supabase JWT
 //
 
-import React, { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useCallback, type ReactNode } from 'react';
 import { authService, type Permission, type AuthState, type LoginCredentials } from '../services/authService';
 import { permissionsService } from '../services/permissionsService';
 import { etapasService } from '../services/etapasService';
@@ -59,6 +59,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const sessionBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const backupRealtimeChannelRef = useRef<any>(null);
+
+  // ============================================
+  // REF PARA ESTADO AUTH (evita stale closures)
+  // ============================================
+  // Los callbacks memoizados (handleForceLogout, logout) usan esta ref
+  // para siempre tener acceso al estado más reciente sin re-crearse.
+  const authStateRef = useRef<AuthState>(authState);
+  useEffect(() => {
+    authStateRef.current = authState;
+  }, [authState]);
 
   // ============================================
   // HEARTBEAT - Mantener sesión activa
@@ -242,7 +252,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, [authState.isAuthenticated, authState.user?.id]);
 
   // Handler para forzar logout cuando la sesión es invalidada externamente
-  const handleForceLogout = async (reason: string) => {
+  // useCallback + ref para evitar stale closures (el listener auth:session-expired
+  // y los handlers de realtime siempre llaman la versión más reciente)
+  const handleForceLogout = useCallback(async (reason: string) => {
     // Mostrar notificación PRIMERO (antes de desmontar componentes)
     toast(reason, {
       duration: 5000,
@@ -253,11 +265,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     });
 
+    // Usar ref para acceder al usuario actual (evita stale closure)
+    const currentUser = authStateRef.current.user;
+
     // Actualizar is_operativo a false antes de forzar logout
-    if (authState.user?.id) {
+    if (currentUser?.id) {
       try {
         await supabaseSystemUI.rpc('update_user_metadata', {
-          p_user_id: authState.user.id,
+          p_user_id: currentUser.id,
           p_updates: { is_operativo: false }
         });
       } catch (metadataError) {
@@ -290,12 +305,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null
       });
     }, 100);
-  };
+  }, []); // Sin dependencias: usa refs internamente para acceder a estado actual
 
   // ============================================
   // LISTENER PARA EVENTOS DE SESIÓN EXPIRADA
   // ============================================
-  // Escucha eventos disparados desde authenticatedFetch u otros lugares
+  // Escucha eventos disparados desde:
+  //   - authenticatedFetch (401 + refresh fallido)
+  //   - authAwareFetch en supabaseSystemUI (401 en queries directas)
+  //   - useTokenExpiryMonitor (token expirado sin refresh)
   useEffect(() => {
     const handleSessionExpired = (event: CustomEvent<{ reason: string }>) => {
       handleForceLogout(event.detail.reason);
@@ -306,7 +324,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     return () => {
       window.removeEventListener('auth:session-expired', handleSessionExpired as EventListener);
     };
-  }, []);
+  }, [handleForceLogout]); // handleForceLogout es estable (useCallback con deps vacías)
 
   const initializeAuth = async () => {
     try {
@@ -378,18 +396,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Función de logout
-  const logout = async (backupId?: string | Event): Promise<void> => {
+  // Función de logout (memoizada para estabilizar useTokenExpiryMonitor)
+  // Usa authStateRef para acceder al estado actual sin re-crearse en cada render.
+  const logout = useCallback(async (backupId?: string | Event): Promise<void> => {
     // Validar que backupId sea un string válido, no un evento
     const validBackupId = backupId && typeof backupId === 'string' && backupId.trim() !== '' 
       ? backupId 
       : undefined;
     
+    // Usar ref para acceder al usuario actual (evita stale closure)
+    const currentUser = authStateRef.current.user;
+    
     // Si es ejecutivo o supervisor y no se proporcionó backupId válido, mostrar modal de backup
-    const isEjecutivo = authState.user?.role_name === 'ejecutivo';
-    const isSupervisor = authState.user?.role_name === 'supervisor';
-    const hasCoordinacion = !!authState.user?.coordinacion_id;
-    const hasCoordinacionesIds = authState.user?.coordinaciones_ids && authState.user.coordinaciones_ids.length > 0;
+    const isEjecutivo = currentUser?.role_name === 'ejecutivo';
+    const isSupervisor = currentUser?.role_name === 'supervisor';
+    const hasCoordinacion = !!currentUser?.coordinacion_id;
+    const hasCoordinacionesIds = currentUser?.coordinaciones_ids && currentUser.coordinaciones_ids.length > 0;
     
     // Mostrar modal de backup si es ejecutivo o supervisor sin backup preseleccionado
     // Ejecutivos usan coordinacion_id, supervisores usan coordinaciones_ids
@@ -435,7 +457,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
       setShowBackupModal(false);
     }
-  };
+  }, []); // Sin dependencias: usa authStateRef para acceder a estado actual
 
   // Función para manejar la selección de backup
   const handleBackupSelected = async (backupId: string): Promise<void> => {

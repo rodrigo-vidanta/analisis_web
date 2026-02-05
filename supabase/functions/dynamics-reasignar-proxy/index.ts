@@ -9,11 +9,15 @@
  * Auth: Authorization: Bearer <DYNAMICS_TOKEN>
  *       x-dynamics-token: <DYNAMICS_TOKEN>
  * 
- * Fecha: 17 Enero 2026
+ * ACTUALIZACIÓN 2026-02-05: Migrado a Deno.serve() nativo para evitar
+ * bundle timeout con imports de deno.land/std. La validación JWT se hace
+ * manualmente en el código (verify_jwt debe ser false en Supabase).
+ * 
+ * Fecha original: 17 Enero 2026
+ * Última actualización: 05 Febrero 2026
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +25,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Verificar autenticación JWT
+    // Verificar autenticación JWT manualmente
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
@@ -39,22 +43,25 @@ serve(async (req) => {
 
     const jwt = authHeader.substring(7);
     
-    // Validar JWT con Supabase
+    // Validar JWT con Supabase Auth API directamente (sin import pesado)
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { persistSession: false, autoRefreshToken: false }
+    const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${jwt}`,
+        'apikey': supabaseAnonKey,
+      },
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
-
-    if (authError || !user) {
+    if (!authResponse.ok) {
       return new Response(
         JSON.stringify({ error: 'Authentication required', success: false }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const user = await authResponse.json();
 
     // Obtener payload del request
     const payload = await req.json();
@@ -70,8 +77,6 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto';
 
     // Timeout de 120 segundos (Dynamics CRM puede tardar)
     const controller = new AbortController();
@@ -96,7 +101,6 @@ serve(async (req) => {
         const errorText = await response.text();
         console.error(`❌ [dynamics-reasignar-proxy] Webhook error ${response.status}:`, errorText);
         
-        // Intentar parsear el error como JSON para dar más contexto
         let errorDetails;
         try {
           errorDetails = JSON.parse(errorText);
@@ -104,7 +108,6 @@ serve(async (req) => {
           errorDetails = errorText;
         }
         
-        // Propagar el código de error original (400, 401, etc.) en lugar de siempre 500
         return new Response(
           JSON.stringify({ 
             error: `Webhook Error: ${response.status}`, 
@@ -115,10 +118,11 @@ serve(async (req) => {
         );
       }
 
-      // Parsear respuesta
+      // Manejar respuesta (puede ser vacía)
+      const text = await response.text();
       let responseData;
       try {
-        responseData = await response.json();
+        responseData = text ? JSON.parse(text) : { success: true, message: 'Reasignación completada' };
       } catch {
         responseData = { success: true, message: 'Reasignación completada' };
       }

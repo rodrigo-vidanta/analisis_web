@@ -1217,6 +1217,7 @@ const LiveChatCanvas: React.FC = () => {
   const [sendingAudio, setSendingAudio] = useState(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const recordingCancelledRef = useRef(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const recordingIntervalRef = useRef<number | null>(null);
 
@@ -1790,8 +1791,9 @@ const LiveChatCanvas: React.FC = () => {
           
           // Agregar resultados a la lista (sin duplicados)
           setConversations(prev => {
-            const existingIds = new Set(prev.map(c => c.id));
-            const newConvs = convertedResults.filter(c => !existingIds.has(c.id));
+            const existingIds = new Set(prev.map(c => c.id).filter(Boolean));
+            const newConvs = convertedResults.filter(c => c.id && !existingIds.has(c.id));
+            if (newConvs.length === 0) return prev;
             return [...prev, ...newConvs];
           });
         }
@@ -1868,9 +1870,14 @@ const LiveChatCanvas: React.FC = () => {
   }, [conversations]);
 
   useEffect(() => {
+    let activeCallsErrors = 0;
+    
     const checkActiveCalls = async () => {
       const currentConversations = conversationsRef.current;
       if (currentConversations.length === 0) return;
+      
+      // ✅ Backoff: no consultar si hubo errores recientes
+      if (activeCallsErrors > 0 && !navigator.onLine) return;
       
       try {
         const prospectIds = currentConversations
@@ -1943,8 +1950,9 @@ const LiveChatCanvas: React.FC = () => {
           }
           return newActiveIds;
         });
+        activeCallsErrors = 0; // ✅ Reset en éxito
       } catch (error) {
-        // Silenciar errores
+        activeCallsErrors++;
       }
     };
     
@@ -4557,8 +4565,8 @@ const LiveChatCanvas: React.FC = () => {
         setAllConversationsLoaded(convertedConversations);
         setConversations(convertedConversations);
       } else {
-        const existingIds = new Set(allConversationsLoaded.map(c => c.id));
-        const newConversations = convertedConversations.filter(c => !existingIds.has(c.id));
+        const existingIds = new Set(allConversationsLoaded.map(c => c.id).filter(Boolean));
+        const newConversations = convertedConversations.filter(c => c.id && !existingIds.has(c.id));
         
         if (newConversations.length > 0) {
           const merged = [...allConversationsLoaded, ...newConversations];
@@ -6193,7 +6201,15 @@ const LiveChatCanvas: React.FC = () => {
         Math.abs(new Date(realMsg.created_at).getTime() - new Date(msg.created_at).getTime()) < 60000
       );
     });
-    return [...realMessages, ...validCachedMessages].sort((a, b) => 
+    // ✅ DEDUP: Eliminar mensajes duplicados por ID
+    const seenMsgIds = new Set<string>();
+    const merged = [...realMessages, ...validCachedMessages].filter(msg => {
+      const id = msg.id;
+      if (!id || seenMsgIds.has(id)) return false;
+      seenMsgIds.add(id);
+      return true;
+    });
+    return merged.sort((a, b) => 
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
   }, [currentMessages, cachedMessages, selectedConversation?.id]);
@@ -6283,61 +6299,20 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
 
   /**
-   * Convierte audio WebM a MP3 usando Web Worker
-   * @param audioBlob - Blob de audio en formato WebM
-   * @param onProgress - Callback para reportar progreso (0-100)
-   * @returns Promise<Blob> - Blob de audio en formato MP3
+   * Convierte audio WebM a MP3 en el main thread
+   * 
+   * Flujo:
+   * 1. Lee blob → ArrayBuffer
+   * 2. AudioContext.decodeAudioData() → PCM Float32Array
+   * 3. Convierte Float32 → Int16 PCM
+   * 4. lamejs codifica Int16 PCM → MP3
+   * 
+   * NOTA: No se usa Web Worker porque:
+   * - OfflineAudioContext no existe en Workers
+   * - lamejs (CJS) no se bundlea correctamente como ES module en Workers
+   * Función eliminada: convertAudioToMp3 ya no se usa.
+   * Se reemplazó por webmToOgg (remux sin re-encoding).
    */
-  const convertAudioToMp3 = async (
-    audioBlob: Blob, 
-    onProgress?: (progress: number) => void
-  ): Promise<Blob> => {
-    return new Promise((resolve, reject) => {
-      // Crear Web Worker
-      const worker = new Worker(
-        new URL('../../workers/audioConverter.worker.ts', import.meta.url),
-        { type: 'module' }
-      );
-
-      // Leer el blob como ArrayBuffer
-      const reader = new FileReader();
-      reader.onload = async () => {
-        const arrayBuffer = reader.result as ArrayBuffer;
-
-        // Enviar al worker
-        worker.postMessage({
-          audioBuffer: arrayBuffer,
-          sampleRate: 44100
-        });
-
-        // Escuchar mensajes del worker
-        worker.onmessage = (e: MessageEvent) => {
-          const { type, progress, mp3Blob, error } = e.data;
-
-          if (type === 'progress' && onProgress) {
-            onProgress(progress);
-          } else if (type === 'success') {
-            worker.terminate();
-            resolve(mp3Blob);
-          } else if (type === 'error') {
-            worker.terminate();
-            reject(new Error(error));
-          }
-        };
-
-        worker.onerror = (error) => {
-          worker.terminate();
-          reject(error);
-        };
-      };
-
-      reader.onerror = () => {
-        reject(new Error('Error leyendo el archivo de audio'));
-      };
-
-      reader.readAsArrayBuffer(audioBlob);
-    });
-  };
 
   // ============================================
   // MÉTODOS DE GRABACIÓN DE AUDIO
@@ -6369,22 +6344,24 @@ const LiveChatCanvas: React.FC = () => {
         mimeType: mimeType || undefined 
       });
       
-      console.log('🎤 MediaRecorder iniciado con mimeType:', mimeType || 'default');
-      
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      recordingCancelledRef.current = false;
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          console.log('📦 Chunk recibido:', event.data.size, 'bytes');
           audioChunksRef.current.push(event.data);
         }
       };
       
       mediaRecorder.onstop = async () => {
-        console.log('⏹️ Grabación detenida. Chunks:', audioChunksRef.current.length);
+        // Si fue cancelado, no procesar
+        if (recordingCancelledRef.current) {
+          stream.getTracks().forEach(track => track.stop());
+          return;
+        }
+        
         const audioBlob = new Blob(audioChunksRef.current, { type: mediaRecorder.mimeType });
-        console.log('🎵 Audio blob creado:', audioBlob.size, 'bytes, type:', audioBlob.type);
         
         if (audioBlob.size === 0) {
           toast.error('Error: No se grabó audio');
@@ -6446,14 +6423,12 @@ const LiveChatCanvas: React.FC = () => {
 
   const cancelRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
-      // Detener MediaRecorder sin procesar el audio
-      mediaRecorderRef.current.stop();
-      
-      // Detener el stream
-      mediaRecorderRef.current.stream?.getTracks().forEach(track => track.stop());
-      
-      // Limpiar chunks para que no se envíe nada
+      // Marcar como cancelado ANTES de stop() para que onstop no procese
+      recordingCancelledRef.current = true;
       audioChunksRef.current = [];
+      
+      // Detener MediaRecorder (dispara onstop que verificará la flag)
+      mediaRecorderRef.current.stop();
       
       setIsRecording(false);
       setRecordingTime(0);
@@ -6514,12 +6489,6 @@ const LiveChatCanvas: React.FC = () => {
     try {
       setSendingAudio(true);
       
-      console.log('🎵 Audio blob original:', {
-        size: audioBlob.size,
-        type: audioBlob.type,
-        chunks: audioChunksRef.current.length
-      });
-      
       // Verificar que el blob tenga contenido
       if (audioBlob.size === 0) {
         toast.error('Error: El audio está vacío');
@@ -6535,38 +6504,27 @@ const LiveChatCanvas: React.FC = () => {
         return;
       }
       
-      // Mostrar toast de conversión
-      const conversionToast = toast.loading('Convirtiendo audio a MP3...');
+      const conversionToast = toast.loading('Convirtiendo a nota de voz...');
       
       try {
-        // Convertir WebM a MP3 usando Web Worker
-        const mp3Blob = await convertAudioToMp3(audioBlob, (progress) => {
-          // Actualizar toast con progreso
-          if (progress < 100) {
-            toast.loading(`Convirtiendo audio... ${progress}%`, { id: conversionToast });
-          }
-        });
+        // Remux WebM/Opus → OGG/Opus (cambio de contenedor, sin re-encoding)
+        // WhatsApp requiere OGG/Opus para notas de voz (PTT)
+        const { webmToOgg } = await import('../../utils/webmToOgg');
+        const oggBlob = await webmToOgg(audioBlob);
         
-        toast.success('Audio convertido', { id: conversionToast });
-        
-        console.log('🎵 Audio MP3:', {
-          size: mp3Blob.size,
-          type: mp3Blob.type
-        });
-        
-        // Convertir MP3 blob a base64
+        // Convertir OGG a base64
         const reader = new FileReader();
         const base64Promise = new Promise<string>((resolve, reject) => {
           reader.onloadend = () => {
             const base64 = (reader.result as string).split(',')[1];
-            console.log('📦 Base64 generado:', base64.substring(0, 50) + '... (length:', base64.length, ')');
             resolve(base64);
           };
           reader.onerror = reject;
-          reader.readAsDataURL(mp3Blob);
+          reader.readAsDataURL(oggBlob);
         });
         
         const audioBase64 = await base64Promise;
+        toast.dismiss(conversionToast);
         
         // Obtener uchatId de múltiples fuentes posibles
         const uchatId = selectedConversation.conversation_id || 
@@ -6588,7 +6546,7 @@ const LiveChatCanvas: React.FC = () => {
         const payload = {
           audio_base64: audioBase64,
           uchat_id: uchatId,
-          filename: `audio_${Date.now()}.mp3`,
+          filename: `audio_${Date.now()}.ogg`,
           id_sender: user?.id
         };
         
@@ -6618,9 +6576,9 @@ const LiveChatCanvas: React.FC = () => {
           toast.error(`Error del webhook: ${JSON.stringify(errorData)}`);
         }
         
-      } catch (conversionError) {
-        console.error('❌ Error en conversión:', conversionError);
-        toast.error('Error al convertir el audio', { id: conversionToast });
+      } catch (sendError) {
+        console.error('❌ Error enviando audio:', sendError);
+        toast.error('Error al enviar el audio');
         setSendingAudio(false);
         return;
       }
@@ -7158,7 +7116,14 @@ const LiveChatCanvas: React.FC = () => {
 
   // Filtrado optimizado con useMemo - Búsqueda mejorada + Filtro por etapa + Filtro por etiquetas
   const filteredConversations = useMemo(() => {
-    let filtered = conversations;
+    // ✅ DEDUP: Eliminar conversaciones duplicadas por ID antes de filtrar
+    const seenIds = new Set<string>();
+    let filtered = conversations.filter(conv => {
+      const id = conv.id;
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
     
     // 1. Filtro por etapa (usando etapa_id UUID en lugar de nombre string)
     if (selectedEtapas.size > 0) {
@@ -8335,7 +8300,7 @@ const LiveChatCanvas: React.FC = () => {
                     formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 
                   return (
-                    <div key={message.id} data-message-id={message.id}>
+                    <div key={message.id || `msg-${index}`} data-message-id={message.id}>
                       {showDate && (
                         <div 
                           className="flex justify-center my-6"

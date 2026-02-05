@@ -1,8 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 /**
  * ============================================
- * CONFIGURACIÓN BASE DE DATOS SYSTEM_UI
+ * CONFIGURACIÓN BASE DE DATOS - CLIENTE PRINCIPAL
  * ============================================
  * 
  * ⚠️ MIGRACIÓN 2025-01-13: Este archivo ahora apunta a PQNC_AI
@@ -12,29 +12,22 @@ import { createClient } from '@supabase/supabase-js';
  * - Realtime habilitado para: auth_users, auth_sessions, user_notifications, etc.
  * - Autenticación: Migrada a Supabase Auth nativo (auth.signInWithPassword)
  * 
- * 🔒 SEGURIDAD (Actualizado 2025-12-23):
+ * 🔒 SEGURIDAD (Actualizado 2026-02-05):
  * - Las service keys DEBEN estar en variables de entorno (.env)
  * - NO usar fallbacks hardcodeados en código
  * - El cliente público usa anon_key + RLS
- * - El cliente admin solo debe usarse para operaciones específicas
+ * - Auth-aware fetch detecta 401 y fuerza re-login cuando el token expira
+ * - analysisSupabase ahora re-exporta este cliente (cliente único)
  * 
  * ✅ CONFIGURACIÓN REQUERIDA EN .env.local:
  * VITE_SYSTEM_UI_SUPABASE_URL=https://glsmifhkoaifvaegsozd.supabase.co
  * VITE_SYSTEM_UI_SUPABASE_ANON_KEY=<pqnc_ai_anon_key>
- * VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY=<pqnc_ai_service_key>
- * 
- * 📋 ROLLBACK: Si necesitas revertir, cambiar a:
- * VITE_SYSTEM_UI_SUPABASE_URL=https://zbylezfyagwrxoecioup.supabase.co
- * VITE_SYSTEM_UI_SUPABASE_ANON_KEY=<system_ui_anon_key>
- * VITE_SYSTEM_UI_SUPABASE_SERVICE_KEY=<system_ui_service_key>
  */
 
-// Configuración para la base de datos System_UI
+// Configuración para la base de datos PQNC_AI
 // ⚠️ SEGURIDAD: Solo exportar URL y ANON_KEY, nunca SERVICE_KEY
 export const SUPABASE_URL = import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL || '';
 export const SUPABASE_ANON_KEY = import.meta.env.VITE_SYSTEM_UI_SUPABASE_ANON_KEY || '';
-
-// Log de inicialización removido para producción
 
 // Validación en desarrollo
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
@@ -44,19 +37,77 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
 const supabaseUrl = SUPABASE_URL;
 const supabaseAnonKey = SUPABASE_ANON_KEY;
 
+// ============================================
+// AUTH-AWARE FETCH WRAPPER
+// ============================================
+// Intercepta respuestas 401 de PostgREST/Storage, intenta refrescar el token
+// y reintenta la petición. Si el refresh falla, dispara logout forzado.
+// Esto protege TODAS las operaciones del cliente (from, rpc, storage)
+// sin necesidad de wrappers individuales en cada servicio.
+
+// Referencia al cliente (se asigna después de createClient)
+let _client: SupabaseClient | null = null;
+// Guard contra re-entrada durante refresh
+let _isRefreshing = false;
+// Referencia a fetch nativo capturada al inicio (evita monkey-patching)
+const _nativeFetch = globalThis.fetch.bind(globalThis);
+
+const authAwareFetch: typeof globalThis.fetch = async (input, init) => {
+  const response = await _nativeFetch(input, init);
+
+  // Solo interceptar 401 de endpoints no-auth, cuando hay cliente y no estamos ya refrescando
+  if (response.status !== 401 || _isRefreshing || !_client) {
+    return response;
+  }
+
+  // No interferir con los endpoints de Supabase Auth (/auth/v1/)
+  const url = typeof input === 'string' ? input : (input instanceof Request ? input.url : '');
+  if (url.includes('/auth/v1/')) {
+    return response;
+  }
+
+  _isRefreshing = true;
+  try {
+    const { data, error } = await _client.auth.refreshSession();
+
+    if (error || !data.session) {
+      // Refresh falló → sesión realmente expirada → forzar logout
+      window.dispatchEvent(new CustomEvent('auth:session-expired', {
+        detail: { reason: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.' }
+      }));
+      return response; // Retornar 401 original al caller
+    }
+
+    // Refresh exitoso → reintentar la petición original con el nuevo token
+    const retryHeaders = new Headers(init?.headers);
+    retryHeaders.set('Authorization', `Bearer ${data.session.access_token}`);
+    return _nativeFetch(input, { ...init, headers: retryHeaders });
+  } catch {
+    // En caso de error inesperado, retornar respuesta original sin romper nada
+    return response;
+  } finally {
+    _isRefreshing = false;
+  }
+};
+
 // ⚠️ SEGURIDAD: SIEMPRE usar anon_key en el frontend
 // Operaciones admin van via Edge Functions (auth-admin-proxy)
 // 
-// ⚠️ IMPORTANTE: Configurar auth para persistir sesión correctamente
-export const supabaseSystemUI = supabaseUrl && supabaseAnonKey
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: true
-      }
-    })
-  : null;
+// ⚠️ IMPORTANTE: Cliente único para toda la app (analysisSupabase re-exporta este)
+if (supabaseUrl && supabaseAnonKey) {
+  _client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true
+    },
+    global: {
+      fetch: authAwareFetch
+    }
+  });
+}
+
+export const supabaseSystemUI = _client;
     
 if (!supabaseSystemUI) {
   console.error('❌ supabaseSystemUI es NULL');
