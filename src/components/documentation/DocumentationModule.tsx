@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-02-05', author: 'Team', message: 'v2.5.86: B10.1.44N2.5.86 - Fix auth sesiones + WhatsApp duplicate keys/CORS + Notas ...', isRelease: true },
+  { hash: '87c9b35', date: '2026-02-05', author: 'Team', message: 'v2.5.86: B10.1.44N2.5.86 - Fix auth sesiones + WhatsApp duplicate keys/CORS + Notas ...', isRelease: true },
   { hash: 'd588154', date: '2026-02-05', author: 'Team', message: 'v2.5.85: B10.1.44N2.5.85 - Voice messages + Import contact fix + Edge Functions auth...', isRelease: true },
   { hash: '38590cf', date: '2026-02-04', author: 'Team', message: 'v2.5.84: B10.1.44N2.5.84 - Fix crítico: Validación de permisos en LiveActivityWidget...', isRelease: true },
   { hash: '9c85be4', date: '2026-02-04', author: 'Team', message: 'v2.5.83: B10.1.44N2.5.83 - Implementar auto-refresh vista conversaciones + cron job ...', isRelease: true },
