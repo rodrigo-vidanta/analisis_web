@@ -59,7 +59,7 @@ async function main() {
             Comment: 'Security headers policy: CSP, HSTS, X-Frame-Options, X-XSS-Protection, Referrer-Policy',
             SecurityHeadersConfig: {
               ContentSecurityPolicy: {
-                ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.vidavacations.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' https://storage.vapi.ai https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org https://function-bun-dev-6d8e.up.railway.app wss://*.supabase.co wss://*.vapi.ai; frame-src 'self' https://*.supabase.co;",
+                ContentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.supabase.co https://*.vidavacations.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; media-src 'self' https://storage.vapi.ai https://storage.googleapis.com https://*.googleapis.com https://*.supabase.co blob:; connect-src 'self' https://*.supabase.co https://glsmifhkoaifvaegsozd.supabase.co https://*.vidavacations.com https://api.ipify.org https://function-bun-dev-6d8e.up.railway.app wss://*.supabase.co wss://*.vapi.ai; frame-src 'self' https://*.supabase.co;",
                 Override: true,
               },
               StrictTransportSecurity: {

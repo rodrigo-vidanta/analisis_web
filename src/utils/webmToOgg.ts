@@ -316,48 +316,73 @@ function getOpusSamplesPerFrame(tocByte: number): number {
 // ============ Remuxer Principal ============
 
 /**
+ * Valida y normaliza el OpusHead header.
+ * WebM CodecPrivate debe contener un OpusHead válido (RFC 7845).
+ */
+function validateOpusHead(codecPrivate: Uint8Array): Uint8Array {
+  // Verificar magic "OpusHead" (8 bytes)
+  const magic = String.fromCharCode(...codecPrivate.slice(0, 8));
+  if (magic !== 'OpusHead') {
+    throw new Error(`OpusHead inválido: magic="${magic}", esperado="OpusHead"`);
+  }
+  
+  // Verificar version (byte 8, debe ser 1)
+  if (codecPrivate[8] !== 1) {
+    throw new Error(`OpusHead versión ${codecPrivate[8]} no soportada, esperada 1`);
+  }
+  
+  // Verificar longitud mínima (19 bytes para mono/stereo con mapping family 0)
+  if (codecPrivate.length < 19) {
+    throw new Error(`OpusHead demasiado corto: ${codecPrivate.length} bytes, mínimo 19`);
+  }
+  
+  return codecPrivate;
+}
+
+/**
  * Convierte un blob WebM/Opus a OGG/Opus sin re-encoding.
  * Solo cambia el contenedor, los datos Opus se copian intactos.
+ * Compatible con iOS y Android (cumple RFC 7845).
  */
 export async function webmToOgg(webmBlob: Blob): Promise<Blob> {
   const arrayBuffer = await webmBlob.arrayBuffer();
   const webmData = new Uint8Array(arrayBuffer);
   
-  const { codecPrivate, frames } = parseWebM(webmData);
+  const { codecPrivate: rawCodecPrivate, frames } = parseWebM(webmData);
   
   if (frames.length === 0) {
     throw new Error('No se encontraron frames de audio en el WebM');
   }
   
-  // Pre-skip del OpusHead (bytes 10-11, little-endian)
-  let preSkip = 0;
-  if (codecPrivate.length >= 12) {
-    preSkip = codecPrivate[10] | (codecPrivate[11] << 8);
-  }
+  // Validar OpusHead (RFC 7845 compliance)
+  const opusHead = validateOpusHead(rawCodecPrivate);
   
   const serialNumber = Math.floor(Math.random() * 0xFFFFFFFF);
   const pages: Uint8Array[] = [];
   let pageSeq = 0;
   
   // Página 0: OpusHead (BOS = Beginning of Stream)
-  pages.push(createOggPage([codecPrivate], 0n, serialNumber, pageSeq++, 0x02));
+  pages.push(createOggPage([opusHead], 0n, serialNumber, pageSeq++, 0x02));
   
   // Página 1: OpusTags
   pages.push(createOggPage([createOpusTags()], 0n, serialNumber, pageSeq++, 0x00));
   
   // Páginas de audio: agrupar frames (~4KB por página)
+  // RFC 7845: granule_position = conteo acumulado de samples decodificados desde 0
+  // El pre_skip está en OpusHead y el decoder lo aplica por separado
   const MAX_PAGE_SIZE = 4000;
   let currentPackets: Uint8Array[] = [];
   let currentSize = 0;
-  let granulePosition = BigInt(preSkip);
+  let granulePosition = 0n;
   
   for (let i = 0; i < frames.length; i++) {
     const frame = frames[i];
     const isLast = i === frames.length - 1;
     
-    const samples = frame.data.length > 0
-      ? getOpusSamplesPerFrame(frame.data[0])
-      : 960; // Fallback: 20ms @ 48kHz
+    // Saltar frames vacíos (no deberían existir, pero por seguridad)
+    if (frame.data.length === 0) continue;
+    
+    const samples = getOpusSamplesPerFrame(frame.data[0]);
     
     granulePosition += BigInt(samples);
     currentPackets.push(frame.data);
