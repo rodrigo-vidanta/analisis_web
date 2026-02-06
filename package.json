@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "2.5.91",
+  "version": "2.5.92",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
@@ -51,6 +51,7 @@
     "@twilio/voice-sdk": "^2.15.0",
     "@types/react-plotly.js": "^2.6.4",
     "@vapi-ai/web": "^2.3.10",
+    "anthropic": "^0.0.0",
     "chart.js": "^4.5.0",
     "clsx": "^2.1.1",
     "cors": "^2.8.5",

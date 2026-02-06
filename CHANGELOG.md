@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### 🔧 v2.5.91 - Fix OGG/Opus: Compatibilidad WhatsApp Web + iOS [06-02-2026]
+
+**Solución definitiva para reproducción de notas de voz en todas las plataformas**
+
+#### 🐛 Bug 1: Granule positions 3x debajo (PRINCIPAL)
+- ✅ Chrome MediaRecorder empaqueta 3 frames Opus por paquete (TOC code=3, M=3 = 2880 smp)
+- ✅ `getOpusSamplesPerFrame` solo leía TOC byte, ignoraba frame count M del byte 2
+- ✅ Granule positions estaban 3x debajo del valor real → ffmpeg "timestamp discontinuity"
+- ✅ Renombrada a `getOpusSamplesPerPacket` con soporte completo RFC 6716 (codes 0-3)
+
+#### 🐛 Bug 2: `pre_skip=0` en OpusHead
+- ✅ Chrome pone `pre_skip=0` en CodecPrivate, guarda delay real en `CodecDelay` (EBML 0x56AA)
+- ✅ Ahora se parsea `CodecDelay` del WebM y se inyecta como `pre_skip` en OpusHead OGG
+- ✅ Fallback: 312 samples (6.5ms estándar) si CodecDelay no presente
+
+#### 🐛 Bug 3: URL firmada GCS expiraba en 5 minutos
+- ✅ Workflow N8N `Set URL Publica` usaba `$json.signedUrl` (X-Goog-Expires=300)
+- ✅ Bucket `whatsapp-publico` ES público — URL directa nunca expira
+- ✅ Cambiado a `https://storage.googleapis.com/whatsapp-publico/{filename}`
+- ✅ `Upload Bucket Privado` contentType: `audio/mpeg` → `audio/ogg`
+
+#### ❌ Intentos que NO funcionaron
+- Enviar WebM sin conversión (WhatsApp no lo acepta como PTT)
+- Conversión MP3 con lamejs (WhatsApp requiere OGG/Opus para PTT)
+- Web Worker para audio (OfflineAudioContext no existe en Workers)
+- OGG con pre_skip=0 (iOS/Web rechazan)
+- OGG con granule incorrecto (iOS/Web rechazan por timestamp discontinuity)
+
+#### 📁 Archivos Modificados
+- `src/utils/webmToOgg.ts` — Fix pre_skip + fix granule (getOpusSamplesPerPacket)
+- N8N Workflow `uEdx7_-dlfVupvud6pQZ8` — URL pública directa + contentType OGG
+
+**Handover:** `.cursor/handovers/2026-02-06-fix-ogg-whatsapp-ios-web.md`
+
+---
+
 ### 🚀 v2.5.86 - Fix Auth, WhatsApp Module y Notas de Voz PTT [05-02-2026]
 
 **Deploy consolidado de 3 sesiones de correcciones críticas**
