@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-06', author: 'Team', message: 'v2.5.90: B10.1.44N2.5.90 - Fix OGG pre_skip=0: Chrome guarda CodecDelay en WebM, no ...', isRelease: true },
   { hash: 'e466c74', date: '2026-02-06', author: 'Team', message: 'v2.5.89: B10.1.44N2.5.89 - Fix uchat_messages table not exists (42P01) + Fix thunder...', isRelease: true },
   { hash: 'a8dcd7f', date: '2026-02-06', author: 'Team', message: 'v2.5.88: B10.1.44N2.5.88 - Multi-import WhatsApp: búsqueda por URL CRM + teléfono en...', isRelease: true },
   { hash: '490f4f1', date: '2026-02-05', author: 'Team', message: 'v2.5.87: B10.1.44N2.5.87 - Fix OGG granule_position para compatibilidad iOS WhatsApp...', isRelease: true },
@@ -519,6 +520,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-340', date: '06/02/2026, 01:12', version: 'B10.1.44N2.5.90', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-995', date: '05/02/2026, 17:02', version: 'B10.1.44N2.5.87', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-227', date: '05/02/2026, 16:32', version: 'B10.1.44N2.5.86', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-714', date: '05/02/2026, 12:42', version: 'B10.1.44N2.5.85', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -684,8 +686,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.89', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.89', highlight: false },
+  { label: 'Version', value: 'v2.5.90', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.90', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '6 feb 2026', highlight: false },
 ];

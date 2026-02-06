@@ -117,6 +117,7 @@ const SEGMENT_INFO_ID = 0x1549A966;
 const TRACKS_ID = 0x1654AE6B;
 const TRACK_ENTRY_ID = 0xAE;
 const CODEC_PRIVATE_ID = 0x63A2;
+const CODEC_DELAY_ID = 0x56AA;  // CodecDelay en nanosegundos
 const CLUSTER_ID = 0x1F43B675;
 const TIMESTAMP_ID = 0xE7;
 const SIMPLE_BLOCK_ID = 0xA3;
@@ -127,6 +128,10 @@ const MASTER_IDS = new Set([
   TRACKS_ID, TRACK_ENTRY_ID, CLUSTER_ID,
 ]);
 
+// Pre-skip por defecto para Opus (312 samples = 6.5ms @ 48kHz)
+// Usado como fallback si CodecDelay no está presente en el WebM
+const DEFAULT_OPUS_PRESKIP = 312;
+
 // ============ WebM Parser ============
 
 interface OpusFrame {
@@ -135,11 +140,13 @@ interface OpusFrame {
 
 interface WebMParseResult {
   codecPrivate: Uint8Array;
+  codecDelayNs: number;
   frames: OpusFrame[];
 }
 
 function parseWebM(data: Uint8Array): WebMParseResult {
   let codecPrivate: Uint8Array | null = null;
+  let codecDelayNs = 0;
   const frames: OpusFrame[] = [];
   let currentClusterTimestamp = 0;
   
@@ -162,11 +169,13 @@ function parseWebM(data: Uint8Array): WebMParseResult {
           parseLevel(dataOffset, childEnd, elementId);
         } else if (elementId === CODEC_PRIVATE_ID && elementSize > 0) {
           codecPrivate = data.slice(dataOffset, dataOffset + elementSize);
+        } else if (elementId === CODEC_DELAY_ID && elementSize > 0) {
+          // CodecDelay: delay del encoder en nanosegundos
+          codecDelayNs = readUint(data, dataOffset, elementSize);
         } else if (elementId === TIMESTAMP_ID && parentId === CLUSTER_ID) {
           currentClusterTimestamp = readUint(data, dataOffset, elementSize);
-          void currentClusterTimestamp; // Se usa implícitamente
+          void currentClusterTimestamp;
         } else if (elementId === SIMPLE_BLOCK_ID && parentId === CLUSTER_ID && elementSize > 0) {
-          // SimpleBlock: trackNum(VINT) + timestamp(int16) + flags(1) + data
           const trackVint = readVintSize(data, dataOffset);
           const headerSize = trackVint.length + 2 + 1;
           
@@ -178,9 +187,7 @@ function parseWebM(data: Uint8Array): WebMParseResult {
           }
         }
         
-        // Avanzar al siguiente elemento
         if (elementSize === UNKNOWN_SIZE) {
-          // Para elementos de tamaño desconocido (Segment), ya parseamos hijos
           break;
         }
         offset = dataOffset + elementSize;
@@ -196,7 +203,7 @@ function parseWebM(data: Uint8Array): WebMParseResult {
     throw new Error('WebM: No se encontró OpusHead en CodecPrivate');
   }
   
-  return { codecPrivate, frames };
+  return { codecPrivate, codecDelayNs, frames };
 }
 
 // ============ OGG Page Writer ============
@@ -348,7 +355,7 @@ export async function webmToOgg(webmBlob: Blob): Promise<Blob> {
   const arrayBuffer = await webmBlob.arrayBuffer();
   const webmData = new Uint8Array(arrayBuffer);
   
-  const { codecPrivate: rawCodecPrivate, frames } = parseWebM(webmData);
+  const { codecPrivate: rawCodecPrivate, codecDelayNs, frames } = parseWebM(webmData);
   
   if (frames.length === 0) {
     throw new Error('No se encontraron frames de audio en el WebM');
@@ -356,6 +363,25 @@ export async function webmToOgg(webmBlob: Blob): Promise<Blob> {
   
   // Validar OpusHead (RFC 7845 compliance)
   const opusHead = validateOpusHead(rawCodecPrivate);
+  
+  // CRÍTICO: Chrome pone pre_skip=0 en OpusHead y guarda el delay real
+  // en el elemento CodecDelay del WebM (en nanosegundos).
+  // En OGG, el pre_skip del OpusHead es la ÚNICA fuente de esta info.
+  // Sin un pre_skip correcto, iOS y WhatsApp Web rechazan el archivo.
+  const currentPreSkip = opusHead[10] | (opusHead[11] << 8);
+  if (currentPreSkip === 0) {
+    let preSkipSamples: number;
+    if (codecDelayNs > 0) {
+      // Convertir nanosegundos a samples @ 48kHz
+      preSkipSamples = Math.round(codecDelayNs * 48 / 1000000);
+    } else {
+      // Fallback: usar valor estándar de Opus (312 samples = 6.5ms)
+      preSkipSamples = DEFAULT_OPUS_PRESKIP;
+    }
+    // Escribir pre_skip en OpusHead (bytes 10-11, little-endian)
+    opusHead[10] = preSkipSamples & 0xFF;
+    opusHead[11] = (preSkipSamples >> 8) & 0xFF;
+  }
   
   const serialNumber = Math.floor(Math.random() * 0xFFFFFFFF);
   const pages: Uint8Array[] = [];
