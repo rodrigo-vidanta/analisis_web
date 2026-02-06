@@ -16,7 +16,6 @@
  * Fecha: 15 Enero 2026
  */
 
-import { pqncSupabaseAdmin, pqncSupabase } from '../config/pqncSupabase';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
 
 // URL de la Edge Function (en PQNC_AI)
@@ -41,9 +40,6 @@ async function getAuthToken(): Promise<string> {
   // Fallback a anon_key si no hay sesión
   return EDGE_FUNCTIONS_ANON_KEY || '';
 }
-
-// Determinar si usar Edge Function (producción) o cliente directo (desarrollo)
-const USE_EDGE_FUNCTION = !pqncSupabaseAdmin;
 
 interface FilterOp {
   op: 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'like' | 'ilike' | 'in' | 'is' | 'not';
@@ -183,83 +179,8 @@ class PqncQueryBuilder<T = unknown> {
   }
 
   private async execute(): Promise<QueryResult<T>> {
-    // Si hay cliente local disponible, usarlo (desarrollo)
-    if (!USE_EDGE_FUNCTION && pqncSupabaseAdmin) {
-      return this.executeLocal();
-    }
-
-    // Usar Edge Function (producción)
+    // Siempre usar Edge Function (producción)
     return this.executeRemote();
-  }
-
-  /**
-   * Ejecutar con cliente local (desarrollo)
-   */
-  private async executeLocal(): Promise<QueryResult<T>> {
-    try {
-      let query = pqncSupabaseAdmin!
-        .from(this.tableName)
-        .select(this.selectColumns, {
-          count: this.countOption || undefined,
-          head: this.headOnly,
-        });
-
-      // Aplicar filtros
-      for (const [column, filter] of Object.entries(this.filters)) {
-        if (typeof filter === 'object' && filter !== null && 'op' in filter) {
-          const f = filter as FilterOp;
-          switch (f.op) {
-            case 'eq': query = query.eq(column, f.value); break;
-            case 'neq': query = query.neq(column, f.value); break;
-            case 'gt': query = query.gt(column, f.value); break;
-            case 'gte': query = query.gte(column, f.value); break;
-            case 'lt': query = query.lt(column, f.value); break;
-            case 'lte': query = query.lte(column, f.value); break;
-            case 'like': query = query.like(column, f.value as string); break;
-            case 'ilike': query = query.ilike(column, f.value as string); break;
-            case 'in': query = query.in(column, f.value as unknown[]); break;
-            case 'is': query = query.is(column, f.value); break;
-            case 'not': query = query.not(column, 'is', f.value); break;
-          }
-        } else {
-          query = query.eq(column, filter);
-        }
-      }
-
-      // Ordenamiento
-      if (this.orderColumn) {
-        query = query.order(this.orderColumn, { ascending: this.orderAscending });
-      }
-
-      // Rango
-      if (this.rangeStart !== null && this.rangeEnd !== null) {
-        query = query.range(this.rangeStart, this.rangeEnd);
-      }
-
-      // Límite
-      if (this.limitCount !== null) {
-        query = query.limit(this.limitCount);
-      }
-
-      // Ejecutar
-      let result;
-      if (this.singleResult) {
-        result = await query.maybeSingle();
-      } else {
-        result = await query;
-      }
-
-      return {
-        data: result.data,
-        error: result.error ? { message: result.error.message } : null,
-        count: result.count,
-      };
-    } catch (error) {
-      return {
-        data: null,
-        error: { message: error instanceof Error ? error.message : 'Error desconocido' },
-      };
-    }
   }
 
   /**
@@ -297,6 +218,8 @@ class PqncQueryBuilder<T = unknown> {
             order: orderStr,
             limit: this.limitCount || (this.rangeEnd !== null ? this.rangeEnd - (this.rangeStart || 0) + 1 : undefined),
             single: this.singleResult,
+            count: this.countOption || undefined,
+            head: this.headOnly || undefined,
           }),
         }
       );

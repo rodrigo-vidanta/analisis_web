@@ -346,6 +346,7 @@ class UserNotificationService {
       // Si todas están silenciadas, retornar true
       return data.every(n => n.is_muted === true);
     } catch (error) {
+      console.warn('[UserNotificationService] Error verificando mute status:', error);
       return false;
     }
   }

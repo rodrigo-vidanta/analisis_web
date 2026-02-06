@@ -325,6 +325,8 @@ class LogMonitorQueryBuilder<T = unknown> {
             limit: this.limitCount || (this.rangeEnd !== null ? this.rangeEnd - (this.rangeStart || 0) + 1 : undefined),
             single: this.singleResult,
             maybeSingle: this.maybeSingleResult,
+            count: this.countOption || undefined,
+            head: this.headOnly || undefined,
           }),
         }
       );

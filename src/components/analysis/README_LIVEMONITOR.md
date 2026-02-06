@@ -315,7 +315,7 @@ type FinalizationType = 'perdida' | 'finalizada' | 'mas-tarde';
 #### **🗄️ Base de Datos Análisis (Live Monitor)**
 - **Archivo:** `src/config/analysisSupabase.ts`
 - **URL:** `https://glsmifhkoaifvaegsozd.supabase.co`
-- **Anon Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E`
+- **Anon Key:** Configurada en `.env` (variable `VITE_ANALYSIS_SUPABASE_ANON_KEY`)
 - **Estado:** ✅ Verificada y funcional
 
 #### **🌐 Servicios Externos**
@@ -327,7 +327,7 @@ type FinalizationType = 'perdida' | 'finalizada' | 'mas-tarde';
 ```typescript
 // Archivo: src/config/analysisSupabase.ts
 const analysisSupabaseUrl = 'https://glsmifhkoaifvaegsozd.supabase.co';
-const analysisSupabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E';
+const analysisSupabaseAnonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 ```
 
 ### **🎵 Configuración de Audio**
@@ -487,9 +487,9 @@ VITE_DEBUG_MIXED_SOURCES=true
 
 ### **🔑 Claves Específicas**
 
-| Servicio | Tipo | Ubicación | Valor (completo) |
-|----------|------|-----------|------------------|
-| **Analysis Anon Key** | JWT Token | `src/config/analysisSupabase.ts:22` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E` |
+| Servicio | Tipo | Ubicación |
+|----------|------|-----------|
+| **Analysis Anon Key** | JWT Token | `.env` → `VITE_ANALYSIS_SUPABASE_ANON_KEY` |
 
 ### **🌐 URLs de Servicios**
 

@@ -332,14 +332,14 @@ interface ConversationBlock {
 
 #### **🗄️ Base de Datos SystemUI (Live Chat)**
 - **Archivo:** `src/config/supabaseSystemUI.ts`
-- **URL:** `https://zbylezfyagwrxoecioup.supabase.co`
-- **Anon Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTkzMzYyNzEsImV4cCI6MjA3NDkxMjI3MX0.W6Vt5h4r7vNSP_YQtd_fbTWuK7ERrcttwhcpe5Q7KoM`
-- **Service Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpieWxlemZ5YWd3cnhvZWNpb3VwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTMzNjI3MSwiZXhwIjoyMDc0OTEyMjcxfQ.2Btqq8cGSmr4OMKUae8zsHLxQMfs2JJ1ZFgmZYQPFQY`
+- **URL:** Configurada en `.env` → `VITE_SYSTEM_UI_SUPABASE_URL`
+- **Anon Key:** Configurada en `.env` → `VITE_SYSTEM_UI_SUPABASE_ANON_KEY`
+- **Nota:** ⚠️ SystemUI fue migrado a PQNC_AI (misma BD). Service keys NUNCA en frontend.
 
 #### **🗄️ Base de Datos PQNC IA (Prospectos)**
 - **Archivo:** `src/config/analysisSupabase.ts`
-- **URL:** `https://glsmifhkoaifvaegsozd.supabase.co`
-- **Anon Key:** `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imdsc21pZmhrb2FpZnZhZWdzb3pkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI2ODY3ODcsImV4cCI6MjA2ODI2Mjc4N30.dLgxIZtue-mH-duc_4qZxVoDT1_ih_Ar4Aj3j6j042E`
+- **URL:** Configurada en `.env` → `VITE_ANALYSIS_SUPABASE_URL`
+- **Anon Key:** Configurada en `.env` → `VITE_ANALYSIS_SUPABASE_ANON_KEY`
 
 #### **🌐 Webhook Railway**
 - **Archivo:** Mencionado en múltiples componentes

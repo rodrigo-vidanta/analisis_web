@@ -274,7 +274,7 @@ class LiveMonitorService {
       const now = Date.now();
       if (now - this.lastAutoFixTime > this.AUTO_FIX_INTERVAL) {
         // Ejecutar en background sin bloquear la carga
-        this.autoFixFailedCalls().catch(() => {});
+        this.autoFixFailedCalls().catch((err) => console.warn('[LiveMonitor] Error auto-fix:', err));
         this.lastAutoFixTime = now;
       }
       

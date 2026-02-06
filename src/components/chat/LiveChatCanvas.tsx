@@ -1843,7 +1843,7 @@ const LiveChatCanvas: React.FC = () => {
       loadNextBatch();
       
       // Configurar intervalo para cargar más
-      searchLoadIntervalRef.current = setInterval(loadNextBatch, 600);
+      searchLoadIntervalRef.current = setInterval(loadNextBatch, 2000);
     } else {
       setIsSearchingAllBatches(false);
     }

@@ -63,6 +63,8 @@ interface ProxyRequest {
   limit?: number;
   single?: boolean;
   maybeSingle?: boolean; // Nuevo: permite 0 o 1 resultado
+  count?: 'exact'; // Para obtener conteo de registros
+  head?: boolean; // Solo conteo, sin datos (SELECT count(*) eficiente)
 }
 
 // CORS headers
@@ -137,7 +139,7 @@ Deno.serve(async (req) => {
 
     // Parsear body
     const body: ProxyRequest = await req.json();
-    const { database, operation, table, select, data, filters, order, limit, single, maybeSingle } = body;
+    const { database, operation, table, select, data, filters, order, limit, single, maybeSingle, count, head } = body;
 
     // Validar database
     if (!database || !DB_URLS[database]) {
@@ -190,7 +192,16 @@ Deno.serve(async (req) => {
     
     switch (operation) {
       case 'select': {
-        query = supabase.from(table).select(select || '*');
+        // Pasar opciones de count y head al select de Supabase
+        // count: 'exact' + head: true = SELECT count(*) eficiente (sin datos)
+        const selectOptions: { count?: 'exact'; head?: boolean } = {};
+        if (count === 'exact') selectOptions.count = 'exact';
+        if (head) selectOptions.head = true;
+        
+        query = supabase.from(table).select(
+          select || '*',
+          Object.keys(selectOptions).length > 0 ? selectOptions : undefined
+        );
         
         // Aplicar filtros
         if (filters) {

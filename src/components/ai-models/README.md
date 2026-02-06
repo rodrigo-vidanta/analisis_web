@@ -10,7 +10,7 @@ Sistema de gestión de modelos de IA incluyendo modelos de voz, generación de i
 - **ImageRepositorySection.tsx**: Repositorio de imágenes
 
 ## Base de Datos
-- **Supabase**: `supabase` (rnhejbuubpbnojalljso.supabase.co)
+- **Supabase**: PQNC_AI (`glsmifhkoaifvaegsozd.supabase.co`) - BD Unificada
 - **Tabla modelos**: `ai_models`
 - **Tabla imágenes**: `generated_images`
 - **Tabla configuración**: `model_configs`

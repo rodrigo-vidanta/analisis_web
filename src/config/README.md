@@ -112,29 +112,27 @@
 - `error-analisis-proxy` - Proxy para análisis de errores
 - `generar-url-optimizada` - Generación de URLs cortas
 
-**Razón:** Edge Functions permanecen en system_ui donde ya están desplegadas y funcionando.
+**Nota:** Edge Functions migradas a PQNC_AI (2026-01-16).
 
 ---
 
 ## Proyectos OBSOLETOS/PROHIBIDOS
 
-### pqncSupabase (PROHIBIDO ⛔)
+### pqncSupabase (SOLO PARA PROXY ⚠️)
 
 **Archivo:** `pqncSupabase.ts`  
 **URL:** hmmfuhqgvsehkizlfzga.supabase.co  
-**Estado:** **PROHIBIDO** según reglas del proyecto
+**Estado:** Solo accesible vía `multi-db-proxy` Edge Function
 
-⚠️ **NO USAR** - Este proyecto pertenece a otro sistema
+⚠️ **NO USAR directamente** - Todo acceso vía Edge Function `multi-db-proxy`
 
 ---
 
-### Clever Ideas / SupaClever (PROHIBIDO ⛔)
+### Clever Ideas / SupaClever (ELIMINADO ⛔)
 
-**Archivo:** `supabase.ts`  
-**URL:** rnhejbuubpbnojalljso.supabase.co  
-**Estado:** **PROHIBIDO** según reglas del proyecto
+**Estado:** Proyecto ajeno, sin relación con PQNC
 
-⚠️ **NO USAR** - Proyecto ajeno
+⚠️ **ELIMINADO** - No debe existir ninguna referencia a `rnhejbuubpbnojalljso` en código
 
 ---
 
@@ -153,13 +151,13 @@
 ### ✅ CORRECTO - Consultar Usuarios
 
 ```typescript
-// Opción 1 (recomendada)
+// Opción 1 (recomendada) - Vista segura sin password_hash
 import { analysisSupabase } from '../config/analysisSupabase';
-const { data } = await analysisSupabase.from('auth_users').select('*');
+const { data } = await analysisSupabase.from('user_profiles_v2').select('*');
 
 // Opción 2 (también válida)
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
-const { data } = await supabaseSystemUI.from('auth_users').select('*');
+const { data } = await supabaseSystemUI.from('user_profiles_v2').select('*');
 // ⚠️ Este cliente ahora apunta a PQNC_AI, no a system_ui
 ```
 

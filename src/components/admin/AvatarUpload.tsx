@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { supabaseSystemUI as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 
@@ -46,13 +45,13 @@ const AvatarUpload: React.FC<AvatarUploadProps> = ({
       const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
       
       // Subir archivo al storage de PQNC (donde está el bucket)
-      const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
+      const { data: uploadData, error: uploadError } = await supabaseSystemUI.storage
         .from('user-avatars')
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
-      const { data: { publicUrl } } = pqncSupabaseAdmin.storage
+      const { data: { publicUrl } } = supabaseSystemUI.storage
         .from('user-avatars')
         .getPublicUrl(fileName);
 

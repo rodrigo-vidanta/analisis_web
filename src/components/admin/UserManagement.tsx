@@ -44,7 +44,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
-import { supabaseSystemUI as pqncSupabaseAdmin } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
@@ -874,12 +873,12 @@ const UserManagement: React.FC = () => {
           const fileExt = 'jpg';
           const fileName = `avatar-${userId}-${Date.now()}.${fileExt}`;
           
-          const { error: uploadError } = await pqncSupabaseAdmin.storage
+          const { error: uploadError } = await supabaseSystemUI.storage
             .from('user-avatars')
             .upload(fileName, avatarFile);
 
           if (!uploadError) {
-            const { data: { publicUrl } } = pqncSupabaseAdmin.storage
+            const { data: { publicUrl } } = supabaseSystemUI.storage
               .from('user-avatars')
               .getPublicUrl(fileName);
 
@@ -1096,13 +1095,13 @@ const UserManagement: React.FC = () => {
         const fileExt = editAvatarFile.type.split('/')[1] || 'jpg';
         const fileName = `avatar-${selectedUser.id}-${Date.now()}.${fileExt}`;
         
-        const { data: uploadData, error: uploadError } = await pqncSupabaseAdmin.storage
+        const { data: uploadData, error: uploadError } = await supabaseSystemUI.storage
           .from('user-avatars')
           .upload(fileName, editAvatarFile);
         
         if (uploadError) throw uploadError;
         
-        const { data: { publicUrl } } = pqncSupabaseAdmin.storage
+        const { data: { publicUrl } } = supabaseSystemUI.storage
           .from('user-avatars')
           .getPublicUrl(fileName);
         

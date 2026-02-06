@@ -88,6 +88,16 @@ class PermissionsService {
   // Flag para prevenir múltiples cargas batch simultáneas
   private isLoadingBackupBatch = false;
   
+  // ============================================
+  // DEDUPLICACIÓN DE REQUESTS IN-FLIGHT
+  // ============================================
+  // Previene que múltiples llamadas simultáneas a getUserPermissions 
+  // disparen requests HTTP duplicados antes de que el cache se llene.
+  // Cuando una request está en vuelo, las llamadas subsecuentes 
+  // reciben la misma Promise en lugar de disparar una nueva.
+  private inflightPermissions = new Map<string, Promise<UserPermissions | null>>();
+  private inflightCalidad = new Map<string, Promise<boolean>>();
+  
   /**
    * Verifica si una entrada de caché es válida (no ha expirado)
    */
@@ -159,6 +169,9 @@ class PermissionsService {
     this.ejecutivoCache.clear();
     this.calidadCache.clear();
     this.accessProspectCache.clear();
+    // Limpiar también las promises in-flight
+    this.inflightPermissions.clear();
+    this.inflightCalidad.clear();
   }
   
   // ============================================
@@ -182,6 +195,29 @@ class PermissionsService {
       return cached?.data ?? null;
     }
     
+    // MEJORA 2026-02-06: Deduplicación de requests in-flight
+    // Si ya hay una request en vuelo para este userId, reutilizar esa Promise
+    const inflight = this.inflightPermissions.get(userId);
+    if (inflight) {
+      return inflight;
+    }
+    
+    // Crear nueva request y registrarla como in-flight
+    const request = this._fetchUserPermissions(userId);
+    this.inflightPermissions.set(userId, request);
+    
+    try {
+      return await request;
+    } finally {
+      // Limpiar la referencia in-flight al completar (éxito o error)
+      this.inflightPermissions.delete(userId);
+    }
+  }
+  
+  /**
+   * Ejecuta la request real de permisos (separada para deduplicación)
+   */
+  private async _fetchUserPermissions(userId: string): Promise<UserPermissions | null> {
     try {
       const { data, error } = await supabaseSystemUI.rpc('get_user_permissions', {
         p_user_id: userId,
@@ -835,6 +871,26 @@ class PermissionsService {
       return cached!.data;
     }
     
+    // MEJORA 2026-02-06: Deduplicación de requests in-flight
+    const inflight = this.inflightCalidad.get(userId);
+    if (inflight) {
+      return inflight;
+    }
+    
+    const request = this._fetchIsCoordinadorCalidad(userId);
+    this.inflightCalidad.set(userId, request);
+    
+    try {
+      return await request;
+    } finally {
+      this.inflightCalidad.delete(userId);
+    }
+  }
+  
+  /**
+   * Ejecuta la verificación real de coordinador de calidad (separada para deduplicación)
+   */
+  private async _fetchIsCoordinadorCalidad(userId: string): Promise<boolean> {
     try {
       const permissions = await this.getUserPermissions(userId);
       if (!permissions) {
@@ -929,8 +985,8 @@ class PermissionsService {
       // Si es ejecutivo, filtrar por ejecutivo_id + prospectos de ejecutivos donde es backup
       // CRÍTICO: También debe filtrar por coordinación para asegurar que solo vea prospectos de su coordinación
       if (ejecutivoFilter) {
-        // Obtener coordinaciones del ejecutivo (debe tener al menos una)
-        const ejecutivoCoordinaciones = await this.getCoordinacionesFilter(userId);
+        // Reutilizar coordinacionesFilter ya obtenido (antes se llamaba getCoordinacionesFilter de nuevo)
+        const ejecutivoCoordinaciones = coordinacionesFilter;
         
         if (!ejecutivoCoordinaciones || ejecutivoCoordinaciones.length === 0) {
           // Ejecutivo sin coordinación asignada, no puede ver nada

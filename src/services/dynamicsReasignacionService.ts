@@ -156,16 +156,16 @@ class DynamicsReasignacionService {
     let nuevoEjecutivo: { full_name?: string; nombre_completo?: string; email?: string } | null = null;
     try {
       nuevoEjecutivo = await coordinacionService.getEjecutivoById(nuevoEjecutivoId);
-    } catch {
-      // Error obteniendo datos del nuevo ejecutivo (no crítico)
+    } catch (err) {
+      console.warn('[DynamicsReasignacion] Error obteniendo datos nuevo ejecutivo:', err);
     }
 
     // Obtener datos de la nueva coordinación
     let nuevaCoordinacion: { nombre?: string; codigo?: string } | null = null;
     try {
       nuevaCoordinacion = await coordinacionService.getCoordinacionById(nuevaCoordinacionId);
-    } catch {
-      // Error obteniendo datos de la nueva coordinación (no crítico)
+    } catch (err) {
+      console.warn('[DynamicsReasignacion] Error obteniendo datos nueva coordinación:', err);
     }
 
     // Obtener datos del usuario que reasigna (role_name ya está incluido en user_profiles_v2)
@@ -184,8 +184,8 @@ class DynamicsReasignacionService {
           role_name: data.role_name || undefined
         };
       }
-    } catch {
-      // Error obteniendo datos del usuario que reasigna (no crítico)
+    } catch (err) {
+      console.warn('[DynamicsReasignacion] Error obteniendo datos usuario reasignador:', err);
     }
 
     return {

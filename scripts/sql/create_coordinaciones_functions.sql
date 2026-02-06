@@ -379,11 +379,11 @@ DECLARE
   v_permissions JSON;
 BEGIN
   -- Obtener rol y coordinación del usuario
-  SELECT r.name, u.coordinacion_id
+  -- ACTUALIZADO 2026-02-06: Usa user_profiles_v2 en vez de auth_users (deprecada)
+  SELECT u.role_name, u.coordinacion_id
   INTO v_user_role, v_coordinacion_id
-  FROM auth_users u
-  JOIN auth_roles r ON u.role_id = r.id
-  WHERE u.id = p_user_id;
+  FROM user_profiles_v2 u
+  WHERE u.id = p_user_id AND u.is_active = true;
   
   IF v_user_role IS NULL THEN
     RETURN json_build_object('error', 'Usuario no encontrado');

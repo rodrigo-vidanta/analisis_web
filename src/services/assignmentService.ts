@@ -81,7 +81,8 @@ class AssignmentService {
         coordinacion_id: coordinacionId,
         message: 'Prospecto asignado automáticamente a coordinación',
       };
-    } catch {
+    } catch (error) {
+      console.error('[AssignmentService] Error asignando prospecto a coordinación:', error);
       return {
         success: false,
         message: 'Error al asignar prospecto',
@@ -135,7 +136,8 @@ class AssignmentService {
         ejecutivo_id: ejecutivoId,
         message: 'Prospecto asignado automáticamente a ejecutivo',
       };
-    } catch {
+    } catch (error) {
+      console.error('[AssignmentService] Error asignando prospecto a ejecutivo:', error);
       return {
         success: false,
         message: 'Error al asignar prospecto a ejecutivo',
@@ -215,7 +217,8 @@ class AssignmentService {
         coordinacion_id: assignment?.coordinacion_id,
         message: 'Prospecto asignado automáticamente a ejecutivo (ID CRM detectado)',
       };
-    } catch {
+    } catch (error) {
+      console.error('[AssignmentService] Error verificando/asignando prospecto con CRM:', error);
       return {
         success: false,
         message: 'Error al verificar y asignar prospecto',
@@ -275,7 +278,8 @@ class AssignmentService {
         coordinacion_id: coordinacionId,
         message: 'Prospecto asignado manualmente a coordinación',
       };
-    } catch {
+    } catch (error) {
+      console.error('[AssignmentService] Error asignación manual a coordinación:', error);
       return {
         success: false,
         message: 'Error al asignar prospecto manualmente',
@@ -475,8 +479,8 @@ class AssignmentService {
               assigned_by: assignedBy,
               reason: reason || 'Desasignación manual de ejecutivo',
             });
-        } catch {
-          // Log no crítico, no afecta la respuesta
+        } catch (err) {
+          console.warn('[AssignmentService] Error guardando assignment_log (no crítico):', err);
         }
       })();
 
@@ -537,8 +541,8 @@ class AssignmentService {
           assignment_date: new Date().toISOString(),
         })
         .eq('id', prospectId);
-    } catch {
-      // No lanzar error, sincronización falló silenciosamente
+    } catch (err) {
+      console.warn('[AssignmentService] Error sincronizando coordinación de prospecto:', err);
     }
   }
 
@@ -557,8 +561,8 @@ class AssignmentService {
         if (ejecutivo) {
           ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
         }
-      } catch {
-        // Continuar sin el nombre, solo actualizar ejecutivo_id
+      } catch (err) {
+        console.warn('[AssignmentService] Error obteniendo nombre ejecutivo (continuando sin nombre):', err);
       }
 
       // Actualizar tanto ejecutivo_id como asesor_asignado
@@ -576,8 +580,8 @@ class AssignmentService {
         .from('prospectos')
         .update(updateData)
         .eq('id', prospectId);
-    } catch {
-      // No lanzar error, sincronización falló silenciosamente
+    } catch (err) {
+      console.warn('[AssignmentService] Error sincronizando ejecutivo de prospecto:', err);
     }
   }
 

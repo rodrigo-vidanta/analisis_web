@@ -636,5 +636,5 @@ El deploy NO continuará hasta resolver el issue.
 
 ---
 
-**Última actualización:** 2026-01-24  
-**Versión del rule:** 3.0.0 (Modo estricto + Pre-checks + Auto-verificación)
+**Última actualización:** 2026-02-06  
+**Versión del rule:** 3.1.0 (Modo estricto + Pre-checks + Auto-verificación + Health check Edge Functions)

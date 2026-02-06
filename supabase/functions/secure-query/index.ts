@@ -49,7 +49,7 @@ const ALLOWED_TABLES = [
   'llamadas_ventas',
   'conversaciones_whatsapp',
   'mensajes_whatsapp',
-  'auth_users',
+  'user_profiles_v2',
   'auth_sessions',
   'coordinaciones',
   'auth_roles'
