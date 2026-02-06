@@ -293,31 +293,60 @@ function createOpusTags(): Uint8Array {
 // ============ Opus TOC Parser ============
 
 /**
- * Calcula las muestras PCM (a 48kHz) de un paquete Opus
- * leyendo el TOC byte (primer byte del frame).
+ * Calcula las muestras PCM (a 48kHz) de un paquete Opus completo.
+ * Lee el TOC byte (byte 0) para determinar duración por frame,
+ * y el code field para determinar cuántos frames hay por paquete.
+ * 
+ * RFC 6716 Section 3.1 - TOC byte:
+ *   Bits 7-3: config (determina modo y duración del frame)
+ *   Bit 2: s (stereo flag)
+ *   Bits 1-0: c (code, determina cuántos frames por paquete)
+ *     c=0: 1 frame
+ *     c=1: 2 frames (CBR)
+ *     c=2: 2 frames (VBR)
+ *     c=3: M frames (M está en byte 2, bits 0-5)
+ * 
+ * Chrome MediaRecorder típicamente usa c=3 con M=3 (60ms por paquete).
  */
-function getOpusSamplesPerFrame(tocByte: number): number {
+function getOpusSamplesPerPacket(packet: Uint8Array): number {
+  if (packet.length === 0) return 960; // Fallback
+  
+  const tocByte = packet[0];
   const config = (tocByte >> 3) & 0x1F;
+  const code = tocByte & 0x03;
   
-  let durationMs: number;
-  
+  // Determinar duración por frame según config (RFC 6716, Table 2)
+  let frameSamples: number;
   if (config <= 11) {
     // SILK-only (NB/MB/WB): 10, 20, 40, 60ms
-    durationMs = [10, 20, 40, 60][config % 4];
+    frameSamples = [480, 960, 1920, 2880][config % 4];
   } else if (config <= 15) {
     // Hybrid (SWB/FB): 10, 20ms
-    durationMs = config % 2 === 0 ? 10 : 20;
+    frameSamples = config % 2 === 0 ? 480 : 960;
   } else {
     // CELT-only (NB/WB/SWB/FB): 2.5, 5, 10, 20ms
-    durationMs = [2.5, 5, 10, 20][config % 4];
+    frameSamples = [120, 240, 480, 960][(config - 16) % 4];
   }
   
-  // Frame count from code bits (bits 0-1)
-  const code = tocByte & 0x03;
-  const frameCount = code <= 2 ? (code === 0 ? 1 : 2) : 1;
+  // Determinar número de frames según code
+  let frameCount: number;
+  switch (code) {
+    case 0: frameCount = 1; break;
+    case 1: frameCount = 2; break;
+    case 2: frameCount = 2; break;
+    case 3:
+      // Code 3: frame count M está en byte 2, bits 0-5
+      if (packet.length < 2) {
+        frameCount = 1; // Fallback si el paquete es demasiado corto
+      } else {
+        frameCount = packet[1] & 0x3F;
+        if (frameCount === 0) frameCount = 1; // Protección contra M=0
+      }
+      break;
+    default: frameCount = 1;
+  }
   
-  // Samples at 48kHz
-  return durationMs * 48 * frameCount;
+  return frameSamples * frameCount;
 }
 
 // ============ Remuxer Principal ============
@@ -408,7 +437,7 @@ export async function webmToOgg(webmBlob: Blob): Promise<Blob> {
     // Saltar frames vacíos (no deberían existir, pero por seguridad)
     if (frame.data.length === 0) continue;
     
-    const samples = getOpusSamplesPerFrame(frame.data[0]);
+    const samples = getOpusSamplesPerPacket(frame.data);
     
     granulePosition += BigInt(samples);
     currentPackets.push(frame.data);

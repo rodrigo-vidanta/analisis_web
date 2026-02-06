@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-06', author: 'Team', message: 'v2.5.91: B10.1.44N2.5.91 - Fix Opus granule: paquetes tienen 3 frames (c=3 M=3 = 288...', isRelease: true },
   { hash: 'e928441', date: '2026-02-06', author: 'Team', message: 'v2.5.90: B10.1.44N2.5.90 - Fix OGG pre_skip=0: Chrome guarda CodecDelay en WebM, no ...', isRelease: true },
   { hash: 'e466c74', date: '2026-02-06', author: 'Team', message: 'v2.5.89: B10.1.44N2.5.89 - Fix uchat_messages table not exists (42P01) + Fix thunder...', isRelease: true },
   { hash: 'a8dcd7f', date: '2026-02-06', author: 'Team', message: 'v2.5.88: B10.1.44N2.5.88 - Multi-import WhatsApp: búsqueda por URL CRM + teléfono en...', isRelease: true },
@@ -686,8 +687,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.90', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.90', highlight: false },
+  { label: 'Version', value: 'v2.5.91', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.91', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '6 feb 2026', highlight: false },
 ];
