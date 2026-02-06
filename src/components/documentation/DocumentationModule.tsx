@@ -300,7 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
-  { hash: 'pending', date: '2026-02-06', author: 'Team', message: 'v2.5.90: B10.1.44N2.5.90 - Fix OGG pre_skip=0: Chrome guarda CodecDelay en WebM, no ...', isRelease: true },
+  { hash: 'e928441', date: '2026-02-06', author: 'Team', message: 'v2.5.90: B10.1.44N2.5.90 - Fix OGG pre_skip=0: Chrome guarda CodecDelay en WebM, no ...', isRelease: true },
   { hash: 'e466c74', date: '2026-02-06', author: 'Team', message: 'v2.5.89: B10.1.44N2.5.89 - Fix uchat_messages table not exists (42P01) + Fix thunder...', isRelease: true },
   { hash: 'a8dcd7f', date: '2026-02-06', author: 'Team', message: 'v2.5.88: B10.1.44N2.5.88 - Multi-import WhatsApp: búsqueda por URL CRM + teléfono en...', isRelease: true },
   { hash: '490f4f1', date: '2026-02-05', author: 'Team', message: 'v2.5.87: B10.1.44N2.5.87 - Fix OGG granule_position para compatibilidad iOS WhatsApp...', isRelease: true },
