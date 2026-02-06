@@ -4,22 +4,59 @@
  * ============================================
  * 
  * Wizard multi-paso para importar prospectos desde WhatsApp
- * con validaciones de permisos y envío de plantillas
+ * con validaciones de permisos y envío de plantillas.
  * 
- * PASOS:
- * 1. Búsqueda del prospecto (BD local + Dynamics)
- * 2. Validación de permisos por coordinación
- * 3. Selección de plantilla con filtros por tags
- * 4. Configuración de variables de la plantilla
- * 5. Confirmación y envío
+ * SOPORTA:
+ * - Búsqueda por teléfono (10 dígitos) → ~70s via Power Automate
+ * - Búsqueda por URL de Dynamics CRM → ~2-5s via ID directo
+ * - Importación batch (1-5 prospectos en paralelo)
+ * - Deduplicación automática (mismo LeadID por URL + teléfono)
+ * - Envío de plantilla compartida a todos los importados
+ * - Tutorial animado para copiar URLs de CRM
+ * 
+ * PASOS DEL WIZARD:
+ * 1. Búsqueda: Input multi-línea (URLs o teléfonos, 1-5, paralelo)
+ * 2. Revisión: Permisos + ingreso manual de teléfono para URL entries
+ * 3. Importación: Envío a N8N workflow (import-contact-proxy)
+ * 4. Plantilla: Selección con filtros por tags
+ * 5. Variables: Configuración de fecha/hora personalizadas
+ * 6. Envío: Plantilla a todos los importados
+ * 
+ * TELÉFONO EN BÚSQUEDAS POR URL:
+ * ─────────────────────────────────
+ * El endpoint de búsqueda por ID de Dynamics (Power Automate) actualmente
+ * NO retorna el teléfono del lead. Sin embargo, el workflow de importación
+ * en N8N SÍ requiere el teléfono para crear el suscriptor de WhatsApp.
+ * 
+ * Solución actual:
+ * - Se pide al usuario que ingrese manualmente el teléfono en el Paso 2
+ * - El campo aparece con borde amber + icono de advertencia
+ * - El botón "Importar" solo se habilita cuando hay teléfono de 10 dígitos
+ * 
+ * ⚠️ TODO: Cuando el ingeniero de Power Automate (Alejandro Agüero) modifique
+ * el endpoint de búsqueda por ID para incluir el teléfono:
+ * 1. El auto-fill ya está preparado en searchSingleEntry() — busca campos
+ *    Telefono, MobilePhone, Telephone1, etc. en la respuesta
+ * 2. Si se detecta teléfono automáticamente, el input manual NO se muestra
+ * 3. Solo verificar que el campo del response se mapee correctamente
+ * 4. No se necesitan cambios adicionales si el campo viene como:
+ *    Telefono, MobilePhone, Telephone1 (case-insensitive)
+ * ─────────────────────────────────
+ * 
+ * SCROLLBARS: Ocultas con scrollbar-hide (scroll funcional sin barra visible)
+ * 
+ * Actualizado: 2026-02-06
+ * Cambios: Multi-import, URL CRM, tutorial animado, phone input inline,
+ *          fix AnimatePresence keys, scrollbar-hide
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   X, Search, Phone, User, Mail, Building, AlertCircle, 
   Loader2, CheckCircle, ShieldAlert, ChevronRight, ChevronLeft,
-  MessageSquare, Tag, Calendar, Clock, Send, AlertTriangle, Info
+  MessageSquare, Tag, Calendar, Clock, Send, AlertTriangle, Info,
+  Link, Hash, CheckSquare, Square, Globe, Zap
 } from 'lucide-react';
 import { dynamicsLeadService, type DynamicsLeadInfo } from '../../services/dynamicsLeadService';
 import { importContactService, type ImportContactPayload } from '../../services/importContactService';
@@ -28,6 +65,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService, type WhatsAppTemplate, type VariableMapping } from '../../services/whatsappTemplatesService';
 import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
+import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
 import toast from 'react-hot-toast';
 
 /**
@@ -36,7 +74,26 @@ import toast from 'react-hot-toast';
  * ============================================
  */
 
-type WizardStep = 'search' | 'permissions' | 'select_template' | 'configure_variables' | 'confirm';
+type WizardStep = 'search' | 'permissions' | 'select_template' | 'configure_variables';
+
+/** Cada línea de input parseada */
+interface SearchEntry {
+  id: string;
+  raw: string;
+  type: 'url' | 'phone';
+  value: string; // id_dynamics (para URL) o 10 dígitos (para phone)
+  phone: string; // Teléfono (auto para phone, manual para URL)
+  status: 'pending' | 'searching' | 'found' | 'not_found' | 'error' | 'exists_locally';
+  searchTimeMs?: number;
+  leadData?: DynamicsLeadInfo;
+  existingProspect?: ExistingProspect | null;
+  permission?: PermissionValidation;
+  error?: string;
+  selected: boolean;
+  importStatus: 'idle' | 'importing' | 'success' | 'error';
+  importError?: string;
+  importedProspectId?: string;
+}
 
 interface ExistingProspect {
   id: string;
@@ -64,83 +121,123 @@ interface ImportWizardModalProps {
 }
 
 /**
- * Normaliza coordinación para comparación con regex robusto
- * Maneja variaciones de mayúsculas/minúsculas y nombres incompletos
- * 
- * Ejemplos:
- * - COB ACAPULCO, COB Aca, COBACA, cobaca → COBACA
- * - APEX, apex, i360, I360 → i360
- * - MVP, mvp → MVP
- * - VEN, ven → VEN
- * - BOOM, boom, Boom → BOOM
+ * ============================================
+ * UTILIDADES DE PARSEO
+ * ============================================
+ */
+
+/** Extrae el ID de Dynamics de una URL de CRM */
+const extractDynamicsIdFromUrl = (url: string): string | null => {
+  try {
+    const parsed = new URL(url);
+    const id = parsed.searchParams.get('id');
+    if (id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+      return id;
+    }
+  } catch {
+    // No es una URL válida
+  }
+  // Fallback: buscar patrón GUID en el string
+  const match = url.match(/[?&]id=([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return match ? match[1] : null;
+};
+
+/** Detecta si una línea es URL, teléfono o inválida */
+const parseInputLine = (line: string, index: number): SearchEntry | null => {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+
+  // Detectar URL de Dynamics
+  if (trimmed.includes('crm.dynamics.com') || trimmed.includes('dynamics.com/main.aspx')) {
+    const id = extractDynamicsIdFromUrl(trimmed);
+    if (id) {
+      return {
+        id: `entry-${index}-${Date.now()}`,
+        raw: trimmed,
+        type: 'url',
+        value: id,
+        phone: '', // Se pedirá después si se quiere importar
+        status: 'pending',
+        selected: true,
+        importStatus: 'idle',
+      };
+    }
+  }
+
+  // Detectar teléfono (solo dígitos, 10 dígitos después de limpiar)
+  const digits = trimmed.replace(/\D/g, '');
+  const phone10 = digits.slice(-10);
+  if (phone10.length === 10) {
+    return {
+      id: `entry-${index}-${Date.now()}`,
+      raw: trimmed,
+      type: 'phone',
+      value: phone10,
+      phone: phone10,
+      status: 'pending',
+      selected: true,
+      importStatus: 'idle',
+    };
+  }
+
+  return null;
+};
+
+/** Parsea el textarea completo */
+const parseSearchInput = (input: string): { entries: SearchEntry[]; errors: string[] } => {
+  const lines = input.split('\n').map(l => l.trim()).filter(Boolean);
+  const entries: SearchEntry[] = [];
+  const errors: string[] = [];
+
+  if (lines.length > 5) {
+    errors.push('Máximo 5 entradas permitidas');
+    return { entries: [], errors };
+  }
+
+  lines.forEach((line, i) => {
+    const entry = parseInputLine(line, i);
+    if (entry) {
+      entries.push(entry);
+    } else {
+      errors.push(`Línea ${i + 1}: No se reconoce como URL de CRM ni teléfono de 10 dígitos`);
+    }
+  });
+
+  return { entries, errors };
+};
+
+/**
+ * Normaliza coordinación para comparación
  */
 const normalizeCoordinacion = (coord: string | null | undefined): string => {
   if (!coord) return '';
-  
-  // Convertir a uppercase y limpiar espacios extras
   const cleaned = coord.trim().toUpperCase().replace(/\s+/g, ' ');
-  
-  // Mapeo con regex para variaciones
-  const coordinacionPatterns: Array<{ regex: RegExp; normalized: string }> = [
-    // COB Acapulco y variantes
+  const patterns: Array<{ regex: RegExp; normalized: string }> = [
     { regex: /^COB\s*(ACA|ACAP|ACAPULCO)$/i, normalized: 'COBACA' },
     { regex: /^COBACA$/i, normalized: 'COBACA' },
-    
-    // APEX e i360
     { regex: /^(APEX|I360)$/i, normalized: 'i360' },
-    
-    // MVP
     { regex: /^MVP$/i, normalized: 'MVP' },
-    
-    // VEN (Ventas)
     { regex: /^VEN(TAS)?$/i, normalized: 'VEN' },
-    
-    // BOOM
     { regex: /^BOOM$/i, normalized: 'BOOM' },
-    
-    // Telemarketing (variantes)
     { regex: /^(TELE|TELEMARK|TELEMARKETING)$/i, normalized: 'TELEMARKETING' },
-    
-    // Campaña (variantes)
     { regex: /^(CAMP|CAMPA|CAMPANA|CAMPAIGN)$/i, normalized: 'CAMPANA' },
-    
-    // CDMX (variantes)
     { regex: /^CDMX(\s*(SUR|NORTE|CENTRO))?$/i, normalized: 'CDMX' },
-    
-    // Inbound
     { regex: /^(INB|INBOUND)$/i, normalized: 'INBOUND' },
-    
-    // Outbound
     { regex: /^(OUT|OUTBOUND)$/i, normalized: 'OUTBOUND' },
   ];
-  
-  // Buscar coincidencia con regex
-  for (const pattern of coordinacionPatterns) {
-    if (pattern.regex.test(cleaned)) {
-      return pattern.normalized;
-    }
+  for (const p of patterns) {
+    if (p.regex.test(cleaned)) return p.normalized;
   }
-  
-  // Si no hay coincidencia, retornar uppercase limpio
   return cleaned;
 };
 
-/**
- * Normaliza número de teléfono a 10 dígitos
- */
 const normalizePhone = (phone: string): string => {
-  const digits = phone.replace(/\D/g, '');
-  return digits.slice(-10);
+  return phone.replace(/\D/g, '').slice(-10);
 };
 
-/**
- * Formatea número para visualización
- */
 const formatPhoneDisplay = (phone: string): string => {
-  const normalized = normalizePhone(phone);
-  if (normalized.length === 10) {
-    return `(${normalized.slice(0, 3)}) ${normalized.slice(3, 6)}-${normalized.slice(6)}`;
-  }
+  const n = normalizePhone(phone);
+  if (n.length === 10) return `(${n.slice(0, 3)}) ${n.slice(3, 6)}-${n.slice(6)}`;
   return phone;
 };
 
@@ -157,25 +254,21 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const { user } = useAuth();
   const { isAdmin, isCoordinadorCalidad, isOperativo } = useEffectivePermissions();
   
-  // Estado del wizard
+  // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('search');
-  const [phoneNumber, setPhoneNumber] = useState('');
   
-  // Estado de búsqueda
+  // Search state
+  const [searchInput, setSearchInput] = useState('');
+  const [searchEntries, setSearchEntries] = useState<SearchEntry[]>([]);
+  const [parseErrors, setParseErrors] = useState<string[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [leadData, setLeadData] = useState<DynamicsLeadInfo | null>(null);
-  const [existingProspect, setExistingProspect] = useState<ExistingProspect | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   
-  // Estado de permisos
-  const [permissionValidation, setPermissionValidation] = useState<PermissionValidation | null>(null);
-  
-  // Estado de importación
+  // Import state
   const [isImporting, setIsImporting] = useState(false);
-  const [importedProspectId, setImportedProspectId] = useState<string | null>(null);
-  const [importedProspectData, setImportedProspectData] = useState<any>(null); // Datos completos del prospecto importado
+  const [importedProspects, setImportedProspects] = useState<Array<{ id: string; data: any }>>([]);
   
-  // Estado de plantillas
+  // Template state
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [filteredTemplates, setFilteredTemplates] = useState<WhatsAppTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
@@ -183,59 +276,79 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   
-  // Estado de variables
+  // Variable state
   const [variableValues, setVariableValues] = useState<Record<number, string>>({});
   
-  // Estado de envío
+  // Send state
   const [isSending, setIsSending] = useState(false);
 
-  // Mapa de coordinaciones (UUID -> nombre)
+  // Tutorial state
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  // Coordinaciones map
   const [coordinacionesMap, setCoordinacionesMap] = useState<Map<string, string>>(new Map());
 
+  // ============================================
+  // DERIVED STATE
+  // ============================================
+
+  /** Entradas seleccionadas con permisos */
+  const selectedEntries = useMemo(
+    () => searchEntries.filter(e => e.selected && e.status === 'found' && e.permission?.canImport),
+    [searchEntries]
+  );
+
   /**
-   * Cargar coordinaciones al montar
+   * Entradas listas para importar (requieren teléfono de 10 dígitos).
+   * El workflow N8N necesita el teléfono para crear el suscriptor de WhatsApp.
+   * La búsqueda por URL no devuelve teléfono, así que se pide manualmente.
    */
+  const readyToImport = useMemo(
+    () => selectedEntries.filter(e => e.phone.length === 10),
+    [selectedEntries]
+  );
+
+  /** Entradas encontradas pero sin teléfono (URL entries) */
+  const pendingPhone = useMemo(
+    () => selectedEntries.filter(e => e.phone.length !== 10),
+    [selectedEntries]
+  );
+
+  const importableCount = readyToImport.length;
+
+  const allImported = useMemo(
+    () => searchEntries.filter(e => e.importStatus === 'success').length,
+    [searchEntries]
+  );
+
+  // ============================================
+  // EFFECTS
+  // ============================================
+
   useEffect(() => {
     const loadCoordinaciones = async () => {
       try {
-        const { data, error } = await analysisSupabase
+        const { data } = await analysisSupabase
           .from('coordinaciones')
           .select('id, nombre');
-        
-        if (error) {
-          console.error('Error cargando coordinaciones:', error);
-          return;
-        }
-
         const map = new Map<string, string>();
-        data?.forEach(coord => {
-          map.set(coord.id, coord.nombre);
-        });
+        data?.forEach(c => map.set(c.id, c.nombre));
         setCoordinacionesMap(map);
-      } catch (err) {
-        console.error('Error al cargar coordinaciones:', err);
-      }
+      } catch {}
     };
-
-    if (isOpen) {
-      loadCoordinaciones();
-    }
+    if (isOpen) loadCoordinaciones();
   }, [isOpen]);
 
-  /**
-   * Reset del wizard al cerrar/abrir
-   */
   useEffect(() => {
     if (isOpen) {
       setCurrentStep('search');
-      setPhoneNumber('');
-      setLeadData(null);
-      setExistingProspect(null);
-      setError(null);
-      setPermissionValidation(null);
+      setSearchInput('');
+      setSearchEntries([]);
+      setParseErrors([]);
+      setIsSearching(false);
+      setHasSearched(false);
       setIsImporting(false);
-      setImportedProspectId(null);
-      setImportedProspectData(null);
+      setImportedProspects([]);
       setTemplates([]);
       setFilteredTemplates([]);
       setSelectedTemplate(null);
@@ -245,671 +358,596 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
   }, [isOpen]);
 
-  /**
-   * ============================================
-   * PASO 1: BÚSQUEDA DEL PROSPECTO
-   * ============================================
-   */
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 10) {
-      setPhoneNumber(value);
+  // Filter templates
+  useEffect(() => {
+    let filtered = templates;
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(t => t.tags?.some(tag => selectedTags.includes(tag)));
     }
-  };
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term)
+      );
+    }
+    setFilteredTemplates(filtered);
+  }, [selectedTags, searchTerm, templates]);
+
+  // ============================================
+  // SEARCH LOGIC
+  // ============================================
 
   const searchLocalProspect = async (phone: string): Promise<ExistingProspect | null> => {
     try {
-      const normalizedPhone = normalizePhone(phone);
-      
-      // Buscar usando LIKE para últimos 10 dígitos
-      // Maneja formatos: 3333243333, 523333243333, +523333243333, 5213333243333
-      const { data: candidates, error: dbError } = await analysisSupabase
+      const normalized = normalizePhone(phone);
+      const { data: candidates } = await analysisSupabase
         .from('prospectos')
         .select('id, nombre_completo, ejecutivo_id, coordinacion_id, whatsapp, telefono_principal')
-        .or(`whatsapp.like.%${normalizedPhone},telefono_principal.like.%${normalizedPhone}`)
-        .limit(10); // Traer hasta 10 candidatos para validar localmente
+        .or(`whatsapp.like.%${normalized},telefono_principal.like.%${normalized}`)
+        .limit(10);
 
-      if (dbError) {
-        return null;
-      }
+      if (!candidates?.length) return null;
 
-      if (!candidates || candidates.length === 0) {
-        return null;
-      }
-      
-      // Filtrar candidatos que realmente terminen en los 10 dígitos (validación estricta)
-      const exactMatch = candidates.find(candidate => {
-        const whatsappNorm = candidate.whatsapp?.replace(/\D/g, '').slice(-10);
-        const telefonoNorm = candidate.telefono_principal?.replace(/\D/g, '').slice(-10);
-        return whatsappNorm === normalizedPhone || telefonoNorm === normalizedPhone;
+      const match = candidates.find(c => {
+        const w = c.whatsapp?.replace(/\D/g, '').slice(-10);
+        const t = c.telefono_principal?.replace(/\D/g, '').slice(-10);
+        return w === normalized || t === normalized;
       });
-      
-      if (!exactMatch) {
-        return null;
-      }
+      if (!match) return null;
 
-      // Buscar conversación asociada
-      const { data: conversacionData } = await analysisSupabase
+      const { data: conv } = await analysisSupabase
         .from('conversaciones_whatsapp')
         .select('id')
-        .eq('prospecto_id', exactMatch.id)
+        .eq('prospecto_id', match.id)
         .maybeSingle();
 
-      // Obtener nombres de coordinación y ejecutivo
-      let coordinacionNombre = null;
-      let ejecutivoNombre = null;
-      
-      if (exactMatch.coordinacion_id) {
-        const { data: coordData } = await analysisSupabase
-          .from('coordinaciones')
-          .select('nombre')
-          .eq('id', exactMatch.coordinacion_id)
-          .maybeSingle();
-        coordinacionNombre = coordData?.nombre || null;
+      let coordNombre = null;
+      let ejNombre = null;
+      if (match.coordinacion_id) {
+        const { data: cd } = await analysisSupabase
+          .from('coordinaciones').select('nombre').eq('id', match.coordinacion_id).maybeSingle();
+        coordNombre = cd?.nombre || null;
       }
-      
-      if (exactMatch.ejecutivo_id) {
-        const { data: userData } = await analysisSupabase
-          .from('user_profiles_v2')
-          .select('full_name')
-          .eq('id', exactMatch.ejecutivo_id)
-          .maybeSingle();
-        ejecutivoNombre = userData?.full_name || null;
+      if (match.ejecutivo_id) {
+        const { data: ud } = await analysisSupabase
+          .from('user_profiles_v2').select('full_name').eq('id', match.ejecutivo_id).maybeSingle();
+        ejNombre = ud?.full_name || null;
       }
 
       return {
-        id: exactMatch.id,
-        nombre_completo: exactMatch.nombre_completo,
-        conversacion_id: conversacionData?.id || null,
-        ejecutivo_id: exactMatch.ejecutivo_id,
-        coordinacion_id: exactMatch.coordinacion_id,
-        coordinacion_nombre: coordinacionNombre,
-        ejecutivo_nombre: ejecutivoNombre,
+        id: match.id,
+        nombre_completo: match.nombre_completo,
+        conversacion_id: conv?.id || null,
+        ejecutivo_id: match.ejecutivo_id,
+        coordinacion_id: match.coordinacion_id,
+        coordinacion_nombre: coordNombre,
+        ejecutivo_nombre: ejNombre,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   };
 
-  const handleSearch = async () => {
-    if (!phoneNumber.trim()) {
-      toast.error('Ingresa un número de teléfono');
-      return;
-    }
-
-    const normalized = normalizePhone(phoneNumber);
-    if (normalized.length !== 10) {
-      toast.error('El número debe tener 10 dígitos');
-      return;
-    }
-
-    setIsSearching(true);
-    setError(null);
-    setLeadData(null);
-    setExistingProspect(null);
-    setPermissionValidation(null);
-
+  const searchSingleEntry = async (entry: SearchEntry): Promise<SearchEntry> => {
+    const start = Date.now();
     try {
-      // 1. Buscar en BD local
-      const localProspect = await searchLocalProspect(normalized);
-
-      if (localProspect) {
-        setExistingProspect(localProspect);
-        
-        // Validar si puede ver este prospecto
-        const validation = validateProspectPermissions(localProspect);
-        setPermissionValidation(validation);
-        
-        // ⛔ DETENER AQUÍ - Prospecto ya existe, no continuar a Dynamics
-        toast.error('Este prospecto ya existe en el sistema');
-        setIsSearching(false);
-        return; // NO avanzar al paso de permisos
+      // For phone entries, check local DB first
+      if (entry.type === 'phone') {
+        const local = await searchLocalProspect(entry.value);
+        if (local) {
+          return {
+            ...entry,
+            status: 'exists_locally',
+            existingProspect: local,
+            selected: false,
+            searchTimeMs: Date.now() - start,
+          };
+        }
       }
 
-      // 2. Si NO existe, buscar en Dynamics
-      const result = await dynamicsLeadService.searchLead({ phone: normalized });
+      // Search in Dynamics
+      const searchParams = entry.type === 'url'
+        ? { id_dynamics: entry.value }
+        : { phone: entry.value };
+
+      const result = await dynamicsLeadService.searchLead(searchParams);
 
       if (result.success && result.data) {
-        setLeadData(result.data);
+        const permission = validateDynamicsLeadPermissions(result.data);
         
-        // Validar permisos por coordinación
-        const validation = validateDynamicsLeadPermissions(result.data);
-        setPermissionValidation(validation);
+        // Auto-fill phone if the CRM response includes it
+        // Fields that Dynamics may return with phone data
+        const leadAny = result.data as Record<string, any>;
+        const crmPhone = leadAny.Telefono || leadAny.MobilePhone || leadAny.Telephone1 
+          || leadAny.telefono || leadAny.mobilephone || leadAny.telephone1 || '';
+        const autoPhone = crmPhone ? normalizePhone(String(crmPhone)) : '';
         
-        if (validation.canImport) {
-          toast.success('Lead encontrado en Dynamics CRM');
-          setCurrentStep('permissions');
-        } else {
-          toast.error(validation.reason || 'No tienes permiso para importar este prospecto');
-        }
-      } else {
-        setError(result.error || 'Lead no encontrado en Dynamics CRM');
-        toast.error(result.error || 'No se encontró el lead');
+        return {
+          ...entry,
+          status: 'found',
+          leadData: result.data,
+          permission,
+          selected: permission.canImport,
+          // Auto-fill: use CRM phone if available, keep existing phone (from phone entry) if not
+          phone: entry.phone || (autoPhone.length === 10 ? autoPhone : ''),
+          searchTimeMs: Date.now() - start,
+        };
       }
+
+      return {
+        ...entry,
+        status: 'not_found',
+        error: result.error || 'Lead no encontrado en Dynamics',
+        selected: false,
+        searchTimeMs: Date.now() - start,
+      };
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Error al buscar en Dynamics';
-      setError(errorMessage);
-      toast.error(errorMessage);
-    } finally {
-      setIsSearching(false);
+      return {
+        ...entry,
+        status: 'error',
+        error: err instanceof Error ? err.message : 'Error de búsqueda',
+        selected: false,
+        searchTimeMs: Date.now() - start,
+      };
     }
   };
 
   /**
-   * ============================================
-   * PASO 2: VALIDACIÓN DE PERMISOS
-   * ============================================
+   * Deduplica entradas por LeadID después de las búsquedas.
+   * Si el mismo lead aparece por URL y por teléfono, fusiona:
+   * - Toma el teléfono de la entrada tipo 'phone'
+   * - Marca la entrada duplicada como merged (eliminada)
    */
+  const deduplicateByLeadId = (results: SearchEntry[]): { deduplicated: SearchEntry[]; mergedCount: number } => {
+    const leadIdMap = new Map<string, SearchEntry>();
+    const deduplicated: SearchEntry[] = [];
+    let mergedCount = 0;
 
-  const validateProspectPermissions = (prospect: ExistingProspect): PermissionValidation => {
-    // Admin, Coordinador de Calidad y Operativo: acceso total
-    if (isAdmin || isCoordinadorCalidad || isOperativo) {
-      return { canImport: true, reason: null };
+    for (const entry of results) {
+      const leadId = entry.leadData?.LeadID;
+
+      // Si no tiene leadId (no encontrado, error, etc.), mantenerlo tal cual
+      if (!leadId || entry.status !== 'found') {
+        deduplicated.push(entry);
+        continue;
+      }
+
+      const existing = leadIdMap.get(leadId);
+      if (!existing) {
+        leadIdMap.set(leadId, entry);
+        deduplicated.push(entry);
+        continue;
+      }
+
+      // Duplicado encontrado → fusionar
+      mergedCount++;
+
+      // Determinar cuál tiene teléfono
+      const phoneEntry = entry.type === 'phone' ? entry : existing.type === 'phone' ? existing : null;
+      const urlEntry = entry.type === 'url' ? entry : existing.type === 'url' ? existing : null;
+
+      // Fusionar: mantener el que ya está en deduplicated, agregar teléfono si falta
+      const idx = deduplicated.findIndex(e => e.id === existing.id);
+      if (idx !== -1) {
+        deduplicated[idx] = {
+          ...deduplicated[idx],
+          // Tomar el teléfono de donde lo tenga
+          phone: phoneEntry?.phone || deduplicated[idx].phone || entry.phone,
+          // Marcar como fusionado para UI
+          raw: `${deduplicated[idx].raw} (fusionado)`,
+          // Usar el menor tiempo de búsqueda
+          searchTimeMs: Math.min(deduplicated[idx].searchTimeMs || 999999, entry.searchTimeMs || 999999),
+        };
+      }
+      // El duplicado NO se agrega a deduplicated (se descarta)
     }
 
-    // Coordinador y Supervisor: verificar coordinación
-    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador' || user?.role_name === 'supervisor';
-    
-    if (isCoordinador && user?.coordinacion_id && prospect.coordinacion_id) {
-      const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
-      const prospectCoordNorm = normalizeCoordinacion(prospect.coordinacion_id);
-      
-      if (userCoordNorm === prospectCoordNorm) {
-        return { canImport: true, reason: null };
-      }
-    }
-
-    // Ejecutivo: verificar que sea su prospecto o de su coordinación
-    const isEjecutivo = user?.is_ejecutivo || user?.role_name === 'ejecutivo';
-    
-    if (isEjecutivo) {
-      // Si es su prospecto
-      if (prospect.ejecutivo_id === user.id) {
-        return { canImport: true, reason: null };
-      }
-      
-      // Si es de su coordinación
-      if (user.coordinacion_id && prospect.coordinacion_id) {
-        const userCoordNorm = normalizeCoordinacion(user.coordinacion_id);
-        const prospectCoordNorm = normalizeCoordinacion(prospect.coordinacion_id);
-        
-        if (userCoordNorm === prospectCoordNorm) {
-          return { canImport: true, reason: null };
-        }
-      }
-    }
-
-    return {
-      canImport: false,
-      reason: 'Este prospecto pertenece a otra coordinación',
-      ownerInfo: {
-        ejecutivo_nombre: prospect.ejecutivo_nombre || 'Desconocido',
-        coordinacion_nombre: prospect.coordinacion_nombre || 'Desconocida',
-      },
-    };
+    return { deduplicated, mergedCount };
   };
+
+  const handleSearch = async () => {
+    const { entries, errors } = parseSearchInput(searchInput);
+    setParseErrors(errors);
+
+    if (entries.length === 0) {
+      if (errors.length === 0) toast.error('Ingresa al menos un teléfono o URL de CRM');
+      return;
+    }
+
+    // Mark all as searching
+    const searching = entries.map(e => ({ ...e, status: 'searching' as const }));
+    setSearchEntries(searching);
+    setIsSearching(true);
+    setHasSearched(true);
+
+    // Launch all searches in parallel
+    const allResults: SearchEntry[] = new Array(searching.length);
+    const promises = searching.map(async (entry, i) => {
+      const result = await searchSingleEntry(entry);
+      allResults[i] = result;
+      // Update individual entry as it completes (pre-dedup, for real-time feedback)
+      setSearchEntries(prev => {
+        const updated = [...prev];
+        updated[i] = result;
+        return updated;
+      });
+      return result;
+    });
+
+    await Promise.allSettled(promises);
+
+    // Deduplicate by LeadID after ALL searches complete
+    const { deduplicated, mergedCount } = deduplicateByLeadId(allResults);
+    setSearchEntries(deduplicated);
+    setIsSearching(false);
+
+    // Summary toast
+    const found = deduplicated.filter(r => r.status === 'found').length;
+    const existing = deduplicated.filter(r => r.status === 'exists_locally').length;
+    const notFound = deduplicated.filter(r => r.status === 'not_found' || r.status === 'error').length;
+
+    if (mergedCount > 0) {
+      toast(`${mergedCount} duplicado${mergedCount > 1 ? 's' : ''} fusionado${mergedCount > 1 ? 's' : ''} (mismo lead)`, { icon: '🔗' });
+    }
+    if (found > 0) {
+      toast.success(`${found} lead${found > 1 ? 's' : ''} encontrado${found > 1 ? 's' : ''} en Dynamics`);
+    }
+    if (existing > 0) {
+      toast(`${existing} ya existe${existing > 1 ? 'n' : ''} en el sistema`, { icon: '⚠️' });
+    }
+    if (notFound > 0 && found === 0 && mergedCount === 0) {
+      toast.error('No se encontraron leads');
+    }
+  };
+
+  // ============================================
+  // PERMISSION VALIDATION
+  // ============================================
 
   const validateDynamicsLeadPermissions = (lead: DynamicsLeadInfo): PermissionValidation => {
-    // Admin, Coordinador de Calidad y Operativo: pueden importar cualquier coordinación
     if (isAdmin || isCoordinadorCalidad || isOperativo) {
       return { canImport: true, reason: null };
     }
 
-    // Coordinador y Supervisor: verificar coordinación
-    // Usar is_coordinador O role_name como fallback
     const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador' || user?.role_name === 'supervisor';
-    
-    if (isCoordinador) {
-      if (!user.coordinacion_id) {
-        return {
-          canImport: false,
-          reason: 'No tienes coordinación asignada. Contacta al administrador.',
-        };
-      }
-
-      if (!lead.Coordinacion) {
-        return {
-          canImport: false,
-          reason: 'Este prospecto no tiene coordinación asignada en Dynamics',
-        };
-      }
-
-      // IMPORTANTE: user.coordinacion_id es UUID, lead.Coordinacion es nombre
-      // Necesitamos buscar el nombre de la coordinación del usuario
-      const userCoordName = coordinacionesMap.get(user.coordinacion_id) || user.coordinacion_id;
-      const userCoordNorm = normalizeCoordinacion(userCoordName);
-      const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
-      
-      if (userCoordNorm === leadCoordNorm) {
-        return { canImport: true, reason: null };
-      }
-      
-      return {
-        canImport: false,
-        reason: `Este prospecto pertenece a ${lead.Coordinacion}, no a tu coordinación (${userCoordName})`,
-      };
-    }
-
-    // Ejecutivo: verificar coordinación
-    // Usar is_ejecutivo O role_name como fallback
     const isEjecutivo = user?.is_ejecutivo || user?.role_name === 'ejecutivo';
-    
-    if (isEjecutivo) {
-      if (!user.coordinacion_id) {
-        return {
-          canImport: false,
-          reason: 'No tienes coordinación asignada. Contacta al administrador.',
-        };
-      }
 
+    if (isCoordinador || isEjecutivo) {
+      if (!user?.coordinacion_id) {
+        return { canImport: false, reason: 'No tienes coordinación asignada' };
+      }
       if (!lead.Coordinacion) {
-        return {
-          canImport: false,
-          reason: 'Este prospecto no tiene coordinación asignada en Dynamics',
-        };
+        return { canImport: false, reason: 'Prospecto sin coordinación en Dynamics' };
       }
 
-      // IMPORTANTE: user.coordinacion_id es UUID, lead.Coordinacion es nombre
-      // Necesitamos buscar el nombre de la coordinación del usuario
       const userCoordName = coordinacionesMap.get(user.coordinacion_id) || user.coordinacion_id;
-      const userCoordNorm = normalizeCoordinacion(userCoordName);
-      const leadCoordNorm = normalizeCoordinacion(lead.Coordinacion);
-      
-      if (userCoordNorm === leadCoordNorm) {
-        return { canImport: true, reason: null };
-      }
-      
+      const userNorm = normalizeCoordinacion(userCoordName);
+      const leadNorm = normalizeCoordinacion(lead.Coordinacion);
+
+      if (userNorm === leadNorm) return { canImport: true, reason: null };
+
       return {
         canImport: false,
-        reason: `Este prospecto es de ${lead.Coordinacion}. Solo puedes importar de tu coordinación (${userCoordName})`,
+        reason: `Pertenece a ${lead.Coordinacion}, no a tu coordinación (${userCoordName})`,
       };
     }
 
-    // Si llegamos aquí, el usuario no tiene rol reconocido
-    return {
-      canImport: false,
-      reason: 'No tienes permisos para importar prospectos. Contacta al administrador.',
-    };
+    return { canImport: false, reason: 'Sin permisos para importar' };
   };
 
-  /**
-   * ============================================
-   * PASO 3: IMPORTACIÓN DEL PROSPECTO
-   * ============================================
-   */
+  // ============================================
+  // IMPORT LOGIC
+  // ============================================
 
-  const handleImport = async () => {
-    if (!leadData || !user) {
-      toast.error('Faltan datos requeridos para la importación');
+  const handleImportAll = async () => {
+    if (!user) return;
+
+    if (readyToImport.length === 0) {
+      if (pendingPhone.length > 0) {
+        toast.error('Ingresa el número de WhatsApp para poder importar');
+      } else {
+        toast.error('No hay prospectos listos para importar');
+      }
       return;
     }
 
     setIsImporting(true);
 
-    try {
+    // Mark ready entries as importing
+    const readyIds = new Set(readyToImport.map(e => e.id));
+    setSearchEntries(prev => prev.map(e => 
+      readyIds.has(e.id)
+        ? { ...e, importStatus: 'importing' as const }
+        : e
+    ));
+
+    const importPromises = readyToImport.map(async (entry) => {
+      if (!entry.leadData) return;
+
       const payload: ImportContactPayload = {
         ejecutivo_nombre: user.full_name || user.email || 'Desconocido',
         ejecutivo_id: user.id,
         coordinacion_id: user.coordinacion_id || '',
         fecha_solicitud: new Date().toISOString(),
         lead_dynamics: {
-          LeadID: leadData.LeadID,
-          Nombre: leadData.Nombre,
-          Email: leadData.Email,
-          EstadoCivil: leadData.EstadoCivil || null,
-          Ocupacion: leadData.Ocupacion || null,
-          Pais: leadData.Pais || null,
-          EntidadFederativa: leadData.EntidadFederativa || null,
-          Coordinacion: leadData.Coordinacion || null,
-          CoordinacionID: leadData.CoordinacionID || null,
-          Propietario: leadData.Propietario || null,
-          OwnerID: leadData.OwnerID || null,
-          FechaUltimaLlamada: leadData.FechaUltimaLlamada || null,
-          Calificacion: leadData.Calificacion || null,
+          LeadID: entry.leadData.LeadID,
+          Nombre: entry.leadData.Nombre,
+          Email: entry.leadData.Email,
+          EstadoCivil: entry.leadData.EstadoCivil || null,
+          Ocupacion: entry.leadData.Ocupacion || null,
+          Pais: entry.leadData.Pais || null,
+          EntidadFederativa: entry.leadData.EntidadFederativa || null,
+          Coordinacion: entry.leadData.Coordinacion || null,
+          CoordinacionID: entry.leadData.CoordinacionID || null,
+          Propietario: entry.leadData.Propietario || null,
+          OwnerID: entry.leadData.OwnerID || null,
+          FechaUltimaLlamada: entry.leadData.FechaUltimaLlamada || null,
+          Calificacion: entry.leadData.Calificacion || null,
         },
-        telefono: normalizePhone(phoneNumber),
-        nombre_completo: leadData.Nombre,
-        id_dynamics: leadData.LeadID,
+        telefono: normalizePhone(entry.phone),
+        nombre_completo: entry.leadData.Nombre,
+        id_dynamics: entry.leadData.LeadID,
       };
 
-      const result = await importContactService.importContact(payload);
-
-      if (result.success && result.prospecto_id) {
-        toast.success('Prospecto importado exitosamente');
-        setImportedProspectId(result.prospecto_id);
+      try {
+        const result = await importContactService.importContact(payload);
         
-        // Cargar datos completos del prospecto recién importado
-        const { data: prospectoData, error: prospectoError } = await analysisSupabase
-          .from('prospectos')
-          .select('*')
-          .eq('id', result.prospecto_id)
-          .single();
+        setSearchEntries(prev => prev.map(e =>
+          e.id === entry.id
+            ? {
+                ...e,
+                importStatus: result.success && result.prospecto_id ? 'success' as const : 'error' as const,
+                importedProspectId: result.prospecto_id || undefined,
+                importError: !result.success || !result.prospecto_id ? (result.error || 'Error al importar') : undefined,
+              }
+            : e
+        ));
 
-        if (prospectoError || !prospectoData) {
-          toast.error('No se pudo cargar los datos del prospecto');
-          return;
+        if (result.success && result.prospecto_id) {
+          const { data: pData } = await analysisSupabase
+            .from('prospectos').select('*').eq('id', result.prospecto_id).single();
+          if (pData) {
+            setImportedProspects(prev => [...prev, { id: result.prospecto_id!, data: pData }]);
+          }
         }
-
-        setImportedProspectData(prospectoData);
-        
-        // Cargar plantillas
-        await loadTemplates();
-        
-        // Avanzar a selección de plantilla
-        setCurrentStep('select_template');
-      } else {
-        toast.error(result.error || 'Error al importar el contacto');
+      } catch (err) {
+        setSearchEntries(prev => prev.map(e =>
+          e.id === entry.id
+            ? { ...e, importStatus: 'error' as const, importError: 'Error de conexión' }
+            : e
+        ));
       }
-    } catch (error) {
-      console.error('Error en importación:', error);
-      toast.error('Error al importar el contacto');
-    } finally {
-      setIsImporting(false);
-    }
+    });
+
+    await Promise.allSettled(importPromises);
+    setIsImporting(false);
+
+    // Wait briefly for state to settle, then check results
+    // IMPORTANT: Don't call setState inside another setState to avoid React warnings
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    // Read latest entries to check results
+    setSearchEntries(prev => {
+      const imported = prev.filter(e => e.importStatus === 'success');
+      const failed = prev.filter(e => e.importStatus === 'error' && e.selected);
+
+      // Schedule toasts and navigation outside of setState
+      queueMicrotask(() => {
+        if (imported.length > 0) {
+          toast.success(`${imported.length} prospecto${imported.length > 1 ? 's' : ''} importado${imported.length > 1 ? 's' : ''}`);
+          loadTemplates();
+          setCurrentStep('select_template');
+        }
+        if (failed.length > 0) {
+          toast.error(`${failed.length} importación${failed.length > 1 ? 'es' : ''} fallida${failed.length > 1 ? 's' : ''}`);
+        }
+      });
+
+      return prev; // Don't modify, just read
+    });
   };
 
-  /**
-   * ============================================
-   * PASO 4: SELECCIÓN DE PLANTILLA
-   * ============================================
-   */
+  // ============================================
+  // TEMPLATE LOGIC
+  // ============================================
 
   const loadTemplates = async () => {
     try {
       setLoadingTemplates(true);
       const allTemplates = await whatsappTemplatesService.getAllTemplates();
-      
-      // Filtrar solo plantillas aprobadas
       const approved = allTemplates.filter(t => t.status === 'APPROVED');
-      
       setTemplates(approved);
       setFilteredTemplates(approved);
-    } catch (error) {
-      console.error('Error cargando plantillas:', error);
+    } catch {
       toast.error('Error al cargar plantillas');
     } finally {
       setLoadingTemplates(false);
     }
   };
 
-  // Filtrar plantillas por tags y búsqueda
-  useEffect(() => {
-    let filtered = templates;
-
-    // Filtrar por tags seleccionados
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter(template => {
-        if (!template.tags || template.tags.length === 0) return false;
-        return selectedTags.some(tag => template.tags?.includes(tag));
-      });
-    }
-
-    // Filtrar por término de búsqueda
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(template =>
-        template.name.toLowerCase().includes(term) ||
-        template.description?.toLowerCase().includes(term)
-      );
-    }
-
-    setFilteredTemplates(filtered);
-  }, [selectedTags, searchTerm, templates]);
-
-  // Validar si la plantilla puede ser enviada (validación de variables con datos reales)
   const canSendTemplate = (template: WhatsAppTemplate): { canSend: boolean; reason?: string; missingFields?: string[] } => {
-    // Si no hay datos del prospecto aún, asumir que puede enviar
-    if (!importedProspectData) {
-      return { canSend: true };
-    }
-
-    // Obtener variables requeridas de la plantilla
-    const requiredVariables = template.variable_mappings || [];
-    const missingFields: string[] = [];
+    if (importedProspects.length === 0) return { canSend: true };
+    // Check first imported prospect for field availability
+    const prospectData = importedProspects[0]?.data;
+    if (!prospectData) return { canSend: true };
     
-    // Validar cada variable
-    for (const mapping of requiredVariables) {
-      if (mapping.table_name === 'system') {
-        // Variables del sistema siempre disponibles
-        continue;
-      } else if (mapping.table_name === 'prospectos') {
-        // Variables del prospecto - verificar que el campo tenga valor
-        const fieldValue = importedProspectData[mapping.field_name];
-        
-        if (!fieldValue || (typeof fieldValue === 'string' && fieldValue.trim() === '')) {
-          missingFields.push(mapping.display_name);
+    const missing: string[] = [];
+    for (const mapping of (template.variable_mappings || [])) {
+      if (mapping.table_name === 'system') continue;
+      if (mapping.table_name === 'prospectos') {
+        const val = prospectData[mapping.field_name];
+        if (!val || (typeof val === 'string' && !val.trim())) {
+          missing.push(mapping.display_name);
         }
       }
-      // Para otras tablas (destinos, resorts, etc.), asumir que están disponibles
     }
-
-    if (missingFields.length > 0) {
-      return {
-        canSend: false,
-        reason: `Faltan datos del prospecto: ${missingFields.join(', ')}`,
-        missingFields,
-      };
+    if (missing.length > 0) {
+      return { canSend: false, reason: `Faltan datos: ${missing.join(', ')}`, missingFields: missing };
     }
-
     return { canSend: true };
   };
 
   const handleSelectTemplate = (template: WhatsAppTemplate) => {
     const validation = canSendTemplate(template);
-    
     if (!validation.canSend) {
-      toast.error(validation.reason || 'Esta plantilla no puede ser enviada');
+      toast.error(validation.reason || 'Plantilla no disponible');
       return;
     }
-
     setSelectedTemplate(template);
     
-    // Inicializar variables del sistema con valores por defecto
-    const initialVariables: Record<number, string> = {};
-    
-    template.variable_mappings?.forEach(mapping => {
-      if (mapping.table_name === 'system') {
-        // Variables del sistema con valores por defecto
-        if (mapping.field_name === 'fecha_actual') {
-          initialVariables[mapping.variable_number] = new Date().toLocaleDateString('es-MX', { 
-            month: 'long', 
-            day: 'numeric' 
-          });
-        } else if (mapping.field_name === 'hora_actual') {
-          initialVariables[mapping.variable_number] = new Date().toLocaleTimeString('es-MX', { 
-            hour: 'numeric', 
-            minute: '2-digit',
-            hour12: true 
-          });
-        } else if (mapping.field_name === 'ejecutivo_nombre') {
-          initialVariables[mapping.variable_number] = user?.full_name || '';
+    const initial: Record<number, string> = {};
+    template.variable_mappings?.forEach(m => {
+      if (m.table_name === 'system') {
+        if (m.field_name === 'fecha_actual') {
+          initial[m.variable_number] = new Date().toLocaleDateString('es-MX', { month: 'long', day: 'numeric' });
+        } else if (m.field_name === 'hora_actual') {
+          initial[m.variable_number] = new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
+        } else if (m.field_name === 'ejecutivo_nombre') {
+          initial[m.variable_number] = user?.full_name || '';
         }
       }
     });
-    
-    setVariableValues(initialVariables);
+    setVariableValues(initial);
     setCurrentStep('configure_variables');
   };
 
-  /**
-   * ============================================
-   * PASO 5: CONFIGURACIÓN DE VARIABLES
-   * ============================================
-   */
-
-  const handleVariableChange = (varNumber: number, value: string) => {
-    setVariableValues(prev => ({
-      ...prev,
-      [varNumber]: value,
-    }));
-  };
-
-  /**
-   * ============================================
-   * PASO 6: ENVÍO DE PLANTILLA
-   * ============================================
-   */
+  // ============================================
+  // SEND TEMPLATE (to all imported)
+  // ============================================
 
   const handleSendTemplate = async () => {
-    if (!selectedTemplate || !importedProspectId || !user) {
-      toast.error('Faltan datos para enviar la plantilla');
+    if (!selectedTemplate || importedProspects.length === 0 || !user) {
+      toast.error('Faltan datos para enviar');
       return;
     }
 
     setIsSending(true);
+    let sentCount = 0;
+    let errorCount = 0;
 
-    try {
-      // 1. Obtener datos completos del prospecto para resolver variables
-      const { data: prospectoData, error: prospectoError } = await analysisSupabase
-        .from('prospectos')
-        .select('*')
-        .eq('id', importedProspectId)
-        .single();
-
-      if (prospectoError || !prospectoData) {
-        throw new Error('No se pudo cargar los datos del prospecto');
-      }
-
-      // 2. Resolver variables usando el servicio de plantillas
-      const resolvedVariables: Record<number, string> = {};
-      
-      if (selectedTemplate.variable_mappings) {
-        for (const mapping of selectedTemplate.variable_mappings) {
-          if (mapping.table_name === 'system') {
-            // Variables del sistema ya están en variableValues
-            if (variableValues[mapping.variable_number]) {
-              resolvedVariables[mapping.variable_number] = variableValues[mapping.variable_number];
+    for (const prospect of importedProspects) {
+      try {
+        const resolvedVariables: Record<number, string> = {};
+        
+        if (selectedTemplate.variable_mappings) {
+          for (const mapping of selectedTemplate.variable_mappings) {
+            if (mapping.table_name === 'system') {
+              if (variableValues[mapping.variable_number]) {
+                resolvedVariables[mapping.variable_number] = variableValues[mapping.variable_number];
+              } else {
+                resolvedVariables[mapping.variable_number] = whatsappTemplatesService.getSystemVariableValue(
+                  mapping.field_name, mapping.custom_value, user.full_name || user.email
+                );
+              }
+            } else if (mapping.table_name === 'prospectos') {
+              const val = prospect.data[mapping.field_name];
+              resolvedVariables[mapping.variable_number] = val ? String(val) : `[${mapping.display_name}]`;
             } else {
-              // Generar valor por defecto
-              resolvedVariables[mapping.variable_number] = whatsappTemplatesService.getSystemVariableValue(
-                mapping.field_name,
-                mapping.custom_value,
-                user.full_name || user.email
-              );
+              const example = await whatsappTemplatesService.getTableExampleData(mapping.table_name, mapping.field_name);
+              resolvedVariables[mapping.variable_number] = example || `[${mapping.display_name}]`;
             }
-          } else if (mapping.table_name === 'prospectos') {
-            // Variables del prospecto
-            const fieldValue = (prospectoData as any)[mapping.field_name];
-            resolvedVariables[mapping.variable_number] = fieldValue ? String(fieldValue) : `[${mapping.display_name}]`;
-          } else {
-            // Otras tablas (destinos, resorts, etc.)
-            const exampleValue = await whatsappTemplatesService.getTableExampleData(
-              mapping.table_name,
-              mapping.field_name
-            );
-            resolvedVariables[mapping.variable_number] = exampleValue || `[${mapping.display_name}]`;
           }
         }
-      }
 
-      // 3. Resolver texto de la plantilla con variables
-      let resolvedText = '';
-      
-      selectedTemplate.components.forEach(component => {
-        if (component.type === 'BODY' && component.text) {
-          let text = component.text;
-          
-          // Reemplazar variables en orden descendente para evitar conflictos
-          const sortedVarNums = Object.keys(resolvedVariables)
-            .map(n => parseInt(n, 10))
-            .sort((a, b) => b - a);
-          
-          sortedVarNums.forEach(varNum => {
-            const value = resolvedVariables[varNum];
-            text = text.replace(new RegExp(`\\{\\{${varNum}\\}\\}`, 'g'), value);
-          });
-          
-          resolvedText += text + '\n';
+        let resolvedText = '';
+        selectedTemplate.components.forEach(c => {
+          if (c.type === 'BODY' && c.text) {
+            let text = c.text;
+            Object.keys(resolvedVariables)
+              .map(n => parseInt(n, 10))
+              .sort((a, b) => b - a)
+              .forEach(num => {
+                text = text.replace(new RegExp(`\\{\\{${num}\\}\\}`, 'g'), resolvedVariables[num]);
+              });
+            resolvedText += text + '\n';
+          }
+        });
+
+        const payload = {
+          template_id: selectedTemplate.id,
+          template_name: selectedTemplate.name,
+          prospecto_id: prospect.id,
+          variables: resolvedVariables,
+          resolved_text: resolvedText.trim(),
+          triggered_by: 'MANUAL' as const,
+          triggered_by_user: user.id,
+          triggered_by_user_name: user.full_name || user.email,
+        };
+
+        const url = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const text = await response.text();
+        const result = text ? JSON.parse(text) : { success: response.ok };
+        
+        if (response.ok && result.success !== false) {
+          sentCount++;
+        } else {
+          errorCount++;
         }
-      });
-
-      console.log('📤 Variables resueltas:', resolvedVariables);
-      console.log('📝 Texto final:', resolvedText);
-
-      const payload = {
-        template_id: selectedTemplate.id,
-        template_name: selectedTemplate.name,
-        prospecto_id: importedProspectId,
-        variables: resolvedVariables,
-        resolved_text: resolvedText.trim(),
-        triggered_by: 'MANUAL' as const,
-        triggered_by_user: user.id,
-        triggered_by_user_name: user.full_name || user.email,
-      };
-
-      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
-      
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const responseText = await response.text();
-      let result;
-      
-      if (responseText && responseText.trim()) {
-        try {
-          result = JSON.parse(responseText);
-        } catch {
-          throw new Error(`Error del servidor (${response.status}): ${responseText}`);
-        }
-      } else {
-        result = response.ok ? { success: true } : { success: false };
+      } catch {
+        errorCount++;
       }
+    }
 
-      if (!response.ok || (result && !result.success)) {
-        const errorMessage = result?.error || result?.message || `Error ${response.status}`;
-        throw new Error(errorMessage);
-      }
+    setIsSending(false);
 
-      const conversacionId = result?.data?.conversacion_id || result?.conversacion_id || null;
-
-      toast.success('Plantilla enviada exitosamente');
-      
-      // Disparar evento para refrescar conversaciones
+    if (sentCount > 0) {
+      toast.success(`Plantilla enviada a ${sentCount} prospecto${sentCount > 1 ? 's' : ''}`);
       window.dispatchEvent(new CustomEvent('refresh-livechat-conversations'));
       
-      // Si tenemos conversacionId, abrirla después del rerender
-      if (conversacionId) {
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('select-livechat-conversation', { 
-            detail: conversacionId 
-          }));
-        }, 1000);
+      // Navigate to last imported prospect's conversation
+      const lastImported = importedProspects[importedProspects.length - 1];
+      if (lastImported) {
+        onSuccess(lastImported.id);
       }
-      
-      // Cerrar wizard y notificar éxito
-      onSuccess(importedProspectId, conversacionId || undefined);
       onClose();
-    } catch (error) {
-      console.error('Error enviando plantilla:', error);
-      toast.error(error instanceof Error ? error.message : 'Error al enviar la plantilla');
-    } finally {
-      setIsSending(false);
+    }
+    if (errorCount > 0) {
+      toast.error(`${errorCount} envío${errorCount > 1 ? 's' : ''} fallido${errorCount > 1 ? 's' : ''}`);
     }
   };
 
-  /**
-   * ============================================
-   * NAVEGACIÓN DEL WIZARD
-   * ============================================
-   */
+  // ============================================
+  // ENTRY HELPERS
+  // ============================================
+
+  const toggleEntrySelection = (entryId: string) => {
+    setSearchEntries(prev => prev.map(e =>
+      e.id === entryId && e.status === 'found' && e.permission?.canImport
+        ? { ...e, selected: !e.selected }
+        : e
+    ));
+  };
+
+  const updateEntryPhone = (entryId: string, phone: string) => {
+    const digits = phone.replace(/\D/g, '').slice(0, 10);
+    setSearchEntries(prev => prev.map(e =>
+      e.id === entryId ? { ...e, phone: digits } : e
+    ));
+  };
+
+
+  // ============================================
+  // NAVIGATION
+  // ============================================
 
   const canGoNext = (): boolean => {
     switch (currentStep) {
       case 'search':
-        // NO permitir avanzar si existe un prospecto en BD local
-        if (existingProspect) {
-          return false;
-        }
-        return !!leadData && !!permissionValidation?.canImport;
+        // Permitir avanzar si hay al menos 1 entrada seleccionada con permisos
+        // (el teléfono se puede ingresar en el paso 2)
+        return selectedEntries.length > 0 && !isSearching;
       case 'permissions':
-        return !!leadData && !!permissionValidation?.canImport;
+        // Para importar sí se requiere teléfono completo
+        return importableCount > 0;
       case 'select_template':
         return !!selectedTemplate;
       case 'configure_variables':
@@ -925,7 +963,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         setCurrentStep('permissions');
         break;
       case 'permissions':
-        handleImport();
+        handleImportAll();
         break;
       case 'select_template':
         setCurrentStep('configure_variables');
@@ -938,51 +976,67 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
   const handleBack = () => {
     switch (currentStep) {
-      case 'permissions':
-        setCurrentStep('search');
-        break;
-      case 'select_template':
-        setCurrentStep('permissions');
-        break;
-      case 'configure_variables':
-        setCurrentStep('select_template');
-        break;
+      case 'permissions': setCurrentStep('search'); break;
+      case 'select_template': setCurrentStep('permissions'); break;
+      case 'configure_variables': setCurrentStep('select_template'); break;
     }
   };
 
   const getStepTitle = (): string => {
-    switch (currentStep) {
-      case 'search':
-        return 'Buscar Prospecto';
-      case 'permissions':
-        return 'Validar Permisos';
-      case 'select_template':
-        return 'Seleccionar Plantilla';
-      case 'configure_variables':
-        return 'Configurar Variables';
-      case 'confirm':
-        return 'Confirmar Envío';
+    const titles: Record<WizardStep, string> = {
+      search: 'Buscar Prospectos',
+      permissions: 'Revisar e Importar',
+      select_template: 'Seleccionar Plantilla',
+      configure_variables: 'Configurar y Enviar',
+    };
+    return titles[currentStep];
+  };
+
+  const stepOrder: WizardStep[] = ['search', 'permissions', 'select_template', 'configure_variables'];
+  const getStepNumber = () => stepOrder.indexOf(currentStep) + 1;
+
+  // ============================================
+  // STATUS HELPERS
+  // ============================================
+
+  const getStatusIcon = (entry: SearchEntry) => {
+    switch (entry.status) {
+      case 'searching':
+        return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
+      case 'found':
+        return entry.permission?.canImport 
+          ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+          : <ShieldAlert className="w-4 h-4 text-amber-500" />;
+      case 'exists_locally':
+        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
+      case 'not_found':
+      case 'error':
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
       default:
-        return '';
+        return <Hash className="w-4 h-4 text-gray-400" />;
     }
   };
 
-  const getStepNumber = (): number => {
-    const steps: WizardStep[] = ['search', 'permissions', 'select_template', 'configure_variables', 'confirm'];
-    return steps.indexOf(currentStep) + 1;
+  const getImportStatusIcon = (entry: SearchEntry) => {
+    switch (entry.importStatus) {
+      case 'importing': return <Loader2 className="w-3.5 h-3.5 animate-spin text-blue-500" />;
+      case 'success': return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />;
+      case 'error': return <AlertCircle className="w-3.5 h-3.5 text-red-500" />;
+      default: return null;
+    }
   };
 
-  /**
-   * ============================================
-   * RENDER
-   * ============================================
-   */
+  // ============================================
+  // RENDER
+  // ============================================
 
   if (!isOpen) return null;
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
+        key="wizard-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -1001,12 +1055,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
           <div className="px-8 pt-8 pb-6 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 border-b border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {getStepTitle()}
-                </h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Paso {getStepNumber()} de 4
-                </p>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{getStepTitle()}</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Paso {getStepNumber()} de 4</p>
               </div>
               <motion.button
                 initial={{ opacity: 0, rotate: -90 }}
@@ -1021,15 +1071,13 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
             {/* Progress Bar */}
             <div className="mt-6 flex items-center gap-2">
-              {['search', 'permissions', 'select_template', 'configure_variables'].map((step, index) => (
+              {stepOrder.map((step, i) => (
                 <div
                   key={step}
                   className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
-                    getStepNumber() > index + 1
-                      ? 'bg-emerald-500'
-                      : getStepNumber() === index + 1
-                      ? 'bg-blue-500'
-                      : 'bg-gray-200 dark:bg-gray-700'
+                    getStepNumber() > i + 1 ? 'bg-emerald-500'
+                    : getStepNumber() === i + 1 ? 'bg-blue-500'
+                    : 'bg-gray-200 dark:bg-gray-700'
                   }`}
                 />
               ))}
@@ -1037,288 +1085,341 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
           </div>
 
           {/* Content */}
-          <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent">
+          <div className="overflow-y-auto flex-1 px-8 py-6 scrollbar-hide">
             <AnimatePresence mode="wait">
-              {/* PASO 1: BÚSQUEDA */}
+
+              {/* ====== PASO 1: BÚSQUEDA MULTI-INPUT ====== */}
               {currentStep === 'search' && (
                 <motion.div
                   key="search"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
+                  {/* Input Area */}
                   <div>
                     <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                      <Phone className="w-4 h-4 text-gray-400" />
-                      <span>Número de Teléfono</span>
+                      <Search className="w-4 h-4 text-gray-400" />
+                      <span>Teléfonos o URLs de Dynamics CRM</span>
                     </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="tel"
-                        value={phoneNumber}
-                        onChange={handlePhoneChange}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !isSearching) {
-                            handleSearch();
-                          }
-                        }}
-                        placeholder="5512345678"
-                        maxLength={10}
-                        className="flex-1 px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200"
-                        disabled={isSearching}
-                      />
+                    <textarea
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder={`Pega 1 a 5 entradas (una por línea):\n5512345678\nhttps://vidanta.crm.dynamics.com/...?id=xxxx\n3331234567`}
+                      rows={4}
+                      className="w-full px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 font-mono resize-none"
+                      disabled={isSearching}
+                    />
+                    
+                    {/* Input summary */}
+                    {searchInput.trim() && !hasSearched && (
+                      <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                        {(() => {
+                          const { entries, errors } = parseSearchInput(searchInput);
+                          const urls = entries.filter(e => e.type === 'url').length;
+                          const phones = entries.filter(e => e.type === 'phone').length;
+                          return (
+                            <>
+                              {entries.length > 0 && (
+                                <span className="flex items-center gap-1">
+                                  <Hash className="w-3 h-3" />
+                                  {entries.length} entrada{entries.length > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {urls > 0 && (
+                                <span className="flex items-center gap-1 text-purple-500">
+                                  <Zap className="w-3 h-3" />
+                                  {urls} URL{urls > 1 ? 's' : ''} (rápido)
+                                </span>
+                              )}
+                              {phones > 0 && (
+                                <span className="flex items-center gap-1 text-blue-500">
+                                  <Phone className="w-3 h-3" />
+                                  {phones} teléfono{phones > 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {errors.length > 0 && (
+                                <span className="text-red-500">{errors.length} no reconocida{errors.length > 1 ? 's' : ''}</span>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </div>
+                    )}
+
+                    {/* Search Button */}
+                    <div className="mt-3">
                       <button
                         onClick={handleSearch}
-                        disabled={isSearching || phoneNumber.length !== 10}
+                        disabled={isSearching || !searchInput.trim()}
                         className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
                       >
                         {isSearching ? (
-                          <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            <span>Buscando...</span>
-                          </>
+                          <><Loader2 className="w-4 h-4 animate-spin" /><span>Buscando...</span></>
                         ) : (
-                          <>
-                            <Search className="w-4 h-4" />
-                            <span>Buscar</span>
-                          </>
+                          <><Search className="w-4 h-4" /><span>Buscar Todos</span></>
                         )}
                       </button>
                     </div>
-                    <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                      Ingresa 10 dígitos sin código de país
-                    </p>
+
+                    {/* Info note + Tutorial button */}
+                    <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-start gap-2">
+                        <Info className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1 text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                          <p><strong>URLs de CRM</strong> → búsqueda por ID, ~3 segundos</p>
+                          <p><strong>Teléfonos</strong> → búsqueda en Dynamics, ~60-90 segundos</p>
+                          <p>Todas las búsquedas se lanzan en paralelo</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setShowTutorial(true)}
+                        className="mt-2.5 w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg transition-colors group"
+                      >
+                        <Globe className="w-3.5 h-3.5 text-blue-500 group-hover:text-blue-600" />
+                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300">
+                          ¿Cómo obtener la URL del CRM?
+                        </span>
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Error */}
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3"
-                    >
-                      <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-red-900 dark:text-red-300">Error</p>
-                        <p className="text-sm text-red-700 dark:text-red-400 mt-1">{error}</p>
-                      </div>
-                    </motion.div>
+                  {/* Parse errors */}
+                  {parseErrors.length > 0 && (
+                    <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                      {parseErrors.map((err, i) => (
+                        <p key={i} className="text-xs text-red-700 dark:text-red-400">{err}</p>
+                      ))}
+                    </div>
                   )}
 
-                  {/* Prospecto Existente (sin permiso para continuar) */}
-                  {existingProspect && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-6 bg-amber-50 dark:bg-amber-900/20 border-2 border-amber-300 dark:border-amber-700 rounded-xl"
-                    >
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-base font-bold text-amber-900 dark:text-amber-300 mb-3">
-                            Prospecto ya existe
-                          </p>
-                          
-                          <div className="space-y-3 mb-4">
-                            <div>
-                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Nombre</p>
-                              <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">
-                                {existingProspect.nombre_completo}
-                              </p>
-                            </div>
-                            
-                            <div>
-                              <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Ejecutivo Asignado</p>
-                              <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">
-                                {existingProspect.ejecutivo_nombre || 'Sin asignar'}
-                              </p>
-                            </div>
-                            
-                            {existingProspect.coordinacion_nombre && (
-                              <div>
-                                <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Coordinación</p>
-                                <p className="text-sm text-amber-900 dark:text-amber-300 font-medium">
-                                  {existingProspect.coordinacion_nombre}
-                                </p>
-                              </div>
-                            )}
-                            
-                            {existingProspect.conversacion_id && (
-                              <div>
-                                <p className="text-xs text-amber-600 dark:text-amber-400 mb-1">Estado</p>
-                                <p className="text-sm text-amber-900 dark:text-amber-300">
-                                  ✓ Tiene conversación de WhatsApp activa
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div className="p-3 bg-amber-100 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-800 rounded-lg">
-                            <p className="text-xs text-amber-800 dark:text-amber-300">
-                              <strong>No se puede importar:</strong> Este prospecto ya está registrado en el sistema. No es necesario volver a importarlo.
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {/* Lead de Dynamics Encontrado */}
-                  {leadData && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="space-y-4"
-                    >
-                      <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                        <div className="flex items-start gap-3">
-                          <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-sm font-medium text-emerald-900 dark:text-emerald-300">
-                              Lead encontrado en Dynamics
-                            </p>
-                            <div className="mt-3 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <User className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                  {leadData.Nombre}
-                                </span>
-                              </div>
-                              {leadData.Email && (
-                                <div className="flex items-center gap-2">
-                                  <Mail className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                  <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                    {leadData.Email}
-                                  </span>
-                                </div>
-                              )}
-                              {leadData.Coordinacion && (
-                                <div className="flex items-center gap-2">
-                                  <Building className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                  <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                    {leadData.Coordinacion}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-2">
-                                <Phone className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                <span className="text-sm text-emerald-700 dark:text-emerald-400">
-                                  {formatPhoneDisplay(phoneNumber)}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Validación de Permisos */}
-                      {permissionValidation && !permissionValidation.canImport && (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+                  {/* Results */}
+                  {hasSearched && searchEntries.length > 0 && (
+                    <div className="space-y-3">
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Resultados ({searchEntries.filter(e => e.status === 'found').length}/{searchEntries.length} encontrados)
+                      </p>
+                      
+                      {searchEntries.map(entry => (
+                        <motion.div
+                          key={entry.id}
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`p-4 rounded-xl border-2 transition-all ${
+                            entry.status === 'found' && entry.permission?.canImport
+                              ? entry.selected
+                                ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                              : entry.status === 'searching'
+                              ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10'
+                              : entry.status === 'exists_locally'
+                              ? 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10'
+                              : 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10'
+                          }`}
+                        >
                           <div className="flex items-start gap-3">
-                            <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-red-900 dark:text-red-300">
-                                Sin permisos para importar
-                              </p>
-                              <p className="text-sm text-red-700 dark:text-red-400 mt-1">
-                                {permissionValidation.reason}
-                              </p>
+                            {/* Selection checkbox */}
+                            {entry.status === 'found' && entry.permission?.canImport && (
+                              <button onClick={() => toggleEntrySelection(entry.id)} className="mt-0.5 flex-shrink-0">
+                                {entry.selected
+                                  ? <CheckSquare className="w-5 h-5 text-emerald-600" />
+                                  : <Square className="w-5 h-5 text-gray-400 hover:text-gray-600" />
+                                }
+                              </button>
+                            )}
+                            
+                            {/* Status icon */}
+                            <div className="mt-0.5 flex-shrink-0">{getStatusIcon(entry)}</div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              {/* Type badge + time */}
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                                  entry.type === 'url'
+                                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
+                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                }`}>
+                                  {entry.type === 'url' ? <><Zap className="w-2.5 h-2.5" /> URL</> : <><Phone className="w-2.5 h-2.5" /> Tel</>}
+                                </span>
+                                {entry.searchTimeMs !== undefined && (
+                                  <span className="text-[10px] text-gray-400">{(entry.searchTimeMs / 1000).toFixed(1)}s</span>
+                                )}
+                                {entry.status === 'searching' && (
+                                  <span className="text-[10px] text-blue-500 animate-pulse">
+                                    {entry.type === 'url' ? 'Buscando por ID...' : 'Buscando en Dynamics CRM...'}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Lead data */}
+                              {entry.leadData && (
+                                <div className="space-y-1">
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                    {entry.leadData.Nombre}
+                                  </p>
+                                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-gray-600 dark:text-gray-400">
+                                    {entry.leadData.Coordinacion && (
+                                      <span className="flex items-center gap-1">
+                                        <Building className="w-3 h-3" /> {entry.leadData.Coordinacion}
+                                      </span>
+                                    )}
+                                    {entry.leadData.Propietario && (
+                                      <span className="flex items-center gap-1">
+                                        <User className="w-3 h-3" /> {entry.leadData.Propietario}
+                                      </span>
+                                    )}
+                                    {entry.phone && (
+                                      <span className="flex items-center gap-1">
+                                        <Phone className="w-3 h-3" /> {formatPhoneDisplay(entry.phone)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Existing prospect */}
+                              {entry.status === 'exists_locally' && entry.existingProspect && (
+                                <div className="mt-1">
+                                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                                    {entry.existingProspect.nombre_completo}
+                                  </p>
+                                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                                    Ya existe — {entry.existingProspect.ejecutivo_nombre || 'Sin ejecutivo'}
+                                    {entry.existingProspect.coordinacion_nombre && ` · ${entry.existingProspect.coordinacion_nombre}`}
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Permission denied */}
+                              {entry.status === 'found' && entry.permission && !entry.permission.canImport && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                  {entry.permission.reason}
+                                </p>
+                              )}
+
+                              {/* Error */}
+                              {(entry.status === 'error' || entry.status === 'not_found') && (
+                                <p className="text-xs text-red-600 dark:text-red-400 mt-1">{entry.error}</p>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      )}
-                    </motion.div>
+                        </motion.div>
+                      ))}
+                    </div>
                   )}
                 </motion.div>
               )}
 
-              {/* PASO 2: PERMISOS (confirmación antes de importar) */}
-              {currentStep === 'permissions' && leadData && (
+              {/* ====== PASO 2: PERMISOS + IMPORTACIÓN ====== */}
+              {currentStep === 'permissions' && (
                 <motion.div
                   key="permissions"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
+                  className="space-y-5"
                 >
-                  <div className="p-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
                     <div className="flex items-start gap-3">
-                      <Info className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-base font-medium text-blue-900 dark:text-blue-300 mb-4">
-                          Confirmar Importación
+                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-medium text-blue-900 dark:text-blue-300">
+                          Revisar e Importar ({selectedEntries.length} prospecto{selectedEntries.length > 1 ? 's' : ''})
                         </p>
-                        
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Nombre</p>
-                            <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">
-                              {leadData.Nombre}
-                            </p>
-                          </div>
-                          
-                          {leadData.Email && (
-                            <div>
-                              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Email</p>
-                              <p className="text-sm text-blue-900 dark:text-blue-300">
-                                {leadData.Email}
-                              </p>
-                            </div>
-                          )}
-                          
-                          {leadData.Coordinacion && (
-                            <div>
-                              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Coordinación</p>
-                              <p className="text-sm text-blue-900 dark:text-blue-300">
-                                {leadData.Coordinacion}
-                              </p>
-                            </div>
-                          )}
-                          
-                          <div>
-                            <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">Teléfono</p>
-                            <p className="text-sm text-blue-900 dark:text-blue-300">
-                              {formatPhoneDisplay(phoneNumber)}
-                            </p>
-                          </div>
-                          
-                          {leadData.Propietario && (
-                            <div>
-                              <p className="text-xs text-blue-600 dark:text-blue-400 mb-1">
-                                Propietario en Dynamics
-                              </p>
-                              <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">
-                                {leadData.Propietario}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Advertencia sobre asignación */}
-                        <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                          <p className="text-xs text-amber-800 dark:text-amber-300">
-                            <strong>Nota:</strong> El prospecto se asignará automáticamente al propietario que tiene en Dynamics CRM.
-                          </p>
-                        </div>
+                        <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
+                          Los prospectos se asignarán al propietario que tienen en Dynamics CRM.
+                        </p>
                       </div>
                     </div>
                   </div>
 
-                  {permissionValidation?.canImport && (
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        <p className="text-sm text-emerald-900 dark:text-emerald-300">
-                          Tienes permisos para importar este prospecto
+                  {/* Phone needed warning for URL entries */}
+                  {pendingPhone.length > 0 && (
+                    <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+                      <div className="flex items-start gap-2">
+                        <Phone className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-800 dark:text-amber-300">
+                          La búsqueda por URL no incluye el teléfono. Ingresa el número de WhatsApp para poder enviar mensajes al prospecto.
                         </p>
                       </div>
                     </div>
                   )}
+
+                  {/* List of selected entries */}
+                  <div className="space-y-3">
+                    {selectedEntries.map(entry => {
+                      const hasPhone = entry.phone.length === 10;
+                      return (
+                        <div
+                          key={entry.id}
+                          className={`p-4 rounded-xl border transition-all ${
+                            entry.importStatus === 'success'
+                              ? 'border-emerald-300 dark:border-emerald-700 bg-emerald-50 dark:bg-emerald-900/10'
+                              : entry.importStatus === 'error'
+                              ? 'border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/10'
+                              : entry.importStatus === 'importing'
+                              ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/10'
+                              : !hasPhone
+                              ? 'border-amber-300 dark:border-amber-700 bg-amber-50/30 dark:bg-amber-900/10'
+                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            {getImportStatusIcon(entry) || (
+                              hasPhone 
+                                ? <CheckCircle className="w-4 h-4 text-emerald-500" />
+                                : <AlertTriangle className="w-4 h-4 text-amber-500" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {entry.leadData?.Nombre}
+                              </p>
+                              <div className="flex flex-wrap gap-x-3 text-xs text-gray-500 dark:text-gray-400">
+                                <span>{entry.leadData?.Coordinacion}</span>
+                                <span>{entry.leadData?.Propietario}</span>
+                                {hasPhone && <span>{formatPhoneDisplay(entry.phone)}</span>}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
+                              entry.type === 'url'
+                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300'
+                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
+                            }`}>
+                              {entry.type === 'url' ? 'URL' : 'Tel'}
+                            </span>
+                          </div>
+
+                          {/* Phone input for entries without phone (URL entries) */}
+                          {!hasPhone && entry.importStatus === 'idle' && (
+                            <div className="mt-3 flex items-center gap-2 pl-7">
+                              <Phone className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+                              <input
+                                type="tel"
+                                value={entry.phone}
+                                onChange={(e) => updateEntryPhone(entry.id, e.target.value)}
+                                placeholder="WhatsApp del prospecto"
+                                maxLength={10}
+                                className="flex-1 max-w-[200px] px-3 py-1.5 text-xs border border-amber-300 dark:border-amber-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 dark:bg-gray-800/50 dark:text-white placeholder:text-gray-400"
+                              />
+                              <span className={`text-[10px] font-medium ${entry.phone.length === 10 ? 'text-emerald-500' : 'text-gray-400'}`}>
+                                {entry.phone.length}/10
+                              </span>
+                            </div>
+                          )}
+
+                          {entry.importStatus === 'error' && entry.importError && (
+                            <p className="text-xs text-red-600 dark:text-red-400 mt-2 pl-7">{entry.importError}</p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </motion.div>
               )}
 
-              {/* PASO 3: SELECCIÓN DE PLANTILLA */}
+              {/* ====== PASO 3: SELECCIÓN DE PLANTILLA ====== */}
               {currentStep === 'select_template' && (
                 <motion.div
                   key="select_template"
@@ -1327,16 +1428,21 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  {/* Filtros */}
+                  {importedProspects.length > 1 && (
+                    <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                      <p className="text-xs text-emerald-800 dark:text-emerald-300">
+                        <strong>{importedProspects.length} prospectos importados.</strong> La plantilla seleccionada se enviará a todos.
+                      </p>
+                    </div>
+                  )}
+
                   <div className="space-y-4">
-                    {/* Información sobre validación de plantillas */}
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <p className="text-xs text-blue-800 dark:text-blue-300">
-                        <strong>ℹ️ Importante:</strong> Solo se muestran plantillas que el prospecto puede recibir. Las plantillas bloqueadas requieren datos que el prospecto no tiene (ej: título, email, etc.).
+                        <strong>ℹ️</strong> Solo se muestran plantillas compatibles con los datos del prospecto.
                       </p>
                     </div>
 
-                    {/* Búsqueda */}
                     <div>
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                         <Search className="w-4 h-4 text-gray-400" />
@@ -1351,20 +1457,15 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                       />
                     </div>
 
-                    {/* Selector de Tags */}
                     <div>
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                         <Tag className="w-4 h-4 text-gray-400" />
                         <span>Filtrar por etiquetas</span>
                       </label>
-                      <TemplateTagsSelector
-                        selectedTags={selectedTags}
-                        onChange={setSelectedTags}
-                      />
+                      <TemplateTagsSelector selectedTags={selectedTags} onChange={setSelectedTags} />
                     </div>
                   </div>
 
-                  {/* Lista de Plantillas */}
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                       Plantillas disponibles ({filteredTemplates.length})
@@ -1377,15 +1478,12 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                     ) : filteredTemplates.length === 0 ? (
                       <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
                         <MessageSquare className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          No hay plantillas que coincidan con los filtros
-                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">No hay plantillas que coincidan</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
+                      <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-hide">
                         {filteredTemplates.map(template => {
                           const validation = canSendTemplate(template);
-                          
                           return (
                             <button
                               key={template.id}
@@ -1401,65 +1499,31 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">
-                                    {template.name}
-                                  </p>
-                                  
-                                  {/* Vista previa del mensaje */}
+                                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{template.name}</p>
                                   {template.components
                                     .filter(c => c.type === 'BODY' && c.text)
-                                    .map((component, idx) => {
-                                      let previewText = component.text || '';
-                                      
-                                      // Reemplazar variables con placeholders legibles
-                                      template.variable_mappings?.forEach(mapping => {
-                                        const varPattern = new RegExp(`\\{\\{${mapping.variable_number}\\}\\}`, 'g');
-                                        previewText = previewText.replace(varPattern, `[${mapping.display_name}]`);
+                                    .map((c, i) => {
+                                      let preview = c.text || '';
+                                      template.variable_mappings?.forEach(m => {
+                                        preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
                                       });
-                                      
-                                      return (
-                                        <p key={idx} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">
-                                          {previewText}
-                                        </p>
-                                      );
+                                      return <p key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">{preview}</p>;
                                     })}
-                                  
-                                  {template.tags && template.tags.length > 0 && (
+                                  {template.tags?.length ? (
                                     <div className="flex flex-wrap gap-1 mt-2">
-                                      {template.tags.map(tag => (
-                                        <span
-                                          key={tag}
-                                          className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded"
-                                        >
-                                          {tag}
-                                        </span>
+                                      {template.tags.filter(Boolean).map((tag, tagIdx) => (
+                                        <span key={`${tag}-${tagIdx}`} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">{tag}</span>
                                       ))}
                                     </div>
-                                  )}
+                                  ) : null}
                                   {!validation.canSend && (
                                     <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-                                      <p className="text-xs text-red-700 dark:text-red-400 font-medium mb-1">
-                                        ⚠️ No se puede enviar
-                                      </p>
-                                      <p className="text-xs text-red-600 dark:text-red-400">
-                                        {validation.reason}
-                                      </p>
-                                      {validation.missingFields && validation.missingFields.length > 0 && (
-                                        <p className="text-xs text-red-600 dark:text-red-500 mt-1">
-                                          Campos faltantes: {validation.missingFields.join(', ')}
-                                        </p>
-                                      )}
+                                      <p className="text-xs text-red-700 dark:text-red-400 font-medium">⚠️ {validation.reason}</p>
                                     </div>
                                   )}
                                 </div>
                                 {validation.canSend && (
-                                  <CheckCircle
-                                    className={`w-5 h-5 flex-shrink-0 ${
-                                      selectedTemplate?.id === template.id
-                                        ? 'text-blue-600'
-                                        : 'text-gray-300 dark:text-gray-600'
-                                    }`}
-                                  />
+                                  <CheckCircle className={`w-5 h-5 flex-shrink-0 ${selectedTemplate?.id === template.id ? 'text-blue-600' : 'text-gray-300 dark:text-gray-600'}`} />
                                 )}
                               </div>
                             </button>
@@ -1471,7 +1535,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                 </motion.div>
               )}
 
-              {/* PASO 4: CONFIGURACIÓN DE VARIABLES */}
+              {/* ====== PASO 4: CONFIGURACIÓN DE VARIABLES ====== */}
               {currentStep === 'configure_variables' && selectedTemplate && (
                 <motion.div
                   key="configure_variables"
@@ -1481,130 +1545,70 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   className="space-y-6"
                 >
                   <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-2">
-                      {selectedTemplate.name}
-                    </p>
-                    {selectedTemplate.description && (
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">{selectedTemplate.name}</p>
+                    {importedProspects.length > 1 && (
                       <p className="text-xs text-blue-700 dark:text-blue-400">
-                        {selectedTemplate.description}
+                        Se enviará a {importedProspects.length} prospectos
                       </p>
                     )}
                   </div>
 
-                  {/* Variables Editables */}
-                  {selectedTemplate.variable_mappings && selectedTemplate.variable_mappings.length > 0 ? (
+                  {selectedTemplate.variable_mappings?.some(m => m.table_name === 'system' && (m.field_name === 'fecha_personalizada' || m.field_name === 'hora_personalizada')) ? (
                     <div className="space-y-4">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Configurar variables
-                      </p>
-                      
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Configurar variables</p>
                       {selectedTemplate.variable_mappings
-                        .filter(mapping => mapping.table_name === 'system')
-                        .map(mapping => {
-                          const isEditable = 
-                            mapping.field_name === 'fecha_personalizada' || 
-                            mapping.field_name === 'hora_personalizada';
-                          
-                          if (!isEditable) return null;
-
-                          return (
-                            <div key={mapping.variable_number}>
-                              <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                                {mapping.field_name === 'fecha_personalizada' ? (
-                                  <Calendar className="w-4 h-4 text-gray-400" />
-                                ) : (
-                                  <Clock className="w-4 h-4 text-gray-400" />
-                                )}
-                                <span>{mapping.display_name}</span>
-                              </label>
-                              
-                              {mapping.field_name === 'fecha_personalizada' ? (
-                                <input
-                                  type="date"
-                                  value={mapping.custom_value || ''}
-                                  onChange={(e) => {
-                                    const formatted = new Date(e.target.value + 'T00:00:00').toLocaleDateString('es-MX', {
-                                      month: 'long',
-                                      day: 'numeric'
-                                    });
-                                    handleVariableChange(mapping.variable_number, formatted);
-                                  }}
-                                  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                                />
-                              ) : (
-                                <input
-                                  type="time"
-                                  value={mapping.custom_value || ''}
-                                  onChange={(e) => {
-                                    const [hours, minutes] = e.target.value.split(':');
-                                    const hour = parseInt(hours, 10);
-                                    const date = new Date();
-                                    date.setHours(hour);
-                                    date.setMinutes(parseInt(minutes, 10));
-                                    const formatted = date.toLocaleTimeString('es-MX', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    });
-                                    handleVariableChange(mapping.variable_number, formatted);
-                                  }}
-                                  className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                                />
-                              )}
-                            </div>
-                          );
-                        })}
+                        .filter(m => m.table_name === 'system' && (m.field_name === 'fecha_personalizada' || m.field_name === 'hora_personalizada'))
+                        .map(mapping => (
+                          <div key={mapping.variable_number}>
+                            <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                              {mapping.field_name === 'fecha_personalizada' ? <Calendar className="w-4 h-4 text-gray-400" /> : <Clock className="w-4 h-4 text-gray-400" />}
+                              <span>{mapping.display_name}</span>
+                            </label>
+                            <input
+                              type={mapping.field_name === 'fecha_personalizada' ? 'date' : 'time'}
+                              onChange={(e) => {
+                                let formatted = e.target.value;
+                                if (mapping.field_name === 'fecha_personalizada') {
+                                  formatted = new Date(e.target.value + 'T00:00:00').toLocaleDateString('es-MX', { month: 'long', day: 'numeric' });
+                                } else {
+                                  const [h, m] = e.target.value.split(':');
+                                  const d = new Date(); d.setHours(parseInt(h)); d.setMinutes(parseInt(m));
+                                  formatted = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
+                                }
+                                setVariableValues(prev => ({ ...prev, [mapping.variable_number]: formatted }));
+                              }}
+                              className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
+                            />
+                          </div>
+                        ))}
                     </div>
                   ) : (
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl">
-                      <div className="flex items-center gap-3">
-                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                        <p className="text-sm text-emerald-900 dark:text-emerald-300">
-                          Esta plantilla no requiere configuración adicional
-                        </p>
-                      </div>
+                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
+                      <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                      <p className="text-sm text-emerald-900 dark:text-emerald-300">No requiere configuración adicional</p>
                     </div>
                   )}
 
-                  {/* Preview del mensaje con variables resueltas */}
+                  {/* Preview */}
                   <div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Vista previa del mensaje
-                    </p>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vista previa</p>
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
                       {selectedTemplate.components
                         .filter(c => c.type === 'BODY' && c.text)
-                        .map((component, index) => {
-                          let text = component.text || '';
-                          
-                          // Reemplazar TODAS las variables (sistema + prospecto)
-                          selectedTemplate.variable_mappings?.forEach(mapping => {
-                            const varPattern = new RegExp(`\\{\\{${mapping.variable_number}\\}\\}`, 'g');
-                            
-                            if (mapping.table_name === 'system') {
-                              // Variables del sistema
-                              const value = variableValues[mapping.variable_number] || `[${mapping.display_name}]`;
-                              text = text.replace(varPattern, value);
-                            } else if (mapping.table_name === 'prospectos') {
-                              // Variables del prospecto - mostrar placeholder
-                              text = text.replace(varPattern, `[${mapping.display_name}]`);
-                            } else {
-                              // Otras variables - mostrar placeholder
-                              text = text.replace(varPattern, `[${mapping.display_name}]`);
-                            }
+                        .map((c, i) => {
+                          let text = c.text || '';
+                          selectedTemplate.variable_mappings?.forEach(m => {
+                            const val = m.table_name === 'system'
+                              ? (variableValues[m.variable_number] || `[${m.display_name}]`)
+                              : `[${m.display_name}]`;
+                            text = text.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), val);
                           });
-                          
-                          return (
-                            <p key={index} className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                              {text}
-                            </p>
-                          );
+                          return <p key={i} className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{text}</p>;
                         })}
                     </div>
-                    
                     {selectedTemplate.variable_mappings?.some(m => m.table_name !== 'system') && (
                       <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Los campos entre corchetes se reemplazarán automáticamente con los datos del prospecto al enviar.
+                        Los campos entre corchetes se reemplazarán con los datos de cada prospecto.
                       </p>
                     )}
                   </div>
@@ -1613,7 +1617,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
             </AnimatePresence>
           </div>
 
-          {/* Footer - Botones de Navegación */}
+          {/* Footer */}
           <div className="px-8 py-5 border-t border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 flex justify-between items-center">
             <button
               onClick={handleBack}
@@ -1629,27 +1633,27 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
               disabled={!canGoNext() || isImporting || isSending}
               className="px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg shadow-blue-500/25 flex items-center gap-2"
             >
-              {isImporting || isSending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{isImporting ? 'Importando...' : 'Enviando...'}</span>
-                </>
+              {isImporting ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /><span>Importando...</span></>
+              ) : isSending ? (
+                <><Loader2 className="w-4 h-4 animate-spin" /><span>Enviando...</span></>
+              ) : currentStep === 'permissions' ? (
+                <><Send className="w-4 h-4" /><span>Importar{importableCount > 0 ? ` (${importableCount}/${selectedEntries.length})` : ''}</span></>
               ) : currentStep === 'configure_variables' ? (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Enviar Plantilla</span>
-                </>
+                <><Send className="w-4 h-4" /><span>Enviar Plantilla{importedProspects.length > 1 ? ` (${importedProspects.length})` : ''}</span></>
               ) : (
-                <>
-                  <span>Continuar</span>
-                  <ChevronRight className="w-4 h-4" />
-                </>
+                <><span>Continuar</span><ChevronRight className="w-4 h-4" /></>
               )}
             </button>
           </div>
         </motion.div>
       </motion.div>
+
     </AnimatePresence>
+
+    {/* Tutorial Modal — fuera de AnimatePresence, tiene su propio wrapper */}
+    <CrmUrlTutorialModal isOpen={showTutorial} onClose={() => setShowTutorial(false)} />
+    </>
   );
 };
 

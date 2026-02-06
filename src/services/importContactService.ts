@@ -119,31 +119,24 @@ class ImportContactService {
         };
       }
 
-      if (statusCode === 500) {
-        return {
-          success: false,
-          message: 'Error interno del servidor',
-          error: 'Error al procesar la importación en el servidor',
-          statusCode: 500
-        };
-      }
-
-      if (statusCode === 400) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          message: 'Datos inválidos',
-          error: errorText || 'Payload inválido o datos incompletos',
-          statusCode: 400
-        };
-      }
-
       if (!response.ok) {
         const errorText = await response.text();
+        
+        // Intentar parsear el error como JSON para obtener mensaje descriptivo
+        let errorMessage = `HTTP ${statusCode}: ${errorText}`;
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error) {
+            errorMessage = errorJson.error;
+          }
+        } catch {
+          // Usar errorText tal cual
+        }
+        
         return {
           success: false,
-          message: 'Error en la importación',
-          error: `HTTP ${statusCode}: ${errorText}`,
+          message: errorMessage,
+          error: errorMessage,
           statusCode
         };
       }

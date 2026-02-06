@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'pending', date: '2026-02-06', author: 'Team', message: 'v2.5.88: B10.1.44N2.5.88 - Multi-import WhatsApp: búsqueda por URL CRM + teléfono en...', isRelease: true },
   { hash: '490f4f1', date: '2026-02-05', author: 'Team', message: 'v2.5.87: B10.1.44N2.5.87 - Fix OGG granule_position para compatibilidad iOS WhatsApp...', isRelease: true },
   { hash: '87c9b35', date: '2026-02-05', author: 'Team', message: 'v2.5.86: B10.1.44N2.5.86 - Fix auth sesiones + WhatsApp duplicate keys/CORS + Notas ...', isRelease: true },
   { hash: 'd588154', date: '2026-02-05', author: 'Team', message: 'v2.5.85: B10.1.44N2.5.85 - Voice messages + Import contact fix + Edge Functions auth...', isRelease: true },
@@ -682,10 +683,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.87', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.87', highlight: false },
+  { label: 'Version', value: 'v2.5.88', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.88', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '5 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '6 feb 2026', highlight: false },
 ];
 
 // ============================================

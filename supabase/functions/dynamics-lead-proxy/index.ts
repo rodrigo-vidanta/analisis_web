@@ -9,11 +9,16 @@
  * Auth: Authorization: Bearer <DYNAMICS_TOKEN>
  *       x-dynamics-token: <DYNAMICS_TOKEN>
  * 
- * Fecha: 17 Enero 2026
+ * ACTUALIZACIÓN 2026-02-05: Migrado a Deno.serve() nativo para evitar
+ * bundle timeout con imports de deno.land/std y @supabase/supabase-js.
+ * La validación JWT se hace manualmente via /auth/v1/user.
+ * (verify_jwt debe ser false en Supabase).
+ * 
+ * Fecha original: 17 Enero 2026
+ * Última actualización: 05 Febrero 2026
  */
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,14 +26,14 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Verificar autenticación JWT
+    // Verificar autenticación JWT manualmente
     const authHeader = req.headers.get('Authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
@@ -39,22 +44,25 @@ serve(async (req) => {
 
     const jwt = authHeader.substring(7);
     
-    // Validar JWT con Supabase
+    // Validar JWT con Supabase Auth API directamente (sin import pesado)
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: { persistSession: false, autoRefreshToken: false }
+    const authResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: {
+        'Authorization': `Bearer ${jwt}`,
+        'apikey': supabaseAnonKey,
+      },
     });
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser(jwt);
-
-    if (authError || !user) {
+    if (!authResponse.ok) {
       return new Response(
         JSON.stringify({ error: 'Authentication required', success: false }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const user = await authResponse.json();
 
     // Obtener payload del request
     const payload = await req.json();
@@ -71,14 +79,12 @@ serve(async (req) => {
       );
     }
 
-    const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/lead-info';
-
     // Timeout de 90 segundos (1:30 minutos)
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
-      // Llamar al webhook de N8N con los headers correctos (igual que dynamics-reasignar-proxy)
+      // Llamar al webhook de N8N con los headers correctos
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         headers: {
@@ -95,20 +101,29 @@ serve(async (req) => {
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`❌ [dynamics-lead-proxy] Webhook error ${response.status}:`, errorText);
+        
+        let errorDetails;
+        try {
+          errorDetails = JSON.parse(errorText);
+        } catch {
+          errorDetails = errorText;
+        }
+        
         return new Response(
           JSON.stringify({ 
             error: `Webhook Error: ${response.status}`, 
-            details: errorText,
+            details: errorDetails,
             success: false 
           }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      // Parsear respuesta
+      // Manejar respuesta (puede ser vacía)
+      const text = await response.text();
       let responseData;
       try {
-        responseData = await response.json();
+        responseData = text ? JSON.parse(text) : { success: true, message: 'Lead encontrado' };
       } catch {
         responseData = { success: true, message: 'Lead encontrado' };
       }

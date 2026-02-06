@@ -23,7 +23,7 @@ interface AIDivisionMember {
 import { APP_VERSION } from '../config/appVersion';
 
 const Footer: React.FC = () => {
-  // Versión actual - v2.5.74: SECURITY UPGRADE - RLS restrictivo + SECURITY INVOKER (sin cambios visibles)
+  // Versión actual - v2.5.88: Multi-import WhatsApp + URL CRM + tutorial animado + fix keys
   const version = APP_VERSION;
   
   // Legacy feature flag check (deprecated)

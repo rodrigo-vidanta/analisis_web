@@ -151,9 +151,9 @@ export const TemplateTagsSelector: React.FC<TemplateLabelsSelectorProps> = ({
       {/* Tags seleccionados */}
       {selectedTags.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {selectedTags.map((tag) => (
+          {selectedTags.filter(Boolean).map((tag, idx) => (
             <motion.div
-              key={tag}
+              key={`${tag}-${idx}`}
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0, opacity: 0 }}
@@ -189,10 +189,10 @@ export const TemplateTagsSelector: React.FC<TemplateLabelsSelectorProps> = ({
           ) : (
             <div className="flex flex-wrap gap-2">
               {top10Tags
-                .filter(t => !selectedTags.includes(t.tag))
-                .map((tagStats) => (
+                .filter(t => t.tag && !selectedTags.includes(t.tag))
+                .map((tagStats, idx) => (
                   <button
-                    key={tagStats.tag}
+                    key={`top-${tagStats.tag}-${idx}`}
                     type="button"
                     onClick={() => handleAddTag(tagStats.tag)}
                     disabled={disabled}
@@ -230,10 +230,10 @@ export const TemplateTagsSelector: React.FC<TemplateLabelsSelectorProps> = ({
                       >
                         <div className="p-2 space-y-1">
                           {remainingTags
-                            .filter(t => !selectedTags.includes(t.tag))
-                            .map((tagStats) => (
+                            .filter(t => t.tag && !selectedTags.includes(t.tag))
+                            .map((tagStats, idx) => (
                               <button
-                                key={tagStats.tag}
+                                key={`rem-${tagStats.tag}-${idx}`}
                                 type="button"
                                 onClick={() => {
                                   handleAddTag(tagStats.tag);

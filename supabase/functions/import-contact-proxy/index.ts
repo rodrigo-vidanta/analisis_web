@@ -1,6 +1,10 @@
 /**
- * VERSIÓN ULTRA SIMPLIFICADA - Import Contact Proxy
- * Sin validación JWT, solo proxy directo
+ * Import Contact Proxy - Edge Function
+ * Proxy hacia N8N webhook import-contact-crm
+ * 
+ * ACTUALIZACIÓN 2026-02-06: Detecta body vacío de N8N
+ * (indica que el workflow se detuvo sin llegar al nodo de respuesta,
+ * generalmente por coordinación no encontrada en la BD local).
  */
 
 const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/import-contact-crm';
@@ -29,13 +33,42 @@ Deno.serve(async (req) => {
       body: JSON.stringify(payload),
     });
 
-    // Manejar respuesta (puede ser vacía)
     const text = await response.text();
+
+    // Body vacío = el workflow de N8N se detuvo sin llegar al nodo de respuesta
+    if (!text || text.trim() === '') {
+      const coordName = payload?.lead_dynamics?.Coordinacion || 'desconocida';
+      const coordId = payload?.lead_dynamics?.CoordinacionID || '';
+      
+      console.error(`❌ [import-contact-proxy] N8N retornó body vacío. Coordinación: ${coordName} (${coordId})`);
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `La coordinación "${coordName}" no existe en el sistema local. Contacta al administrador para agregarla.`,
+          code: 'COORDINACION_NOT_FOUND',
+          details: {
+            coordinacion: coordName,
+            coordinacion_id_dynamics: coordId,
+          },
+        }),
+        { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Parsear respuesta JSON
     let data;
     try {
-      data = text ? JSON.parse(text) : { success: true };
+      data = JSON.parse(text);
     } catch {
-      data = { success: response.ok, raw: text };
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'Respuesta inválida del servidor de importación',
+          raw: text.substring(0, 200),
+        }),
+        { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     return new Response(JSON.stringify(data), {
@@ -44,8 +77,12 @@ Deno.serve(async (req) => {
     });
 
   } catch (error) {
+    console.error('❌ [import-contact-proxy] Error:', error);
     return new Response(
-      JSON.stringify({ error: 'Internal error', success: false }),
+      JSON.stringify({
+        success: false,
+        error: error instanceof Error ? error.message : 'Error interno del servidor',
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
