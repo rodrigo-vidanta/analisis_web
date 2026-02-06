@@ -1977,15 +1977,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
         setMessages(adaptedMessages);
       } else {
-        // Fallback: cargar desde uchat_messages
-        const { data, error } = await supabaseSystemUI
-          .from('uchat_messages')
-          .select('*')
-          .eq('conversation_id', conversation.id)
-          .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        setMessages(data || []);
+        // Sin prospect_id no hay mensajes que cargar
+        console.warn('⚠️ [ConversacionesWidget] Conversación sin prospect_id, no se pueden cargar mensajes');
+        setMessages([]);
       }
     } catch (error) {
     }

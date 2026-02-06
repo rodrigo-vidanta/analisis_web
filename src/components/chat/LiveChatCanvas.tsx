@@ -5561,34 +5561,18 @@ const LiveChatCanvas: React.FC = () => {
         return; // No hay mensajes realmente nuevos
       }
 
-      // Insertar nuevos mensajes
-      const { error: insertError } = await supabaseSystemUI
-        .from('uchat_messages')
-        .insert(messagesToInsert);
-
-      if (insertError) {
-        console.error('❌ Error insertando mensajes:', insertError);
-        return;
-      }
-
-
-      // Actualizar estado SILENCIOSAMENTE
+      // Actualizar estado SILENCIOSAMENTE (mensajes ya existen en mensajes_whatsapp)
       setMessagesByConversation(prev => {
         const current = prev[conversation.id] || [];
-        const updated = [...current, ...messagesToInsert].sort((a, b) => 
+        // Deduplicar por message_id antes de agregar
+        const existingIds = new Set(current.map(m => m.message_id));
+        const trulyNew = messagesToInsert.filter(m => !existingIds.has(m.message_id));
+        if (trulyNew.length === 0) return prev;
+        const updated = [...current, ...trulyNew].sort((a, b) => 
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
         return { ...prev, [conversation.id]: updated };
       });
-
-      // Actualizar contador de mensajes
-      await supabaseSystemUI
-        .from('uchat_conversations')
-        .update({ 
-          message_count: (conversation.message_count || 0) + messagesToInsert.length,
-          last_message_at: new Date().toISOString()
-        })
-        .eq('id', conversation.id);
 
     } catch (error) {
       console.error('❌ Error en syncNewMessages:', error);
@@ -5651,21 +5635,17 @@ const LiveChatCanvas: React.FC = () => {
         adjuntos: msg.adjuntos // ✅ Incluir adjuntos multimedia
       } as Message));
 
-      const { error: insertError } = await supabaseSystemUI
-        .from('uchat_messages')
-        .insert(messagesToInsert);
-
-      if (!insertError) {
-        
-        // Actualizar contador y timestamp
-        await supabaseSystemUI
-          .from('uchat_conversations')
-          .update({ 
-            message_count: messagesToInsert.length,
-            last_message_at: new Date().toISOString()
-          })
-          .eq('id', conversationId);
-      }
+      // Actualizar estado en memoria (mensajes ya existen en mensajes_whatsapp)
+      setMessagesByConversation(prev => {
+        const current = prev[conversationId] || [];
+        const existingIds = new Set(current.map(m => m.message_id));
+        const trulyNew = messagesToInsert.filter(m => !existingIds.has(m.message_id));
+        if (trulyNew.length === 0) return prev;
+        const updated = [...current, ...trulyNew].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+        return { ...prev, [conversationId]: updated };
+      });
 
     } catch (error) {
       console.error('❌ Error en syncMessagesForConversation:', error);
@@ -5694,22 +5674,13 @@ const LiveChatCanvas: React.FC = () => {
         return;
       }
 
-      // Verificar mensajes que ya existen en la base de datos
-      const { data: existingMessages, error: existingError } = await supabaseSystemUI
-        .from('uchat_messages')
-        .select('message_id')
-        .eq('conversation_id', selectedConversation.id);
-
-      if (existingError) {
-        console.error('❌ Error verificando mensajes existentes:', existingError);
-        return;
-      }
-
-      const existingMessageIds = existingMessages.map(m => m.message_id);
+      // Verificar mensajes que ya existen en el estado en memoria
+      const currentConvMessages = messagesByConversation[selectedConversation.id] || [];
+      const existingMessageIds = new Set(currentConvMessages.map(m => m.message_id));
       
       // Obtener nombres de usuarios para mensajes con id_sender
       const senderIds = recentMessages
-        .filter(msg => msg.id_sender && !existingMessageIds.includes(`real_${msg.id}`))
+        .filter(msg => msg.id_sender && !existingMessageIds.has(`real_${msg.id}`))
         .map(msg => msg.id_sender);
       
       const senderNamesMap: Record<string, string> = {};
@@ -5731,7 +5702,7 @@ const LiveChatCanvas: React.FC = () => {
       }
       
       const messagesToInsert = recentMessages
-        .filter(msg => !existingMessageIds.includes(`real_${msg.id}`))
+        .filter(msg => !existingMessageIds.has(`real_${msg.id}`))
         .map(msg => ({
           id: msg.id, // Agregar id requerido
           message_id: `real_${msg.id}`,
@@ -5750,21 +5721,7 @@ const LiveChatCanvas: React.FC = () => {
         return; // No hay mensajes nuevos
       }
 
-      // Insertar nuevos mensajes con manejo de duplicados
-      const { error: insertError } = await supabaseSystemUI
-        .from('uchat_messages')
-        .upsert(messagesToInsert, { 
-          onConflict: 'message_id',
-          ignoreDuplicates: true 
-        });
-
-      if (insertError) {
-        console.error('❌ Error insertando mensajes nuevos:', insertError);
-        return;
-      }
-
-
-      // Limpiar caché para mensajes que ahora están en BD
+      // Limpiar caché para mensajes sincronizados
       messagesToInsert.forEach(realMessage => {
         cleanupCacheForRealMessage(realMessage);
       });

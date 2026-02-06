@@ -9,10 +9,11 @@
  * - Restauración de teléfono original al hacer login
  * - Permisos de visualización para backups
  * 
- * ⚠️ MIGRACIÓN 16 Enero 2026:
- * - Las actualizaciones de backup ahora se hacen via update_user_metadata RPC
- * - Los campos backup_id, has_backup, etc. están en user_metadata
- * - Compatible con auth_users (legacy) y auth.users (Supabase Auth)
+ * ⚠️ ARQUITECTURA ACTUAL (Post-migración Supabase Auth Nativo):
+ * - Datos de backup (backup_id, has_backup, telefono_original) están en auth.users.raw_user_meta_data (JSONB)
+ * - LECTURA: Via vista user_profiles_v2 (VIEW sobre auth.users + auth_roles)
+ * - ESCRITURA: Via authAdminProxyService → Edge Function auth-admin-proxy → updateUserMetadata
+ * - auth_users legacy fue renombrada a z_legacy_auth_users (NO USAR)
  * 
  * REFACTOR 2026-01-22: Uso de authAdminProxyService centralizado
  */
@@ -51,19 +52,42 @@ export interface AvailableBackupsResult {
 
 class BackupService {
   /**
+   * ⚡ DEDUPLICACIÓN: Map de promises in-flight para evitar thundering herd
+   * Cuando múltiples componentes piden los mismos datos simultáneamente,
+   * solo se hace UNA request real y todas las demás esperan la misma promise.
+   */
+  private inflight = new Map<string, Promise<any>>();
+
+  /**
+   * Ejecuta una función async con deduplicación por clave.
+   * Si ya hay una request in-flight para la misma clave, retorna la misma promise.
+   */
+  private async dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const existing = this.inflight.get(key);
+    if (existing) return existing as Promise<T>;
+    
+    const promise = fn().finally(() => {
+      this.inflight.delete(key);
+    });
+    
+    this.inflight.set(key, promise);
+    return promise;
+  }
+
+  /**
    * Asigna un backup a un ejecutivo
    * - Guarda el teléfono original
    * - Cambia el teléfono del ejecutivo al del backup
    * - Asigna el backup_id
    * 
-   * Compatible con auth_users (legacy) y auth.users (Supabase Auth via RPC)
+   * Usa user_profiles_v2 (VIEW) para lectura y authAdminProxyService para escritura
    */
   async assignBackup(
     ejecutivoId: string,
     backupId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Intentar obtener teléfono del backup - primero auth_users (legacy)
+      // Obtener teléfono del backup desde user_profiles_v2 (VIEW sobre auth.users)
       let telefonoBackup = '';
       const { data: backupData, error: backupError } = await supabaseSystemUI!
         .from('user_profiles_v2')
@@ -72,20 +96,9 @@ class BackupService {
         .maybeSingle();
 
       if (backupError || !backupData) {
-        // Fallback: intentar user_profiles_v2
-        const { data: backupDataV2 } = await supabaseSystemUI!
-          .from('user_profiles_v2')
-          .select('phone')
-          .eq('id', backupId)
-          .maybeSingle();
-        
-        if (!backupDataV2) {
-          return { success: false, error: 'Backup no encontrado' };
-        }
-        telefonoBackup = backupDataV2.phone || '';
-      } else {
-        telefonoBackup = backupData.phone || '';
+        return { success: false, error: 'Backup no encontrado' };
       }
+      telefonoBackup = backupData.phone || '';
 
       // Obtener teléfono original del ejecutivo
       let telefonoOriginal = '';
@@ -124,11 +137,11 @@ class BackupService {
 
   /**
    * Remueve el backup de un ejecutivo y restaura su teléfono original
-   * Compatible con auth_users (legacy) y auth.users (Supabase Auth via RPC)
+   * Usa user_profiles_v2 (VIEW) para lectura y authAdminProxyService para escritura
    */
   async removeBackup(ejecutivoId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Obtener teléfono original - primero auth_users (legacy)
+      // Obtener teléfono original desde user_profiles_v2 (VIEW sobre auth.users)
       let telefonoOriginal = '';
       const { data: ejecutivoData } = await supabaseSystemUI!
         .from('user_profiles_v2')
@@ -138,17 +151,6 @@ class BackupService {
 
       if (ejecutivoData) {
         telefonoOriginal = ejecutivoData.telefono_original || '';
-      } else {
-        // Fallback: intentar user_profiles_v2
-        const { data: ejecutivoDataV2 } = await supabaseSystemUI!
-          .from('user_profiles_v2')
-          .select('original_phone')
-          .eq('id', ejecutivoId)
-          .maybeSingle();
-        
-        if (ejecutivoDataV2) {
-          telefonoOriginal = ejecutivoDataV2.original_phone || '';
-        }
       }
 
       // Usar servicio centralizado para remover backup
@@ -599,32 +601,57 @@ class BackupService {
 
   /**
    * Verifica si un ejecutivo tiene backup asignado
+   * ⚡ DEDUPLICACIÓN: Evita thundering herd
    */
   async hasBackup(ejecutivoId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabaseSystemUI
-        .from('user_profiles_v2')
-        .select('has_backup')
-        .eq('id', ejecutivoId)
-        .single();
+    return this.dedupe(`has_backup_${ejecutivoId}`, async () => {
+      try {
+        // Verificar caché primero
+        const cached = permissionsService.backupCache.get(ejecutivoId);
+        const now = Date.now();
+        const CACHE_TTL = 30 * 1000;
+        
+        if (cached && (now - cached.timestamp) < CACHE_TTL) {
+          return cached.data?.has_backup || false;
+        }
 
-      if (error || !data) {
+        const { data, error } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('has_backup')
+          .eq('id', ejecutivoId)
+          .single();
+
+        if (error || !data) {
+          return false;
+        }
+
+        return data.has_backup || false;
+      } catch (error) {
+        console.error('Error verificando backup:', error);
         return false;
       }
-
-      return data.has_backup || false;
-    } catch (error) {
-      console.error('Error verificando backup:', error);
-      return false;
-    }
+    });
   }
 
   /**
    * Obtiene información del ejecutivo del cual el usuario actual es backup
    * Retorna null si el usuario no es backup de nadie
-   * ⚡ OPTIMIZACIÓN: Usa caché de permissionsService para evitar consultas repetitivas
+   * ⚡ OPTIMIZACIÓN: Usa caché de permissionsService + deduplicación de promises in-flight
+   * para evitar thundering herd (2146+ requests simultáneas al buscar en WhatsApp)
    */
   async getBackupEjecutivoInfo(currentUserId: string): Promise<{
+    ejecutivo_id: string;
+    ejecutivo_nombre: string;
+    ejecutivo_email: string;
+  } | null> {
+    // ⚡ DEDUPLICACIÓN: Si ya hay una request in-flight para este userId, reusar la misma promise
+    return this.dedupe(`backup_info_${currentUserId}`, () => this._getBackupEjecutivoInfoImpl(currentUserId));
+  }
+
+  /**
+   * Implementación interna de getBackupEjecutivoInfo (sin deduplicación)
+   */
+  private async _getBackupEjecutivoInfoImpl(currentUserId: string): Promise<{
     ejecutivo_id: string;
     ejecutivo_nombre: string;
     ejecutivo_email: string;
