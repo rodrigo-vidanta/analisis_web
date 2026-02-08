@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "2.5.93",
+  "version": "2.5.94",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
@@ -24,7 +24,10 @@
     "aws:verify-route53": "tsx scripts/aws/aws-verify-route53-setup.ts",
     "aws:configure-cloudfront": "tsx scripts/aws/aws-configure-cloudfront-alias.ts",
     "aws:cost-report": "tsx scripts/aws/aws-cost-report.ts",
-    "aws:delete-supabase": "tsx scripts/aws/aws-force-delete-supabase.ts"
+    "aws:delete-supabase": "tsx scripts/aws/aws-force-delete-supabase.ts",
+    "deploy": "tsx scripts/deploy-v2.ts",
+    "deploy:dry": "tsx scripts/deploy-v2.ts --dry-run",
+    "deploy:json": "tsx scripts/deploy-v2.ts --json"
   },
   "dependencies": {
     "@aws-sdk/client-acm": "^3.936.0",

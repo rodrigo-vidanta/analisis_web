@@ -202,7 +202,7 @@ export const OperativeDashboard: React.FC = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2, delay: index * 0.05 }}
-                className={getGridClasses(widget.size)}
+                className={`${getGridClasses(widget.size)} overflow-hidden`}
               >
                 {/* ⚠️ MODO NINJA: Pasar queryUserId para filtrar datos según usuario suplantado */}
                 {widget.id === 'prospectos' && (

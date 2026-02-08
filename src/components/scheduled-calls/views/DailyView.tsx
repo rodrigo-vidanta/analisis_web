@@ -76,11 +76,11 @@ export const DailyView: React.FC<DailyViewProps> = ({
     const grouped: Record<number, ScheduledCall[]> = {};
     
     dayCalls.forEach(call => {
-      // Convertir a hora local de Puerto Vallarta (UTC-6)
+      // Convertir a hora de México (UTC-6) consistente con el filtrado
       const callDate = new Date(call.fecha_programada);
-      // getHours() ya devuelve la hora en zona horaria local del navegador
-      // Para Puerto Vallarta, necesitamos ajustar manualmente si el navegador no está en esa zona
-      const hour = callDate.getHours();
+      const mexicoTs = callDate.getTime() - (6 * 60 * 60 * 1000);
+      const mexicoDate = new Date(mexicoTs);
+      const hour = mexicoDate.getUTCHours();
       if (!grouped[hour]) {
         grouped[hour] = [];
       }

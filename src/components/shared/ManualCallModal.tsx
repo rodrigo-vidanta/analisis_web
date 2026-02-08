@@ -15,7 +15,7 @@ import { X, Phone, MessageSquare, Calendar, Clock, AlertCircle, Edit, Ban, Spark
 import toast from 'react-hot-toast';
 import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
-import { horariosService, type HorarioBase } from '../../services/horariosService';
+import { horariosService, type HorarioBase, type HorarioExcepcion, type HorarioBloqueo } from '../../services/horariosService';
 import { getApiToken } from '../../services/apiTokensService';
 import { getAuthTokenOrThrow } from '../../utils/authToken';
 
@@ -62,6 +62,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   
   // Estados para validaciones de horario y CRM
   const [horariosBase, setHorariosBase] = useState<HorarioBase[]>([]);
+  const [excepciones, setExcepciones] = useState<HorarioExcepcion[]>([]);
+  const [bloqueos, setBloqueos] = useState<HorarioBloqueo[]>([]);
   const [showNoCrmModal, setShowNoCrmModal] = useState(false);
   const [nowCallBlocked, setNowCallBlocked] = useState<{ blocked: boolean; reason?: string }>({ blocked: false });
 
@@ -98,8 +100,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
     // Si ya viene en la prop, usarlo directamente
     if (prospectoIdDynamics) {
       setShowNoCrmModal(false);
-      loadHorarios();
-      const nowCheck = horariosService.isWithinMaxServiceHours();
+      const { base, exc, bloq } = await loadHorarios();
+      const nowCheck = horariosService.isWithinMaxServiceHours(base, exc, bloq);
       setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
       return;
     }
@@ -119,8 +121,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       // Si tiene id_dynamics en prospectos, usarlo
       if (prospectoData?.id_dynamics) {
         setShowNoCrmModal(false);
-        loadHorarios();
-        const nowCheck = horariosService.isWithinMaxServiceHours();
+        const { base, exc, bloq } = await loadHorarios();
+        const nowCheck = horariosService.isWithinMaxServiceHours(base, exc, bloq);
         setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
         return;
       }
@@ -139,8 +141,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       // Si tiene id_dynamics en crm_data, permitir programar
       if (crmData?.id_dynamics) {
         setShowNoCrmModal(false);
-        loadHorarios();
-        const nowCheck = horariosService.isWithinMaxServiceHours();
+        const { base, exc, bloq } = await loadHorarios();
+        const nowCheck = horariosService.isWithinMaxServiceHours(base, exc, bloq);
         setNowCallBlocked({ blocked: !nowCheck.valid, reason: nowCheck.reason });
         return;
       }
@@ -154,13 +156,21 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
     }
   };
 
-  // Cargar horarios del sistema
-  const loadHorarios = async () => {
+  // Cargar horarios, excepciones y bloqueos del sistema
+  const loadHorarios = async (): Promise<{ base: HorarioBase[]; exc: HorarioExcepcion[]; bloq: HorarioBloqueo[] }> => {
     try {
-      const horarios = await horariosService.getHorariosBase();
+      const [horarios, exc, bloq] = await Promise.all([
+        horariosService.getHorariosBase(),
+        horariosService.getHorariosExcepciones(),
+        horariosService.getHorariosBloqueos()
+      ]);
       setHorariosBase(horarios);
+      setExcepciones(exc);
+      setBloqueos(bloq);
+      return { base: horarios, exc, bloq };
     } catch (error) {
       console.error('Error cargando horarios:', error);
+      return { base: [], exc: [], bloq: [] };
     }
   };
 
@@ -181,7 +191,7 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   useEffect(() => {
     if (isOpen && scheduleType === 'scheduled' && !scheduledDate) {
       const today = new Date();
-      setScheduledDate(today.toISOString().split('T')[0]);
+      setScheduledDate(today.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' }));
     }
   }, [isOpen, scheduleType, scheduledDate]);
 
@@ -233,8 +243,9 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         // Si tiene fecha programada, cargarla
         if (existingCallData.fecha_programada) {
           const fechaProgramada = new Date(existingCallData.fecha_programada);
-          const fechaStr = fechaProgramada.toISOString().split('T')[0];
-          const horaStr = fechaProgramada.toTimeString().split(' ')[0].substring(0, 5);
+          // Extraer fecha y hora en zona México (UTC-6) para mostrar correctamente
+          const fechaStr = fechaProgramada.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
+          const horaStr = fechaProgramada.toLocaleTimeString('en-GB', { timeZone: 'America/Mexico_City', hour: '2-digit', minute: '2-digit', hour12: false });
           
           setScheduledDate(fechaStr);
           setScheduledTime(horaStr);
@@ -352,6 +363,12 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       return;
     }
 
+    // Bloquear llamada inmediata fuera de horario
+    if (scheduleType === 'now' && nowCallBlocked.blocked) {
+      toast.error(nowCallBlocked.reason || 'Fuera de horario de servicio');
+      return;
+    }
+
     // Validar fecha/hora si es programada
     if (scheduleType === 'scheduled' && !validateScheduledDateTime()) {
       return;
@@ -394,7 +411,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
       if (scheduleType === 'now') {
         scheduledTimestamp = new Date().toISOString();
       } else {
-        scheduledTimestamp = new Date(`${scheduledDate}T${scheduledTime}`).toISOString();
+        // Interpretar hora como México (UTC-6, sin horario de verano desde 2022)
+        scheduledTimestamp = new Date(`${scheduledDate}T${scheduledTime}:00-06:00`).toISOString();
       }
 
       // Construir payload
@@ -494,19 +512,20 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   // Obtener fecha mínima (hoy) y máxima (1 mes desde hoy)
   const getMinDate = () => {
     const today = new Date();
-    return today.toISOString().split('T')[0];
+    return today.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
   };
 
   const getMaxDate = () => {
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
-    return oneMonthFromNow.toISOString().split('T')[0];
+    return oneMonthFromNow.toLocaleDateString('en-CA', { timeZone: 'America/Mexico_City' });
   };
 
   // Obtener día de la semana de la fecha seleccionada
   const getSelectedDayOfWeek = () => {
     if (!scheduledDate) return null;
-    const date = new Date(scheduledDate);
+    // Agregar T12:00:00 para evitar que UTC midnight se interprete como día anterior en UTC-6
+    const date = new Date(scheduledDate + 'T12:00:00');
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
     return days[date.getDay()];
   };
@@ -517,8 +536,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
   // Obtener horario del día seleccionado desde los horarios del sistema
   const getTimeRangeFromSystem = () => {
     if (!scheduledDate) return isWeekend ? '9:00 AM - 6:00 PM' : '9:00 AM - 9:00 PM';
-    
-    const date = new Date(scheduledDate);
+
+    const date = new Date(scheduledDate + 'T12:00:00');
     const dayOfWeek = date.getDay();
     const horarioDia = horariosBase.find(h => h.dia_semana === dayOfWeek);
     
@@ -874,8 +893,8 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
                           ? 'text-red-500 dark:text-red-400'
                           : 'text-gray-500 dark:text-gray-400'
                       }`}>
-                        {nowCallBlocked.blocked 
-                          ? 'No disponible fuera de horario (6am - 12am)'
+                        {nowCallBlocked.blocked
+                          ? (nowCallBlocked.reason || 'No disponible fuera de horario')
                           : 'Iniciar llamada inmediatamente'
                         }
                       </p>
@@ -1010,9 +1029,9 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
               <motion.button
                 type="button"
                 onClick={handleSubmit}
-                disabled={loading || !justificacion.trim()}
-                whileHover={!loading && justificacion.trim() ? { scale: 1.02 } : {}}
-                whileTap={!loading && justificacion.trim() ? { scale: 0.98 } : {}}
+                disabled={loading || !justificacion.trim() || (scheduleType === 'now' && nowCallBlocked.blocked)}
+                whileHover={!loading && justificacion.trim() && !(scheduleType === 'now' && nowCallBlocked.blocked) ? { scale: 1.02 } : {}}
+                whileTap={!loading && justificacion.trim() && !(scheduleType === 'now' && nowCallBlocked.blocked) ? { scale: 0.98 } : {}}
                 className={`px-5 py-2.5 text-sm font-medium text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg flex items-center gap-2 ${
                   scheduleType === 'now'
                     ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-green-500/25'

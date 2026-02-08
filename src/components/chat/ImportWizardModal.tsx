@@ -377,51 +377,34 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // SEARCH LOGIC
   // ============================================
 
+  /**
+   * Busca prospecto en BD LOCAL por teléfono.
+   * Usa RPC SECURITY DEFINER para bypasear RLS y detectar duplicados
+   * independientemente de los permisos del usuario.
+   */
   const searchLocalProspect = async (phone: string): Promise<ExistingProspect | null> => {
     try {
       const normalized = normalizePhone(phone);
-      const { data: candidates } = await analysisSupabase
-        .from('prospectos')
-        .select('id, nombre_completo, ejecutivo_id, coordinacion_id, whatsapp, telefono_principal')
-        .or(`whatsapp.like.%${normalized},telefono_principal.like.%${normalized}`)
-        .limit(10);
 
-      if (!candidates?.length) return null;
+      const { data, error: rpcError } = await analysisSupabase
+        .rpc('check_prospect_exists_by_phone', { p_phone: normalized });
 
-      const match = candidates.find(c => {
-        const w = c.whatsapp?.replace(/\D/g, '').slice(-10);
-        const t = c.telefono_principal?.replace(/\D/g, '').slice(-10);
-        return w === normalized || t === normalized;
-      });
-      if (!match) return null;
-
-      const { data: conv } = await analysisSupabase
-        .from('conversaciones_whatsapp')
-        .select('id')
-        .eq('prospecto_id', match.id)
-        .maybeSingle();
-
-      let coordNombre = null;
-      let ejNombre = null;
-      if (match.coordinacion_id) {
-        const { data: cd } = await analysisSupabase
-          .from('coordinaciones').select('nombre').eq('id', match.coordinacion_id).maybeSingle();
-        coordNombre = cd?.nombre || null;
-      }
-      if (match.ejecutivo_id) {
-        const { data: ud } = await analysisSupabase
-          .from('user_profiles_v2').select('full_name').eq('id', match.ejecutivo_id).maybeSingle();
-        ejNombre = ud?.full_name || null;
+      if (rpcError) {
+        console.error('Error verificando prospecto local:', rpcError);
+        return null;
       }
 
+      if (!data || data.length === 0) return null;
+
+      const match = data[0];
       return {
-        id: match.id,
+        id: match.prospecto_id,
         nombre_completo: match.nombre_completo,
-        conversacion_id: conv?.id || null,
+        conversacion_id: match.conversacion_id || null,
         ejecutivo_id: match.ejecutivo_id,
         coordinacion_id: match.coordinacion_id,
-        coordinacion_nombre: coordNombre,
-        ejecutivo_nombre: ejNombre,
+        coordinacion_nombre: match.coordinacion_nombre || null,
+        ejecutivo_nombre: match.ejecutivo_nombre || null,
       };
     } catch {
       return null;

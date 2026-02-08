@@ -55,7 +55,10 @@ import {
   PhoneMissed,
   PhoneOff,
   Voicemail,
-  Tag
+  Tag,
+  ArrowUpDown,
+  Users,
+  Building2
 } from 'lucide-react';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { quickRepliesService, type QuickReply } from '../../services/quickRepliesService';
@@ -298,19 +301,14 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
   };
 
   return (
-    <div className="relative" style={{ position: 'relative' }}>
+    <div className="relative w-10 h-10 flex-shrink-0">
       <AnimatePresence mode="wait">
         {isDisabled ? (
           // Estado gris (deshabilitado, puede reactivarse)
           <motion.button
             key="gray-flag"
             initial={false}
-            animate={{ backgroundColor: "#6b7280" }}
-            transition={{ 
-              duration: 0.3,
-              ease: "easeInOut"
-            }}
-            whileHover={{ scale: 1.05, backgroundColor: "#4b5563" }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleClick}
             disabled={isReEnabling}
@@ -320,29 +318,17 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
               }
             }}
             onMouseLeave={() => setShowTooltip(false)}
-            className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-xl flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Click para volver a habilitar atención humana"
           >
-            <motion.div
-              key="gray-icon"
-              animate={{ rotate: [0, -10, 10, -10, 0] }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
-            >
-              <Flag className="w-4 h-4 fill-white" />
-            </motion.div>
-            <span>Requiere Atención</span>
+            <Flag className="w-5 h-5" />
           </motion.button>
         ) : (
           // Estado rojo (activo, requiere atención)
           <motion.button
             key="red-flag"
             initial={false}
-            animate={{ backgroundColor: "#ef4444" }}
-            transition={{ 
-              duration: 0.3,
-              ease: "easeInOut"
-            }}
-            whileHover={{ scale: 1.05, backgroundColor: "#dc2626" }}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleClick}
             disabled={isResolving}
@@ -352,16 +338,10 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
               }
             }}
             onMouseLeave={() => setShowTooltip(false)}
-            className="flex items-center gap-2 px-3 py-1.5 text-white rounded-lg text-xs font-medium shadow-lg transition-colors duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-10 h-10 rounded-xl flex items-center justify-center bg-red-100 dark:bg-red-900/30 hover:bg-red-200 dark:hover:bg-red-800/40 text-red-500 dark:text-red-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Requiere atención humana - Click para resolver"
           >
-            <motion.div
-              animate={{ rotate: [0, -10, 10, -10, 0] }}
-              transition={{ duration: 0.3 }}
-            >
-              <Flag className="w-4 h-4 fill-white" />
-            </motion.div>
-            <span>Requiere Atención</span>
+            <Flag className="w-5 h-5 fill-current" />
           </motion.button>
         )}
       </AnimatePresence>
@@ -1059,7 +1039,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
 
 const LiveChatCanvas: React.FC = () => {
   const { user } = useAuth();
-  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
+  const { isAdmin, isAdminOperativo, isCoordinador, isSupervisor } = useEffectivePermissions();
   const { setAppMode } = useAppStore();
   
   // ============================================
@@ -1282,6 +1262,21 @@ const LiveChatCanvas: React.FC = () => {
     exclude: Set<string>; // IDs de etiquetas que NO deben estar
   }>({ include: new Set(), exclude: new Set() });
   const [availableLabelsForFilter, setAvailableLabelsForFilter] = useState<any[]>([]);
+  const [myLabels, setMyLabels] = useState<any[]>([]);
+  const [teamLabels, setTeamLabels] = useState<any[]>([]);
+  const [showTeamLabels, setShowTeamLabels] = useState(false);
+  const [loadingTeamLabels, setLoadingTeamLabels] = useState(false);
+
+  // Estados para filtro de ejecutivo
+  const [showEjecutivoFilter, setShowEjecutivoFilter] = useState(false);
+  const [selectedEjecutivoId, setSelectedEjecutivoId] = useState<string | null>(null);
+  const [ejecutivosForFilter, setEjecutivosForFilter] = useState<{id: string, nombre: string}[]>([]);
+  const ejecutivoDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Estado para sorting de conversaciones
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>(
+    () => (localStorage.getItem('livechat-sort-order') as 'desc' | 'asc') || 'desc'
+  );
 
   // Cerrar dropdown de filtros de etiquetas al hacer click fuera
   useEffect(() => {
@@ -1296,6 +1291,25 @@ const LiveChatCanvas: React.FC = () => {
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
   }, [showLabelsFilter]);
+
+  // Cerrar dropdown de filtro de ejecutivo al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ejecutivoDropdownRef.current && !ejecutivoDropdownRef.current.contains(event.target as Node)) {
+        setShowEjecutivoFilter(false);
+      }
+    };
+
+    if (showEjecutivoFilter) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showEjecutivoFilter]);
+
+  // Persistir sort order en localStorage
+  useEffect(() => {
+    localStorage.setItem('livechat-sort-order', sortOrder);
+  }, [sortOrder]);
 
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
@@ -1466,11 +1480,30 @@ const LiveChatCanvas: React.FC = () => {
     isManualSelectionRef.current = false;
     
     const initializeChat = async () => {
-      // Inicialización con reset (carga primera página)
-      await loadConversationsWrapper('', true); // Reset en carga inicial
+      // Esperar a que la sesión auth esté lista antes de hacer queries
+      // Esto evita 401 por race condition cuando el componente monta
+      // antes de que Supabase restaure la sesión de localStorage
+      if (supabaseSystemUI) {
+        const { data: { session } } = await supabaseSystemUI.auth.getSession();
+        if (!session) {
+          // Sin sesión activa, esperar al evento de auth change
+          const { data: { subscription } } = supabaseSystemUI.auth.onAuthStateChange(
+            async (event, newSession) => {
+              if (newSession && !isUnmountingRef.current) {
+                subscription.unsubscribe();
+                await loadConversationsWrapper('', true);
+                setupRealtimeSubscription();
+              }
+            }
+          );
+          return;
+        }
+      }
+      // Sesión disponible → cargar normalmente
+      await loadConversationsWrapper('', true);
       setupRealtimeSubscription();
     };
-    
+
     initializeChat();
     
     // ============================================
@@ -1747,34 +1780,47 @@ const LiveChatCanvas: React.FC = () => {
   // cargar TODOS los batches automáticamente para que funcione correctamente.
   // Sin esto, la búsqueda/filtro solo filtra los datos ya cargados en memoria.
   const [isSearchingAllBatches, setIsSearchingAllBatches] = useState(false);
+  const isSearchingAllBatchesRef = useRef(false);
+  const serverSearchSucceededRef = useRef(false);
   const searchLoadIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ESCALABILIDAD 2026-02-07: Carga agresiva SOLO como fallback
+  // - Búsqueda: server-side RPC es primario, agresiva solo si falla
+  // - No leídos: server-side via p_unread_only (no necesita cargar todo)
+  const needsAggressiveLoading =
+    (debouncedSearchTerm.trim().length >= 3 && !serverSearchSucceededRef.current) ||
+    false; // filterByUnread ahora se maneja server-side
   
-  // Determinar si necesitamos carga agresiva (búsqueda o filtro no leídos)
-  const needsAggressiveLoading = (debouncedSearchTerm.trim().length >= 3) || filterByUnread;
-  
-  // ✅ NUEVO: Búsqueda en servidor cuando hay término
+  // ESCALABILIDAD 2026-02-07: Búsqueda server-side como mecanismo primario
+  // Reemplaza la carga agresiva de todos los batches para filtrar localmente
   useEffect(() => {
+    // Reset flag cuando cambia el término
+    serverSearchSucceededRef.current = false;
+
     const searchInServer = async () => {
       if (debouncedSearchTerm.trim().length < 3) return;
-      
+
       try {
         setIsSearchingAllBatches(true);
-        
-        // Llamar a función de búsqueda en servidor
+
+        // Llamar a función de búsqueda en servidor (usa índices pg_trgm)
         const { data: searchResults, error } = await analysisSupabase.rpc('search_dashboard_conversations', {
           p_search_term: debouncedSearchTerm.trim(),
           p_user_id: queryUserId,
           p_is_admin: isAdminRef.current,
           p_ejecutivo_ids: ejecutivosIdsRef.current.length > 0 ? ejecutivosIdsRef.current : null,
           p_coordinacion_ids: coordinacionesFilterRef.current || null,
-          p_limit: 100
+          p_limit: 200
         });
-        
+
         if (error) {
           console.warn('⚠️ Búsqueda en servidor no disponible, usando filtrado local');
-          // Fallback a carga agresiva local
+          serverSearchSucceededRef.current = false;
           return;
         }
+
+        // Marcar búsqueda server-side como exitosa → deshabilita carga agresiva
+        serverSearchSucceededRef.current = true;
         
         if (searchResults && searchResults.length > 0) {
           // Convertir resultados a formato esperado
@@ -1789,7 +1835,13 @@ const LiveChatCanvas: React.FC = () => {
           });
           setProspectosDataVersion(prev => prev + 1);
           
-          // Agregar resultados a la lista (sin duplicados)
+          // FIX 2026-02-07: Agregar resultados a AMBAS listas para que la carga agresiva no los borre
+          setAllConversationsLoaded(prev => {
+            const existingIds = new Set(prev.map(c => c.id).filter(Boolean));
+            const newConvs = convertedResults.filter(c => c.id && !existingIds.has(c.id));
+            if (newConvs.length === 0) return prev;
+            return [...prev, ...newConvs];
+          });
           setConversations(prev => {
             const existingIds = new Set(prev.map(c => c.id).filter(Boolean));
             const newConvs = convertedResults.filter(c => c.id && !existingIds.has(c.id));
@@ -1825,8 +1877,8 @@ const LiveChatCanvas: React.FC = () => {
           return;
         }
         
-        // Verificar si aún necesitamos cargar
-        const stillNeedsLoading = (debouncedSearchTerm.trim().length >= 3) || filterByUnread;
+        // Verificar si aún necesitamos cargar (solo fallback de búsqueda, unread es server-side)
+        const stillNeedsLoading = debouncedSearchTerm.trim().length >= 3 && !serverSearchSucceededRef.current;
         if (!stillNeedsLoading) {
           if (searchLoadIntervalRef.current) {
             clearInterval(searchLoadIntervalRef.current);
@@ -1863,6 +1915,23 @@ const LiveChatCanvas: React.FC = () => {
     }
   }, [hasMoreConversations, isSearchingAllBatches, filterByUnread]);
 
+  // Sync ref con state para acceso en intervalos
+  useEffect(() => {
+    isSearchingAllBatchesRef.current = isSearchingAllBatches;
+  }, [isSearchingAllBatches]);
+
+  // ESCALABILIDAD 2026-02-07: Recargar conversaciones cuando cambia filterByUnread
+  // El filtro ahora es server-side (p_unread_only), así que necesitamos nueva query
+  const filterByUnreadInitRef = useRef(true);
+  useEffect(() => {
+    // Skip en mount (la carga inicial ya incluye el estado de filterByUnread)
+    if (filterByUnreadInitRef.current) {
+      filterByUnreadInitRef.current = false;
+      return;
+    }
+    loadConversationsWrapper('', true);
+  }, [filterByUnread]);
+
   // ⚡ OPTIMIZADO V5.2: Verificar llamadas activas - ref en lugar de dependencia
   const conversationsRef = useRef<Conversation[]>([]);
   useEffect(() => {
@@ -1871,74 +1940,35 @@ const LiveChatCanvas: React.FC = () => {
 
   useEffect(() => {
     let activeCallsErrors = 0;
-    
+    let isCheckingActiveCalls = false;
+
     const checkActiveCalls = async () => {
       const currentConversations = conversationsRef.current;
       if (currentConversations.length === 0) return;
-      
+
+      // FIX 2026-02-07: Skip durante carga agresiva para evitar ERR_INSUFFICIENT_RESOURCES
+      if (isSearchingAllBatchesRef.current) return;
+
+      // Guard contra invocaciones superpuestas
+      if (isCheckingActiveCalls) return;
+      isCheckingActiveCalls = true;
+
       // ✅ Backoff: no consultar si hubo errores recientes
-      if (activeCallsErrors > 0 && !navigator.onLine) return;
-      
+      if (activeCallsErrors > 0 && !navigator.onLine) {
+        isCheckingActiveCalls = false;
+        return;
+      }
+
       try {
-        const prospectIds = currentConversations
-          .map(c => c.prospecto_id)
-          .filter((id): id is string => !!id);
-        
-        if (prospectIds.length === 0) return;
-        
-        // ⚡ OPTIMIZACIÓN: Si hay demasiados IDs (>100), procesar en batches para evitar error 400
-        const MAX_IDS_PER_BATCH = 100;
-        let allActiveCalls: any[] = [];
-        
-        if (prospectIds.length > MAX_IDS_PER_BATCH) {
-          // Procesar en batches
-          for (let i = 0; i < prospectIds.length; i += MAX_IDS_PER_BATCH) {
-            const batch = prospectIds.slice(i, i + MAX_IDS_PER_BATCH);
-            try {
-              const { data, error } = await analysisSupabase
-                .from('llamadas_ventas')
-                .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
-                .in('prospecto', batch)
-                .eq('call_status', 'activa');
-              
-              if (!error && data) {
-                allActiveCalls.push(...data);
-              }
-            } catch {
-              // Silenciar errores de batch individual
-            }
-          }
-        } else {
-          // Query normal si hay pocos IDs
-          const { data, error } = await analysisSupabase
-            .from('llamadas_ventas')
-            .select('prospecto, call_status, fecha_llamada, duracion_segundos, datos_llamada')
-            .in('prospecto', prospectIds)
-            .eq('call_status', 'activa');
-          
-          if (!error && data) {
-            allActiveCalls = data;
-          }
-        }
-        
-        const reallyActiveCalls = allActiveCalls.filter(call => {
-          const razonFinalizacion = call.datos_llamada?.razon_finalizacion || 
-            (typeof call.datos_llamada === 'string' 
-              ? JSON.parse(call.datos_llamada)?.razon_finalizacion 
-              : null);
-          
-          const fechaLlamada = call.fecha_llamada ? new Date(call.fecha_llamada) : null;
-          const minutosAgo = fechaLlamada 
-            ? (Date.now() - fechaLlamada.getTime()) / (1000 * 60)
-            : 999;
-          
-          return !razonFinalizacion && 
-                 (!call.duracion_segundos || call.duracion_segundos === 0) && 
-                 minutosAgo < 15;
-        });
-        
+        // ESCALABILIDAD 2026-02-07: Una sola query RPC en lugar de N batches
+        // Retorna solo los prospect IDs con llamadas realmente activas (típicamente 0-5 rows)
+        // La lógica de filtrado (duracion=0, <15min, sin razon_finalizacion) está en el RPC
+        const { data, error } = await analysisSupabase.rpc('get_active_call_prospect_ids');
+
+        if (error) throw error;
+
         const newActiveIds = new Set(
-          reallyActiveCalls.map(call => call.prospecto).filter((id): id is string => !!id)
+          (data || []).map((row: { prospecto_id: string }) => row.prospecto_id).filter(Boolean)
         );
         
         // ⚡ Solo actualizar si cambió
@@ -1953,6 +1983,8 @@ const LiveChatCanvas: React.FC = () => {
         activeCallsErrors = 0; // ✅ Reset en éxito
       } catch (error) {
         activeCallsErrors++;
+      } finally {
+        isCheckingActiveCalls = false;
       }
     };
     
@@ -2407,18 +2439,28 @@ const LiveChatCanvas: React.FC = () => {
                 });
               }
               
-              // Forzar re-render para que PhoneDisplay muestre el teléfono si ahora tiene id_dynamics
+              // FIX BUG 4 (2026-02-07): Actualizar metadata de la conversación directamente
+              // para que React.memo detecte el cambio (antes solo hacía [...prev] sin cambiar objetos)
               startTransition(() => {
-                setConversations(prev => [...prev]);
-                
+                setConversations(prev => prev.map(conv =>
+                  (conv.prospecto_id === prospectoId || conv.id === prospectoId)
+                    ? { ...conv, metadata: { ...conv.metadata, etapa: updatedProspecto.etapa, id_dynamics: updatedProspecto.id_dynamics } }
+                    : conv
+                ));
+                setAllConversationsLoaded(prev => prev.map(conv =>
+                  (conv.prospecto_id === prospectoId || conv.id === prospectoId)
+                    ? { ...conv, metadata: { ...conv.metadata, etapa: updatedProspecto.etapa, id_dynamics: updatedProspecto.id_dynamics } }
+                    : conv
+                ));
+
                 // Si la conversación seleccionada es la que cambió, forzar re-render
                 const currentSelected = selectedConversationStateRef.current;
-                if (currentSelected && 
+                if (currentSelected &&
                     (currentSelected.prospecto_id === prospectoId || currentSelected.id === prospectoId)) {
-                  setSelectedConversation(prev => prev ? { ...prev } : null);
+                  setSelectedConversation(prev => prev ? { ...prev, metadata: { ...prev.metadata, etapa: updatedProspecto.etapa, id_dynamics: updatedProspecto.id_dynamics } } : null);
                 }
               });
-              
+
               logDev(`🔔 [REALTIME] Prospecto ${prospectoId} id_dynamics/etapa actualizado: id_dynamics=${updatedProspecto.id_dynamics}, etapa=${updatedProspecto.etapa}`);
             }
             
@@ -2487,11 +2529,123 @@ const LiveChatCanvas: React.FC = () => {
         }
       )
       // ========================================
-      // 🔔 SUSCRIPCIÓN 3: Nuevas conversaciones (INSERT en mensajes_whatsapp para prospectos nuevos)
+      // 🔔 SUSCRIPCIÓN 3: Cambios en etiquetas (FIX BUG 4 - 2026-02-07)
       // ========================================
-      // Cuando llega un mensaje para un prospecto que no está en la lista,
-      // ya se maneja en la suscripción 1 recargando la lista completa
-      // Esto asegura que las conversaciones nuevas aparezcan inmediatamente
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whatsapp_labels_conversation',
+        },
+        (payload) => {
+          const record = (payload.new || payload.old) as Record<string, string | undefined>;
+          const prospectoId = record?.prospecto_id;
+          if (!prospectoId || !queryUserId) return;
+
+          // Verificar que el prospecto esté en nuestra lista (permisos)
+          if (!prospectosDataRef.current.has(prospectoId)) return;
+
+          // Recargar labels de este prospecto
+          whatsappLabelsService.getProspectoLabels(prospectoId, queryUserId)
+            .then(labels => {
+              setProspectoLabels(prev => ({
+                ...prev,
+                [prospectoId]: labels
+              }));
+            })
+            .catch(() => { /* silenciar errores de labels */ });
+        }
+      )
+      // ========================================
+      // 🔔 SUSCRIPCIÓN 4: Cambios en llamadas programadas (estatus)
+      // ========================================
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'llamadas_programadas',
+        },
+        async (payload) => {
+          const call = payload.new as Record<string, unknown>;
+          const callId = call?.id as string;
+          const prospectoId = call?.prospecto as string;
+          if (!callId || !prospectoId) return;
+
+          // Verificar permisos
+          if (!prospectosDataRef.current.has(prospectoId)) return;
+
+          // Buscar conversationId para este prospecto
+          const conv = conversationsRef.current.find(c => c.prospecto_id === prospectoId);
+          if (!conv) return;
+          const conversationId = conv.id;
+
+          // Obtener detalles de llamadas_ventas si fue ejecutada
+          let callDetail: Record<string, unknown> | null = null;
+          const llamadaEjecutada = call.llamada_ejecutada as string | undefined;
+          if (llamadaEjecutada) {
+            try {
+              const { data } = await analysisSupabase
+                .from('llamadas_ventas')
+                .select('call_id, duracion_segundos, call_status, nivel_interes, checkpoint_venta_actual, datos_llamada')
+                .eq('call_id', llamadaEjecutada)
+                .maybeSingle();
+              callDetail = data;
+            } catch (err) {
+              logDev('⚠️ Error obteniendo detalles de llamada:', err);
+            }
+          }
+
+          // Construir mensaje actualizado
+          const checkpointRaw = callDetail?.checkpoint_venta_actual as string | undefined;
+          const datosLlamada = callDetail?.datos_llamada;
+          const updatedCallMessage: Message = {
+            id: `call_${callId}`,
+            message_id: `call_${callId}`,
+            conversation_id: conversationId,
+            sender_type: 'call',
+            sender_name: 'Llamada',
+            content: '',
+            is_read: true,
+            created_at: call.fecha_programada as string,
+            call_data: {
+              id: callId,
+              fecha_programada: call.fecha_programada as string,
+              estatus: call.estatus as string,
+              llamada_ejecutada: llamadaEjecutada,
+              programada_por_nombre: call.programada_por_nombre as string | undefined,
+              duracion_segundos: callDetail?.duracion_segundos as number | undefined,
+              call_status: callDetail?.call_status as string | undefined,
+              nivel_interes: callDetail?.nivel_interes as string | undefined,
+              checkpoint_alcanzado: checkpointRaw ? parseInt(checkpointRaw.replace('checkpoint #', '')) : undefined,
+              datos_llamada: typeof datosLlamada === 'string' ? JSON.parse(datosLlamada) : datosLlamada as Record<string, unknown> | undefined
+            }
+          };
+
+          // Actualizar en messagesByConversation
+          setMessagesByConversation(prev => {
+            const msgs = prev[conversationId] || [];
+            const idx = msgs.findIndex(m => m.id === `call_${callId}`);
+            if (idx === -1) {
+              // Llamada nueva (INSERT que no estaba) - agregar y ordenar
+              const updated = [...msgs, updatedCallMessage].sort((a, b) =>
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+              );
+              return { ...prev, [conversationId]: updated };
+            }
+            // Reemplazar mensaje existente
+            const updated = [...msgs];
+            updated[idx] = updatedCallMessage;
+            return { ...prev, [conversationId]: updated };
+          });
+
+          logDev(`📞 [REALTIME] Llamada ${callId} actualizada: ${call.estatus}`);
+        }
+      )
+      // ========================================
+      // 🔔 SUSCRIPCIÓN 5: Subscribe handler
+      // ========================================
       .subscribe((status, err) => {
         // ✅ Resetear flag cuando la suscripción se completa (éxito o error)
         if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -3866,14 +4020,29 @@ const LiveChatCanvas: React.FC = () => {
           // Obtener filtros de permisos
           const coordinacionesFilter = await permissionsService.getCoordinacionesFilter(queryUserId);
           const ejecutivoFilter = await permissionsService.getEjecutivoFilter(queryUserId);
-          const isUserAdmin = !coordinacionesFilter && !ejecutivoFilter;
-          
+          // FIX BUG 1 (2026-02-07): Verificar admin explícitamente
+          // null = admin verificado (ve todo), [] = sin acceso, [...ids] = filtrar
+          const isUserAdmin = coordinacionesFilter === null;
+
+          // Actualizar refs para Realtime handler
+          ejecutivoFilterRef.current = ejecutivoFilter;
+          coordinacionesFilterRef.current = coordinacionesFilter;
+          isAdminRef.current = isUserAdmin;
+          if (ejecutivoFilter) {
+            ejecutivosIdsRef.current = [ejecutivoFilter];
+          }
+
+          // SAFETY NET: No es admin y no tiene filtros válidos → no cargar nada
+          if (!isUserAdmin && !ejecutivoFilter && (!coordinacionesFilter || coordinacionesFilter.length === 0)) {
+            return { data: [], error: null };
+          }
+
           // Construir query con filtros
           let query = analysisSupabase
             .from('mv_conversaciones_dashboard')
             .select('*')
             .order('fecha_ultimo_mensaje', { ascending: false, nullsFirst: false });
-          
+
           // Aplicar filtros según permisos
           if (!isUserAdmin) {
             if (ejecutivoFilter) {
@@ -4329,11 +4498,19 @@ const LiveChatCanvas: React.FC = () => {
       let filtered = uniqueConversations;
       if (searchTerm) {
         const normalizedSearch = normalizeText(searchTerm);
-        filtered = filtered.filter(c => 
-          normalizeText(c.nombre_contacto).includes(normalizedSearch) ||
-          normalizeText(c.customer_name).includes(normalizedSearch) ||
-          c.numero_telefono?.includes(searchTerm) // Teléfono sin normalizar (solo dígitos)
-        );
+        filtered = filtered.filter(c => {
+          // Campos directos de la conversación
+          if (normalizeText(c.nombre_contacto).includes(normalizedSearch)) return true;
+          if (normalizeText(c.customer_name).includes(normalizedSearch)) return true;
+          if (c.numero_telefono?.includes(searchTerm)) return true; // Teléfono sin normalizar
+
+          // FIX BUG 5 (2026-02-07): Buscar también por email e id_dynamics desde cache
+          const pData = prospectosDataRef.current.get(c.prospecto_id || c.id);
+          if (pData?.email && normalizeText(pData.email).includes(normalizedSearch)) return true;
+          if (pData?.id_dynamics && pData.id_dynamics.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+
+          return false;
+        });
       }
 
       // ============================================
@@ -4468,8 +4645,9 @@ const LiveChatCanvas: React.FC = () => {
         
         ejecutivoFilterRef.current = ejecutivoFilter;
         coordinacionesFilterRef.current = coordinacionesFilter;
-        isAdminRef.current = !ejecutivoFilter && !coordinacionesFilter;
-        isAdminMode = !ejecutivoFilter && !coordinacionesFilter;
+        // FIX BUG 1 (2026-02-07): null = admin verificado, [] = sin acceso
+        isAdminRef.current = coordinacionesFilter === null;
+        isAdminMode = coordinacionesFilter === null;
         
         if (ejecutivoFilter) {
           ejecutivoIds = [ejecutivoFilter];
@@ -4498,6 +4676,7 @@ const LiveChatCanvas: React.FC = () => {
       
       // ⚡ CARGA OPTIMIZADA: Una sola query a la vista materializada
       // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
+      // ESCALABILIDAD 2026-02-07: Pasar filterByUnread al servidor para evitar cargar todo
       const dashboardConversations = await optimizedConversationsService.loadConversations({
         userId: queryUserId,
         isAdmin: isAdminMode,
@@ -4505,6 +4684,7 @@ const LiveChatCanvas: React.FC = () => {
         coordinacionIds: coordinacionIds.length > 0 ? coordinacionIds : undefined,
         limit: CONVERSATIONS_BATCH_SIZE,
         offset: from,
+        unreadOnly: filterByUnread,
       });
       
       // Obtener conteo solo en primera carga
@@ -4644,14 +4824,16 @@ const LiveChatCanvas: React.FC = () => {
     }
   }, [conversations, loadProspectosLabels, prospectoLabels]);
 
-  // Cargar etiquetas disponibles para filtros
+  // Cargar etiquetas disponibles para filtros (separadas por categoría)
   const loadAvailableLabelsForFilter = useCallback(async () => {
     if (!user?.id) return;
-    
+
     try {
       const labels = await whatsappLabelsService.getAvailableLabels(user.id);
-      const allLabels = [...labels.preset, ...labels.custom];
-      setAvailableLabelsForFilter(allLabels);
+      // Sistema (preset) - siempre visibles
+      setAvailableLabelsForFilter(labels.preset);
+      // Propias del usuario (custom)
+      setMyLabels(labels.custom);
     } catch (error) {
       console.error('Error cargando etiquetas para filtros:', error);
     }
@@ -4660,6 +4842,101 @@ const LiveChatCanvas: React.FC = () => {
   useEffect(() => {
     loadAvailableLabelsForFilter();
   }, [loadAvailableLabelsForFilter]);
+
+  // Cargar etiquetas del equipo (on-demand al click del botón +)
+  const loadTeamLabels = useCallback(async () => {
+    if (!user?.id || loadingTeamLabels) return;
+    setLoadingTeamLabels(true);
+    try {
+      // Obtener coordinaciones del usuario
+      const coordinaciones = await permissionsService.getCoordinacionesFilter(user.id);
+      if (!coordinaciones || coordinaciones.length === 0) {
+        setTeamLabels([]);
+        setShowTeamLabels(true);
+        return;
+      }
+      // Obtener miembros de la coordinación
+      const members = await coordinacionService.getEjecutivosByCoordinacion(coordinaciones[0]);
+      // Para cada miembro (excepto yo), obtener sus etiquetas custom
+      const allTeamLabels: any[] = [];
+      for (const member of members) {
+        if (member.id === user.id) continue;
+        try {
+          const memberLabels = await whatsappLabelsService.getAvailableLabels(member.id);
+          for (const label of memberLabels.custom) {
+            // Evitar duplicados por nombre
+            if (!allTeamLabels.some(tl => tl.name === label.name)) {
+              allTeamLabels.push({ ...label, ownerName: member.full_name || member.email });
+            }
+          }
+        } catch {} // Si falla para un miembro, continuar con los demás
+      }
+      setTeamLabels(allTeamLabels);
+      setShowTeamLabels(true);
+    } catch (error) {
+      console.error('Error cargando etiquetas del equipo:', error);
+    } finally {
+      setLoadingTeamLabels(false);
+    }
+  }, [user?.id, loadingTeamLabels]);
+
+  // Cargar ejecutivos para el filtro (solo roles con permiso)
+  const loadEjecutivosForFilter = useCallback(async () => {
+    if (!user?.id) return;
+    // Solo mostrar para admin, admin operativo, coordinador o supervisor
+    if (!isAdmin && !isAdminOperativo && !isCoordinador && !isSupervisor) return;
+
+    try {
+      if (isAdmin || isAdminOperativo) {
+        // Admin: obtener todos los ejecutivos que tengan prospectos asignados
+        const { data } = await analysisSupabase
+          .from('prospectos')
+          .select('ejecutivo_id')
+          .not('ejecutivo_id', 'is', null);
+
+        if (data) {
+          const uniqueIds = [...new Set(data.map(d => d.ejecutivo_id).filter(Boolean))];
+          // Obtener nombres de estos ejecutivos
+          const { data: profiles } = await supabaseSystemUI
+            .from('user_profiles_v2')
+            .select('id, full_name, email')
+            .in('id', uniqueIds)
+            .eq('is_active', true)
+            .order('full_name');
+
+          setEjecutivosForFilter(
+            (profiles || []).map(p => ({ id: p.id, nombre: p.full_name || p.email }))
+          );
+        }
+      } else {
+        // Coordinador/Supervisor: solo ejecutivos de su coordinación con prospectos
+        const coordinaciones = await permissionsService.getCoordinacionesFilter(user.id);
+        if (!coordinaciones || coordinaciones.length === 0) return;
+
+        const members = await coordinacionService.getEjecutivosByCoordinacion(coordinaciones[0]);
+        // Filtrar solo los que tengan prospectos asignados
+        const memberIds = members.map(m => m.id);
+        const { data: prospectData } = await analysisSupabase
+          .from('prospectos')
+          .select('ejecutivo_id')
+          .in('ejecutivo_id', memberIds)
+          .not('ejecutivo_id', 'is', null);
+
+        const idsConProspectos = new Set((prospectData || []).map(d => d.ejecutivo_id));
+        setEjecutivosForFilter(
+          members
+            .filter(m => idsConProspectos.has(m.id))
+            .map(m => ({ id: m.id, nombre: m.full_name || m.email }))
+        );
+      }
+    } catch (error) {
+      console.error('Error cargando ejecutivos para filtro:', error);
+    }
+  }, [user?.id, isAdmin, isAdminOperativo, isCoordinador, isSupervisor]);
+
+  useEffect(() => {
+    loadEjecutivosForFilter();
+  }, [loadEjecutivosForFilter]);
   
   // ============================================
   // v6.4.0: PRECARGA DE ETIQUETAS Y CONTEO DE USUARIO
@@ -7109,6 +7386,15 @@ const LiveChatCanvas: React.FC = () => {
       });
     }
 
+    // 1.2. Filtro por ejecutivo
+    if (selectedEjecutivoId) {
+      filtered = filtered.filter(conv => {
+        const prospectId = conv.prospecto_id || conv.id;
+        const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+        return prospectoData?.ejecutivo_id === selectedEjecutivoId;
+      });
+    }
+
     // 1.5. Filtro por etiquetas (incluyentes y excluyentes)
     if (labelFilters.include.size > 0 || labelFilters.exclude.size > 0) {
       filtered = filtered.filter(conv => {
@@ -7184,9 +7470,16 @@ const LiveChatCanvas: React.FC = () => {
         return unread > 0;
       });
     }
-    
+
+    // Sorting por fecha (recientes o antiguas primero)
+    filtered.sort((a, b) => {
+      const dateA = new Date(a.last_message_at || a.updated_at || 0).getTime();
+      const dateB = new Date(b.last_message_at || b.updated_at || 0).getTime();
+      return sortOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+
     return filtered;
-  }, [conversations, debouncedSearchTerm, selectedEtapas, labelFilters, prospectoLabels, prospectosDataVersion, filterByUnread, unreadCounts]);
+  }, [conversations, debouncedSearchTerm, selectedEtapas, selectedEjecutivoId, labelFilters, prospectoLabels, prospectosDataVersion, filterByUnread, unreadCounts, sortOrder]);
 
   // v6.6.0: Contador de CONVERSACIONES no leídas (no mensajes)
   // Cuenta cuántas conversaciones tienen al menos 1 mensaje no leído
@@ -7291,14 +7584,13 @@ const LiveChatCanvas: React.FC = () => {
         }}
       >
         {/* Header fijo de la caja */}
-        <div 
-          className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800"
-          style={{ 
-            flexShrink: 0,
-            minHeight: '200px'
+        <div
+          className="p-3 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800"
+          style={{
+            flexShrink: 0
           }}
         >
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-3 gap-2 mb-2">
             {/* v6.6.0: Total clickeable para quitar filtro de no leídas */}
             <button
               onClick={() => filterByUnread && setFilterByUnread(false)}
@@ -7362,43 +7654,59 @@ const LiveChatCanvas: React.FC = () => {
             </button>
           </div>
 
-          <div className="space-y-2">
-            {/* Búsqueda mejorada */}
-            <div className="relative">
-              <label htmlFor="livechat-search-input" className="sr-only">
-                Buscar conversaciones
-              </label>
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
-              <input
-                id="livechat-search-input"
-                name="livechat-search"
-                type="search"
-                placeholder="Buscar por nombre, teléfono o email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                autoComplete="off"
-                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-500"
-              />
-              {/* v6.5.0: Indicador de carga de búsqueda */}
-              {isSearchingAllBatches && (
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
-                </div>
-              )}
+          <div className="space-y-1.5">
+            {/* Búsqueda + Sorting toggle */}
+            <div className="flex items-center gap-1.5">
+              <div className="relative flex-1">
+                <label htmlFor="livechat-search-input" className="sr-only">
+                  Buscar conversaciones
+                </label>
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
+                <input
+                  id="livechat-search-input"
+                  name="livechat-search"
+                  type="search"
+                  placeholder="Buscar nombre, teléfono, email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  autoComplete="off"
+                  className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-500"
+                />
+                {/* Indicador de carga de búsqueda */}
+                {isSearchingAllBatches && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                  </div>
+                )}
+              </div>
+              {/* Toggle de sorting */}
+              <button
+                onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                className={`p-2 rounded-md border transition-colors flex-shrink-0 ${
+                  sortOrder === 'asc'
+                    ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : 'border-gray-200 dark:border-gray-600 text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-700'
+                }`}
+                title={sortOrder === 'desc' ? 'Recientes primero (clic para invertir)' : 'Antiguas primero (clic para invertir)'}
+              >
+                <ArrowUpDown className="w-4 h-4" />
+              </button>
             </div>
-            {/* v6.5.0/v6.6.0: Mensaje de búsqueda/filtro en progreso */}
+            {/* Mensaje de búsqueda/filtro en progreso */}
             {isSearchingAllBatches && (
-              <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-1">
+              <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1">
                 <span>{filterByUnread ? 'Cargando conversaciones no leídas...' : 'Buscando en todas las conversaciones...'}</span>
                 <span className="text-gray-400">({allConversationsLoaded.length} cargadas)</span>
               </div>
             )}
             
+            {/* Filtros en grid compacto: etapas + etiquetas */}
+            <div className="grid grid-cols-2 gap-1.5">
             {/* Filtro por etapa */}
             <div className="relative" ref={etapasFilterRef}>
               <button
                 onClick={() => setShowEtapasFilter(!showEtapasFilter)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
+                className={`w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
                   selectedEtapas.size > 0 ? 'border-blue-500 dark:border-blue-400' : ''
                 }`}
               >
@@ -7492,7 +7800,7 @@ const LiveChatCanvas: React.FC = () => {
             <div className="relative" ref={labelsFilterRef}>
               <button
                 onClick={() => setShowLabelsFilter(!showLabelsFilter)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
+                className={`w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
                   (labelFilters.include.size > 0 || labelFilters.exclude.size > 0) ? 'border-purple-500 dark:border-purple-400' : ''
                 }`}
               >
@@ -7518,86 +7826,115 @@ const LiveChatCanvas: React.FC = () => {
                     transition={{ duration: 0.2 }}
                     className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto"
                   >
-                    <div className="p-3 space-y-4">
-                      {/* Filtros Inclusivos */}
+                    <div className="p-2.5 space-y-3">
+                      {/* Sección: Sistema */}
                       <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                            Incluir (debe tener)
-                          </p>
-                          {labelFilters.include.size > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-full font-medium">
-                              {labelFilters.include.size}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Sistema</p>
+                        <div className="flex flex-wrap gap-1">
                           {availableLabelsForFilter.map(label => (
                             <button
-                              key={`include-${label.id}`}
+                              key={`sys-${label.id}`}
                               onClick={() => toggleLabelFilter(label.id, 'include')}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all ${
+                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all ${
                                 labelFilters.include.has(label.id)
                                   ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
-                                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-300'
+                                  : labelFilters.exclude.has(label.id)
+                                    ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-300'
                               }`}
+                              onContextMenu={(e) => { e.preventDefault(); toggleLabelFilter(label.id, 'exclude'); }}
+                              title="Clic para incluir, clic derecho para excluir"
                             >
-                              <div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: label.color }}
-                              />
+                              <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: label.color }} />
                               {label.name}
-                              {labelFilters.include.has(label.id) && (
-                                <Check className="w-3 h-3" />
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      
-                      {/* Filtros Exclusivos */}
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                            Excluir (no debe tener)
-                          </p>
-                          {labelFilters.exclude.size > 0 && (
-                            <span className="text-[10px] px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded-full font-medium">
-                              {labelFilters.exclude.size}
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {availableLabelsForFilter.map(label => (
-                            <button
-                              key={`exclude-${label.id}`}
-                              onClick={() => toggleLabelFilter(label.id, 'exclude')}
-                              className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium border transition-all ${
-                                labelFilters.exclude.has(label.id)
-                                  ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
-                                  : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-red-300'
-                              }`}
-                            >
-                              <div
-                                className="w-2 h-2 rounded-full"
-                                style={{ backgroundColor: label.color }}
-                              />
-                              {label.name}
-                              {labelFilters.exclude.has(label.id) && (
-                                <X className="w-3 h-3" />
-                              )}
+                              {labelFilters.include.has(label.id) && <Check className="w-2.5 h-2.5" />}
+                              {labelFilters.exclude.has(label.id) && <X className="w-2.5 h-2.5" />}
                             </button>
                           ))}
                         </div>
                       </div>
 
+                      {/* Sección: Mis etiquetas */}
+                      {myLabels.length > 0 && (
+                        <div>
+                          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Mis etiquetas</p>
+                          <div className="flex flex-wrap gap-1">
+                            {myLabels.map(label => (
+                              <button
+                                key={`my-${label.id}`}
+                                onClick={() => toggleLabelFilter(label.id, 'include')}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all ${
+                                  labelFilters.include.has(label.id)
+                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                    : labelFilters.exclude.has(label.id)
+                                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-300'
+                                }`}
+                                onContextMenu={(e) => { e.preventDefault(); toggleLabelFilter(label.id, 'exclude'); }}
+                                title="Clic para incluir, clic derecho para excluir"
+                              >
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: label.color }} />
+                                {label.name}
+                                {labelFilters.include.has(label.id) && <Check className="w-2.5 h-2.5" />}
+                                {labelFilters.exclude.has(label.id) && <X className="w-2.5 h-2.5" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Sección: Equipo (on-demand) */}
+                      {!showTeamLabels ? (
+                        <button
+                          onClick={loadTeamLabels}
+                          disabled={loadingTeamLabels}
+                          className="w-full flex items-center justify-center gap-1.5 px-2 py-1.5 text-[10px] font-medium text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-md transition-colors border border-dashed border-indigo-300 dark:border-indigo-600"
+                        >
+                          {loadingTeamLabels ? (
+                            <><Loader2 className="w-3 h-3 animate-spin" /> Cargando equipo...</>
+                          ) : (
+                            <>+ Ver etiquetas del equipo</>
+                          )}
+                        </button>
+                      ) : teamLabels.length > 0 ? (
+                        <div>
+                          <p className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">Equipo</p>
+                          <div className="flex flex-wrap gap-1">
+                            {teamLabels.map(label => (
+                              <button
+                                key={`team-${label.id}`}
+                                onClick={() => toggleLabelFilter(label.id, 'include')}
+                                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium border transition-all ${
+                                  labelFilters.include.has(label.id)
+                                    ? 'border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                                    : labelFilters.exclude.has(label.id)
+                                      ? 'border-red-500 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+                                      : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:border-green-300'
+                                }`}
+                                onContextMenu={(e) => { e.preventDefault(); toggleLabelFilter(label.id, 'exclude'); }}
+                                title={`De: ${label.ownerName || 'Equipo'} | Clic incluir, derecho excluir`}
+                              >
+                                <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: label.color }} />
+                                {label.name}
+                                {labelFilters.include.has(label.id) && <Check className="w-2.5 h-2.5" />}
+                                {labelFilters.exclude.has(label.id) && <X className="w-2.5 h-2.5" />}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-gray-400 dark:text-gray-500 text-center py-1">
+                          Sin etiquetas de equipo
+                        </p>
+                      )}
+
                       {/* Botón limpiar filtros */}
                       {(labelFilters.include.size > 0 || labelFilters.exclude.size > 0) && (
                         <button
                           onClick={clearLabelFilters}
-                          className="w-full px-3 py-1.5 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors font-medium"
+                          className="w-full px-2 py-1 text-[10px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors font-medium"
                         >
-                          Limpiar todos los filtros
+                          Limpiar filtros
                         </button>
                       )}
                     </div>
@@ -7605,6 +7942,71 @@ const LiveChatCanvas: React.FC = () => {
                 )}
               </AnimatePresence>
             </div>
+            </div>{/* Cierre grid 2 columnas */}
+
+            {/* Filtro por ejecutivo (solo coordinadores, supervisores y admins) */}
+            {(isAdmin || isAdminOperativo || isCoordinador || isSupervisor) && ejecutivosForFilter.length > 0 && (
+              <div className="relative" ref={ejecutivoDropdownRef}>
+                <button
+                  onClick={() => setShowEjecutivoFilter(!showEjecutivoFilter)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
+                    selectedEjecutivoId ? 'border-indigo-500 dark:border-indigo-400' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Users className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                    <span className="text-xs text-gray-600 dark:text-gray-300 truncate">
+                      {selectedEjecutivoId
+                        ? ejecutivosForFilter.find(e => e.id === selectedEjecutivoId)?.nombre || 'Ejecutivo'
+                        : 'Todos los ejecutivos'
+                      }
+                    </span>
+                  </div>
+                  <ChevronRight className={`w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0 ${showEjecutivoFilter ? 'rotate-90' : ''}`} />
+                </button>
+
+                <AnimatePresence>
+                  {showEjecutivoFilter && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
+                    >
+                      <div className="p-2 space-y-0.5">
+                        {/* Opción "Todos" */}
+                        <button
+                          onClick={() => { setSelectedEjecutivoId(null); setShowEjecutivoFilter(false); }}
+                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                            !selectedEjecutivoId
+                              ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
+                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                          Todos los ejecutivos
+                        </button>
+                        {ejecutivosForFilter.map(ej => (
+                          <button
+                            key={ej.id}
+                            onClick={() => { setSelectedEjecutivoId(ej.id); setShowEjecutivoFilter(false); }}
+                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                              selectedEjecutivoId === ej.id
+                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            <User className="w-3.5 h-3.5" />
+                            {ej.nombre}
+                          </button>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
           </div>
         </div>
 
@@ -8000,11 +8402,10 @@ const LiveChatCanvas: React.FC = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setShowCRMDataModal(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-lg text-xs font-medium shadow-lg shadow-blue-500/25 transition-all duration-300"
+                    className="w-10 aspect-square rounded-xl flex items-center justify-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 transition-colors"
                     title="Ver datos de CRM"
                   >
-                    <Search className="w-3.5 h-3.5" />
-                    <span>CRM</span>
+                    <Building2 className="w-5 h-5" />
                   </motion.button>
 
                   {/* Indicador de requiere atención humana */}
@@ -8812,7 +9213,7 @@ const LiveChatCanvas: React.FC = () => {
                   transition={{ duration: 0.2 }}
                   className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50"
                 >
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent pb-1">
+                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
                     {quickReplies.map((reply, index) => (
                       <motion.button
                         key={index}

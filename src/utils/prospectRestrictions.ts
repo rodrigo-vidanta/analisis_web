@@ -90,22 +90,7 @@ export const isProspectRestricted = (
     
     // Si encontramos la etapa, verificar si está restringida
     if (etapa) {
-      const isRestricted = RESTRICTED_STAGES.includes(etapa.codigo);
-      
-      // Debug logging (solo en desarrollo)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[prospectRestrictions] Verificando por etapa_id:', {
-          etapaId,
-          etapaCodigo: etapa.codigo,
-          etapaNombre: etapa.nombre,
-          userRole,
-          isRestricted,
-          restrictedStages: RESTRICTED_STAGES,
-          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
-        });
-      }
-      
-      return isRestricted;
+      return RESTRICTED_STAGES.includes(etapa.codigo);
     }
     
     // Si no encontramos la etapa por ID, algo está mal (warning)
@@ -120,34 +105,12 @@ export const isProspectRestricted = (
     
     // Si encontramos la etapa, verificar si está restringida
     if (etapa) {
-      const isRestricted = RESTRICTED_STAGES.includes(etapa.codigo);
-      
-      // Debug logging (solo en desarrollo)
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[prospectRestrictions] Verificando por etapa legacy:', {
-          etapaLegacy,
-          etapaCodigo: etapa.codigo,
-          etapaNombre: etapa.nombre,
-          userRole,
-          isRestricted,
-          restrictedStages: RESTRICTED_STAGES,
-          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
-        });
-      }
-      
-      return isRestricted;
+      return RESTRICTED_STAGES.includes(etapa.codigo);
     }
     
     // Si no encontramos por nombre legacy, buscar match directo con código
     // (caso edge: si alguien pone el código en el campo legacy)
     if (RESTRICTED_STAGES.includes(etapaLegacy.toLowerCase().replace(/\s+/g, '_'))) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[prospectRestrictions] Match directo con código:', {
-          etapaLegacy,
-          userRole,
-          isExempt: userRole && EXEMPT_ROLES.includes(userRole)
-        });
-      }
       return true;
     }
     

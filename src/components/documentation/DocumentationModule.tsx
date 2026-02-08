@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'c0139c5', date: '2026-02-08', author: 'Team', message: 'v2.5.94: B10.1.44N2.5.94 - 1 mejora + Sesion inaugural Claude Code (migracion desde Curs + Sesion de bug...', isRelease: true },
   { hash: '371ce15', date: '2026-02-06', author: 'Team', message: 'v2.5.93: B10.1.44N2.5.93 - Auditoría seguridad + Restauración Edge Functions (5 func...', isRelease: true },
   { hash: 'd77dc80', date: '2026-02-06', author: 'Team', message: 'v2.5.92: B10.1.44N2.5.92 - Documentación: Fix OGG/Opus WhatsApp Web + iOS (handover ...', isRelease: true },
   { hash: '62e809a', date: '2026-02-06', author: 'Team', message: 'v2.5.91: B10.1.44N2.5.91 - Fix Opus granule: paquetes tienen 3 frames (c=3 M=3 = 288...', isRelease: true },
@@ -523,6 +524,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-790', date: '08/02/2026, 01:51', version: 'B10.1.44N2.5.94', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-291', date: '06/02/2026, 17:32', version: 'B10.1.44N2.5.93', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-480', date: '06/02/2026, 12:21', version: 'B10.1.44N2.5.92', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-340', date: '06/02/2026, 01:12', version: 'B10.1.44N2.5.90', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -691,10 +693,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.5.93', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.5.93', highlight: false },
+  { label: 'Version', value: 'v2.5.94', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.5.94', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '6 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '8 feb 2026', highlight: false },
 ];
 
 // ============================================

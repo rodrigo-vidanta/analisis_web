@@ -47,16 +47,15 @@ const supabaseAnonKey = SUPABASE_ANON_KEY;
 
 // Referencia al cliente (se asigna después de createClient)
 let _client: SupabaseClient | null = null;
-// Guard contra re-entrada durante refresh
-let _isRefreshing = false;
+// Promesa compartida: TODAS las peticiones 401 concurrentes esperan el mismo refresh
+let _refreshPromise: Promise<string | null> | null = null;
 // Referencia a fetch nativo capturada al inicio (evita monkey-patching)
 const _nativeFetch = globalThis.fetch.bind(globalThis);
 
 const authAwareFetch: typeof globalThis.fetch = async (input, init) => {
   const response = await _nativeFetch(input, init);
 
-  // Solo interceptar 401 de endpoints no-auth, cuando hay cliente y no estamos ya refrescando
-  if (response.status !== 401 || _isRefreshing || !_client) {
+  if (response.status !== 401 || !_client) {
     return response;
   }
 
@@ -66,28 +65,37 @@ const authAwareFetch: typeof globalThis.fetch = async (input, init) => {
     return response;
   }
 
-  _isRefreshing = true;
-  try {
-    const { data, error } = await _client.auth.refreshSession();
+  // Si ya hay un refresh en curso, esperar a que termine (no ignorar el 401)
+  if (!_refreshPromise) {
+    _refreshPromise = (async () => {
+      try {
+        const { data, error } = await _client!.auth.refreshSession();
 
-    if (error || !data.session) {
-      // Refresh falló → sesión realmente expirada → forzar logout
-      window.dispatchEvent(new CustomEvent('auth:session-expired', {
-        detail: { reason: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.' }
-      }));
-      return response; // Retornar 401 original al caller
-    }
+        if (error || !data.session) {
+          window.dispatchEvent(new CustomEvent('auth:session-expired', {
+            detail: { reason: 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.' }
+          }));
+          return null;
+        }
 
-    // Refresh exitoso → reintentar la petición original con el nuevo token
-    const retryHeaders = new Headers(init?.headers);
-    retryHeaders.set('Authorization', `Bearer ${data.session.access_token}`);
-    return _nativeFetch(input, { ...init, headers: retryHeaders });
-  } catch {
-    // En caso de error inesperado, retornar respuesta original sin romper nada
-    return response;
-  } finally {
-    _isRefreshing = false;
+        return data.session.access_token;
+      } catch {
+        return null;
+      } finally {
+        setTimeout(() => { _refreshPromise = null; }, 500);
+      }
+    })();
   }
+
+  const newToken = await _refreshPromise;
+
+  if (!newToken) {
+    return response;
+  }
+
+  const retryHeaders = new Headers(init?.headers);
+  retryHeaders.set('Authorization', `Bearer ${newToken}`);
+  return _nativeFetch(input, { ...init, headers: retryHeaders });
 };
 
 // ⚠️ SEGURIDAD: SIEMPRE usar anon_key en el frontend

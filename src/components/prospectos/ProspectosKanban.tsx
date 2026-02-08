@@ -261,6 +261,17 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     return CHECKPOINT_KEYS.filter(key => !hiddenColumns.includes(key));
   }, [hiddenColumns]);
 
+  // Máximo de columnas expandidas simultáneamente
+  const MAX_EXPANDED_COLUMNS = 6;
+
+  // Orden de colapso explícito (prioridad de colapso: primero se colapsan estas)
+  const COLLAPSE_PRIORITY: CheckpointKey[] = useMemo(() => [
+    'checkpoint-no_interesado' as CheckpointKey,
+    'checkpoint-es_miembro' as CheckpointKey,
+    'checkpoint-activo_pqnc' as CheckpointKey,
+    'checkpoint-importado_manual' as CheckpointKey,
+  ], []);
+
   // Columnas menos prioritarias que se colapsan automáticamente cuando no hay espacio
   // Identificar etapas terminales o de baja prioridad desde la BD
   const lowPriorityColumns: CheckpointKey[] = useMemo(() => {
@@ -269,11 +280,11 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     const terminalKeys = allEtapas
       .filter(e => e.es_terminal)
       .map(e => `checkpoint-${e.codigo}` as CheckpointKey);
-    
+
     return terminalKeys;
   }, []);
 
-  // Efecto para colapsar automáticamente columnas cuando no hay espacio suficiente
+  // Efecto para colapsar automáticamente columnas cuando hay demasiadas expandidas o no hay espacio
   useEffect(() => {
     if (!containerRef.current || autoCollapseRef.current) return;
 
@@ -284,39 +295,60 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       const containerWidth = container.clientWidth;
       if (containerWidth === 0) return; // Aún no está renderizado
 
-      const totalVisibleColumns = visibleCheckpointKeys.length;
-      const currentlyCollapsed = collapsedColumns.length;
-      const currentlyExpanded = totalVisibleColumns - currentlyCollapsed;
+      const expandedKeys = visibleCheckpointKeys.filter(k => !collapsedColumns.includes(k));
+      const currentlyExpanded = expandedKeys.length;
 
       if (currentlyExpanded === 0) return; // Ya están todas colapsadas
 
-      // Calcular el ancho mínimo necesario
-      // Columnas colapsadas: 60px cada una
-      // Columnas expandidas: mínimo 120px cada una para ser funcionales
-      const collapsedWidth = currentlyCollapsed * 60;
-      const minExpandedWidthPerColumn = 120; // Mínimo funcional por columna expandida
-      const idealExpandedWidthPerColumn = 180; // Ancho ideal por columna expandida
-      const totalMinWidth = collapsedWidth + (currentlyExpanded * minExpandedWidthPerColumn);
-      const totalIdealWidth = collapsedWidth + (currentlyExpanded * idealExpandedWidthPerColumn);
-
-      // Si el espacio disponible es menor que el ideal, colapsar columnas menos prioritarias
-      if (containerWidth < totalIdealWidth) {
+      // REGLA 1: Nunca más de MAX_EXPANDED_COLUMNS expandidas
+      if (currentlyExpanded > MAX_EXPANDED_COLUMNS) {
         autoCollapseRef.current = true;
-        
-        // Encontrar la primera columna menos prioritaria que esté expandida
-        for (const lowPriorityKey of lowPriorityColumns) {
-          if (visibleCheckpointKeys.includes(lowPriorityKey) && 
-              !collapsedColumns.includes(lowPriorityKey)) {
-            // Colapsar esta columna
-            onToggleColumnCollapse(lowPriorityKey);
-            // Usar setTimeout para permitir que React procese el cambio antes de verificar de nuevo
-            setTimeout(() => {
-              autoCollapseRef.current = false;
-            }, 200);
+
+        // Colapsar la primera de la lista de prioridades que esté expandida
+        for (const priorityKey of COLLAPSE_PRIORITY) {
+          if (expandedKeys.includes(priorityKey)) {
+            onToggleColumnCollapse(priorityKey);
+            setTimeout(() => { autoCollapseRef.current = false; }, 200);
             return;
           }
         }
-        
+        // Si ninguna prioritaria está expandida, colapsar terminales
+        for (const lowPriorityKey of lowPriorityColumns) {
+          if (expandedKeys.includes(lowPriorityKey)) {
+            onToggleColumnCollapse(lowPriorityKey);
+            setTimeout(() => { autoCollapseRef.current = false; }, 200);
+            return;
+          }
+        }
+        autoCollapseRef.current = false;
+        return;
+      }
+
+      // REGLA 2: Si el espacio no es suficiente, colapsar por prioridad
+      const collapsedWidth = collapsedColumns.length * 48;
+      const idealExpandedWidthPerColumn = 180;
+      const totalIdealWidth = collapsedWidth + (currentlyExpanded * idealExpandedWidthPerColumn);
+
+      if (containerWidth < totalIdealWidth) {
+        autoCollapseRef.current = true;
+
+        // Primero intentar con las de prioridad explícita
+        for (const priorityKey of COLLAPSE_PRIORITY) {
+          if (expandedKeys.includes(priorityKey)) {
+            onToggleColumnCollapse(priorityKey);
+            setTimeout(() => { autoCollapseRef.current = false; }, 200);
+            return;
+          }
+        }
+        // Luego con las terminales de BD
+        for (const lowPriorityKey of lowPriorityColumns) {
+          if (expandedKeys.includes(lowPriorityKey)) {
+            onToggleColumnCollapse(lowPriorityKey);
+            setTimeout(() => { autoCollapseRef.current = false; }, 200);
+            return;
+          }
+        }
+
         autoCollapseRef.current = false;
       }
     };
@@ -341,7 +373,7 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
       clearTimeout(resizeTimeoutId);
       window.removeEventListener('resize', handleResize);
     };
-  }, [visibleCheckpointKeys, collapsedColumns, onToggleColumnCollapse, hiddenColumns, lowPriorityColumns]);
+  }, [visibleCheckpointKeys, collapsedColumns, onToggleColumnCollapse, hiddenColumns, lowPriorityColumns, COLLAPSE_PRIORITY]);
 
   // Mapeo inverso: checkpoint → etapa_id (usa código de etapa)
   const getEtapaIdForCheckpoint = (checkpoint: CheckpointKey): string | null => {
@@ -605,21 +637,13 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
     );
   };
 
-  // Calcular ancho de cada columna (responsivo y adaptativo, respetando el contenedor)
-  const getColumnWidth = (isCollapsed: boolean, totalExpanded: number) => {
-    if (isCollapsed) {
-      return '60px'; // Columna más delgada cuando está colapsada
-    }
-    // Calcular el ancho disponible para columnas expandidas
-    // Asegurar que el total no exceda el 100% del contenedor
-    const totalCollapsedWidth = collapsedColumns.length * 60; // Usar 60px para cálculo
-    if (totalExpanded === 0) {
-      return '0px'; // No hay columnas expandidas
-    }
-    // Dividir el espacio disponible entre las columnas expandidas
-    // El ancho se calcula dinámicamente para que todas las columnas quepan
-    const availableWidth = `calc((100% - ${totalCollapsedWidth}px) / ${totalExpanded})`;
-    return availableWidth;
+  // Calcular ancho de cada columna (responsivo, nunca excede el contenedor)
+  const totalCollapsed = visibleCheckpointKeys.filter(k => collapsedColumns.includes(k)).length;
+  const getColumnWidth = (isCollapsed: boolean, totalExpandedCount: number) => {
+    if (isCollapsed) return '48px';
+    if (totalExpandedCount === 0) return '0px';
+    const collapsedPx = totalCollapsed * 48;
+    return `calc((100% - ${collapsedPx}px) / ${totalExpandedCount})`;
   };
 
   const totalExpanded = visibleCheckpointKeys.filter(key => !collapsedColumns.includes(key)).length;
@@ -681,14 +705,14 @@ const ProspectosKanban: React.FC<ProspectosKanbanProps> = ({
                 className="flex flex-col border-r border-gray-200 dark:border-gray-700 last:border-r-0"
                 style={{
                   width: getColumnWidth(isCollapsed, totalExpanded),
-                  // Ancho mínimo funcional que permite que se ajusten al espacio disponible
-                  minWidth: isCollapsed ? '60px' : '100px', // Mínimo funcional para que el contenido sea legible
-                  flexShrink: isCollapsed ? 0 : 1, // Permitir que se reduzcan si es necesario
-                  flexGrow: isCollapsed ? 0 : 1, // Crecer para llenar espacio disponible
+                  minWidth: isCollapsed ? '48px' : '0',
+                  flexShrink: isCollapsed ? 0 : 1,
+                  flexGrow: isCollapsed ? 0 : 1,
+                  overflow: 'hidden',
                   height: '100%',
                   maxHeight: '100%',
-                  minHeight: 0, // Necesario para que el scroll funcione en flexbox
-                  boxSizing: 'border-box' // Incluir padding y border en el cálculo del ancho
+                  minHeight: 0,
+                  boxSizing: 'border-box'
                 }}
               >
                 {/* Header de la columna */}

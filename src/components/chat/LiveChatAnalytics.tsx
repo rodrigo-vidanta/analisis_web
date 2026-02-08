@@ -17,12 +17,11 @@ import {
   Activity,
   Clock as ClockIcon,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  ShieldCheck
 } from 'lucide-react';
-import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
-import { permissionsService } from '../../services/permissionsService';
 
 interface AnalyticsData {
   // Métricas básicas
@@ -99,449 +98,69 @@ const LiveChatAnalytics: React.FC = () => {
     };
   }, [analytics]);
 
+  // Metadata del servidor (rol, filtros aplicados)
+  const [meta, setMeta] = useState<{ role: string; filtered: boolean; prospecto_count: number } | null>(null);
+
   const loadAnalytics = async () => {
     try {
       setLoading(true);
-      
-      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-      
-      // Aplicar filtros de permisos según el rol del usuario
-      let prospectoIdsFilter: string[] | null = null;
-      
-      if (user?.id) {
-        const coordinacionFilter = await permissionsService.getCoordinacionFilter(user.id);
-        const ejecutivoFilter = await permissionsService.getEjecutivoFilter(user.id);
-        
-        if (ejecutivoFilter) {
-          // Ejecutivo: solo prospectos asignados a él
-          const { data: ejecutivoProspectos } = await analysisSupabase
-            .from('prospectos')
-            .select('id')
-            .eq('ejecutivo_id', ejecutivoFilter);
-          
-          prospectoIdsFilter = ejecutivoProspectos?.map(p => p.id) || [];
-        } else if (coordinacionFilter) {
-          // Coordinador: todos los prospectos de su coordinación
-          const { data: coordinacionProspectos } = await analysisSupabase
-            .from('prospectos')
-            .select('id')
-            .eq('coordinacion_id', coordinacionFilter);
-          
-          prospectoIdsFilter = coordinacionProspectos?.map(p => p.id) || [];
-        }
-        // Admin: sin filtros (prospectoIdsFilter = null)
-      }
-      
-      // 1. Cargar conversaciones_whatsapp (bloques de 24 horas con resumen)
-      let conversationsQuery = analysisSupabase
-        .from('conversaciones_whatsapp')
-        .select('*')
-        .gte('fecha_inicio', startDate.toISOString());
-      
-      // Aplicar filtro de prospectos si es necesario
-      if (prospectoIdsFilter !== null) {
-        if (prospectoIdsFilter.length === 0) {
-          // Si no hay prospectos asignados, retornar métricas vacías
-          setAnalytics({
-            totalConversations: 0,
-            activeConversations: 0,
-            transferredConversations: 0,
-            closedConversations: 0,
-            handoffRate: 0,
-            conversationTrends: [],
-            messageDistribution: [],
-            avgResponseTime: 0,
-            avgResponseTimeBot: 0,
-            avgResponseTimeAgent: 0,
-            peakHours: [],
-            priorityDistribution: [],
-            readRate: 0,
-            avgConversationDuration: 0,
-            previousPeriod: {
-              totalConversations: 0,
-              activeConversations: 0,
-              avgResponseTime: 0
-            }
-          });
-          setLoading(false);
-          return;
-        }
-        conversationsQuery = conversationsQuery.in('prospecto_id', prospectoIdsFilter);
-      }
-      
-      const { data: conversations, error: convError } = await conversationsQuery
-        .order('fecha_inicio', { ascending: false });
 
-      if (convError) throw convError;
-
-      // 2. Cargar mensajes_whatsapp (mensajes de las últimas 24 horas)
-      let messagesQuery = analysisSupabase
-        .from('mensajes_whatsapp')
-        .select('*')
-        .gte('fecha_hora', startDate.toISOString());
-      
-      // Aplicar filtro de prospectos si es necesario
-      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
-        messagesQuery = messagesQuery.in('prospecto_id', prospectoIdsFilter);
-      }
-      
-      const { data: messages, error: msgError } = await messagesQuery
-        .order('fecha_hora', { ascending: true });
-
-      if (msgError) throw msgError;
-      
-      // 3. Cargar prospectos para información del lead
-      const prospectoIds = [...new Set([
-        ...(conversations?.map((c: any) => c.prospecto_id) || []),
-        ...(messages?.map((m: any) => m.prospecto_id) || [])
-      ].filter(Boolean))];
-      
-      if (prospectoIds.length === 0) {
-        // Si no hay prospectos, retornar métricas vacías
-        setAnalytics({
-          totalConversations: 0,
-          activeConversations: 0,
-          transferredConversations: 0,
-          closedConversations: 0,
-          handoffRate: 0,
-          conversationTrends: [],
-          messageDistribution: [],
-          avgResponseTime: 0,
-          avgResponseTimeBot: 0,
-          avgResponseTimeAgent: 0,
-          peakHours: [],
-          priorityDistribution: [],
-          readRate: 0,
-          avgConversationDuration: 0,
-          previousPeriod: {
-            totalConversations: 0,
-            activeConversations: 0,
-            avgResponseTime: 0
-          }
-        });
-        setLoading(false);
+      if (!user?.id) {
+        console.error('[LiveChatAnalytics] No user ID available');
         return;
       }
-      
-      // FIX: Cargar prospectos en batches para evitar error 400 por URL muy larga
-      const BATCH_SIZE = 100;
-      const loadProspectosInBatches = async (ids: string[]): Promise<any[]> => {
-        const results: any[] = [];
-        for (let i = 0; i < ids.length; i += BATCH_SIZE) {
-          const batch = ids.slice(i, i + BATCH_SIZE);
-          const { data, error } = await analysisSupabase
-            .from('prospectos')
-            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa, created_at')
-            .in('id', batch);
-          if (!error && data) {
-            results.push(...data);
-          } else if (error) {
-            console.error(`❌ [LiveChatAnalytics] Error en batch ${i / BATCH_SIZE + 1}:`, error);
-          }
-        }
-        return results;
-      };
 
-      const prospectos = await loadProspectosInBatches(prospectoIds);
-      
-      // Crear mapa de prospectos para acceso rápido
-      const prospectosMap = new Map(prospectos?.map((p: any) => [p.id, p]) || []);
-      
-      // Enriquecer conversaciones con datos de prospectos
-      const enrichedConversations = conversations?.map((conv: any) => {
-        const prospecto = prospectosMap.get(conv.prospecto_id);
-        return {
-          ...conv,
-          customer_name: prospecto?.nombre_completo || prospecto?.nombre_whatsapp || conv.nombre_contacto,
-          customer_phone: prospecto?.whatsapp || conv.numero_telefono,
-          etapa: prospecto?.etapa || conv.estado_prospecto,
-          prospecto_created_at: prospecto?.created_at
-        };
-      }) || [];
+      const days = timeRange === '7d' ? 7 : timeRange === '30d' ? 30 : 90;
 
-      // Calcular métricas desde conversaciones_whatsapp
-      const totalConversations = enrichedConversations?.length || 0;
-      const activeConversations = enrichedConversations?.filter(c => c.estado === 'activa').length || 0;
-      const transferredConversations = enrichedConversations?.filter(c => c.estado === 'transferida').length || 0;
-      const closedConversations = enrichedConversations?.filter(c => c.estado === 'finalizada').length || 0;
-      
-      // Tendencias por día (basado en fecha_inicio de los bloques)
-      const conversationTrends = calculateTrends(enrichedConversations || [], days);
-      
-      // Distribución de mensajes
-      const messageDistribution = calculateMessageDistribution(messages || []);
-      
-      // Tiempo de respuesta
-      const responseTimes = calculateResponseTimes(messages || []);
-      
-      // Horas pico
-      const peakHours = calculatePeakHours(messages || []);
-      
-      // Prioridades
-      const priorityDistribution = calculatePriorityDistribution(conversations || []);
-      
-      // Tasa de lectura
-      const readRate = calculateReadRate(messages || []);
-      
-      // Duración promedio de conversaciones (basado en fecha_inicio y fecha_fin de bloques)
-      const avgConversationDuration = calculateAvgDuration(enrichedConversations || []);
-      
-      // Comparativa con período anterior
-      const previousStartDate = new Date(startDate);
-      previousStartDate.setDate(previousStartDate.getDate() - days);
-      const previousEndDate = new Date(startDate);
-      
-      // Obtener conversaciones del período anterior (con filtros de permisos)
-      let previousConversationsQuery = analysisSupabase
-        .from('conversaciones_whatsapp')
-        .select('*')
-        .gte('fecha_inicio', previousStartDate.toISOString())
-        .lt('fecha_inicio', previousEndDate.toISOString());
-      
-      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
-        previousConversationsQuery = previousConversationsQuery.in('prospecto_id', prospectoIdsFilter);
+      // Una sola llamada RPC: permisos + métricas + comparativas server-side
+      const { data, error } = await analysisSupabase.rpc('get_whatsapp_analytics', {
+        p_user_id: user.id,
+        p_days: days
+      });
+
+      if (error) throw error;
+
+      if (!data || data.error) {
+        console.error('[LiveChatAnalytics] Server error:', data?.error);
+        return;
       }
-      
-      const { data: previousConversations } = await previousConversationsQuery;
-      
-      const previousConversationsFormatted = previousConversations?.map((conv: any) => ({
-        id: conv.id,
-        estado: conv.estado,
-        fecha_inicio: conv.fecha_inicio
-      })) || [];
-      
-      // Obtener mensajes del período anterior (con filtros de permisos)
-      let previousMessagesQuery = analysisSupabase
-        .from('mensajes_whatsapp')
-        .select('*')
-        .gte('fecha_hora', previousStartDate.toISOString())
-        .lt('fecha_hora', previousEndDate.toISOString());
-      
-      if (prospectoIdsFilter !== null && prospectoIdsFilter.length > 0) {
-        previousMessagesQuery = previousMessagesQuery.in('prospecto_id', prospectoIdsFilter);
+
+      // Guardar metadata del servidor
+      if (data._meta) {
+        setMeta({
+          role: data._meta.role,
+          filtered: data._meta.filtered,
+          prospecto_count: data._meta.prospecto_count
+        });
       }
-      
-      const { data: previousMessages } = await previousMessagesQuery;
-      
-      const previousResponseTimes = calculateResponseTimes(previousMessages || []);
-      
+
+      // Mapeo directo: la función SQL retorna exactamente la interfaz AnalyticsData
       setAnalytics({
-        totalConversations,
-        activeConversations,
-        transferredConversations,
-        closedConversations,
-        handoffRate: totalConversations > 0 ? (transferredConversations / totalConversations) * 100 : 0,
-        conversationTrends,
-        messageDistribution,
-        avgResponseTime: responseTimes.overall,
-        avgResponseTimeBot: responseTimes.bot,
-        avgResponseTimeAgent: responseTimes.agent,
-        peakHours,
-        priorityDistribution,
-        readRate,
-        avgConversationDuration,
+        totalConversations: data.totalConversations ?? 0,
+        activeConversations: data.activeConversations ?? 0,
+        transferredConversations: data.transferredConversations ?? 0,
+        closedConversations: data.closedConversations ?? 0,
+        handoffRate: data.handoffRate ?? 0,
+        conversationTrends: data.conversationTrends ?? [],
+        messageDistribution: data.messageDistribution ?? [],
+        avgResponseTime: data.avgResponseTime ?? 0,
+        avgResponseTimeBot: data.avgResponseTimeBot ?? 0,
+        avgResponseTimeAgent: data.avgResponseTimeAgent ?? 0,
+        peakHours: data.peakHours ?? [],
+        priorityDistribution: data.priorityDistribution ?? [],
+        readRate: data.readRate ?? 0,
+        avgConversationDuration: data.avgConversationDuration ?? 0,
         previousPeriod: {
-          totalConversations: previousConversationsFormatted?.length || 0,
-          activeConversations: previousConversationsFormatted?.filter(c => c.estado === 'activa').length || 0,
-          avgResponseTime: previousResponseTimes.overall
+          totalConversations: data.previousPeriod?.totalConversations ?? 0,
+          activeConversations: data.previousPeriod?.activeConversations ?? 0,
+          avgResponseTime: data.previousPeriod?.avgResponseTime ?? 0
         }
       });
     } catch (error) {
-      console.error('Error cargando analytics:', error);
+      console.error('[LiveChatAnalytics] Error cargando analytics:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateTrends = (conversations: any[], days: number) => {
-    const trends: { [key: string]: number } = {};
-    const today = new Date();
-    
-    for (let i = 0; i < days; i++) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateKey = date.toISOString().split('T')[0];
-      trends[dateKey] = 0;
-    }
-    
-    conversations.forEach(conv => {
-      // conversaciones_whatsapp usa fecha_inicio para el bloque de 24h
-      const convDate = conv.fecha_inicio || conv.created_at || conv.fecha_creacion_prospecto;
-      if (convDate) {
-        const dateKey = new Date(convDate).toISOString().split('T')[0];
-        if (trends[dateKey] !== undefined) {
-          trends[dateKey]++;
-        }
-      }
-    });
-    
-    return Object.entries(trends)
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([date, count]) => ({
-        date: new Date(date).toLocaleDateString('es-MX', { 
-          month: 'short', 
-          day: 'numeric',
-          timeZone: 'America/Mexico_City'
-        }),
-        count
-      }));
-  };
-
-  const calculateMessageDistribution = (messages: any[]) => {
-    const distribution: { [key: string]: number } = {
-      customer: 0,
-      bot: 0,
-      agent: 0
-    };
-    
-    messages.forEach(msg => {
-      // mensajes_whatsapp usa 'rol' con valores: 'Prospecto', 'AI', 'Asesor'
-      const role = msg.rol;
-      if (role === 'Prospecto') {
-        distribution.customer++;
-      } else if (role === 'AI') {
-        distribution.bot++;
-      } else if (role === 'Asesor') {
-        distribution.agent++;
-      }
-    });
-    
-    return Object.entries(distribution).map(([sender_type, count]) => ({
-      sender_type: sender_type === 'customer' ? 'Cliente' : sender_type === 'bot' ? 'Bot' : 'Agente',
-      count
-    }));
-  };
-
-  const calculateResponseTimes = (messages: any[]) => {
-    let totalTime = 0;
-    let count = 0;
-    let botTime = 0;
-    let botCount = 0;
-    let agentTime = 0;
-    let agentCount = 0;
-    
-    // Agrupar mensajes por conversacion_id (bloques de 24h) o prospecto_id
-    const messagesByConversation: { [key: string]: any[] } = {};
-    messages.forEach(msg => {
-      const convId = msg.conversacion_id || msg.prospecto_id;
-      if (convId) {
-        if (!messagesByConversation[convId]) {
-          messagesByConversation[convId] = [];
-        }
-        messagesByConversation[convId].push(msg);
-      }
-    });
-    
-    // Calcular tiempos de respuesta por conversación
-    Object.values(messagesByConversation).forEach(convMessages => {
-      const sortedMessages = convMessages.sort((a, b) => {
-        const dateA = a.fecha_hora || a.created_at;
-        const dateB = b.fecha_hora || b.created_at;
-        return new Date(dateA).getTime() - new Date(dateB).getTime();
-      });
-      
-      for (let i = 0; i < sortedMessages.length - 1; i++) {
-        const currentMsg = sortedMessages[i];
-        const nextMsg = sortedMessages[i + 1];
-        
-        // mensajes_whatsapp usa 'rol' con valores: 'Prospecto', 'AI', 'Asesor'
-        const currentRole = currentMsg.rol;
-        const nextRole = nextMsg.rol;
-        
-        // Solo calcular si el mensaje actual es del prospecto y el siguiente no
-        if (currentRole === 'Prospecto' && nextRole !== 'Prospecto') {
-          const currentDate = currentMsg.fecha_hora;
-          const nextDate = nextMsg.fecha_hora;
-          const responseTime = new Date(nextDate).getTime() - new Date(currentDate).getTime();
-          const minutes = responseTime / (1000 * 60);
-          
-          if (minutes > 0 && minutes < 1440) { // Menos de 24 horas
-            totalTime += minutes;
-            count++;
-            
-            if (nextRole === 'AI') {
-              botTime += minutes;
-              botCount++;
-            } else if (nextRole === 'Asesor') {
-              agentTime += minutes;
-              agentCount++;
-            }
-          }
-        }
-      }
-    });
-    
-    return {
-      overall: count > 0 ? totalTime / count : 0,
-      bot: botCount > 0 ? botTime / botCount : 0,
-      agent: agentCount > 0 ? agentTime / agentCount : 0
-    };
-  };
-
-  const calculatePeakHours = (messages: any[]) => {
-    const hours: { [key: number]: number } = {};
-    
-    for (let i = 0; i < 24; i++) {
-      hours[i] = 0;
-    }
-    
-    messages.forEach(msg => {
-      const date = msg.fecha_hora || msg.created_at;
-      const hour = new Date(date).getHours();
-      hours[hour]++;
-    });
-    
-    return Object.entries(hours)
-      .map(([hour, count]) => ({ hour: parseInt(hour), count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8); // Top 8 horas
-  };
-
-  const calculatePriorityDistribution = (conversations: any[]) => {
-    // conversaciones_whatsapp no tiene campo priority, usamos resultado o intencion
-    // Agrupar por resultado o intencion para distribución
-    const distribution: { [key: string]: number } = {};
-    
-    conversations.forEach(conv => {
-      const key = conv.resultado || conv.intencion || 'Sin clasificar';
-      distribution[key] = (distribution[key] || 0) + 1;
-    });
-    
-    // Ordenar por count y tomar los top 4
-    return Object.entries(distribution)
-      .map(([priority, count]) => ({ priority, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 4)
-      .map(item => ({
-        priority: item.priority.charAt(0).toUpperCase() + item.priority.slice(1),
-        count: item.count
-      }));
-  };
-
-  const calculateReadRate = (messages: any[]) => {
-    const totalMessages = messages.length;
-    // mensajes_whatsapp usa 'leido' en lugar de 'is_read'
-    const readMessages = messages.filter(msg => msg.leido || msg.is_read).length;
-    return totalMessages > 0 ? (readMessages / totalMessages) * 100 : 0;
-  };
-
-  const calculateAvgDuration = (conversations: any[]) => {
-    // conversaciones_whatsapp tiene fecha_inicio y fecha_fin (bloques de 24h)
-    // También puede usar last_message_at para duración real
-    const durations = conversations
-      .filter(c => c.fecha_inicio && (c.fecha_fin || c.last_message_at))
-      .map(c => {
-        const start = new Date(c.fecha_inicio).getTime();
-        const end = new Date(c.fecha_fin || c.last_message_at).getTime();
-        return (end - start) / (1000 * 60); // minutos
-      })
-      .filter(d => d > 0 && d < 1440); // menos de 24 horas (duración del bloque)
-    
-    return durations.length > 0
-      ? durations.reduce((a, b) => a + b, 0) / durations.length
-      : 0;
   };
 
   const renderCharts = () => {
@@ -628,9 +247,10 @@ const LiveChatAnalytics: React.FC = () => {
             datasets: [{
               data: analytics.messageDistribution.map(m => m.count),
               backgroundColor: [
-                'rgba(16, 185, 129, 0.8)',
-                'rgba(59, 130, 246, 0.8)',
-                'rgba(139, 92, 246, 0.8)'
+                'rgba(16, 185, 129, 0.8)',  // Cliente
+                'rgba(59, 130, 246, 0.8)',  // Bot
+                'rgba(139, 92, 246, 0.8)',  // Vendedor
+                'rgba(245, 158, 11, 0.8)'   // Plantilla
               ],
               borderWidth: 0,
               hoverOffset: 8
@@ -808,7 +428,18 @@ const LiveChatAnalytics: React.FC = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Analíticas</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Métricas y estadísticas del sistema de chat</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+            Métricas y estadísticas del sistema de chat
+            {meta && (
+              <span className="inline-flex items-center gap-1 ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400">
+                <ShieldCheck className="w-3 h-3" />
+                {meta.filtered
+                  ? `${meta.role} · ${meta.prospecto_count} prospectos`
+                  : 'Admin · Todos los datos'
+                }
+              </span>
+            )}
+          </p>
         </div>
         <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
           {(['7d', '30d', '90d'] as const).map(range => (

@@ -357,8 +357,11 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
               
               // ✅ FIX 1: VALIDACIÓN ESTRICTA - Si hay error, NO mostrar NADA (seguridad primero)
               if (prospectosError) {
-                console.error('[LiveActivityStore] Error obteniendo prospectos por coordinación:', prospectosError);
-                console.warn('[LiveActivityStore] Por seguridad, no se mostrarán llamadas hasta resolver el error');
+                // 42501 = sesión expirada/logout en progreso → limpiar silenciosamente
+                if (prospectosError.code !== '42501') {
+                  console.error('[LiveActivityStore] Error obteniendo prospectos por coordinación:', prospectosError);
+                  console.warn('[LiveActivityStore] Por seguridad, no se mostrarán llamadas hasta resolver el error');
+                }
                 set({ widgetCalls: [], isLoadingCalls: false });
                 return;
               }
@@ -377,7 +380,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
                 call.prospecto_id && prospectosIds.has(call.prospecto_id)
               );
               
-              console.log(`[LiveActivityStore] Filtrado por coordinaciones [${coordinacionesFilter.join(', ')}]: ${activeCalls.length} llamadas permitidas de ${prospectosIds.size} prospectos`);
+              // Filtrado silencioso - log removido para limpieza de consola
             } catch (err) {
               console.error('[LiveActivityStore] Excepción crítica filtrando por coordinación:', err);
               // ✅ FIX 1: En caso de excepción, NO mostrar NADA (seguridad primero)
@@ -544,6 +547,12 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       
       set({ widgetCalls: activeCalls });
     } catch (error) {
+      // 42501 = permission denied → sesión expirada/logout en progreso, limpiar silenciosamente
+      const pgError = error as { code?: string };
+      if (pgError?.code === '42501') {
+        set({ widgetCalls: [], isLoadingCalls: false });
+        return;
+      }
       console.error('[LiveActivityStore] Error loading calls:', error);
     } finally {
       set({ isLoadingCalls: false });

@@ -2029,62 +2029,66 @@ const LiveMonitorKanban: React.FC = () => {
             return;
           }
           
+          // FIX 2026-02-07: Contar en batches para evitar HTTP 400 por URL demasiado larga
+          // PostgREST usa HEAD request con filtros en la URL → con 100+ UUIDs excede el límite
+          const COUNT_BATCH_SIZE = 80;
+          const countInBatches = async (prospectoIds: string[]): Promise<number> => {
+            let total = 0;
+            for (let i = 0; i < prospectoIds.length; i += COUNT_BATCH_SIZE) {
+              const batch = prospectoIds.slice(i, i + COUNT_BATCH_SIZE);
+              const { count, error } = await analysisSupabase
+                .from('llamadas_ventas')
+                .select('*', { count: 'exact', head: true })
+                .in('prospecto', batch);
+              if (!error && count) {
+                total += count;
+              }
+            }
+            return total;
+          };
+
           // Si es ejecutivo, contar llamadas de sus prospectos (incluyendo backups)
           if (ejecutivoFilterId) {
             // Obtener IDs de ejecutivos donde este ejecutivo es backup
             const ejecutivosIds = [ejecutivoFilterId];
-            
+
             if (supabaseSystemUI) {
               const { data: ejecutivosConBackup } = await supabaseSystemUI
                 .from('user_profiles_v2')
                 .select('id')
                 .eq('backup_id', ejecutivoFilterId)
                 .eq('has_backup', true);
-              
+
               if (ejecutivosConBackup && ejecutivosConBackup.length > 0) {
                 ejecutivosIds.push(...ejecutivosConBackup.map(e => e.id));
               }
             }
-            
+
             // Primero obtener los prospectos del ejecutivo
             const { data: prospectos } = await analysisSupabase
               .from('prospectos')
               .select('id')
               .in('ejecutivo_id', ejecutivosIds);
-            
+
             if (prospectos && prospectos.length > 0) {
               const prospectoIds = prospectos.map(p => p.id);
-              
-              // Contar llamadas de esos prospectos
-              const { count, error } = await analysisSupabase
-                .from('llamadas_ventas')
-                .select('*', { count: 'exact', head: true })
-                .in('prospecto', prospectoIds);
-              
-              if (!error) {
-                setTotalHistoryCount(count || 0);
-              }
+              const total = await countInBatches(prospectoIds);
+              setTotalHistoryCount(total);
             } else {
               setTotalHistoryCount(0);
             }
           } else if (coordinacionesFilterIds && coordinacionesFilterIds.length > 0) {
-            // Coordinador: contar llamadas de prospectos en sus coordinaciones
+            // Coordinador/Supervisor: contar llamadas de prospectos en sus coordinaciones
+            // Los prospectos pueden ser cientos → cargar en batches también
             const { data: prospectos } = await analysisSupabase
               .from('prospectos')
               .select('id')
               .in('coordinacion_id', coordinacionesFilterIds);
-            
+
             if (prospectos && prospectos.length > 0) {
               const prospectoIds = prospectos.map(p => p.id);
-              
-              const { count, error } = await analysisSupabase
-                .from('llamadas_ventas')
-                .select('*', { count: 'exact', head: true })
-                .in('prospecto', prospectoIds);
-              
-              if (!error) {
-                setTotalHistoryCount(count || 0);
-              }
+              const total = await countInBatches(prospectoIds);
+              setTotalHistoryCount(total);
             } else {
               setTotalHistoryCount(0);
             }

@@ -321,15 +321,21 @@ class LiveMonitorService {
         coordinacionesFilter = await permissionsService.getCoordinacionesFilter(userId);
         ejecutivoFilter = await permissionsService.getEjecutivoFilter(userId);
 
+        // FIX BUG 1 (2026-02-07): null = admin verificado, [] = sin acceso
+        const isAdmin = coordinacionesFilter === null;
+
         if (ejecutivoFilter) {
           // Ejecutivo: filtrar por ejecutivo_id del prospecto (necesita JOIN)
           // Por ahora, filtramos después de obtener los datos
-        } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
+        } else if (!isAdmin && coordinacionesFilter && coordinacionesFilter.length > 0) {
           // Coordinador: filtrar por coordinacion_id directamente en llamadas_ventas (múltiples coordinaciones)
           // Excluir llamadas sin coordinación asignada
           query = query.in('coordinacion_id', coordinacionesFilter).not('coordinacion_id', 'is', null);
+        } else if (!isAdmin && !ejecutivoFilter) {
+          // SAFETY NET: No es admin y no tiene filtros válidos → no cargar nada
+          return [];
         }
-        // Admin: sin filtros
+        // Admin (coordinacionesFilter === null): sin filtros
       }
 
       // Ejecutar query con orden y límite

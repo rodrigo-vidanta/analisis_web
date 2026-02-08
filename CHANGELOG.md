@@ -1,3 +1,42 @@
+## [v2.5.94] - 2026-02-08
+
+**B10.1.44N2.5.94** - 1 mejora + Sesion inaugural Claude Code (migracion desde Curs + Sesion de bugs criticos + preparacion para escalab + Cinco bloques: (1) Fix errores 401 Unauthorized po
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-07-ANALYTICS-OVERFLOW-FILTERS**: Sesion inaugural Claude Code (migracion desde Cursor). 6 bloques: (1) WhatsApp Analytics 7 queries → 1 RPC, (2) overflow Header/Dashboard, (3) rediseno toolbar filtros Prospectos, (4) botones icon-only en WhatsApp, (5) overflow global layout, (6) Kanban responsive.
+  - WhatsApp Analytics: 7 queries frontend → 1 funcion RPC `get_whatsapp_analytics` server-side con SECURITY DEFINER
+  - Header overflow: botones icon-only, flex constraints
+  - Toolbar filtros Prospectos: fila unica glassmorphism, selects con highlight activo, busqueda reducida
+  - LiveChatCanvas: botones CRM (Building2 icon) y RequiereAtencion → icon-only estilo BotPause
+  - MainApp: `min-w-0 overflow-hidden` en contenedor principal → elimina overflow horizontal global
+  - Kanban: columnas colapsadas 48px, expandidas `minWidth: 0`, calc responsive sin desborde
+- **HANDOVER-2026-02-07-SCALABILITY-WHATSAPP-BUGS**: Sesion de bugs criticos + preparacion para escalabilidad a 100K prospectos. Se corrigieron 3 bugs reportados por usuario y se reescribio la arquitectura de queries del modulo WhatsApp para escalar.
+  - Fix: Supervisor history count = 0 (URL demasiado larga en HEAD request con 500+ UUIDs)
+  - Fix: Prospectos sin mensajes invisibles en WhatsApp (INNER JOIN en MV y RPCs)
+  - Fix: Resultados busqueda server-side desaparecian (race condition con carga agresiva)
+  - Fix: ERR_INSUFFICIENT_RESOURCES por checkActiveCalls con miles de IDs
+  - Escalabilidad: Indices pg_trgm, RPC ligero llamadas activas, filtro no leidos server-side
+- **HANDOVER-2026-02-08-AUTH-TIMEZONE-FIX**: Cinco bloques: (1) Fix errores 401 Unauthorized por race condition auth + concurrencia refresh token, (2) Correccion timezone UTC-6 en modulo llamadas programadas, (3) Fix critico permisos: ejecutivos podian ver prospectos de toda su coordinacion en WhatsApp search/listing por logica OR en RPCs, (4) Fix import duplicados: deteccion de prospectos existentes fallaba por RLS + formato telefono, (5) Limpieza console.logs debug en produccion.
+  - authAwareFetch: boolean `_isRefreshing` → shared promise `_refreshPromise`. Todos los 401 concurrentes esperan el mismo refresh y reintentan.
+  - LiveChatCanvas: auth guard antes de `initializeChat()` — espera session antes de queries.
+  - ManualCallModal: timestamp submit con `-06:00` explicito, extraccion fecha/hora existente con `timeZone: 'America/Mexico_City'`, funciones auxiliares con TZ Mexico.
+  - DailyView: agrupacion por hora usa `getTime() - 6h` + `getUTCHours()` en vez de `getHours()` del browser.
+  - WeeklyView, LlamadasProgramadasWidget, ScheduledCallsSection: `timeZone: 'America/Mexico_City'` en formateo de hora/fecha.
+  - RPCs `search_dashboard_conversations` y `get_dashboard_conversations` (2 overloads): logica OR → AND condicional. `p_ejecutivo_ids` tiene prioridad; `p_coordinacion_ids` solo aplica cuando `p_ejecutivo_ids IS NULL` (coordinadores/supervisores).
+  - Import duplicados: nueva RPC `check_prospect_exists_by_phone` (SECURITY DEFINER) + QuickImportModal y ImportWizardModal usan RPC en vez de queries directas a `prospectos`. Normaliza ultimos 10 digitos, bypasea RLS.
+  - Limpieza console.logs: eliminados `[LiveActivityStore] Filtrado por coordinaciones` y 3 bloques `[prospectRestrictions] Verificando por etapa_id` que aparecian en consola de produccion.
+
+### Migraciones SQL
+- fix_get_dashboard_conversations_security_definer: SECURITY DEFINER + search_path en get_dashboard_conversations
+- fix_mv_include_prospectos_without_messages: MV: LEFT JOIN (4128 prospectos, +162 sin mensajes), agrega etapa_id, usa user_profiles_v2. RPCs: elimina EXISTS filter, calcula mensajes_no_leidos reales, count incluye todos
+- fix_search_dashboard_include_all_prospectos: search_dashboard_conversations: elimina EXISTS, agrega id_dynamics a busqueda, SECURITY DEFINER
+- scalability_indexes_rpcs_100k: 5 indices GIN pg_trgm (nombre, whatsapp, email, nombre_wa, id_dynamics). RPC `get_active_call_prospect_ids()` (1 query vs N batches). `p_unread_only` param en get_dashboard_conversations
+
+### Refactoring
+- Homologación completa del sistema de diseño (`31182c6`)
+
+---
+
 # 📋 CHANGELOG - PQNC QA AI Platform
 
 ## [Unreleased]

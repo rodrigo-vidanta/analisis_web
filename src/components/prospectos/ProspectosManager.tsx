@@ -2352,250 +2352,249 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           <ManualImportTab />
         </div>
       ) : (
-        <div className="flex-1 overflow-auto p-6 space-y-6">
-      {/* Filtros con Toggle de Vista */}
-      <motion.div 
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 space-y-6">
+      {/* Toolbar de filtros unificado */}
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.4, delay: 0.1, ease: "easeOut" }}
-        className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3 md:p-4"
+        className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl border border-gray-200/80 dark:border-gray-700/80 px-3 py-2.5"
       >
-        {/* Badge de contador total */}
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
-              <Users size={16} className="text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                {totalCount > 0 ? totalCount.toLocaleString() : allProspectos.length.toLocaleString()} prospectos
-              </span>
-              {allProspectos.length < totalCount && (
-                <span className="text-xs text-blue-500 dark:text-blue-400">
-                  ({allProspectos.length} cargados)
-                </span>
-              )}
-            </div>
-            {/* Indicador de resultados filtrados o búsqueda en servidor */}
-            {serverSearchResults !== null && filters.search.length >= 3 ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-700">
-                <Search size={14} className="text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {serverSearchResults.length} encontrados en toda la BD
-                </span>
-              </div>
-            ) : filteredAndSortedProspectos.length < allProspectos.length && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-700">
-                <Filter size={14} className="text-amber-600 dark:text-amber-400" />
-                <span className="text-sm font-medium text-amber-700 dark:text-amber-300">
-                  {filteredAndSortedProspectos.length.toLocaleString()} filtrados
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
-        
-        <div className="flex flex-col md:flex-row gap-3 md:gap-2 items-stretch md:items-center">
-          {/* Búsqueda - Ocupa más espacio */}
-          <div className="relative flex-1 min-w-0">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {/* Búsqueda */}
+          <div className="relative min-w-[120px] max-w-[200px] flex-shrink">
             {isSearchingServer ? (
-              <Loader2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-blue-500 animate-spin" size={16} />
+              <Loader2 className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-500 animate-spin" size={14} />
             ) : (
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" size={14} />
             )}
             <input
               type="text"
-              placeholder="Buscar por nombre, teléfono, ejecutivo, coordinación..."
+              placeholder="Buscar nombre, teléfono, ejecutivo..."
               value={filters.search}
               onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-              className={`w-full h-9 pl-10 pr-4 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
-                serverSearchResults !== null && filters.search.length >= 3 
-                  ? 'border-blue-400 dark:border-blue-500 ring-1 ring-blue-200 dark:ring-blue-800' 
-                  : 'border-gray-300 dark:border-gray-600'
-              }`}
+              className={`w-full h-8 pl-8 pr-3 rounded-lg text-xs transition-all ${
+                serverSearchResults !== null && filters.search.length >= 3
+                  ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-300 dark:border-blue-600 text-blue-900 dark:text-blue-100 placeholder-blue-400'
+                  : 'bg-gray-100 dark:bg-gray-700/50 border border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:border-blue-400 dark:focus:border-blue-500'
+              } focus:ring-1 focus:ring-blue-500 outline-none`}
             />
+            {serverSearchResults !== null && filters.search.length >= 3 && (
+              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium text-blue-600 dark:text-blue-400">
+                {serverSearchResults.length} en BD
+              </span>
+            )}
           </div>
-          
-          {/* Filtros compactos */}
-          <div className="flex flex-wrap md:flex-nowrap gap-2 items-center">
-            <select
-              value={filters.etapa_id}
-              onChange={(e) => setFilters(prev => ({ ...prev, etapa_id: e.target.value }))}
-              className="h-9 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs md:text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-            >
-              <option value="">Todas las etapas</option>
-              {etapasService.getAllActive().map(etapa => (
-                <option key={etapa.id} value={etapa.id}>{etapa.nombre}</option>
+
+          {/* Separador visual */}
+          <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0 hidden sm:block" />
+
+          {/* Filtros inline */}
+          <select
+            value={filters.etapa_id}
+            onChange={(e) => setFilters(prev => ({ ...prev, etapa_id: e.target.value }))}
+            className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
+              filters.etapa_id
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
+            }`}
+          >
+            <option value="">Etapa</option>
+            {etapasService.getAllActive().map(etapa => (
+              <option key={etapa.id} value={etapa.id}>{etapa.nombre}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.coordinacion_id}
+            onChange={(e) => {
+              setFilters(prev => ({
+                ...prev,
+                coordinacion_id: e.target.value,
+                ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
+              }));
+            }}
+            className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
+              filters.coordinacion_id
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
+            }`}
+          >
+            <option value="">Coordinación</option>
+            {coordinacionesOptions.map(coord => (
+              <option key={coord.id} value={coord.id}>{coord.codigo}</option>
+            ))}
+          </select>
+
+          <select
+            value={filters.ejecutivo_id}
+            onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
+            className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
+              filters.ejecutivo_id
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
+            }`}
+          >
+            <option value="">Ejecutivo</option>
+            {ejecutivosOptions
+              .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
+              .map(ejecutivo => (
+                <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
               ))}
-            </select>
-            
-            {/* Filtros de coordinación, ejecutivo y asignación - disponibles en ambas vistas */}
-            <select
-              value={filters.coordinacion_id}
-              onChange={(e) => {
-                setFilters(prev => ({ 
-                  ...prev, 
-                  coordinacion_id: e.target.value,
-                  // Limpiar ejecutivo si cambia la coordinación
-                  ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
-                }));
-              }}
-              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-            >
-              <option value="">Todas las coordinaciones</option>
-              {coordinacionesOptions.map(coord => (
-                <option key={coord.id} value={coord.id}>{coord.codigo}</option>
-              ))}
-            </select>
-            
-            <select
-              value={filters.ejecutivo_id}
-              onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
-              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[120px]"
-            >
-              <option value="">Todos los ejecutivos</option>
-              {ejecutivosOptions
-                .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
-                .map(ejecutivo => (
-                  <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
-                ))}
-            </select>
-            
-            <select
-              value={filters.asignacion}
-              onChange={(e) => setFilters(prev => ({ ...prev, asignacion: e.target.value as 'todos' | 'asignados' | 'no_asignados' }))}
-              className="h-9 px-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent flex-1 md:flex-none md:w-auto min-w-[100px]"
-            >
-              <option value="todos">Todos</option>
-              <option value="asignados">Asignados</option>
-              <option value="no_asignados">Sin asignar</option>
-            </select>
-            
-            <button 
+          </select>
+
+          <select
+            value={filters.asignacion}
+            onChange={(e) => setFilters(prev => ({ ...prev, asignacion: e.target.value as 'todos' | 'asignados' | 'no_asignados' }))}
+            className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
+              filters.asignacion !== 'todos'
+                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
+            }`}
+          >
+            <option value="todos">Asignación</option>
+            <option value="asignados">Asignados</option>
+            <option value="no_asignados">Sin asignar</option>
+          </select>
+
+          {/* Separador visual */}
+          <div className="h-5 w-px bg-gray-200 dark:bg-gray-700 flex-shrink-0 hidden sm:block" />
+
+          {/* Acciones */}
+          {(filters.etapa_id || filters.coordinacion_id || filters.ejecutivo_id || filters.asignacion !== 'todos' || filters.search) && (
+            <button
               onClick={() => setFilters({ search: '', etapa_id: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}
-              className="h-9 flex items-center justify-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
+              className="h-8 flex items-center gap-1 px-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors flex-shrink-0"
+              title="Limpiar todos los filtros"
             >
-              <Filter size={14} />
-              <span className="hidden sm:inline">Limpiar</span>
+              <Filter size={12} />
+              <span>Limpiar</span>
             </button>
-            
-            {/* Botón de reasignación masiva (admin, admin operativo y coordinadores de Calidad en vista grid) */}
-            {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                onClick={() => setShowBulkAssignmentModal(true)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm"
-              >
-                <Users size={14} />
-                <span>Reasignar {selectedProspectIds.size} prospecto{selectedProspectIds.size > 1 ? 's' : ''}</span>
-              </motion.button>
-            )}
-            
-            {/* Filtro de columnas Kanban */}
-            {viewType === 'kanban' && (
-              <div className="relative" ref={columnFilterRef}>
-                <button
-                  onClick={() => setShowColumnFilter(!showColumnFilter)}
-                  className="h-9 flex items-center gap-1.5 px-2.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-xs whitespace-nowrap"
-                  title="Filtrar columnas"
-                >
-                  {hiddenColumns.length > 0 ? (
-                    <>
-                      <EyeOff size={14} />
-                      <span className="hidden sm:inline">Columnas ({hiddenColumns.length} ocultas)</span>
-                    </>
-                  ) : (
-                    <>
-                      <Eye size={14} />
-                      <span className="hidden sm:inline">Columnas</span>
-                    </>
-                  )}
-                </button>
-                
-                {/* Dropdown de filtrado */}
-                <AnimatePresence>
-                  {showColumnFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 p-2"
-                    >
-                      <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">
-                        Mostrar/Ocultar Columnas
-                      </div>
-                      <div className="space-y-1 max-h-64 overflow-y-auto">
-                        {kanbanColumns.map((column) => {
-                          const isHidden = hiddenColumns.includes(column.id);
-                          return (
-                            <label
-                              key={column.id}
-                              className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={!isHidden}
-                                onChange={() => handleToggleColumnVisibility(column.id)}
-                                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
-                              />
-                              <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">
-                                {column.label}
-                              </span>
-                              {isHidden && (
-                                <EyeOff size={14} className="text-gray-400" />
-                              )}
-                            </label>
-                          );
-                        })}
-                      </div>
-                      {hiddenColumns.length > 0 && (
-                        <button
-                          onClick={() => {
-                            kanbanColumns.forEach(col => {
-                              if (hiddenColumns.includes(col.id)) {
-                                handleToggleColumnVisibility(col.id);
-                              }
-                            });
-                          }}
-                          className="mt-2 w-full text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-                        >
-                          Mostrar todas
-                        </button>
-                      )}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-            )}
-            
-            {/* Toggle de Vista al final */}
-            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-0.5 h-9">
+          )}
+
+          {/* Filtro de columnas Kanban */}
+          {viewType === 'kanban' && (
+            <div className="relative flex-shrink-0" ref={columnFilterRef}>
               <button
-                onClick={() => handleViewTypeChange('datagrid')}
-                className={`h-full flex items-center gap-1.5 px-2 rounded-md transition-all duration-200 ${
-                  viewType === 'datagrid'
-                    ? 'bg-blue-500 text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
+                onClick={() => setShowColumnFilter(!showColumnFilter)}
+                className={`h-8 flex items-center gap-1 px-2 rounded-lg text-xs transition-colors ${
+                  hiddenColumns.length > 0
+                    ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-700'
+                    : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700/50 border border-transparent'
                 }`}
-                title="Vista de tabla"
+                title="Filtrar columnas"
               >
-                <Table2 size={16} />
-                <span className="text-xs font-medium hidden sm:inline">Tabla</span>
+                {hiddenColumns.length > 0 ? <EyeOff size={12} /> : <Eye size={12} />}
+                <span className="hidden sm:inline">{hiddenColumns.length > 0 ? `${hiddenColumns.length} ocultas` : 'Columnas'}</span>
               </button>
-              <button
-                onClick={() => handleViewTypeChange('kanban')}
-                className={`h-full flex items-center gap-1.5 px-2 rounded-md transition-all duration-200 ${
-                  viewType === 'kanban'
-                    ? 'bg-blue-500 text-white shadow-sm'
-                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-                title="Vista Kanban"
-              >
-                <LayoutGrid size={16} />
-                <span className="text-xs font-medium hidden sm:inline">Kanban</span>
-              </button>
+
+              {/* Dropdown de filtrado */}
+              <AnimatePresence>
+                {showColumnFilter && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 p-2"
+                  >
+                    <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 px-2">
+                      Mostrar/Ocultar Columnas
+                    </div>
+                    <div className="space-y-0.5 max-h-64 overflow-y-auto">
+                      {kanbanColumns.map((column) => {
+                        const isHidden = hiddenColumns.includes(column.id);
+                        return (
+                          <label
+                            key={column.id}
+                            className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={!isHidden}
+                              onChange={() => handleToggleColumnVisibility(column.id)}
+                              className="w-3.5 h-3.5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600"
+                            />
+                            <span className="text-xs text-gray-700 dark:text-gray-300 flex-1">
+                              {column.label}
+                            </span>
+                            {isHidden && (
+                              <EyeOff size={12} className="text-gray-400" />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {hiddenColumns.length > 0 && (
+                      <button
+                        onClick={() => {
+                          kanbanColumns.forEach(col => {
+                            if (hiddenColumns.includes(col.id)) {
+                              handleToggleColumnVisibility(col.id);
+                            }
+                          });
+                        }}
+                        className="mt-1.5 w-full text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 px-2 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+                      >
+                        Mostrar todas
+                      </button>
+                    )}
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
+          )}
+
+          {/* Botón de reasignación masiva */}
+          {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && viewType === 'datagrid' && selectedProspectIds.size > 0 && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              onClick={() => setShowBulkAssignmentModal(true)}
+              className="h-8 flex items-center gap-1.5 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-sm flex-shrink-0"
+            >
+              <Users size={12} />
+              <span>Reasignar {selectedProspectIds.size}</span>
+            </motion.button>
+          )}
+
+          {/* Toggle de Vista */}
+          <div className="flex items-center gap-0.5 bg-gray-100 dark:bg-gray-700/50 rounded-lg p-0.5 h-8 flex-shrink-0 ml-auto">
+            <button
+              onClick={() => handleViewTypeChange('datagrid')}
+              className={`h-full flex items-center px-2 rounded-md transition-all duration-200 ${
+                viewType === 'datagrid'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title="Vista de tabla"
+            >
+              <Table2 size={14} />
+            </button>
+            <button
+              onClick={() => handleViewTypeChange('kanban')}
+              className={`h-full flex items-center px-2 rounded-md transition-all duration-200 ${
+                viewType === 'kanban'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300'
+              }`}
+              title="Vista Kanban"
+            >
+              <LayoutGrid size={14} />
+            </button>
           </div>
         </div>
+
+        {/* Indicador contextual: solo visible cuando hay filtros activos */}
+        {(filteredAndSortedProspectos.length < allProspectos.length || (serverSearchResults !== null && filters.search.length >= 3)) && (
+          <div className="flex items-center gap-2 mt-1.5 pt-1.5 border-t border-gray-100 dark:border-gray-700/50">
+            <span className="text-[11px] text-gray-400 dark:text-gray-500">
+              {serverSearchResults !== null && filters.search.length >= 3
+                ? `${serverSearchResults.length} encontrados en toda la BD`
+                : `${filteredAndSortedProspectos.length.toLocaleString()} de ${(totalCount > 0 ? totalCount : allProspectos.length).toLocaleString()} prospectos`
+              }
+            </span>
+          </div>
+        )}
       </motion.div>
 
       {/* Vista según preferencia */}

@@ -600,7 +600,7 @@ function MainApp() {
         </div>
         
         {/* Contenido principal */}
-        <div className={`flex-1 flex flex-col transition-all duration-300 ${
+        <div className={`flex-1 flex flex-col min-w-0 overflow-hidden transition-all duration-300 ${
           sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-64'
         }`}>
           
@@ -619,7 +619,7 @@ function MainApp() {
           />
           
           {/* Área de contenido con espacio para footer fijo */}
-          <main className="relative flex-1 pb-16">
+          <main className="relative flex-1 pb-16 overflow-hidden">
             <div className={isLinearTheme ? 'linear-theme-content' : ''}>
               {renderContent()}
             </div>

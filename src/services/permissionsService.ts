@@ -710,18 +710,26 @@ class PermissionsService {
    * Coordinadores de Calidad retornan null (pueden ver todo)
    * Utiliza caché para evitar llamadas repetidas
    */
+  /**
+   * Contrato de retorno (FIX 2026-02-07 - fail-closed):
+   * - null  → Usuario es admin verificado (ve todo, sin filtro)
+   * - []    → Sin acceso (error, sin coordinaciones, rol desconocido)
+   * - [...] → Filtrar por estas coordinaciones
+   */
   async getCoordinacionesFilter(userId: string): Promise<string[] | null> {
     // Verificar caché primero
     const cached = this.coordinacionesCache.get(userId);
     if (this.isCacheValid(cached)) {
       return cached!.data;
     }
-    
+
     try {
       const permissions = await this.getUserPermissions(userId);
       if (!permissions) {
-        this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
-        return null;
+        // FIX: Error al obtener permisos → sin acceso (antes retornaba null = admin)
+        console.error(`[getCoordinacionesFilter] Sin permisos para ${userId} - denegando acceso`);
+        this.coordinacionesCache.set(userId, { data: [], timestamp: Date.now() });
+        return [];
       }
 
       // Admin y Administrador Operativo no tienen filtro (pueden ver todo)
@@ -732,7 +740,8 @@ class PermissionsService {
 
       // Ejecutivo: retornar su coordinación única
       if (permissions.role === 'ejecutivo') {
-        const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+        // FIX: Ejecutivo sin coordinacion → sin acceso (antes retornaba null = admin)
+        const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : [];
         this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
         return result;
       }
@@ -756,9 +765,12 @@ class PermissionsService {
           .eq('user_id', userId);
 
         if (error) {
-          console.error(`Error obteniendo coordinaciones del ${permissions.role}:`, error);
-          // Fallback: usar coordinacion_id del permiso si existe
-          const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : null;
+          // 42501 = sesión expirada/logout en progreso → retornar vacío silenciosamente
+          if (error.code !== '42501') {
+            console.error(`Error obteniendo coordinaciones del ${permissions.role}:`, error);
+          }
+          // FIX: Error en query → usar fallback, pero si no hay fallback → sin acceso (antes retornaba null = admin)
+          const result = permissions.coordinacion_id ? [permissions.coordinacion_id] : [];
           this.coordinacionesCache.set(userId, { data: result, timestamp: Date.now() });
           return result;
         }
@@ -769,16 +781,20 @@ class PermissionsService {
           return result;
         }
 
-        // Si no tiene coordinaciones asignadas, retornar null (no debería ver nada)
-        this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
-        return null;
+        // FIX: Sin coordinaciones asignadas → sin acceso (antes retornaba null = admin)
+        console.warn(`[getCoordinacionesFilter] ${permissions.role} ${userId} sin coordinaciones asignadas`);
+        this.coordinacionesCache.set(userId, { data: [], timestamp: Date.now() });
+        return [];
       }
 
-      this.coordinacionesCache.set(userId, { data: null, timestamp: Date.now() });
-      return null;
+      // FIX: Roles no contemplados (evaluador, developer, direccion, productor) → sin acceso (antes retornaba null = admin)
+      console.warn(`[getCoordinacionesFilter] Rol no contemplado: ${permissions.role} para ${userId}`);
+      this.coordinacionesCache.set(userId, { data: [], timestamp: Date.now() });
+      return [];
     } catch (error) {
+      // FIX: Error general → sin acceso (antes retornaba null = admin)
       console.error('Error obteniendo filtro de coordinaciones:', error);
-      return null;
+      return [];
     }
   }
 

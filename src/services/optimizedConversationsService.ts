@@ -69,6 +69,7 @@ export interface ConversationFilters {
   coordinacionIds?: string[];
   limit?: number;
   offset?: number;
+  unreadOnly?: boolean;
 }
 
 class OptimizedConversationsService {
@@ -88,6 +89,7 @@ class OptimizedConversationsService {
           : null,
         p_limit: filters.limit || 200,
         p_offset: filters.offset || 0,
+        p_unread_only: filters.unreadOnly || false,
       });
 
       if (error) {

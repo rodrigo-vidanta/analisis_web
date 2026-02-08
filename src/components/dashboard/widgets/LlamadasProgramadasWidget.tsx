@@ -209,7 +209,8 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
     const date = new Date(dateString);
     return date.toLocaleTimeString('es-MX', {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      timeZone: 'America/Mexico_City'
     });
   };
 

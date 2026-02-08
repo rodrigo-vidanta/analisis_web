@@ -38,9 +38,17 @@ export interface TemplateSendLimits {
   dailyLimit: { used: number; max: number; remaining: number; blocked: boolean };
   weeklyLimit: { used: number; max: number; remaining: number; blocked: boolean; usedTemplateIds: string[] };
   monthlyLimit: { used: number; max: number; remaining: number; blocked: boolean; usedTemplateIds: string[] };
+  semesterLimit: { used: number; max: number; remaining: number; blocked: boolean; usedTemplateIds: string[] };
   alreadySentToday: boolean;
   sentTemplateIds: string[]; // IDs de plantillas ya enviadas al prospecto (para filtrar)
   blockReason: string | null;
+}
+
+export interface TemplateResponseRate {
+  totalSent: number;
+  totalReplied: number;
+  replyRate: number;
+  starRating: number;
 }
 
 // ============================================
@@ -1590,19 +1598,20 @@ class WhatsAppTemplatesService {
   async checkTemplateSendLimits(prospectoId: string): Promise<TemplateSendLimits> {
     try {
       const now = new Date();
-      
+
       // Calcular fechas de corte
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const semesterAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Consultar envíos del prospecto
+      // Consultar envíos del prospecto (últimos 180 días para cubrir semestre)
       const { data: sends, error } = await analysisSupabase
         .from('whatsapp_template_sends')
         .select('id, template_id, sent_at, status')
         .eq('prospecto_id', prospectoId)
         .eq('status', 'SENT')
-        .gte('sent_at', monthAgo)
+        .gte('sent_at', semesterAgo)
         .order('sent_at', { ascending: false });
 
       if (error) {
@@ -1611,31 +1620,36 @@ class WhatsAppTemplatesService {
       }
 
       const allSends = sends || [];
-      
+
       // Filtrar por período
       const todaySends = allSends.filter(s => s.sent_at >= todayStart);
       const weeklySends = allSends.filter(s => s.sent_at >= weekAgo);
-      const monthlySends = allSends; // Ya está filtrado por monthAgo
+      const monthlySends = allSends.filter(s => s.sent_at >= monthAgo);
+      const semesterSends = allSends; // Ya filtrado por semesterAgo
 
       // Obtener plantillas únicas por período
       const weeklyUniqueTemplates = [...new Set(weeklySends.map(s => s.template_id))];
       const monthlyUniqueTemplates = [...new Set(monthlySends.map(s => s.template_id))];
+      const semesterUniqueTemplates = [...new Set(semesterSends.map(s => s.template_id))];
 
       // Límites configurados
       const DAILY_MAX = 1;
-      const WEEKLY_MAX = 3;
-      const MONTHLY_MAX = 8;
+      const WEEKLY_MAX = 2;
+      const MONTHLY_MAX = 5;
+      const SEMESTER_MAX = 8;
 
       // Calcular límites
       const dailyUsed = todaySends.length;
       const weeklyUsed = weeklyUniqueTemplates.length;
       const monthlyUsed = monthlyUniqueTemplates.length;
+      const semesterUsed = semesterUniqueTemplates.length;
 
       const dailyBlocked = dailyUsed >= DAILY_MAX;
       const weeklyBlocked = weeklyUsed >= WEEKLY_MAX;
       const monthlyBlocked = monthlyUsed >= MONTHLY_MAX;
+      const semesterBlocked = semesterUsed >= SEMESTER_MAX;
 
-      // Determinar razón de bloqueo
+      // Determinar razón de bloqueo (prioridad: día > semana > mes > semestre)
       let blockReason: string | null = null;
       if (dailyBlocked) {
         blockReason = `Ya se envió 1 plantilla hoy. Límite diario alcanzado.`;
@@ -1643,10 +1657,14 @@ class WhatsAppTemplatesService {
         blockReason = `Ya se enviaron ${weeklyUsed} plantillas diferentes esta semana. Límite semanal: ${WEEKLY_MAX}.`;
       } else if (monthlyBlocked) {
         blockReason = `Ya se enviaron ${monthlyUsed} plantillas diferentes este mes. Límite mensual: ${MONTHLY_MAX}.`;
+      } else if (semesterBlocked) {
+        blockReason = `Ya se enviaron ${semesterUsed} plantillas diferentes este semestre. Límite semestral: ${SEMESTER_MAX}.`;
       }
 
+      const canSend = !dailyBlocked && !weeklyBlocked && !monthlyBlocked && !semesterBlocked;
+
       return {
-        canSend: !dailyBlocked && !weeklyBlocked && !monthlyBlocked,
+        canSend,
         dailyLimit: {
           used: dailyUsed,
           max: DAILY_MAX,
@@ -1667,18 +1685,26 @@ class WhatsAppTemplatesService {
           blocked: monthlyBlocked,
           usedTemplateIds: monthlyUniqueTemplates,
         },
+        semesterLimit: {
+          used: semesterUsed,
+          max: SEMESTER_MAX,
+          remaining: Math.max(0, SEMESTER_MAX - semesterUsed),
+          blocked: semesterBlocked,
+          usedTemplateIds: semesterUniqueTemplates,
+        },
         alreadySentToday: dailyUsed > 0,
-        sentTemplateIds: monthlyUniqueTemplates, // Todas las plantillas enviadas en el mes
+        sentTemplateIds: semesterUniqueTemplates, // Todas las plantillas enviadas en el semestre
         blockReason,
       };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error verificando límites de envío:', error);
       // En caso de error, permitir envío pero loguear
       return {
         canSend: true,
         dailyLimit: { used: 0, max: 1, remaining: 1, blocked: false },
-        weeklyLimit: { used: 0, max: 3, remaining: 3, blocked: false, usedTemplateIds: [] },
-        monthlyLimit: { used: 0, max: 8, remaining: 8, blocked: false, usedTemplateIds: [] },
+        weeklyLimit: { used: 0, max: 2, remaining: 2, blocked: false, usedTemplateIds: [] },
+        monthlyLimit: { used: 0, max: 5, remaining: 5, blocked: false, usedTemplateIds: [] },
+        semesterLimit: { used: 0, max: 8, remaining: 8, blocked: false, usedTemplateIds: [] },
         alreadySentToday: false,
         sentTemplateIds: [],
         blockReason: null,
@@ -1716,9 +1742,17 @@ class WhatsAppTemplatesService {
 
       // Verificar si la plantilla ya fue enviada este mes
       if (limits.monthlyLimit.usedTemplateIds.includes(templateId)) {
-        return { 
-          canSend: false, 
-          reason: 'Esta plantilla ya fue enviada a este prospecto este mes. Selecciona una diferente.' 
+        return {
+          canSend: false,
+          reason: 'Esta plantilla ya fue enviada a este prospecto este mes. Selecciona una diferente.'
+        };
+      }
+
+      // Verificar si la plantilla ya fue enviada este semestre
+      if (limits.semesterLimit.usedTemplateIds.includes(templateId)) {
+        return {
+          canSend: false,
+          reason: 'Esta plantilla ya fue enviada a este prospecto este semestre. Selecciona una diferente.'
         };
       }
 
@@ -1776,6 +1810,56 @@ class WhatsAppTemplatesService {
     } catch (error) {
       console.error('Error obteniendo historial de envíos:', error);
       return [];
+    }
+  }
+
+  /**
+   * Obtener tasas de respuesta por plantilla
+   * Calcula el porcentaje de respuestas y un star rating (1-5)
+   * Solo incluye plantillas con al menos 5 envíos (muestra significativa)
+   */
+  async getTemplateResponseRates(): Promise<Map<string, TemplateResponseRate>> {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('whatsapp_template_sends')
+        .select('template_id, replied')
+        .eq('status', 'SENT');
+
+      if (error) throw error;
+
+      // Agrupar por template_id
+      const grouped = new Map<string, { sent: number; replied: number }>();
+      for (const send of data || []) {
+        const current = grouped.get(send.template_id) || { sent: 0, replied: 0 };
+        current.sent++;
+        if (send.replied) current.replied++;
+        grouped.set(send.template_id, current);
+      }
+
+      // Calcular rates y star ratings (mínimo 5 envíos)
+      const rates = new Map<string, TemplateResponseRate>();
+      for (const [templateId, stats] of grouped) {
+        if (stats.sent < 5) continue;
+        const replyRate = (stats.replied / stats.sent) * 100;
+        let starRating = 0;
+        if (replyRate >= 20) starRating = 5;
+        else if (replyRate >= 15) starRating = 4;
+        else if (replyRate >= 10) starRating = 3;
+        else if (replyRate >= 5) starRating = 2;
+        else if (replyRate > 0) starRating = 1;
+
+        rates.set(templateId, {
+          totalSent: stats.sent,
+          totalReplied: stats.replied,
+          replyRate: Math.round(replyRate * 10) / 10,
+          starRating,
+        });
+      }
+
+      return rates;
+    } catch (error) {
+      console.error('Error obteniendo tasas de respuesta:', error);
+      return new Map();
     }
   }
 }

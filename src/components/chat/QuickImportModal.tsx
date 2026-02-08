@@ -114,40 +114,33 @@ export const QuickImportModal: React.FC<QuickImportModalProps> = ({
   };
 
   /**
-   * Busca el prospecto en BD LOCAL por teléfono
+   * Busca el prospecto en BD LOCAL por teléfono.
+   * Usa RPC SECURITY DEFINER para bypasear RLS y detectar duplicados
+   * independientemente de los permisos del usuario.
    */
   const searchLocalProspect = async (phone: string): Promise<ExistingProspect | null> => {
     try {
       const normalizedPhone = normalizePhone(phone);
-      
-      const { data: existingData, error: dbError } = await analysisSupabase
-        .from('prospectos')
-        .select('id, nombre_completo, ejecutivo_id, coordinacion_id')
-        .eq('whatsapp', normalizedPhone)
-        .maybeSingle();
 
-      if (dbError && dbError.code !== 'PGRST116') {
-        console.error('Error al verificar prospecto:', dbError);
+      const { data, error: rpcError } = await analysisSupabase
+        .rpc('check_prospect_exists_by_phone', { p_phone: normalizedPhone });
+
+      if (rpcError) {
+        console.error('Error al verificar prospecto:', rpcError);
         return null;
       }
 
-      if (!existingData) {
+      if (!data || data.length === 0) {
         return null;
       }
 
-      // Buscar conversación asociada (query separada)
-      const { data: conversacionData } = await analysisSupabase
-        .from('conversaciones_whatsapp')
-        .select('id')
-        .eq('prospecto_id', existingData.id)
-        .maybeSingle();
-
+      const match = data[0];
       return {
-        id: existingData.id,
-        nombre_completo: existingData.nombre_completo,
-        conversacion_id: conversacionData?.id || null,
-        ejecutivo_id: existingData.ejecutivo_id,
-        coordinacion_id: existingData.coordinacion_id
+        id: match.prospecto_id,
+        nombre_completo: match.nombre_completo,
+        conversacion_id: match.conversacion_id || null,
+        ejecutivo_id: match.ejecutivo_id,
+        coordinacion_id: match.coordinacion_id
       };
     } catch (error) {
       console.error('Error en búsqueda local:', error);

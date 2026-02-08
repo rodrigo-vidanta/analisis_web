@@ -418,21 +418,96 @@ export const isWithinServiceHours = async (
 };
 
 /**
- * Verifica si AHORA está dentro del horario máximo permitido (6am - 12am)
- * Esta es una validación más permisiva para llamadas inmediatas
+ * Verifica si AHORA está dentro del horario de servicio del día actual.
+ * Considera: horarios base, excepciones (feriados) y bloqueos temporales.
  */
-export const isWithinMaxServiceHours = (): { valid: boolean; reason?: string } => {
+export const isWithinMaxServiceHours = (
+  horariosBase?: HorarioBase[],
+  excepciones?: HorarioExcepcion[],
+  bloqueos?: HorarioBloqueo[]
+): { valid: boolean; reason?: string } => {
   const now = new Date();
-  const currentHour = now.getHours();
-  
-  // Horario máximo: 6am (6) a 12am (24/0)
+  const mexicoTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Mexico_City' }));
+  const currentHour = mexicoTime.getHours();
+  const currentMinutes = mexicoTime.getMinutes();
+  const currentHourDecimal = currentHour + currentMinutes / 60;
+  const dayOfWeek = mexicoTime.getDay();
+  const todayStr = mexicoTime.toISOString().split('T')[0]; // YYYY-MM-DD
+  // Extraer MM-DD para comparar feriados recurrentes anuales
+  const todayMMDD = todayStr.slice(5); // MM-DD
+
+  // 1. Verificar excepciones (feriados, cierres)
+  if (excepciones && excepciones.length > 0) {
+    const excepcionHoy = excepciones.find(e => {
+      if (!e.activo) return false;
+      if (e.recurrente_anual) {
+        return e.fecha.slice(5) === todayMMDD;
+      }
+      return e.fecha === todayStr;
+    });
+
+    if (excepcionHoy) {
+      if (excepcionHoy.cerrado) {
+        return { valid: false, reason: `Cerrado hoy: ${excepcionHoy.nombre}` };
+      }
+      // Si tiene horario especial (apertura_especial, cierre_temprano)
+      if (excepcionHoy.hora_inicio !== null && excepcionHoy.hora_fin !== null) {
+        if (currentHourDecimal < excepcionHoy.hora_inicio || currentHourDecimal >= excepcionHoy.hora_fin) {
+          return {
+            valid: false,
+            reason: `${excepcionHoy.nombre}: horario especial (${formatHora(excepcionHoy.hora_inicio)} - ${formatHora(excepcionHoy.hora_fin)})`
+          };
+        }
+        return { valid: true };
+      }
+    }
+  }
+
+  // 2. Verificar bloqueos temporales
+  if (bloqueos && bloqueos.length > 0) {
+    const bloqueoHoy = bloqueos.find(b =>
+      b.activo && (b.fecha === todayStr || (b.recurrente && b.dia_semana === dayOfWeek))
+    );
+
+    if (bloqueoHoy) {
+      if (currentHourDecimal >= bloqueoHoy.hora_inicio && currentHourDecimal < bloqueoHoy.hora_fin) {
+        return {
+          valid: false,
+          reason: `Bloqueado: ${bloqueoHoy.nombre} (${formatHora(bloqueoHoy.hora_inicio)} - ${formatHora(bloqueoHoy.hora_fin)})`
+        };
+      }
+    }
+  }
+
+  // 3. Verificar horario base del día
+  if (horariosBase && horariosBase.length > 0) {
+    const horarioDia = horariosBase.find(h => h.dia_semana === dayOfWeek);
+
+    if (!horarioDia || !horarioDia.activo) {
+      return {
+        valid: false,
+        reason: `No disponible hoy (${getDiaNombre(dayOfWeek)})`
+      };
+    }
+
+    if (currentHourDecimal < horarioDia.hora_inicio || currentHourDecimal >= horarioDia.hora_fin) {
+      return {
+        valid: false,
+        reason: `No disponible fuera de horario (${formatHora(horarioDia.hora_inicio)} - ${formatHora(horarioDia.hora_fin)})`
+      };
+    }
+
+    return { valid: true };
+  }
+
+  // Fallback: 6am - 12am
   if (currentHour < 6) {
-    return { 
-      valid: false, 
-      reason: `Fuera de horario de servicio. Las llamadas inmediatas solo están disponibles de 6:00 AM a 12:00 AM. Hora actual: ${now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`
+    return {
+      valid: false,
+      reason: `No disponible fuera de horario (06:00 - 00:00)`
     };
   }
-  
+
   return { valid: true };
 };
 
