@@ -485,6 +485,37 @@ function updateDocumentationModule(version: string, hash: string, message: strin
   writeFileSync(path, content, 'utf-8');
 }
 
+function generateReleaseNotes(commits: CommitInfo[], handovers: HandoverInfo[]): Array<{ type: string; items: string[] }> {
+  const grouped: Record<string, string[]> = {};
+  for (const c of commits) {
+    const cat = c.type === 'feat' ? 'Features'
+      : c.type === 'fix' ? 'Bug Fixes'
+      : c.type === 'perf' ? 'Performance'
+      : c.type === 'refactor' ? 'Refactoring'
+      : 'Other';
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(c.description);
+  }
+
+  // Extraer items relevantes de handovers como highlights
+  for (const h of handovers) {
+    for (const d of h.delta) {
+      // Solo incluir deltas cortos y significativos (no detalles tecnicos largos)
+      if (d.length <= 120 && !grouped['Features']?.includes(d) && !grouped['Bug Fixes']?.includes(d)) {
+        const cat = d.toLowerCase().startsWith('fix') ? 'Bug Fixes' : 'Mejoras';
+        if (!grouped[cat]) grouped[cat] = [];
+        grouped[cat].push(d);
+      }
+    }
+  }
+
+  // Orden de prioridad para mostrar
+  const order = ['Features', 'Bug Fixes', 'Mejoras', 'Performance', 'Refactoring', 'Other'];
+  return order
+    .filter(type => grouped[type] && grouped[type].length > 0)
+    .map(type => ({ type, items: grouped[type] }));
+}
+
 function updateChangelog(version: string, commits: CommitInfo[], message: string, handovers: HandoverInfo[]): void {
   const path = join(ROOT_DIR, 'CHANGELOG.md');
   const numericVersion = version.split('N')[1];
@@ -691,10 +722,14 @@ async function main(): Promise<void> {
     categories[c.type] = (categories[c.type] || 0) + 1;
   }
 
+  // Generar release notes para BD
+  const releaseNotes = generateReleaseNotes(commits, handovers);
+
   // DRY RUN: solo mostrar resultado
   if (options.dryRun) {
     LOG.warn('\n  ** DRY RUN - No se ejecutaran cambios **\n');
 
+    const configValue = { version: newVersionStr, force_update: true, release_notes: releaseNotes };
     const result: DeployResult = {
       success: true,
       version: { previous: currentVersionStr, new: newVersionStr, frontendBump, backendBump },
@@ -704,8 +739,8 @@ async function main(): Promise<void> {
       database: {
         table: 'system_config',
         key: 'app_version',
-        value: JSON.stringify({ version: newVersionStr, force_update: true }),
-        sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify({ version: newVersionStr, force_update: true })}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
+        value: JSON.stringify(configValue),
+        sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValue)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
       },
       commits: commits.map(c => ({ hash: c.hash, type: c.type, description: c.description })),
       handovers,
@@ -755,6 +790,7 @@ async function main(): Promise<void> {
 
   LOG.step('\n[6/6] Generando resultado...');
 
+  const configValueReal = { version: newVersionStr, force_update: true, release_notes: releaseNotes };
   const result: DeployResult = {
     success: true,
     version: { previous: currentVersionStr, new: newVersionStr, frontendBump, backendBump },
@@ -764,8 +800,8 @@ async function main(): Promise<void> {
     database: {
       table: 'system_config',
       key: 'app_version',
-      value: JSON.stringify({ version: newVersionStr, force_update: true }),
-      sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify({ version: newVersionStr, force_update: true })}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
+      value: JSON.stringify(configValueReal),
+      sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValueReal)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
     },
     commits: commits.map(c => ({ hash: c.hash, type: c.type, description: c.description })),
     handovers,

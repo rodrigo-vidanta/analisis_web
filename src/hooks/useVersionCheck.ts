@@ -9,10 +9,16 @@ import { APP_VERSION } from '../config/appVersion';
  */
 const CURRENT_VERSION = APP_VERSION;
 
+interface ReleaseNoteCategory {
+  type: string;
+  items: string[];
+}
+
 interface VersionCheckResult {
   requiresUpdate: boolean;
   currentVersion: string;
   requiredVersion: string | null;
+  releaseNotes: ReleaseNoteCategory[];
   isLoading: boolean;
 }
 
@@ -34,6 +40,7 @@ export const useVersionCheck = (options: UseVersionCheckOptions = {}): VersionCh
   const { enabled = true } = options;
   const [requiresUpdate, setRequiresUpdate] = useState(false);
   const [requiredVersion, setRequiredVersion] = useState<string | null>(null);
+  const [releaseNotes, setReleaseNotes] = useState<ReleaseNoteCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const checkVersion = useCallback(async () => {
@@ -66,11 +73,12 @@ export const useVersionCheck = (options: UseVersionCheckOptions = {}): VersionCh
         return;
       }
 
-      const versionConfig = data?.config_value as { version?: string; force_update?: boolean } | null;
+      const versionConfig = data?.config_value as { version?: string; force_update?: boolean; release_notes?: ReleaseNoteCategory[] } | null;
       const requiredVersionValue = versionConfig?.version || null;
       const forceUpdate = versionConfig?.force_update ?? true;
 
       setRequiredVersion(requiredVersionValue);
+      setReleaseNotes(Array.isArray(versionConfig?.release_notes) ? versionConfig.release_notes : []);
 
       if (!requiredVersionValue) {
         setRequiresUpdate(false);
@@ -215,6 +223,7 @@ export const useVersionCheck = (options: UseVersionCheckOptions = {}): VersionCh
     requiresUpdate,
     currentVersion: CURRENT_VERSION,
     requiredVersion,
+    releaseNotes,
     isLoading
   };
 };

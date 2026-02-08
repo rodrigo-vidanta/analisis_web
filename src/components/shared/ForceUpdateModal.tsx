@@ -1,10 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, AlertCircle, Download } from 'lucide-react';
+import { RefreshCw, AlertCircle, Download, Sparkles, Bug, Zap, Wrench, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+
+interface ReleaseNoteCategory {
+  type: string;
+  items: string[];
+}
 
 interface ForceUpdateModalProps {
   isOpen: boolean;
   currentVersion: string;
   requiredVersion: string | null;
+  releaseNotes?: ReleaseNoteCategory[];
   onReload: () => void;
 }
 
@@ -18,14 +25,24 @@ interface ForceUpdateModalProps {
  * - Información de versiones
  * - Auto-reload opcional después de X segundos
  */
+const categoryIcon: Record<string, React.ReactNode> = {
+  'Features': <Sparkles className="w-4 h-4 text-purple-400" />,
+  'Bug Fixes': <Bug className="w-4 h-4 text-amber-400" />,
+  'Performance': <Zap className="w-4 h-4 text-yellow-400" />,
+  'Refactoring': <Wrench className="w-4 h-4 text-blue-400" />,
+  'Mejoras': <Zap className="w-4 h-4 text-emerald-400" />,
+};
+
 const ForceUpdateModal: React.FC<ForceUpdateModalProps> = ({
   isOpen,
   currentVersion,
   requiredVersion,
+  releaseNotes = [],
   onReload
 }) => {
+  const [notesExpanded, setNotesExpanded] = useState(true);
+
   const handleReload = () => {
-    // Forzar reload completo (sin caché)
     window.location.reload();
   };
 
@@ -127,6 +144,57 @@ const ForceUpdateModal: React.FC<ForceUpdateModalProps> = ({
                 </div>
               )}
             </motion.div>
+
+            {/* Release Notes */}
+            {releaseNotes.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.55 }}
+                className="mb-8"
+              >
+                <button
+                  onClick={() => setNotesExpanded(!notesExpanded)}
+                  className="flex items-center justify-between w-full text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 hover:text-gray-900 dark:hover:text-white transition-colors"
+                >
+                  <span>Novedades en esta versión</span>
+                  {notesExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                <AnimatePresence>
+                  {notesExpanded && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4 space-y-3 max-h-48 overflow-y-auto">
+                        {releaseNotes.map((category, idx) => (
+                          <div key={idx}>
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              {categoryIcon[category.type] || <Sparkles className="w-4 h-4 text-gray-400" />}
+                              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                                {category.type}
+                              </span>
+                            </div>
+                            <ul className="space-y-1 pl-5.5">
+                              {category.items.map((item, itemIdx) => (
+                                <li key={itemIdx} className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed flex items-start gap-1.5">
+                                  <span className="text-gray-400 dark:text-gray-500 mt-1 shrink-0">•</span>
+                                  <span>{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            )}
 
             {/* Botón de reload */}
             <motion.div

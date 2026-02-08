@@ -99,7 +99,7 @@ function MainApp() {
   useTokenExpiryMonitor();
   
   // Verificación de versión forzada (solo después del login)
-  const { requiresUpdate, currentVersion, requiredVersion, isLoading: isVersionLoading } = useVersionCheck({
+  const { requiresUpdate, currentVersion, requiredVersion, releaseNotes, isLoading: isVersionLoading } = useVersionCheck({
     enabled: isAuthenticated // Solo activar después del login
   });
   
@@ -643,6 +643,7 @@ function MainApp() {
           isOpen={requiresUpdate}
           currentVersion={currentVersion}
           requiredVersion={requiredVersion}
+          releaseNotes={releaseNotes}
           onReload={() => window.location.reload()}
         />
       )}
