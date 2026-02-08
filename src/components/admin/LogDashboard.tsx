@@ -1177,9 +1177,9 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
   }
 
   return (
-    <div className="h-[calc(100vh-200px)] flex flex-col bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      {/* Parte superior fija */}
-      <div className="flex-shrink-0 p-4 pb-2 space-y-3">
+    <div className="h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 overflow-y-auto overflow-x-hidden scrollbar-ultra-thin">
+      {/* Parte superior - scrollea con el contenido */}
+      <div className="p-4 pb-2 space-y-3">
         {/* Gráfica Temporal (ancho completo) */}
         {stats && (
             <motion.div
@@ -1416,12 +1416,12 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
       </div>
 
       {/* Lista de Logs - Área con scroll independiente */}
-      <div className="flex-1 min-h-0 overflow-hidden px-4 pb-20 flex flex-col">
+      <div className="px-4 pb-4">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.35 }}
-          className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700"
         >
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64">
@@ -1438,7 +1438,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
           ) : (
             <>
               {/* Tabla de Logs (ya filtrada por tab activo) - Con scroll */}
-              <div className="flex-1 overflow-y-auto overflow-x-auto min-h-0">
+              <div className="overflow-x-auto">
                 <table className="w-full min-w-[800px]">
                   <thead className="bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
                     <tr>
@@ -1607,7 +1607,7 @@ const LogDashboard: React.FC<LogDashboardProps> = ({ onBackToConfig }) => {
               </div>
 
               {/* Paginación y Controles - Fijo en la parte inferior */}
-              <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
                   {/* Información y Vistas por Página */}
                   <div className="flex flex-col sm:flex-row items-center gap-4">

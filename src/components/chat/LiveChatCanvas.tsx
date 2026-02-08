@@ -68,7 +68,7 @@ import { permissionsService } from '../../services/permissionsService';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 import { automationService } from '../../services/automationService';
 import { MultimediaMessage, needsBubble } from './MultimediaMessage';
-import { ImageCatalogModalV2 } from './ImageCatalogModalV2';
+import { MediaSelectorModal } from './media-selector';
 import { ParaphraseModal } from './ParaphraseModal';
 import { botPauseService } from '../../services/botPauseService';
 import { Pause } from 'lucide-react';
@@ -9535,12 +9535,12 @@ const LiveChatCanvas: React.FC = () => {
         </div>
       )}
       
-      {/* Modal de Catálogo de Imágenes V2 - Con selección múltiple */}
-      <ImageCatalogModalV2
+      {/* Modal de Multimedia V3 - Con sidebar, selección múltiple y cache IndexedDB */}
+      <MediaSelectorModal
         isOpen={showImageCatalog}
         onClose={() => setShowImageCatalog(false)}
         onSendImage={async () => {
-          // Este callback ya no se usa directamente, el modal V2 maneja todo internamente
+          // Este callback ya no se usa directamente, el modal V3 maneja todo internamente
         }}
         selectedConversation={selectedConversation}
         onPauseBot={pauseBot}
