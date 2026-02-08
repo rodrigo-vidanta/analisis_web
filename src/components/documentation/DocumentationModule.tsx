@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'e8fd71d', date: '2026-02-08', author: 'Team', message: 'v2.6.1: B10.1.44N2.6.1 - feat: release notes en modal de actualizacion forzada', isRelease: true },
   { hash: '4f18383', date: '2026-02-08', author: 'Team', message: 'v2.6.0: B10.1.44N2.6.0 - 1 feature + Cinco bloques: (1) Fix errores 401 Unauthorized po', isRelease: true },
   { hash: 'c0139c5', date: '2026-02-08', author: 'Team', message: 'v2.5.94: B10.1.44N2.5.94 - 1 mejora + Sesion inaugural Claude Code (migracion desde Curs + Sesion de bug...', isRelease: true },
   { hash: '371ce15', date: '2026-02-06', author: 'Team', message: 'v2.5.93: B10.1.44N2.5.93 - Auditoría seguridad + Restauración Edge Functions (5 func...', isRelease: true },
@@ -525,6 +526,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-996', date: '08/02/2026, 05:07', version: 'B10.1.44N2.6.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-418', date: '08/02/2026, 04:59', version: 'B10.1.44N2.6.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-790', date: '08/02/2026, 01:51', version: 'B10.1.44N2.5.94', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-291', date: '06/02/2026, 17:32', version: 'B10.1.44N2.5.93', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -695,8 +697,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.6.0', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.6.0', highlight: false },
+  { label: 'Version', value: 'v2.6.1', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.6.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '8 feb 2026', highlight: false },
 ];
