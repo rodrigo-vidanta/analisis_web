@@ -39,10 +39,32 @@ export const PROSPECTO_ETAPAS: { value: ProspectoEtapa; label: string; color?: s
   { value: 'Certificado adquirido', label: 'Certificado adquirido', color: 'rose' },
 ];
 
+// ============================================
+// PLANTILLAS CON RESTRICCIONES ESPECIALES
+// ============================================
+
+/**
+ * Plantilla de utilidad con restricciones especiales.
+ * Reglas diferentes a las demás:
+ * - Máximo 2 envíos por semestre (180 días)
+ * - Mínimo 48 horas entre envíos consecutivos
+ * - Prohibida para prospectos en etapa "Es miembro"
+ * - Ambas variables (nombre prospecto y nombre ejecutivo) son obligatorias
+ */
+export const SPECIAL_UTILITY_TEMPLATE_NAME = 'seguimiento_contacto_utilidad';
+
+export const SPECIAL_UTILITY_TEMPLATE_CONFIG = {
+  name: SPECIAL_UTILITY_TEMPLATE_NAME,
+  maxSendsSemester: 2,
+  minHoursBetweenSends: 48,
+  blockedEtapas: ['Es miembro'] as ProspectoEtapa[],
+  warningMessage: 'Solo enviar a prospectos con los que YA hablaste por teléfono o que solicitaron un mensaje. No reenviar si no responden, no usar masivamente. El mal uso de esta plantilla bloquea el WhatsApp de todo el equipo.',
+} as const;
+
 /**
  * Destinos disponibles - valores exactos de BD prospectos.destino_preferencia
  */
-export type DestinoNombre = 
+export type DestinoNombre =
   | 'Nuevo Vallarta'
   | 'Riviera Maya'
   | 'Los Cabos'

@@ -2536,7 +2536,7 @@ const LiveChatCanvas: React.FC = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'whatsapp_labels_conversation',
+          table: 'whatsapp_conversation_labels',
         },
         (payload) => {
           const record = (payload.new || payload.old) as Record<string, string | undefined>;
@@ -2659,9 +2659,11 @@ const LiveChatCanvas: React.FC = () => {
         } else if (status === 'CHANNEL_ERROR') {
           const errorMsg = err?.message || String(err || 'unknown');
           
-          // Ignorar errores de "mismatch" que son comunes y no críticos
+          // Mismatch = tabla no existe en publicación o nombre incorrecto
+          // NO ignorar: reconectar para intentar recuperar el canal
           if (errorMsg.includes('mismatch between server and client bindings')) {
-            logDev('⚠️ [REALTIME V4] Warning de mismatch (no crítico), continuando...');
+            console.error('❌ [REALTIME V4] Mismatch en bindings - reconectando...');
+            scheduleReconnect('mismatch_error');
             return;
           }
           

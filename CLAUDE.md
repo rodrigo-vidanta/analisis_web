@@ -76,3 +76,4 @@ Para tareas complejas por dominio, usar subagentes con contexto de:
 - `analytics-agent.md` - Analisis, LiveMonitor, metricas
 - `deploy-agent.md` - Build, deploy AWS, versionado
 - `n8n-agent.md` - Workflows N8N, ejecuciones, debugging (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+- `uchat-agent.md` - UChat API, subscribers, webhooks, triggers, debug errores WhatsApp (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)

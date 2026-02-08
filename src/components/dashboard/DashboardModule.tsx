@@ -2267,50 +2267,78 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     '07': 'Jul', '08': 'Ago', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dic'
   };
 
-  // Cards principales: énfasis en número de certificados
+  const totalCertificados = data.total?.certificados || 0;
+  const totalMonto = data.total?.monto || 0;
+  const totalClientes = data.total?.count || 0;
+
+  // Métricas calculadas
+  const ticketPromedio = totalCertificados > 0 ? totalMonto / totalCertificados : 0;
+
+  // Ventas del mes actual y mes anterior (calculadas de allSalesDetails)
+  const now = new Date();
+  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+
+  const thisMonthSales = (data.allSalesDetails || []).filter(s => new Date(s.fecha) >= thisMonthStart);
+  const lastMonthSales = (data.allSalesDetails || []).filter(s => {
+    const d = new Date(s.fecha);
+    return d >= lastMonthStart && d < thisMonthStart;
+  });
+
+  const thisMonthCount = thisMonthSales.length;
+  const lastMonthCount = lastMonthSales.length;
+  const thisMonthMonto = thisMonthSales.reduce((sum, s) => sum + s.monto, 0);
+  const monthTrend = lastMonthCount > 0 ? ((thisMonthCount - lastMonthCount) / lastMonthCount * 100) : 0;
+
+  // Cards principales: métricas de negocio relevantes
   const cards = [
     {
-      label: 'Activos PQNC',
-      certificados: data.activosPQNC?.certificados || 0,
-      clientes: data.activosPQNC?.count || 0,
-      monto: data.activosPQNC?.monto || 0,
-      icon: <UserCheck className="w-5 h-5" />,
-      gradient: 'from-emerald-500 to-emerald-600',
-      bgGradient: 'from-emerald-50 to-emerald-100 dark:from-emerald-900/30 dark:to-emerald-800/20',
+      label: 'Certificados',
+      mainValue: totalCertificados,
+      mainUnit: 'vendidos',
+      subLabel: 'Monto total',
+      subValue: formatMoney(totalMonto),
+      extraLabel: 'Clientes',
+      extraValue: `${totalClientes}`,
+      icon: <Award className="w-5 h-5" />,
+      gradient: 'from-purple-500 to-indigo-600',
+      bgGradient: 'from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-800/20',
+      color: '#8B5CF6',
+    },
+    {
+      label: 'Ticket Promedio',
+      mainValue: formatMoney(ticketPromedio),
+      mainUnit: '',
+      subLabel: 'Por certificado',
+      subValue: `${totalClientes} clientes`,
+      extraLabel: 'Rango',
+      extraValue: totalCertificados > 0
+        ? `${formatMoney(Math.min(...(data.allSalesDetails || []).filter(s => s.monto > 0).map(s => s.monto)))} - ${formatMoney(Math.max(...(data.allSalesDetails || []).map(s => s.monto)))}`
+        : '-',
+      icon: <TrendingUp className="w-5 h-5" />,
+      gradient: 'from-emerald-500 to-teal-600',
+      bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-800/20',
       color: '#10B981',
-      description: 'Miembros activos'
     },
     {
-      label: 'Inactivos PQNC',
-      certificados: data.inactivosPQNC?.certificados || 0,
-      clientes: data.inactivosPQNC?.count || 0,
-      monto: data.inactivosPQNC?.monto || 0,
-      icon: <UserX className="w-5 h-5" />,
-      gradient: 'from-amber-500 to-amber-600',
-      bgGradient: 'from-amber-50 to-amber-100 dark:from-amber-900/30 dark:to-amber-800/20',
-      color: '#F59E0B',
-      description: 'Miembros inactivos'
-    },
-    {
-      label: 'En Proceso',
-      certificados: data.enProceso?.certificados || 0,
-      clientes: data.enProceso?.count || 0,
-      monto: data.enProceso?.monto || 0,
-      icon: <Hourglass className="w-5 h-5" />,
-      gradient: 'from-blue-500 to-blue-600',
-      bgGradient: 'from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20',
+      label: 'Este Mes',
+      mainValue: thisMonthCount,
+      mainUnit: 'certificados',
+      subLabel: 'Monto',
+      subValue: formatMoney(thisMonthMonto),
+      extraLabel: 'vs mes anterior',
+      extraValue: lastMonthCount > 0
+        ? `${monthTrend >= 0 ? '+' : ''}${monthTrend.toFixed(0)}% (${lastMonthCount})`
+        : `Anterior: ${lastMonthCount}`,
+      icon: <Calendar className="w-5 h-5" />,
+      gradient: 'from-blue-500 to-cyan-600',
+      bgGradient: 'from-blue-50 to-cyan-50 dark:from-blue-900/30 dark:to-cyan-800/20',
       color: '#3B82F6',
-      description: 'Canal WhatsApp'
     }
   ];
 
-  // Datos para gráfica de barras por categoría
-  const barData = cards.map(c => ({
-    name: c.label.replace(' PQNC', ''),
-    certificados: c.certificados,
-    monto: c.monto / 1000, // En miles
-    fill: c.color
-  })).filter(d => d.certificados > 0);
+  // Datos para gráfica de barras por categoría (no se usa en la nueva vista)
+  const barData: { name: string; certificados: number; monto: number; fill: string }[] = [];
 
   // Etiqueta del timeline según periodo
   const getTimelineLabel = () => {
@@ -2338,10 +2366,6 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     }))
     .sort((a, b) => b.certificados - a.certificados)
     .slice(0, 6);
-
-  const totalCertificados = data.total?.certificados || 0;
-  const totalMonto = data.total?.monto || 0;
-  const totalClientes = data.total?.count || 0;
 
   // Obtener ventas filtradas por coordinación para el modal
   const filteredSales = useMemo(() => {
@@ -2556,7 +2580,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   // Función para renderizar contenido con isExpandedView
   const renderWidgetContent = (isExpandedView: boolean) => (
     <div className={isExpandedView ? 'space-y-6' : 'space-y-3'}>
-        {/* Cards principales */}
+        {/* Cards principales - métricas de negocio */}
         <div className={`grid ${isExpandedView ? 'grid-cols-3 gap-4' : 'grid-cols-3 gap-2'}`}>
           {cards.map(card => (
             <motion.div
@@ -2573,22 +2597,23 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                   {card.label}
                 </span>
               </div>
-              {/* Número de certificados como métrica principal */}
               <p className={`font-bold text-gray-900 dark:text-white ${isExpandedView ? 'text-3xl' : 'text-xl'}`}>
-                {card.certificados}
+                {card.mainValue}
               </p>
-              <p className={`text-gray-500 ${isExpandedView ? 'text-sm' : 'text-xs'}`}>
-                certificados
-              </p>
+              {card.mainUnit && (
+                <p className={`text-gray-500 ${isExpandedView ? 'text-sm' : 'text-xs'}`}>
+                  {card.mainUnit}
+                </p>
+              )}
               {isExpandedView && (
                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600/50 space-y-1">
                   <p className="text-xs text-gray-500 flex justify-between">
-                    <span>Monto total:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">{formatMoney(card.monto)}</span>
+                    <span>{card.subLabel}:</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{card.subValue}</span>
                   </p>
                   <p className="text-xs text-gray-500 flex justify-between">
-                    <span>Clientes:</span>
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">{card.clientes}</span>
+                    <span>{card.extraLabel}:</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{card.extraValue}</span>
                   </p>
                 </div>
               )}
@@ -2596,19 +2621,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
           ))}
         </div>
 
-        {/* Resumen total - solo en vista compacta */}
-        {!isExpandedView && (
-          <div className="flex items-center justify-between px-3 py-2 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-100 dark:border-purple-800/30">
-            <div className="flex items-center gap-2">
-              <Award className="w-4 h-4 text-purple-600" />
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Total</span>
-            </div>
-            <div className="text-right">
-              <span className="text-lg font-bold text-purple-600 dark:text-purple-400">{totalCertificados}</span>
-              <span className="text-xs text-gray-500 ml-1">· {formatMoney(totalMonto)}</span>
-            </div>
-          </div>
-        )}
+        {/* Vista compacta: sin barra de resumen redundante (ya está en las cards) */}
 
         {/* Vista expandida: más gráficas */}
         {isExpandedView && (

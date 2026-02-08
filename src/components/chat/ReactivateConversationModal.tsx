@@ -5,6 +5,7 @@ import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, 
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService, type TemplateSendLimits, type TemplateResponseRate } from '../../services/whatsappTemplatesService';
 import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
+import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { whatsappTemplateSuggestionsService, type SuggestionStats } from '../../services/whatsappTemplateSuggestionsService';
@@ -388,8 +389,11 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     return [...new Set(etapas)];
   }, [audiences]);
 
+  // Tipo compartido para items de plantilla
+  type TemplateItem = { template: WhatsAppTemplate; score: number; rate: TemplateResponseRate | undefined; canFulfill: boolean; missingFields: string[] };
+
   // Filtrar y ordenar plantillas
-  const filteredAndSortedTemplates = useMemo(() => {
+  const filteredAndSortedTemplates = useMemo((): { regular: TemplateItem[]; specialUtility: TemplateItem[] } => {
     let filtered = templates;
 
     // Filtrar por tab "Mis plantillas"
@@ -406,16 +410,27 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       );
     }
 
-    // Separar compatibles de incompatibles
-    const compatible: Array<{ template: WhatsAppTemplate; score: number; rate: TemplateResponseRate | undefined; canFulfill: boolean; missingFields: string[] }> = [];
-    const incompatible: Array<{ template: WhatsAppTemplate; score: number; rate: TemplateResponseRate | undefined; canFulfill: boolean; missingFields: string[] }> = [];
+    // Separar compatibles, incompatibles y plantilla especial de utilidad
+    const compatible: TemplateItem[] = [];
+    const incompatible: TemplateItem[] = [];
+    const specialUtility: TemplateItem[] = [];
 
     filtered.forEach(template => {
       const score = calculateTemplateMatchScore(template);
       const rate = responseRates.get(template.id);
       const fulfillment = canProspectFulfillTemplate(template);
 
-      const item = { template, score, rate, canFulfill: fulfillment.canFulfill, missingFields: fulfillment.missingFields };
+      const item: TemplateItem = { template, score, rate, canFulfill: fulfillment.canFulfill, missingFields: fulfillment.missingFields };
+
+      // Separar plantilla especial de utilidad
+      if (template.name === SPECIAL_UTILITY_TEMPLATE_NAME) {
+        if (prospectoEtapa && (SPECIAL_UTILITY_TEMPLATE_CONFIG.blockedEtapas as readonly string[]).includes(prospectoEtapa)) {
+          specialUtility.push({ ...item, canFulfill: false, missingFields: ['No disponible para "Es miembro"'] });
+        } else {
+          specialUtility.push(item);
+        }
+        return;
+      }
 
       if (fulfillment.canFulfill) {
         compatible.push(item);
@@ -443,8 +458,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       return b.score - a.score;
     });
 
-    return [...compatible, ...incompatible];
-  }, [templates, searchTerm, activeTab, user?.id, calculateTemplateMatchScore, responseRates, canProspectFulfillTemplate]);
+    return { regular: [...compatible, ...incompatible], specialUtility };
+  }, [templates, searchTerm, activeTab, user?.id, calculateTemplateMatchScore, responseRates, canProspectFulfillTemplate, prospectoEtapa]);
 
   const myTemplatesCount = useMemo(() => {
     if (!user?.id) return 0;
@@ -459,9 +474,11 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     setSelectedTemplate(template);
     if (showSuggestionForm) setShowSuggestionForm(false);
 
-    // Verificar si está bloqueada
+    // Verificar si está bloqueada (incluye restricciones especiales de utilidad)
     if (prospectoData?.id) {
-      const check = await whatsappTemplatesService.canSendTemplateToProspect(prospectoData.id as string, template.id);
+      const check = await whatsappTemplatesService.canSendTemplateToProspect(
+        prospectoData.id as string, template.id, template.name, prospectoEtapa
+      );
       setSelectedTemplateBlocked({ blocked: !check.canSend, reason: check.reason });
     }
 
@@ -1115,7 +1132,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                   <div className="flex items-center justify-center py-16">
                     <Loader2 className="w-5 h-5 animate-spin text-indigo-500" />
                   </div>
-                ) : filteredAndSortedTemplates.length === 0 ? (
+                ) : (filteredAndSortedTemplates.regular.length === 0 && filteredAndSortedTemplates.specialUtility.length === 0) ? (
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">
@@ -1132,7 +1149,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                       transition={{ duration: 0.15 }}
                       className="space-y-1.5"
                     >
-                      {filteredAndSortedTemplates.map((item, index) => {
+                      {filteredAndSortedTemplates.regular.map((item, index) => {
                         const { template, rate, canFulfill, missingFields } = item;
                         const isSelected = selectedTemplate?.id === template.id;
                         const templateEtapas = getTemplateEtapas(template);
@@ -1215,6 +1232,100 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                           </motion.button>
                         );
                       })}
+
+                      {/* ============================================ */}
+                      {/* SECCIÓN ESPECIAL: Plantilla de Utilidad */}
+                      {/* ============================================ */}
+                      {filteredAndSortedTemplates.specialUtility.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-amber-200 dark:border-amber-800/50">
+                          <div className="flex items-center gap-2 mb-2 px-1">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                            <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                              Plantilla de Utilidad
+                            </span>
+                          </div>
+
+                          <div className="mb-2 p-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                            <p className="text-[10px] text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                              {SPECIAL_UTILITY_TEMPLATE_CONFIG.warningMessage}
+                            </p>
+                          </div>
+
+                          {filteredAndSortedTemplates.specialUtility.map((item) => {
+                            const { template, rate, canFulfill, missingFields } = item;
+                            const isSelected = selectedTemplate?.id === template.id;
+                            const isBlockedEtapa = prospectoEtapa === 'Es miembro';
+                            const alreadySentThisSemester = sendLimits?.sentTemplateIds.includes(template.id) || false;
+                            const isDisabled = !canFulfill || isBlockedEtapa || alreadySentThisSemester;
+
+                            return (
+                              <motion.button
+                                key={template.id}
+                                whileHover={isDisabled ? undefined : { y: -1, boxShadow: '0 4px 12px rgba(217,119,6,0.12)' }}
+                                whileTap={isDisabled ? undefined : { scale: 0.99 }}
+                                onClick={() => !isDisabled && handleSelectTemplate(template)}
+                                disabled={isDisabled}
+                                className={`w-full text-left p-3 rounded-xl border-2 transition-all relative group ${
+                                  isDisabled
+                                    ? 'border-amber-200 dark:border-amber-800/50 bg-amber-50/30 dark:bg-amber-900/10 opacity-50 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'border-amber-500 dark:border-amber-400 bg-amber-50 dark:bg-amber-900/20 shadow-sm shadow-amber-100 dark:shadow-amber-900/20'
+                                    : 'border-amber-200 dark:border-amber-800/50 bg-white dark:bg-gray-800/50 hover:border-amber-400 dark:hover:border-amber-600'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <h4 className={`text-sm font-semibold leading-tight ${
+                                    isDisabled ? 'text-gray-400 dark:text-gray-500' : isSelected ? 'text-amber-900 dark:text-amber-100' : 'text-gray-900 dark:text-white'
+                                  }`}>
+                                    {template.name}
+                                  </h4>
+                                  <span className="px-1.5 py-0.5 text-[10px] font-medium rounded flex-shrink-0 bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                    UTILIDAD
+                                  </span>
+                                </div>
+
+                                <div className="mb-1.5">
+                                  <StarRating
+                                    rating={rate?.starRating || 0}
+                                    replyRate={rate?.replyRate || 0}
+                                    totalSent={rate?.totalSent || 0}
+                                  />
+                                </div>
+
+                                <div className="flex flex-wrap gap-1">
+                                  {isBlockedEtapa && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded">
+                                      <Ban className="w-2.5 h-2.5" />
+                                      No disponible para &quot;Es miembro&quot;
+                                    </span>
+                                  )}
+                                  {alreadySentThisSemester && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded">
+                                      <Ban className="w-2.5 h-2.5" />
+                                      Enviada
+                                    </span>
+                                  )}
+                                  {!canFulfill && !isBlockedEtapa && (
+                                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded">
+                                      <AlertTriangle className="w-2.5 h-2.5 flex-shrink-0" />
+                                      {missingFields.join(', ')}
+                                    </span>
+                                  )}
+                                  <span className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded">
+                                    Max 2 / 6 meses
+                                  </span>
+                                </div>
+
+                                {template.description && (
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1.5 line-clamp-1">
+                                    {template.description}
+                                  </p>
+                                )}
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </motion.div>
                   </AnimatePresence>
                 )}

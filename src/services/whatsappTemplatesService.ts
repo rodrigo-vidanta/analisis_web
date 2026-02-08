@@ -1,4 +1,5 @@
 import { analysisSupabase } from '../config/analysisSupabase';
+import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import type {
   VariableMapping,
   WhatsAppTemplateComponent,
@@ -7,7 +8,9 @@ import type {
   UpdateTemplateInput,
   TableField,
   TableSchema,
+  ProspectoEtapa,
 } from '../types/whatsappTemplates';
+import { SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../types/whatsappTemplates';
 
 /**
  * ============================================
@@ -57,25 +60,21 @@ export interface TemplateResponseRate {
 
 // Usar Edge Function en lugar de webhook directo
 const EDGE_FUNCTION_URL = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-proxy`;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
 // ============================================
 // SERVICIO PRINCIPAL
 // ============================================
 
 class WhatsAppTemplatesService {
-  private authToken: string | null = null;
-
   /**
-   * Obtiene el token de autenticación desde api_auth_tokens
+   * Obtiene el JWT del usuario autenticado para llamar Edge Functions
    */
-  private async getAuthToken(): Promise<string> {
-    if (this.authToken) return this.authToken;
-    
-    const { credentialsService } = await import('./credentialsService');
-    const token = await credentialsService.getCredentialByModule('N8N Webhooks', 'whatsapp_templates_auth');
-    this.authToken = token || WEBHOOK_AUTH_TOKEN;
-    return this.authToken;
+  private async getUserAccessToken(): Promise<string> {
+    const { data: { session } } = await supabaseSystemUI!.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('Authentication required');
+    }
+    return session.access_token;
   }
 
   /**
@@ -463,10 +462,11 @@ class WhatsAppTemplatesService {
       }, 25000); // 25 segundos
 
       try {
+        const userToken = await this.getUserAccessToken();
         const response = await fetch(EDGE_FUNCTION_URL, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${userToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(payload),
@@ -610,12 +610,13 @@ class WhatsAppTemplatesService {
    */
   private async getTemplateFromUChat(templateId: string): Promise<any | null> {
     try {
+      const userToken = await this.getUserAccessToken();
       const response = await fetch(
         `${EDGE_FUNCTION_URL}?id=${templateId}`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${userToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})
@@ -623,7 +624,7 @@ class WhatsAppTemplatesService {
       );
 
       const responseText = await response.text();
-      
+
       // Si no existe (404), retornar null
       if (response.status === 404 || !responseText.trim()) {
         return null;
@@ -660,12 +661,13 @@ class WhatsAppTemplatesService {
    */
   private async updateTemplateInUChat(templateId: string, input: UpdateTemplateInput): Promise<any> {
     try {
+      const userToken = await this.getUserAccessToken();
       const response = await fetch(
         `${EDGE_FUNCTION_URL}?id=${templateId}`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${userToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(input)
@@ -674,7 +676,7 @@ class WhatsAppTemplatesService {
 
       const responseText = await response.text();
       let result;
-      
+
       try {
         result = JSON.parse(responseText);
       } catch {
@@ -686,7 +688,7 @@ class WhatsAppTemplatesService {
       }
 
       return result.data;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error actualizando template en uChat:', error);
       throw error;
     }
@@ -801,10 +803,11 @@ class WhatsAppTemplatesService {
       const url = `${EDGE_FUNCTION_URL}?id=${templateId}`;
       const payload = { _method: 'DELETE' };
 
+      const userToken = await this.getUserAccessToken();
       const response = await fetch(url, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Authorization': `Bearer ${userToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(payload)
@@ -1466,12 +1469,13 @@ class WhatsAppTemplatesService {
    */
   async syncTemplatesFromUChat(): Promise<{ synced: number; templates: any[] }> {
     try {
+      const userToken = await this.getUserAccessToken();
       const response = await fetch(
         `${EDGE_FUNCTION_URL}?action=sync`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${userToken}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({})
@@ -1713,18 +1717,109 @@ class WhatsAppTemplatesService {
   }
 
   /**
+   * Verificar restricciones especiales para la plantilla seguimiento_contacto_utilidad
+   *
+   * Reglas:
+   * - Máximo 2 envíos por semestre (180 días)
+   * - Mínimo 48 horas entre envíos consecutivos
+   * - No se puede enviar a prospectos en etapa "Es miembro"
+   */
+  async checkSpecialUtilityRestrictions(
+    prospectoId: string,
+    templateId: string,
+    templateName: string,
+    prospectoEtapa: string | null
+  ): Promise<{ canSend: boolean; reason: string | null; isSpecialUtility: boolean }> {
+    if (templateName !== SPECIAL_UTILITY_TEMPLATE_CONFIG.name) {
+      return { canSend: true, reason: null, isSpecialUtility: false };
+    }
+
+    // Bloquear etapa "Es miembro"
+    if (prospectoEtapa && (SPECIAL_UTILITY_TEMPLATE_CONFIG.blockedEtapas as readonly string[]).includes(prospectoEtapa)) {
+      return {
+        canSend: false,
+        reason: `Esta plantilla no puede enviarse a prospectos en etapa "${prospectoEtapa}".`,
+        isSpecialUtility: true,
+      };
+    }
+
+    try {
+      const now = new Date();
+      const semesterAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { data: sends, error } = await analysisSupabase!
+        .from('whatsapp_template_sends')
+        .select('id, sent_at')
+        .eq('prospecto_id', prospectoId)
+        .eq('template_id', templateId)
+        .eq('status', 'SENT')
+        .gte('sent_at', semesterAgo)
+        .order('sent_at', { ascending: false });
+
+      if (error) {
+        console.error('Error verificando restricciones de plantilla especial:', error);
+        return { canSend: true, reason: null, isSpecialUtility: true };
+      }
+
+      const allSends = sends || [];
+
+      // Máximo 2 envíos por semestre
+      if (allSends.length >= SPECIAL_UTILITY_TEMPLATE_CONFIG.maxSendsSemester) {
+        return {
+          canSend: false,
+          reason: `Esta plantilla solo puede enviarse ${SPECIAL_UTILITY_TEMPLATE_CONFIG.maxSendsSemester} veces cada 6 meses. Ya se envió ${allSends.length} vez/veces.`,
+          isSpecialUtility: true,
+        };
+      }
+
+      // Mínimo 48 horas entre envíos
+      if (allSends.length > 0) {
+        const lastSent = new Date(allSends[0].sent_at);
+        const hoursSinceLastSend = (now.getTime() - lastSent.getTime()) / (1000 * 60 * 60);
+        if (hoursSinceLastSend < SPECIAL_UTILITY_TEMPLATE_CONFIG.minHoursBetweenSends) {
+          const hoursRemaining = Math.ceil(SPECIAL_UTILITY_TEMPLATE_CONFIG.minHoursBetweenSends - hoursSinceLastSend);
+          return {
+            canSend: false,
+            reason: `Debes esperar al menos 48 horas entre envíos de esta plantilla. Faltan ~${hoursRemaining}h.`,
+            isSpecialUtility: true,
+          };
+        }
+      }
+
+      return { canSend: true, reason: null, isSpecialUtility: true };
+    } catch (error: unknown) {
+      console.error('Error en restricciones especiales:', error);
+      return { canSend: true, reason: null, isSpecialUtility: true };
+    }
+  }
+
+  /**
    * Verificar si una plantilla específica puede ser enviada a un prospecto
    * Considera que no se puede repetir la misma plantilla en el período
-   * 
+   *
    * @param prospectoId - ID del prospecto
    * @param templateId - ID de la plantilla a enviar
+   * @param templateName - Nombre de la plantilla (para restricciones especiales)
+   * @param prospectoEtapa - Etapa actual del prospecto (para restricciones especiales)
    * @returns { canSend: boolean, reason: string | null }
    */
   async canSendTemplateToProspect(
-    prospectoId: string, 
-    templateId: string
+    prospectoId: string,
+    templateId: string,
+    templateName?: string,
+    prospectoEtapa?: string | null
   ): Promise<{ canSend: boolean; reason: string | null }> {
     try {
+      // Verificar restricciones especiales de plantilla de utilidad
+      if (templateName) {
+        const specialCheck = await this.checkSpecialUtilityRestrictions(
+          prospectoId, templateId, templateName, prospectoEtapa || null
+        );
+        if (!specialCheck.canSend) {
+          return { canSend: false, reason: specialCheck.reason };
+        }
+      }
+
       const limits = await this.checkTemplateSendLimits(prospectoId);
 
       // Verificar límites generales
@@ -1734,9 +1829,9 @@ class WhatsAppTemplatesService {
 
       // Verificar si la plantilla ya fue enviada esta semana
       if (limits.weeklyLimit.usedTemplateIds.includes(templateId)) {
-        return { 
-          canSend: false, 
-          reason: 'Esta plantilla ya fue enviada a este prospecto esta semana. Selecciona una diferente.' 
+        return {
+          canSend: false,
+          reason: 'Esta plantilla ya fue enviada a este prospecto esta semana. Selecciona una diferente.'
         };
       }
 
@@ -1757,7 +1852,7 @@ class WhatsAppTemplatesService {
       }
 
       return { canSend: true, reason: null };
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error verificando si puede enviar plantilla:', error);
       return { canSend: true, reason: null };
     }

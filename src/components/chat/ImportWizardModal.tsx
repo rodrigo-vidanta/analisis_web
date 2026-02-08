@@ -64,6 +64,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService, type WhatsAppTemplate, type VariableMapping } from '../../services/whatsappTemplatesService';
+import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
 import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
 import toast from 'react-hot-toast';
@@ -271,6 +272,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // Template state
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
   const [filteredTemplates, setFilteredTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [filteredSpecialTemplates, setFilteredSpecialTemplates] = useState<WhatsAppTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -351,6 +353,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       setImportedProspects([]);
       setTemplates([]);
       setFilteredTemplates([]);
+      setFilteredSpecialTemplates([]);
       setSelectedTemplate(null);
       setSelectedTags([]);
       setSearchTerm('');
@@ -358,7 +361,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
   }, [isOpen]);
 
-  // Filter templates
+  // Filter templates (separar plantilla especial de utilidad)
   useEffect(() => {
     let filtered = templates;
     if (selectedTags.length > 0) {
@@ -370,7 +373,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term)
       );
     }
-    setFilteredTemplates(filtered);
+    setFilteredTemplates(filtered.filter(t => t.name !== SPECIAL_UTILITY_TEMPLATE_NAME));
+    setFilteredSpecialTemplates(filtered.filter(t => t.name === SPECIAL_UTILITY_TEMPLATE_NAME));
   }, [selectedTags, searchTerm, templates]);
 
   // ============================================
@@ -753,7 +757,15 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     // Check first imported prospect for field availability
     const prospectData = importedProspects[0]?.data;
     if (!prospectData) return { canSend: true };
-    
+
+    // Bloquear plantilla especial de utilidad para "Es miembro"
+    if (template.name === SPECIAL_UTILITY_TEMPLATE_NAME) {
+      const etapa = prospectData.etapa || prospectData.metadata?.etapa;
+      if (etapa && (SPECIAL_UTILITY_TEMPLATE_CONFIG.blockedEtapas as readonly string[]).includes(etapa)) {
+        return { canSend: false, reason: `No disponible para prospectos en etapa "${etapa}".` };
+      }
+    }
+
     const missing: string[] = [];
     for (const mapping of (template.variable_mappings || [])) {
       if (mapping.table_name === 'system') continue;
@@ -1451,14 +1463,14 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Plantillas disponibles ({filteredTemplates.length})
+                      Plantillas disponibles ({filteredTemplates.length + filteredSpecialTemplates.length})
                     </p>
-                    
+
                     {loadingTemplates ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                       </div>
-                    ) : filteredTemplates.length === 0 ? (
+                    ) : (filteredTemplates.length === 0 && filteredSpecialTemplates.length === 0) ? (
                       <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
                         <MessageSquare className="w-12 h-12 mx-auto text-gray-400 mb-3" />
                         <p className="text-sm text-gray-600 dark:text-gray-400">No hay plantillas que coincidan</p>
@@ -1501,7 +1513,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                   ) : null}
                                   {!validation.canSend && (
                                     <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-                                      <p className="text-xs text-red-700 dark:text-red-400 font-medium">⚠️ {validation.reason}</p>
+                                      <p className="text-xs text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
                                     </div>
                                   )}
                                 </div>
@@ -1512,6 +1524,75 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                             </button>
                           );
                         })}
+
+                        {/* ============================================ */}
+                        {/* SECCIÓN ESPECIAL: Plantilla de Utilidad */}
+                        {/* ============================================ */}
+                        {filteredSpecialTemplates.length > 0 && (
+                          <div className="mt-4 pt-4 border-t-2 border-amber-200 dark:border-amber-800/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <AlertTriangle className="w-4 h-4 text-amber-500" />
+                              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
+                                Plantilla de Utilidad
+                              </span>
+                            </div>
+
+                            <div className="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+                                {SPECIAL_UTILITY_TEMPLATE_CONFIG.warningMessage}
+                              </p>
+                            </div>
+
+                            {filteredSpecialTemplates.map(template => {
+                              const validation = canSendTemplate(template);
+                              return (
+                                <button
+                                  key={template.id}
+                                  onClick={() => handleSelectTemplate(template)}
+                                  disabled={!validation.canSend}
+                                  className={`w-full p-4 border-2 rounded-xl text-left transition-all duration-200 ${
+                                    selectedTemplate?.id === template.id
+                                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                                      : validation.canSend
+                                      ? 'border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 bg-white dark:bg-gray-800'
+                                      : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 opacity-60 cursor-not-allowed'
+                                  }`}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{template.name}</p>
+                                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                          UTILIDAD
+                                        </span>
+                                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
+                                          Max 2 / 6 meses
+                                        </span>
+                                      </div>
+                                      {template.components
+                                        .filter(c => c.type === 'BODY' && c.text)
+                                        .map((c, i) => {
+                                          let preview = c.text || '';
+                                          template.variable_mappings?.forEach(m => {
+                                            preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
+                                          });
+                                          return <p key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">{preview}</p>;
+                                        })}
+                                      {!validation.canSend && (
+                                        <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                                          <p className="text-xs text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {validation.canSend && (
+                                      <CheckCircle className={`w-5 h-5 flex-shrink-0 ${selectedTemplate?.id === template.id ? 'text-amber-600' : 'text-gray-300 dark:text-gray-600'}`} />
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
