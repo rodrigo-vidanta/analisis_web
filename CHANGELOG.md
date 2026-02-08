@@ -1,3 +1,23 @@
+## [v2.6.0] - 2026-02-08
+
+**B10.1.44N2.6.0** - 1 feature + Cinco bloques: (1) Fix errores 401 Unauthorized po
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-08-AUTH-TIMEZONE-FIX**: Cinco bloques: (1) Fix errores 401 Unauthorized por race condition auth + concurrencia refresh token, (2) Correccion timezone UTC-6 en modulo llamadas programadas, (3) Fix critico permisos: ejecutivos podian ver prospectos de toda su coordinacion en WhatsApp search/listing por logica OR en RPCs, (4) Fix import duplicados: deteccion de prospectos existentes fallaba por RLS + formato telefono, (5) Limpieza console.logs debug en produccion.
+  - authAwareFetch: boolean `_isRefreshing` → shared promise `_refreshPromise`. Todos los 401 concurrentes esperan el mismo refresh y reintentan.
+  - LiveChatCanvas: auth guard antes de `initializeChat()` — espera session antes de queries.
+  - ManualCallModal: timestamp submit con `-06:00` explicito, extraccion fecha/hora existente con `timeZone: 'America/Mexico_City'`, funciones auxiliares con TZ Mexico.
+  - DailyView: agrupacion por hora usa `getTime() - 6h` + `getUTCHours()` en vez de `getHours()` del browser.
+  - WeeklyView, LlamadasProgramadasWidget, ScheduledCallsSection: `timeZone: 'America/Mexico_City'` en formateo de hora/fecha.
+  - RPCs `search_dashboard_conversations` y `get_dashboard_conversations` (2 overloads): logica OR → AND condicional. `p_ejecutivo_ids` tiene prioridad; `p_coordinacion_ids` solo aplica cuando `p_ejecutivo_ids IS NULL` (coordinadores/supervisores).
+  - Import duplicados: nueva RPC `check_prospect_exists_by_phone` (SECURITY DEFINER) + QuickImportModal y ImportWizardModal usan RPC en vez de queries directas a `prospectos`. Normaliza ultimos 10 digitos, bypasea RLS.
+  - Limpieza console.logs: eliminados `[LiveActivityStore] Filtrado por coordinaciones` y 3 bloques `[prospectRestrictions] Verificando por etapa_id` que aparecian en consola de produccion.
+
+### Features
+- restricciones plantilla utilidad + UChat CLI + fixes dashboard (`34c8405`)
+
+---
+
 ## [v2.5.94] - 2026-02-08
 
 **B10.1.44N2.5.94** - 1 mejora + Sesion inaugural Claude Code (migracion desde Curs + Sesion de bugs criticos + preparacion para escalab + Cinco bloques: (1) Fix errores 401 Unauthorized po
