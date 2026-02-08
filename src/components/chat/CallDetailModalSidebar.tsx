@@ -686,7 +686,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className={`fixed inset-0 bg-black/50 backdrop-blur-md ${zIndexBackdrop} pointer-events-auto`}
+            className={`fixed inset-0 bg-black/50 backdrop-blur-sm ${zIndexBackdrop} pointer-events-auto`}
             onClick={onClose}
           />
           <motion.div
@@ -1205,12 +1205,12 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                   max={audioDuration || 0}
                                   value={currentAudioTime}
                                   onChange={handleSeek}
-                                  className="w-full h-2 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-progress"
+                                  className="w-full h-2 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer audio-progress"
                                   style={{
                                     background: `linear-gradient(to right, rgb(59 130 246) 0%, rgb(59 130 246) ${audioDuration ? (currentAudioTime / audioDuration) * 100 : 0}%, rgb(226 232 240) ${audioDuration ? (currentAudioTime / audioDuration) * 100 : 0}%, rgb(226 232 240) 100%)`
                                   }}
                                 />
-                                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                                   <span>{formatTime(currentAudioTime)}</span>
                                   <span>{formatTime(audioDuration)}</span>
                                 </div>
@@ -1230,7 +1230,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                       audioRef.current.volume = volume;
                                     }
                                   }}
-                                  className="w-16 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer"
+                                  className="w-16 h-1 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer"
                                 />
                               </div>
                             </div>
@@ -1250,26 +1250,26 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                   ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/40'
                                   : segment.speaker === 'cliente' 
                                     ? 'bg-blue-100 dark:bg-blue-900/30 ml-8' 
-                                    : 'bg-gray-100 dark:bg-slate-700 mr-8'
+                                    : 'bg-gray-100 dark:bg-gray-700 mr-8'
                               }`}
                             >
                               <div className="flex items-center gap-2 mb-1">
                                 <span className={`text-xs font-medium ${
-                                  segment.speaker === 'cliente' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'
+                                  segment.speaker === 'cliente' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
                                 }`}>
                                   {segment.speaker === 'cliente' ? 'Cliente' : 'Agente'}
                                 </span>
-                                <span className="text-xs text-slate-500 dark:text-slate-400">
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
                                   {segment.timestamp}
                                 </span>
                               </div>
-                              <p className="text-sm text-slate-900 dark:text-white leading-relaxed">
+                              <p className="text-sm text-gray-900 dark:text-white leading-relaxed">
                                 {segment.content}
                               </p>
                             </div>
                           ))
                         ) : (
-                          <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                             <MessageSquare size={48} className="mx-auto mb-4 opacity-50" />
                             <p>No hay transcripción disponible</p>
                           </div>
@@ -1327,7 +1327,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                             </h4>
                             <ul className="space-y-1">
                               {callDetail.feedback_positivo.map((item: string, index: number) => (
-                                <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                <li key={index} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                                   <CheckCircle size={16} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                                   {item}
                                 </li>
@@ -1343,7 +1343,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                             </h4>
                             <ul className="space-y-1">
                               {callDetail.feedback_constructivo.map((item: any, index: number) => (
-                                <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                <li key={index} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                                   <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
                                   {typeof item === 'string' ? item : 
                                    typeof item === 'object' ? (item.problema || item.descripcion || JSON.stringify(item)) : 

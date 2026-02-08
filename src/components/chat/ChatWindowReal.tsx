@@ -239,7 +239,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
         {/* Separador de fecha */}
         {showDate && (
           <div className="flex justify-center my-6">
-            <span className="px-3 py-1 text-xs text-slate-500 bg-slate-50 rounded-full">
+            <span className="px-3 py-1 text-xs text-gray-500 bg-gray-50 rounded-full">
               {formatDate(message.created_at)}
             </span>
           </div>
@@ -250,17 +250,17 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
           <div className={`max-w-xs lg:max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
             
             {/* Nombre del remitente */}
-            <div className={`text-xs text-slate-500 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+            <div className={`text-xs text-gray-500 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
               {message.sender_name || (isCustomer ? 'Cliente' : isBot ? 'Bot Vidanta' : 'Agente')}
             </div>
 
             {/* Burbuja del mensaje */}
             <div className={`relative px-4 py-2 rounded-2xl ${
               isCustomer 
-                ? 'bg-slate-100 text-slate-900' 
+                ? 'bg-gray-100 text-gray-900' 
                 : isBot
                   ? 'bg-blue-50 text-blue-900 border border-blue-100'
-                  : 'bg-slate-900 text-white'
+                  : 'bg-gray-900 text-white'
             }`}>
               {/* Contenido */}
               {message.content && (
@@ -271,7 +271,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
 
               {/* Hora y estado */}
               <div className={`flex items-center justify-end mt-1 space-x-1 ${
-                isCustomer || isBot ? 'text-slate-500' : 'text-slate-300'
+                isCustomer || isBot ? 'text-gray-500' : 'text-gray-300'
               }`}>
                 <span className="text-xs">
                   {formatTime(message.created_at)}
@@ -294,7 +294,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
             isCustomer ? 'order-1' : 'order-2'
           } ${
             isCustomer 
-              ? 'bg-slate-200 text-slate-600' 
+              ? 'bg-gray-200 text-gray-600' 
               : isBot
                 ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
                 : 'bg-gradient-to-br from-violet-500 to-purple-600'
@@ -315,24 +315,24 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white border-l border-slate-200 ${className}`}>
+    <div className={`flex flex-col h-full bg-white border-l border-gray-200 ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-100">
+      <div className="flex items-center justify-between p-4 border-b border-gray-100">
         <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
             {conversation.customer_name 
-              ? <span className="text-sm font-medium text-slate-600">
+              ? <span className="text-sm font-medium text-gray-600">
                   {conversation.customer_name.charAt(0).toUpperCase()}
                 </span>
-              : <User className="w-5 h-5 text-slate-400" />
+              : <User className="w-5 h-5 text-gray-400" />
             }
           </div>
 
           <div>
-            <h3 className="text-sm font-medium text-slate-900">
+            <h3 className="text-sm font-medium text-gray-900">
               {conversation.customer_name || 'Cliente sin nombre'}
             </h3>
-            <div className="flex items-center space-x-2 text-xs text-slate-500">
+            <div className="flex items-center space-x-2 text-xs text-gray-500">
               <Phone className="w-3 h-3" />
               <span>{conversation.customer_phone}</span>
               <span className="text-blue-600 font-medium">
@@ -344,7 +344,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
 
         <button
           onClick={onClose}
-          className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-md transition-colors"
+          className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 rounded-md transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -354,13 +354,13 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
       <div className="flex-1 overflow-y-auto p-4">
         {loading ? (
           <div className="flex items-center justify-center h-32">
-            <div className="w-6 h-6 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin"></div>
+            <div className="w-6 h-6 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin"></div>
           </div>
         ) : messages.length === 0 ? (
-          <div className="flex items-center justify-center h-32 text-slate-500">
+          <div className="flex items-center justify-center h-32 text-gray-500">
             <div className="text-center">
-              <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <User className="w-6 h-6 text-slate-400" />
+              <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <User className="w-6 h-6 text-gray-400" />
               </div>
               <p className="text-sm">No hay mensajes en esta conversación</p>
             </div>
@@ -372,7 +372,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
       </div>
 
       {/* Input de mensaje */}
-      <div className="p-4 border-t border-slate-100">
+      <div className="p-4 border-t border-gray-100">
         <div className="flex items-end space-x-3">
           <div className="flex-1 relative">
             <textarea
@@ -381,7 +381,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
               onKeyPress={handleKeyPress}
               placeholder="Escribe un mensaje..."
               rows={1}
-              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-300 focus:border-slate-300 resize-none"
+              className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-300 focus:border-gray-300 resize-none"
               style={{ minHeight: '36px', maxHeight: '120px' }}
             />
           </div>
@@ -389,7 +389,7 @@ const ChatWindowReal: React.FC<ChatWindowRealProps> = ({
           <button
             onClick={handleSendMessage}
             disabled={!newMessage.trim() || sending}
-            className="p-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="p-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {sending ? (
               <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

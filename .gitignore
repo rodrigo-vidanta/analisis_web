@@ -46,3 +46,6 @@ mcp-backups/
 supabase/.temp/
 .supabase/
 .security/
+
+# Claude Code - Archivos locales
+.claude/settings.json

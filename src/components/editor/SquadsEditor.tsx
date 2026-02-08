@@ -134,15 +134,15 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
     return (
       <div className="glass-card p-6">
         <div className="text-center py-8">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             No es un Squad
           </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             Este agente no está configurado como un squad. Los squads permiten múltiples asistentes trabajando en conjunto.
           </p>
           <button
@@ -168,16 +168,16 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Configuración del Squad
             </h3>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               Gestiona los miembros y transferencias del squad
             </p>
           </div>
           <button
             onClick={() => setIsEditing(!isEditing)}
-            className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             {isEditing ? 'Vista' : 'Editar'}
           </button>
@@ -198,14 +198,14 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                 type="text"
                 value={squad.name}
                 onChange={(e) => handleSquadUpdate({ name: e.target.value })}
-                className="text-xl font-semibold text-slate-900 dark:text-white bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:outline-none"
+                className="text-xl font-semibold text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
               />
             ) : (
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 {squad.name}
               </h2>
             )}
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               {squad.members?.length || 0} miembros
             </p>
           </div>
@@ -215,7 +215,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
       {/* Members */}
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-6">
-          <h4 className="font-medium text-slate-900 dark:text-white">
+          <h4 className="font-medium text-gray-900 dark:text-white">
             Miembros del Squad
           </h4>
           <button
@@ -229,7 +229,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
         {squad.members?.length > 0 ? (
           <div className="space-y-4">
             {squad.members.map((member: any, index: number) => (
-              <div key={index} className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+              <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
@@ -243,14 +243,14 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                           type="text"
                           value={member.assistant.name}
                           onChange={(e) => handleMemberUpdate(index, { name: e.target.value })}
-                          className="font-medium text-slate-900 dark:text-white bg-transparent border-b border-slate-300 dark:border-slate-600 focus:border-blue-500 focus:outline-none"
+                          className="font-medium text-gray-900 dark:text-white bg-transparent border-b border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:outline-none"
                         />
                       ) : (
-                        <h5 className="font-medium text-slate-900 dark:text-white">
+                        <h5 className="font-medium text-gray-900 dark:text-white">
                           {member.assistant.name}
                         </h5>
                       )}
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
                         {member.assistant.model?.model} • {member.assistant.voice?.provider}
                       </p>
                     </div>
@@ -259,7 +259,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setSelectedMember(selectedMember === index ? null : index)}
-                      className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                      className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
                     >
                       {selectedMember === index ? 'Ocultar' : 'Ver'}
                     </button>
@@ -280,7 +280,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Modelo
                         </label>
                         <select
@@ -288,7 +288,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                           onChange={(e) => handleMemberUpdate(index, { 
                             model: { ...member.assistant.model, model: e.target.value }
                           })}
-                          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                           <option value="gpt-4o">GPT-4o</option>
                           <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -297,7 +297,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                       </div>
                       
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                           Temperatura
                         </label>
                         <input
@@ -311,7 +311,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                           })}
                           className="w-full"
                         />
-                        <div className="text-xs text-slate-500 dark:text-slate-400 text-center mt-1">
+                        <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-1">
                           {member.assistant.model?.temperature || 0.7}
                         </div>
                       </div>
@@ -319,13 +319,13 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
 
                     {/* First Message */}
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                         Mensaje Inicial
                       </label>
                       <textarea
                         value={member.assistant.firstMessage || ''}
                         onChange={(e) => handleMemberUpdate(index, { firstMessage: e.target.value })}
-                        className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         rows={2}
                       />
                     </div>
@@ -333,7 +333,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                     {/* Destinations */}
                     <div>
                       <div className="flex items-center justify-between mb-3">
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                           Transferencias
                         </label>
                         <button
@@ -347,20 +347,20 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                       {member.assistantDestinations?.length > 0 ? (
                         <div className="space-y-2">
                           {member.assistantDestinations.map((destination: any, destIndex: number) => (
-                            <div key={destIndex} className="flex items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800 rounded">
+                            <div key={destIndex} className="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded">
                               <input
                                 type="text"
                                 value={destination.assistantName}
                                 onChange={(e) => handleDestinationUpdate(index, destIndex, { assistantName: e.target.value })}
                                 placeholder="Nombre del asistente"
-                                className="flex-1 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm"
+                                className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                               />
                               <input
                                 type="text"
                                 value={destination.message}
                                 onChange={(e) => handleDestinationUpdate(index, destIndex, { message: e.target.value })}
                                 placeholder="Mensaje de transferencia"
-                                className="flex-1 px-2 py-1 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded text-sm"
+                                className="flex-1 px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                               />
                               <button
                                 onClick={() => handleRemoveDestination(index, destIndex)}
@@ -374,7 +374,7 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           No hay transferencias configuradas
                         </p>
                       )}
@@ -386,12 +386,12 @@ const SquadsEditor: React.FC<SquadsEditorProps> = ({ template, onUpdate }) => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
             </div>
-            <p className="text-slate-500 dark:text-slate-400">No hay miembros en el squad</p>
+            <p className="text-gray-500 dark:text-gray-400">No hay miembros en el squad</p>
           </div>
         )}
       </div>

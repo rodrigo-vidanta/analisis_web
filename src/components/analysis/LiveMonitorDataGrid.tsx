@@ -115,7 +115,7 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg mb-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg mb-4">
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
@@ -130,7 +130,7 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
       {/* Table */}
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-slate-700">
+          <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-1/3">
                 Cliente
@@ -152,7 +152,7 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-gray-700">
+          <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {calls.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
@@ -164,7 +164,7 @@ export const LiveMonitorDataGrid: React.FC<DataGridProps> = ({ calls, title, onC
               calls.map((call) => (
                 <tr
                   key={call.id}
-                  className="hover:bg-gray-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                   onClick={() => onCallClick(call)}
                 >
                   {/* Cliente con Avatar e Información Dinámica */}

@@ -53,11 +53,11 @@ const STATUS_CONFIG: Record<TicketStatus, {
   },
   cerrado: { 
     label: 'Cerrado', 
-    color: 'text-slate-600 dark:text-slate-400', 
-    bgColor: 'bg-slate-100 dark:bg-slate-800', 
-    borderColor: 'border-slate-200 dark:border-slate-700',
-    dotColor: 'bg-slate-400',
-    gradient: 'from-slate-500 to-slate-600'
+    color: 'text-gray-600 dark:text-gray-400', 
+    bgColor: 'bg-gray-100 dark:bg-gray-800', 
+    borderColor: 'border-gray-200 dark:border-gray-700',
+    dotColor: 'bg-gray-400',
+    gradient: 'from-gray-500 to-gray-600'
   },
   cancelado: { 
     label: 'Cancelado', 
@@ -70,7 +70,7 @@ const STATUS_CONFIG: Record<TicketStatus, {
 };
 
 const PRIORITY_CONFIG: Record<TicketPriority, { label: string; color: string }> = {
-  baja: { label: 'Baja', color: 'text-slate-500 bg-slate-100 dark:bg-slate-800' },
+  baja: { label: 'Baja', color: 'text-gray-500 bg-gray-100 dark:bg-gray-800' },
   normal: { label: 'Normal', color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/20' },
   alta: { label: 'Alta', color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/20' },
   urgente: { label: 'Urgente', color: 'text-red-600 bg-red-50 dark:bg-red-900/20' }
@@ -284,13 +284,13 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
   const totalCount = Object.values(stats).reduce((a, b) => a + b, 0);
 
   return (
-    <div className={`flex flex-col h-full bg-slate-50 dark:bg-slate-900/50 ${className}`}>
+    <div className={`flex flex-col h-full bg-gray-50 dark:bg-gray-900/50 ${className}`}>
       {/* Header Dashboard */}
-      <div className="p-6 bg-white dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700/50">
+      <div className="p-6 bg-white dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700/50">
         {/* Title Row */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-3">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
                 <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -298,15 +298,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               </div>
               Centro de Soporte
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 mt-1">{totalCount} tickets totales · {activeCount} activos</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-1">{totalCount} tickets totales · {activeCount} activos</p>
           </div>
           <motion.button
             onClick={loadTickets}
-            className="p-3 rounded-xl bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors group"
+            className="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors group"
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
           >
-            <svg className="w-5 h-5 text-slate-600 dark:text-slate-400 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:rotate-180 transition-transform duration-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
           </motion.button>
@@ -321,7 +321,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               className={`relative p-4 rounded-2xl text-left transition-all overflow-hidden group ${
                 statusFilter === status 
                   ? `${config.bgColor} ${config.color} ${config.borderColor} border-2` 
-                  : `bg-slate-50 dark:bg-slate-800/50 border-2 border-slate-200 dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-600 text-slate-600 dark:text-slate-400`
+                  : `bg-gray-50 dark:bg-gray-800/50 border-2 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-gray-600 dark:text-gray-400`
               }`}
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
@@ -334,7 +334,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                   {stats[status]}
                 </p>
                 <p className={`text-xs font-medium mt-1 ${
-                  statusFilter === status ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'
+                  statusFilter === status ? 'text-white/80' : 'text-gray-500 dark:text-gray-400'
                 }`}>
                   {config.label}
                 </p>
@@ -349,7 +349,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
         {/* Filters Row */}
         <div className="flex items-center gap-3 mt-5">
           <div className="flex-1 relative">
-            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -357,13 +357,13 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Buscar por número, título o usuario..."
-              className="w-full pl-12 pr-4 py-3 text-sm border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-800 dark:text-white transition-all"
+              className="w-full pl-12 pr-4 py-3 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-800 dark:text-white transition-all"
             />
           </div>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value as any)}
-            className="px-4 py-3 text-sm border-2 border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-slate-800 dark:text-white cursor-pointer"
+            className="px-4 py-3 text-sm border-2 border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 dark:bg-gray-800 dark:text-white cursor-pointer"
           >
             <option value="all">📋 Todos</option>
             <option value="reporte_falla">Fallas</option>
@@ -374,7 +374,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               onClick={() => { setStatusFilter('all'); setTypeFilter('all'); setSearchTerm(''); }}
-              className="px-4 py-3 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white bg-slate-100 dark:bg-slate-700 rounded-xl transition-colors"
+              className="px-4 py-3 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-white bg-gray-100 dark:bg-gray-700 rounded-xl transition-colors"
             >
               Limpiar filtros
             </motion.button>
@@ -385,28 +385,28 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Lista de tickets */}
-        <div className={`${selectedTicket ? 'hidden lg:flex lg:w-[400px] lg:flex-shrink-0' : 'w-full'} flex-col border-r border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/30`}>
-          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+        <div className={`${selectedTicket ? 'hidden lg:flex lg:w-[400px] lg:flex-shrink-0' : 'w-full'} flex-col border-r border-gray-200 dark:border-gray-700/50 bg-white dark:bg-gray-800/30`}>
+          <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
             {isLoading ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="relative">
                   <div className="w-12 h-12 border-4 border-indigo-100 dark:border-indigo-900 rounded-full" />
                   <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-indigo-500 rounded-full animate-spin" />
                 </div>
-                <p className="mt-4 text-slate-500">Cargando...</p>
+                <p className="mt-4 text-gray-500">Cargando...</p>
               </div>
             ) : filteredTickets.length === 0 ? (
               <div className="text-center py-16 px-6">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
                   </svg>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400 font-medium">No hay tickets</p>
-                <p className="text-sm text-slate-400 mt-1">Ajusta los filtros o espera nuevos tickets</p>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">No hay tickets</p>
+                <p className="text-sm text-gray-400 mt-1">Ajusta los filtros o espera nuevos tickets</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
                 {filteredTickets.map((ticket, index) => (
                   <motion.button
                     key={ticket.id}
@@ -414,7 +414,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.03 }}
                     onClick={() => loadTicketDetails(ticket)}
-                    className={`w-full p-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-all ${
+                    className={`w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-all ${
                       selectedTicket?.id === ticket.id ? 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500' : ''
                     }`}
                   >
@@ -455,15 +455,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                             <span className="text-red-500 text-xs">⚡</span>
                           )}
                         </div>
-                        <h4 className="font-medium text-sm text-slate-800 dark:text-white truncate">
+                        <h4 className="font-medium text-sm text-gray-800 dark:text-white truncate">
                           {ticket.title}
                         </h4>
                         <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
                             {ticket.reporter_name || ticket.reporter_email?.split('@')[0]}
                           </span>
-                          <span className="text-slate-300 dark:text-slate-600">·</span>
-                          <span className="text-xs text-slate-400">
+                          <span className="text-gray-300 dark:text-gray-600">·</span>
+                          <span className="text-xs text-gray-400">
                             {formatDate(ticket.created_at)}
                           </span>
                         </div>
@@ -484,17 +484,17 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-slate-800/50"
+              className="flex-1 flex flex-col overflow-hidden bg-white dark:bg-gray-800/50"
             >
               {/* Header del detalle */}
-              <div className="p-5 border-b border-slate-200 dark:border-slate-700/50 bg-slate-50 dark:bg-slate-800/50">
+              <div className="p-5 border-b border-gray-200 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/50">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
                     <button
                       onClick={() => setSelectedTicket(null)}
-                      className="lg:hidden p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      className="lg:hidden p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                     >
-                      <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                       </svg>
                     </button>
@@ -509,15 +509,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                         <span className={`px-2 py-0.5 rounded-lg text-xs font-medium ${PRIORITY_CONFIG[selectedTicket.priority].color}`}>
                           {PRIORITY_CONFIG[selectedTicket.priority].label}
                         </span>
-                        <span className="text-slate-300 dark:text-slate-600">·</span>
-                        <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                        <span className="text-gray-300 dark:text-gray-600">·</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                           {formatFullDate(selectedTicket.created_at)}
                         </span>
                       </div>
-                      <h3 className="text-lg font-semibold text-slate-800 dark:text-white">
+                      <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
                         {selectedTicket.title}
                       </h3>
                     </div>
@@ -537,25 +537,25 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                 </div>
 
                 {/* Reporter info */}
-                <div className="flex items-center gap-3 mt-4 p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl">
-                  <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-semibold text-sm">
+                <div className="flex items-center gap-3 mt-4 p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl">
+                  <div className="w-10 h-10 rounded-xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-600 dark:text-gray-300 font-semibold text-sm">
                     {selectedTicket.reporter_name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-slate-800 dark:text-white truncate">
+                    <p className="font-medium text-sm text-gray-800 dark:text-white truncate">
                       {selectedTicket.reporter_name || 'Usuario'}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       {selectedTicket.reporter_email} · {selectedTicket.reporter_role}
                     </p>
                   </div>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-gray-400">
                     {formatFullDate(selectedTicket.created_at)}
                   </span>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex items-center gap-1 mt-4 p-1 bg-slate-100 dark:bg-slate-700/50 rounded-xl">
+                <div className="flex items-center gap-1 mt-4 p-1 bg-gray-100 dark:bg-gray-700/50 rounded-xl">
                   {[
                     { id: 'details', label: 'Detalles' },
                     { id: 'history', label: 'Historial' },
@@ -566,8 +566,8 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       onClick={() => setActiveTab(tab.id as any)}
                       className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                         activeTab === tab.id 
-                          ? 'bg-white dark:bg-slate-800 text-slate-800 dark:text-white shadow-sm' 
-                          : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                          ? 'bg-white dark:bg-gray-800 text-gray-800 dark:text-white shadow-sm' 
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                       }`}
                     >
                       {tab.label}
@@ -577,7 +577,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               </div>
 
               {/* Tab Content */}
-              <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+              <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
                 <AnimatePresence mode="wait">
                   {activeTab === 'details' && (
                     <motion.div
@@ -588,9 +588,9 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       className="space-y-5"
                     >
                       {/* Descripción */}
-                      <div className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-2xl">
-                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Descripción</h4>
-                        <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                      <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl">
+                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Descripción</h4>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
                           {selectedTicket.description}
                         </p>
                       </div>
@@ -639,7 +639,7 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                             {selectedTicket.form_data?.mensaje_completo && (
                               <div className="mt-2">
                                 <span className="text-orange-600 dark:text-orange-400 font-medium text-sm block mb-2">Mensaje Completo:</span>
-                                <div className="bg-white dark:bg-slate-900 rounded-lg p-3 border border-orange-200 dark:border-orange-800 max-h-32 overflow-y-auto scrollbar-thin">
+                                <div className="bg-white dark:bg-gray-900 rounded-lg p-3 border border-orange-200 dark:border-orange-800 max-h-32 overflow-y-auto scrollbar-thin">
                                   <pre className="text-xs text-orange-900 dark:text-orange-100 whitespace-pre-wrap font-mono">
                                     {typeof selectedTicket.form_data.mensaje_completo === 'string' 
                                       ? selectedTicket.form_data.mensaje_completo 
@@ -655,11 +655,11 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       {/* Screenshot */}
                       {(selectedTicket.screenshot_url || selectedTicket.screenshot_base64) && (
                         <div>
-                          <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Captura</h4>
+                          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Captura</h4>
                           <img 
                             src={selectedTicket.screenshot_url || selectedTicket.screenshot_base64 || ''} 
                             alt="Captura" 
-                            className="rounded-xl border-2 border-slate-200 dark:border-slate-700 max-h-48 w-auto cursor-zoom-in hover:opacity-90"
+                            className="rounded-xl border-2 border-gray-200 dark:border-gray-700 max-h-48 w-auto cursor-zoom-in hover:opacity-90"
                             onClick={() => window.open(selectedTicket.screenshot_url || selectedTicket.screenshot_base64 || '', '_blank')}
                           />
                         </div>
@@ -667,13 +667,13 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
 
                       {/* Form Data */}
                       {selectedTicket.form_data && Object.keys(selectedTicket.form_data).length > 0 && (
-                        <div className="p-4 bg-slate-50 dark:bg-slate-700/30 rounded-2xl">
-                          <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Datos del Formulario</h4>
+                        <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl">
+                          <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Datos del Formulario</h4>
                           <div className="grid gap-2">
                             {Object.entries(selectedTicket.form_data).map(([key, value]) => (
                               <div key={key} className="flex items-start gap-3 text-sm">
-                                <span className="text-slate-500 dark:text-slate-400 font-medium min-w-[120px]">{key}:</span>
-                                <span className="text-slate-700 dark:text-slate-300">{String(value)}</span>
+                                <span className="text-gray-500 dark:text-gray-400 font-medium min-w-[120px]">{key}:</span>
+                                <span className="text-gray-700 dark:text-gray-300">{String(value)}</span>
                               </div>
                             ))}
                           </div>
@@ -682,12 +682,12 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
 
                       {/* Conversación */}
                       <div>
-                        <h4 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
+                        <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
                           Conversación ({comments.length})
                         </h4>
                         <div className="space-y-3">
                           {comments.length === 0 ? (
-                            <p className="text-sm text-slate-400 italic py-4 text-center">Sin comentarios</p>
+                            <p className="text-sm text-gray-400 italic py-4 text-center">Sin comentarios</p>
                           ) : (
                             comments.map((comment) => (
                               <div 
@@ -696,20 +696,20 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                                   comment.is_internal 
                                     ? 'bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-200 dark:border-yellow-800' 
                                     : comment.user_id === selectedTicket.reporter_id
-                                      ? 'bg-slate-100 dark:bg-slate-700/50'
+                                      ? 'bg-gray-100 dark:bg-gray-700/50'
                                       : 'bg-indigo-50 dark:bg-indigo-900/20'
                                 }`}
                               >
                                 <div className="flex items-center justify-between mb-2">
                                   <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{comment.user_name}</span>
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{comment.user_name}</span>
                                     {comment.is_internal && (
                                       <span className="px-2 py-0.5 bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200 text-[10px] font-bold rounded-full">INTERNO</span>
                                     )}
                                   </div>
-                                  <span className="text-xs text-slate-400">{formatDate(comment.created_at)}</span>
+                                  <span className="text-xs text-gray-400">{formatDate(comment.created_at)}</span>
                                 </div>
-                                <p className="text-sm text-slate-600 dark:text-slate-400">{comment.content}</p>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">{comment.content}</p>
                               </div>
                             ))
                           )}
@@ -726,20 +726,20 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       exit={{ opacity: 0, y: -10 }}
                     >
                       {history.length === 0 ? (
-                        <p className="text-sm text-slate-400 text-center py-8">Sin historial</p>
+                        <p className="text-sm text-gray-400 text-center py-8">Sin historial</p>
                       ) : (
-                        <div className="relative pl-6 border-l-2 border-slate-200 dark:border-slate-700 space-y-4">
+                        <div className="relative pl-6 border-l-2 border-gray-200 dark:border-gray-700 space-y-4">
                           {history.map((entry) => (
                             <div key={entry.id} className="relative">
-                              <div className="absolute -left-[29px] w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800" />
+                              <div className="absolute -left-[29px] w-4 h-4 rounded-full bg-gray-200 dark:bg-gray-700 border-2 border-white dark:border-gray-800" />
                               <div className="pl-4">
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
                                   <span className="font-medium">{entry.user_name}</span> cambió <span className="font-medium">{entry.action}</span>
                                   {entry.old_value && entry.new_value && (
                                     <> de <span className="text-red-500 line-through">{entry.old_value}</span> a <span className="text-emerald-500">{entry.new_value}</span></>
                                   )}
                                 </p>
-                                <p className="text-xs text-slate-400 mt-1">{formatFullDate(entry.created_at)}</p>
+                                <p className="text-xs text-gray-400 mt-1">{formatFullDate(entry.created_at)}</p>
                               </div>
                             </div>
                           ))}
@@ -756,11 +756,11 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       exit={{ opacity: 0, y: -10 }}
                     >
                       {selectedTicket.session_details ? (
-                        <pre className="p-4 bg-slate-900 text-emerald-400 rounded-2xl text-xs overflow-x-auto font-mono">
+                        <pre className="p-4 bg-gray-900 text-emerald-400 rounded-2xl text-xs overflow-x-auto font-mono">
                           {JSON.stringify(selectedTicket.session_details, null, 2)}
                         </pre>
                       ) : (
-                        <p className="text-sm text-slate-400 text-center py-8">Sin datos técnicos</p>
+                        <p className="text-sm text-gray-400 text-center py-8">Sin datos técnicos</p>
                       )}
                     </motion.div>
                   )}
@@ -768,16 +768,16 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
               </div>
 
               {/* Comment Input */}
-              <div className="p-4 border-t border-slate-200 dark:border-slate-700/50 bg-white dark:bg-slate-800/50">
+              <div className="p-4 border-t border-gray-200 dark:border-gray-700/50 bg-white dark:bg-gray-800/50">
                 <div className="flex items-center gap-3 mb-3">
                   <label className="flex items-center gap-2 text-sm cursor-pointer group">
                     <input
                       type="checkbox"
                       checked={isInternalComment}
                       onChange={(e) => setIsInternalComment(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-yellow-500 focus:ring-yellow-500 cursor-pointer"
+                      className="w-4 h-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500 cursor-pointer"
                     />
-                    <span className={`transition-colors ${isInternalComment ? 'text-yellow-600 font-medium' : 'text-slate-500'}`}>
+                    <span className={`transition-colors ${isInternalComment ? 'text-yellow-600 font-medium' : 'text-gray-500'}`}>
                       🔒 Nota interna (solo admins)
                     </span>
                   </label>
@@ -787,10 +787,10 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
                     placeholder={isInternalComment ? "Agregar nota interna..." : "Responder al usuario..."}
-                    className={`flex-1 px-4 py-3 text-sm border-2 rounded-xl focus:outline-none focus:ring-2 resize-none transition-all dark:bg-slate-800 dark:text-white ${
+                    className={`flex-1 px-4 py-3 text-sm border-2 rounded-xl focus:outline-none focus:ring-2 resize-none transition-all dark:bg-gray-800 dark:text-white ${
                       isInternalComment 
                         ? 'border-yellow-300 dark:border-yellow-700 focus:ring-yellow-500/20 focus:border-yellow-500 bg-yellow-50 dark:bg-yellow-900/10' 
-                        : 'border-slate-200 dark:border-slate-700 focus:ring-indigo-500/20 focus:border-indigo-500'
+                        : 'border-gray-200 dark:border-gray-700 focus:ring-indigo-500/20 focus:border-indigo-500'
                     }`}
                     rows={2}
                   />
@@ -821,15 +821,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
 
         {/* Empty state cuando no hay ticket seleccionado en desktop */}
         {!selectedTicket && (
-          <div className="hidden lg:flex flex-1 items-center justify-center bg-slate-50 dark:bg-slate-900/30">
+          <div className="hidden lg:flex flex-1 items-center justify-center bg-gray-50 dark:bg-gray-900/30">
             <div className="text-center">
-              <div className="w-20 h-20 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mx-auto mb-6">
-                <svg className="w-10 h-10 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-20 h-20 rounded-3xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-6">
+                <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeWidth={1.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300">Selecciona un ticket</h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-2">Elige un ticket de la lista para ver sus detalles</p>
+              <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">Selecciona un ticket</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Elige un ticket de la lista para ver sus detalles</p>
             </div>
           </div>
         )}

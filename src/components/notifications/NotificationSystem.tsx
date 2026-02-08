@@ -35,7 +35,7 @@ const NotificationBell: React.FC = () => {
       className={`relative p-2 rounded-xl transition-all duration-300 group ${
         isDropdownOpen 
           ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' 
-          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
+          : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
       }`}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
@@ -62,7 +62,7 @@ const NotificationBell: React.FC = () => {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0, opacity: 0 }}
-            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold text-white bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-lg border-2 border-white dark:border-slate-900"
+            className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 flex items-center justify-center text-xs font-bold text-white bg-gradient-to-r from-red-500 to-pink-500 rounded-full shadow-lg border-2 border-white dark:border-gray-900"
           >
             <motion.span
               animate={{ scale: [1, 1.2, 1] }}
@@ -159,14 +159,14 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -10, scale: 0.95 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute right-0 top-full mt-2 w-96 max-h-[70vh] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-50"
+          className="absolute right-0 top-full mt-2 w-96 max-h-[70vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden z-50"
         >
           {/* Header del dropdown */}
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-4 h-4 text-indigo-500" />
-                <h3 className="font-semibold text-slate-900 dark:text-white">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
                   Notificaciones
                 </h3>
                 {notifications.length > 0 && (
@@ -179,7 +179,7 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                 {notifications.length > 0 && (
                   <button
                     onClick={handleClearAll}
-                    className="px-2 py-1 text-xs font-medium text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    className="px-2 py-1 text-xs font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                     title="Limpiar todas"
                   >
                     Limpiar
@@ -187,7 +187,7 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                 )}
                 <button
                   onClick={closeDropdown}
-                  className="p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors"
+                  className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -196,7 +196,7 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
           </div>
 
           {/* Lista de notificaciones */}
-          <div className="overflow-y-auto max-h-[50vh] scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-700">
+          <div className="overflow-y-auto max-h-[50vh] scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700">
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <motion.div
@@ -206,13 +206,13 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                 />
               </div>
             ) : notifications.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
                 <Bell className="w-12 h-12 mb-3 opacity-30" />
                 <p className="text-sm font-medium">Sin notificaciones</p>
                 <p className="text-xs mt-1">Las nuevas aparecerán aquí</p>
               </div>
             ) : (
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
                 {notifications.map((notification, index) => {
                   // Determinar icono y color según tipo de notificación
                   const getIconAndColor = () => {
@@ -243,7 +243,7 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: index * 0.05 }}
                       onClick={() => handleNotificationClick(notification)}
-                      className="w-full px-4 py-3 flex items-start space-x-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors text-left group"
+                      className="w-full px-4 py-3 flex items-start space-x-3 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left group"
                     >
                       {/* Icono */}
                       <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shadow-md`}>
@@ -252,10 +252,10 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
 
                       {/* Contenido */}
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                           {notification.title}
                         </p>
-                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                           {notification.metadata?.prospecto_nombre || notification.message}
                         </p>
                         {notification.type === 'requiere_atencion' && notification.metadata?.motivo && (
@@ -264,7 +264,7 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
                           </p>
                         )}
                         <div className="flex items-center space-x-2 mt-1">
-                          <span className="text-xs text-slate-400 dark:text-slate-500">
+                          <span className="text-xs text-gray-400 dark:text-gray-500">
                             {formatTime(notification.created_at)}
                           </span>
                         </div>
@@ -283,8 +283,8 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
 
           {/* Footer - solo si hay notificaciones */}
           {notifications.length > 0 && (
-            <div className="px-4 py-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-              <p className="text-xs text-center text-slate-500 dark:text-slate-400">
+            <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+              <p className="text-xs text-center text-gray-500 dark:text-gray-400">
                 Haz clic en una notificación para ir a la conversación
               </p>
             </div>
@@ -339,10 +339,10 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
             stiffness: 400, 
             damping: 30 
           }}
-          className="fixed top-20 right-6 z-[100] max-w-sm"
+          className="fixed top-20 right-6 z-[60] max-w-sm"
         >
           <motion.div
-            className="relative bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden cursor-pointer group"
+            className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden cursor-pointer group"
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={handleClick}
@@ -403,10 +403,10 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
 
               {/* Texto */}
               <div className="flex-1 min-w-0 pr-6">
-                <p className="text-sm font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-bold text-gray-900 dark:text-white">
                   {toastNotification.title}
                 </p>
-                <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
                   {getProspectoDisplayName()}
                 </p>
                 {toastNotification.type === 'requiere_atencion' && toastNotification.metadata?.motivo && (
@@ -429,7 +429,7 @@ const NotificationToast: React.FC<{ onNavigate: (prospectoId: string) => void }>
                   e.stopPropagation();
                   hideToast();
                 }}
-                className="absolute top-3 right-3 p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                className="absolute top-3 right-3 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>

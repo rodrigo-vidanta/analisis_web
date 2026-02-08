@@ -269,7 +269,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] cursor-pointer"
+      className="fixed inset-0 z-[100] cursor-pointer"
       onClick={handleClick}
     >
       {/* Fondo blureado */}
@@ -349,7 +349,7 @@ const CatChaseEasterEgg: React.FC<CatChaseEasterEggProps> = ({ isVisible, onClos
         {[...Array(6)].map((_, i) => (
           <div
             key={i}
-            className="absolute w-1 h-1 bg-slate-400/30 rounded-full animate-ping"
+            className="absolute w-1 h-1 bg-gray-400/30 rounded-full animate-ping"
             style={{
               left: `${20 + i * 15}%`,
               top: `${30 + (i % 2) * 40}%`,

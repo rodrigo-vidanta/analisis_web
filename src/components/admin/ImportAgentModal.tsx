@@ -626,15 +626,15 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             Importar Agente desde JSON
           </h3>
           <button
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -645,48 +645,48 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
         <div className="space-y-4">
           {/* Upload de archivo */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Seleccionar archivo JSON
                   </label>
                   <input
                     type="file"
                     accept=".json"
                     onChange={handleFileUpload}
-              className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
           {/* Editor de texto */}
                 <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               O pegar contenido JSON directamente
             </label>
                   <textarea
               value={jsonContent}
               onChange={(e) => setJsonContent(e.target.value)}
               placeholder="Pega aquí el contenido JSON del agente..."
-              className="w-full h-64 p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+              className="w-full h-64 p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
                   />
                 </div>
 
           {/* Formulario de metadatos */}
           {showMetadataForm && (
             <div className="border-t pt-6">
-              <h4 className="text-lg font-medium text-slate-900 dark:text-white mb-4">
+              <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                 Configuración del Agente
               </h4>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Nombre */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Nombre del Agente *
                   </label>
                   <input
                     type="text"
                     value={metadata.name}
                     onChange={(e) => setMetadata(prev => ({ ...prev, name: e.target.value }))}
-                    className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Nombre del agente"
                     required
                   />
@@ -694,13 +694,13 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
 
                 {/* Descripción */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Descripción *
                   </label>
                   <textarea
                     value={metadata.description}
                     onChange={(e) => setMetadata(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Descripción del agente"
                     rows={3}
                     required
@@ -709,13 +709,13 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
 
                 {/* Dificultad */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Dificultad
                   </label>
                   <select
                     value={metadata.difficulty}
                     onChange={(e) => setMetadata(prev => ({ ...prev, difficulty: e.target.value as any }))}
-                    className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="beginner">Principiante</option>
                     <option value="intermediate">Intermedio</option>
@@ -725,13 +725,13 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
 
                 {/* Tipo de Agente */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Tipo de Agente
                   </label>
                   <select
                     value={metadata.agent_type}
                     onChange={(e) => setMetadata(prev => ({ ...prev, agent_type: e.target.value as any }))}
-                    className="w-full p-3 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="inbound">Inbound</option>
                     <option value="outbound">Outbound</option>
@@ -740,10 +740,10 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
 
                 {/* Keywords */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Palabras Clave
                   </label>
-                  <div className="border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 p-2 min-h-[50px]">
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 p-2 min-h-[50px]">
                     <div className="flex flex-wrap gap-2 mb-2">
                       {metadata.keywords.map((keyword, index) => (
                         <span
@@ -792,17 +792,17 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
                           e.target.value = '';
                         }
                       }}
-                      className="w-full bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
+                      className="w-full bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   />
                 </div>
               </div>
 
                 {/* Use Cases */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Casos de Uso
                   </label>
-                  <div className="border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 p-2 min-h-[50px]">
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 p-2 min-h-[50px]">
                     <div className="flex flex-wrap gap-2 mb-2">
                       {metadata.use_cases.map((useCase, index) => (
                         <span
@@ -851,17 +851,17 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
                           e.target.value = '';
                         }
                       }}
-                      className="w-full bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
+                      className="w-full bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                   </div>
                   </div>
 
                 {/* Industry Tags */}
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Etiquetas de Industria
                   </label>
-                  <div className="border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 p-2 min-h-[50px]">
+                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 p-2 min-h-[50px]">
                     <div className="flex flex-wrap gap-2 mb-2">
                       {metadata.industry_tags.map((tag, index) => (
                         <span
@@ -910,7 +910,7 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
                           e.target.value = '';
                         }
                       }}
-                      className="w-full bg-transparent border-none outline-none text-slate-900 dark:text-white placeholder-slate-500 dark:placeholder-slate-400"
+                      className="w-full bg-transparent border-none outline-none text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                   </div>
                 </div>
@@ -937,7 +937,7 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
               <>
                 <button
                   onClick={onClose}
-                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Cancelar
                 </button>
@@ -953,7 +953,7 @@ const ImportAgentModal: React.FC<ImportAgentModalProps> = ({ isOpen, onClose, on
               <>
               <button
                   onClick={() => setShowMetadataForm(false)}
-                  className="flex-1 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
               >
                 Volver
               </button>

@@ -570,7 +570,7 @@ export const ProspectDetailSidebar: React.FC<ProspectDetailSidebarProps> = ({
               <div className="flex items-center gap-2 relative z-10">
                 <button 
                   onClick={onClose}
-                  className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                  className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-sm border-2 border-white/35"
                   title="Cerrar"
                 >
                   <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />

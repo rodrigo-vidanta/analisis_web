@@ -46,7 +46,7 @@ const ThemeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
           }}
           transition={{ duration: 0.4, ease: "easeOut" }}
           className={`absolute left-1/2 top-1/2 w-1 h-1 rounded-full ${
-            isDark ? 'bg-amber-400/70' : 'bg-slate-400/70'
+            isDark ? 'bg-amber-400/70' : 'bg-gray-400/70'
           }`}
           style={{ marginLeft: -2, marginTop: -2 }}
         />
@@ -111,7 +111,7 @@ const AnimatedMoonIcon: React.FC = () => (
     ].map((star, i) => (
       <motion.div
         key={i}
-        className="absolute bg-slate-500 dark:bg-slate-400 rounded-full"
+        className="absolute bg-gray-500 dark:bg-gray-400 rounded-full"
         style={{ 
           left: `calc(50% + ${star.x}px)`,
           top: `calc(50% + ${star.y}px)`,
@@ -128,7 +128,7 @@ const AnimatedMoonIcon: React.FC = () => (
     
     {/* Luna */}
     <motion.svg 
-      className="w-5 h-5 text-slate-500 dark:text-slate-400" 
+      className="w-5 h-5 text-gray-500 dark:text-gray-400" 
       fill="currentColor" 
       viewBox="0 0 20 20"
       animate={{ rotate: [0, 3, -3, 0] }}
@@ -166,7 +166,7 @@ const ThemeToggleButton: React.FC<ThemeToggleButtonProps> = ({
   return (
     <motion.button
       onClick={handleClick}
-      className={`relative ${isLarge ? 'p-2.5' : 'p-2'} rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors duration-200 overflow-visible`}
+      className={`relative ${isLarge ? 'p-2.5' : 'p-2'} rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200 overflow-visible`}
       title={darkMode ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
@@ -478,7 +478,7 @@ const Header = ({
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
     return (
-      <header className="bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200/20 dark:border-slate-700/20 sticky top-0 z-40">
+      <header className="bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 sticky top-0 z-40">
         <div className="px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             
@@ -487,7 +487,7 @@ const Header = ({
               {/* Botón hamburguesa - solo en móviles */}
               <button
                 onClick={onToggleSidebar}
-                className="lg:hidden p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-400"
+                className="lg:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
                 title="Abrir menú"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -497,7 +497,7 @@ const Header = ({
 
               <div className="flex items-center gap-3">
                 <div>
-                  <h1 className="text-lg font-medium text-slate-900 dark:text-white capitalize">
+                  <h1 className="text-lg font-medium text-gray-900 dark:text-white capitalize">
                     {appMode === 'natalia' ? 'Análisis Natalia IA' :
                      appMode === 'pqnc' ? 'Llamadas PQNC' :
                      appMode === 'live-monitor' ? 'Llamadas IA' :
@@ -512,17 +512,17 @@ const Header = ({
                      appMode === 'dashboard' ? 'Dashboard Ejecutivo' : 'PQNC AI Platform'}
                   </h1>
                   {appMode === 'live-monitor' && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       Gestión visual del proceso de ventas por checkpoints
                     </p>
                   )}
                   {appMode === 'operative-dashboard' && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       Vista centralizada de prospectos, conversaciones y llamadas
                     </p>
                   )}
                   {appMode === 'dashboard' && (
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       Métricas y análisis de operaciones en tiempo real
                     </p>
                   )}
@@ -532,7 +532,7 @@ const Header = ({
                     <NotificationControl />
                     <button
                       onClick={() => window.dispatchEvent(new CustomEvent('open-dashboard-config'))}
-                      className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition-colors"
+                      className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
                       title="Configurar Dashboard"
                     >
                       <Wrench className="w-4 h-4" />
@@ -540,49 +540,49 @@ const Header = ({
                   </div>
                 )}
                 {appMode === 'live-chat' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Monitoreo y gestión de conversaciones en tiempo real
                   </p>
                 )}
                 {appMode === 'prospectos' && (
                   <>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       Gestión completa de prospectos y asignaciones
                     </p>
                     {prospectCount && (
-                      <p className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+                      <p className="text-xs text-gray-600 dark:text-gray-300 mt-0.5 font-medium">
                         {prospectCount.filtered} de {prospectCount.total} prospectos
                       </p>
                     )}
                   </>
                 )}
                 {appMode === 'scheduled-calls' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Programación y seguimiento de llamadas agendadas
                   </p>
                 )}
                 {appMode === 'ai-models' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Gestión avanzada de modelos de IA para voz e imágenes
                   </p>
                 )}
                 {appMode === 'admin' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Administración de plantillas y configuración del sistema
                   </p>
                 )}
                 {appMode === 'direccion' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Gestión de tareas y asignaciones
                   </p>
                 )}
                 {appMode === 'natalia' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Análisis detallado de llamadas con IA Natalia
                   </p>
                 )}
                 {appMode === 'pqnc' && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Análisis de llamadas con evaluación humana PQNC
                   </p>
                 )}
@@ -599,7 +599,7 @@ const Header = ({
                   className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
                     appMode === 'direccion'
                       ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                   title="Mis Tareas - Timeline de Actividades"
                 >
@@ -622,7 +622,7 @@ const Header = ({
                       window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'dynamics' }));
                     }, 100);
                   }}
-                  className="hidden md:flex relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="hidden md:flex relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                   title="Dynamics CRM Manager"
                 >
                   <div className="flex items-center space-x-2">
@@ -646,7 +646,7 @@ const Header = ({
                         window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'logs' }));
                       }, 100);
                     }}
-                    className="relative p-2 rounded-lg transition-all duration-300 group bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400"
+                    className="relative p-2 rounded-lg transition-all duration-300 group bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400"
                     title="Logs del Sistema"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -659,7 +659,7 @@ const Header = ({
                     className={`relative px-3 py-1.5 rounded-lg transition-all duration-300 group text-sm font-medium ${
                       appMode === 'admin'
                         ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md'
-                        : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                        : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}
                     title="Administración del Sistema"
                   >
@@ -717,12 +717,12 @@ const Header = ({
                   {(isAdmin || isAdminOperativo) && !isNinjaMode && (
                     <button
                       onClick={() => setShowMessagesModal(true)}
-                      className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
                       title={`Mensajes de administración${(unreadCount + ticketUnreadCount) > 0 ? ` (${unreadCount + ticketUnreadCount} sin leer)` : ''}`}
                     >
                       <Mail className="w-5 h-5" />
                       {(unreadCount + ticketUnreadCount) > 0 && (
-                        <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-slate-900">
+                        <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
                           {(unreadCount + ticketUnreadCount) > 99 ? '99+' : (unreadCount + ticketUnreadCount)}
                         </span>
                       )}
@@ -780,13 +780,13 @@ const Header = ({
                       ) : (
                         // Info normal
                         <>
-                          <p className="text-sm font-medium text-slate-900 dark:text-white">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
                             {user.full_name || user.email}
                           </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             {user.email}
                           </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                             {user.role_name}
                           </p>
                         </>
@@ -802,7 +802,7 @@ const Header = ({
                         e.stopPropagation();
                         logout();
                       }}
-                      className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400"
+                      className="p-2 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400"
                       title="Cerrar sesión"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -863,7 +863,7 @@ const Header = ({
 
   // Header original para retrocompatibilidad
   return (
-    <header className="bg-slate-50/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 sticky top-0 z-50">
+    <header className="bg-gray-50/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200/20 dark:border-gray-700/20 sticky top-0 z-50">
       {/* Gradiente superior sutil */}
       <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent"></div>
       
@@ -893,10 +893,10 @@ const Header = ({
               
               {/* Título minimalista */}
               <div>
-                <h1 className="text-xl font-semibold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent">
+                <h1 className="text-xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                   {config.app_branding?.app_name || 'VAPI Builder'}
                 </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium tracking-wide">
+                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide">
                   {config.app_branding?.header_description || 'AI AGENT PLATFORM'}
                 </p>
               </div>
@@ -911,7 +911,7 @@ const Header = ({
                 <div className="relative">
                   <svg className="w-12 h-12" viewBox="0 0 36 36">
                     <circle
-                      className="stroke-slate-200 dark:stroke-slate-700"
+                      className="stroke-gray-200 dark:stroke-gray-700"
                       strokeWidth="2"
                       fill="none"
                       r="16"
@@ -931,7 +931,7 @@ const Header = ({
                     />
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       {Math.round(progress)}%
                     </span>
                   </div>
@@ -939,10 +939,10 @@ const Header = ({
                 
                 {/* Progress text minimalista */}
                 <div className="text-left hidden md:block">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {progressText}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Configuración inicial
                   </p>
                 </div>
@@ -959,7 +959,7 @@ const Header = ({
                 className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
                   appMode === 'direccion'
                     ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
-                    : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                    : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
                 title="Mis Tareas - Timeline de Actividades"
               >
@@ -982,7 +982,7 @@ const Header = ({
                   className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
                     appMode === 'analisis'
                       ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                   title="Análisis de Llamadas"
                 >
@@ -1005,7 +1005,7 @@ const Header = ({
                       window.dispatchEvent(new CustomEvent('admin-navigate-tab', { detail: 'dynamics' }));
                     }, 100);
                   }}
-                  className="relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400"
+                  className="relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
                   title="Dynamics CRM Manager"
                 >
                   <div className="flex items-center space-x-2">
@@ -1023,7 +1023,7 @@ const Header = ({
                   className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
                     appMode === 'admin'
                       ? 'bg-gradient-to-r from-rose-500 to-pink-600 text-white shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300'
+                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                   title="Administración del Sistema"
                 >
@@ -1042,18 +1042,18 @@ const Header = ({
             {currentStep >= 2 && (
               <div className="flex items-center space-x-2 border-l border-gray-200/50 dark:border-gray-700/50 pl-3">
                 <button 
-                  className="relative p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-300 group"
+                  className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 group"
                   title="Ver código generado"
                 >
-                  <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                   </svg>
                 </button>
                 <button 
-                  className="relative p-3 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all duration-300 group"
+                  className="relative p-3 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all duration-300 group"
                   title="Gestionar variables"
                 >
-                  <svg className="w-4 h-4 text-slate-600 dark:text-slate-400 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-600 dark:text-gray-400 transition-transform group-hover:scale-110" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17v4a2 2 0 002 2h4M13 5l8 8-2 2-8-8 2-2z" />
                   </svg>
                 </button>

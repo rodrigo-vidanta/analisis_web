@@ -125,7 +125,7 @@ export const Modal: React.FC<ModalProps> = ({
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             variants={BACKDROP_VARIANTS}
             initial="initial"
             animate="animate"

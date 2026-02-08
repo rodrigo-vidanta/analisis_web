@@ -57,7 +57,7 @@ export const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: position === 'top' ? -20 : 20, scale: 0.9 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className={`fixed ${positionClasses} z-[9999] flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-full shadow-lg`}
+          className={`fixed ${positionClasses} z-[100] flex items-center gap-2 px-4 py-2.5 bg-amber-500 text-white rounded-full shadow-lg`}
         >
           <WifiOff className="w-4 h-4" />
           <span className="text-sm font-medium">
@@ -79,7 +79,7 @@ export const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: position === 'top' ? -20 : 20, scale: 0.9 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className={`fixed ${positionClasses} z-[9999] flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-full shadow-lg`}
+          className={`fixed ${positionClasses} z-[100] flex items-center gap-2 px-4 py-2.5 bg-emerald-500 text-white rounded-full shadow-lg`}
         >
           <Wifi className="w-4 h-4" />
           <span className="text-sm font-medium">Conexión restaurada</span>
@@ -91,7 +91,7 @@ export const NetworkStatusIndicator: React.FC<NetworkStatusIndicatorProps> = ({
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 0.6 }}
-          className={`fixed ${positionClasses} z-[9998] flex items-center gap-1.5 px-3 py-1.5 bg-gray-900/70 text-white/80 rounded-full`}
+          className={`fixed ${positionClasses} z-[100] flex items-center gap-1.5 px-3 py-1.5 bg-gray-900/70 text-white/80 rounded-full`}
         >
           <Wifi className="w-3 h-3" />
           <span className="text-xs">Online</span>

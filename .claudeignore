@@ -1,0 +1,120 @@
+# CLAUDE IGNORE - Archivos excluidos de lectura/indexacion
+# Optimiza consumo de tokens al excluir archivos innecesarios
+
+# === DEPENDENCIAS ===
+node_modules/
+.pnpm-store/
+
+# === BUILD ===
+dist/
+dist-mcp/
+dist-ssr/
+build/
+
+# === LOGS ===
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# === LOCK FILES ===
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# === BACKUPS ===
+backups/
+aws-backup/
+mcp-backups/
+*.backup-*
+*.bak
+
+# === BINARIOS ===
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.ico
+*.svg
+*.woff
+*.woff2
+*.ttf
+*.eot
+*.mp3
+*.wav
+*.ogg
+
+# === ARCHIVOS SENSIBLES ===
+.env
+.env.local
+.env.production
+.env.staging
+.env.development
+.env*.bak*
+.supabase/access_token
+.security/
+
+# === ARCHIVOS LOCALES ===
+*.local.md
+*.local.json
+MCP_CHANGELOG.local.md
+MCP_SCHEMAS.local.md
+
+# === REPORTES/AUDITORIAS PROCESADOS ===
+AUDITORIA_*.md
+REPORTE_*.md
+RESUMEN_*.md
+PENTESTING_*.md
+ESTADO_*.md
+PLAN_*.md
+DIAGNOSTICO_*.md
+VERIFICACION_*.md
+BLINDAJE_*.md
+INFRAESTRUCTURA_*.md
+IMPLEMENTACION_*.md
+CORRECIONES_*.md
+CRITICAS_*.md
+ERRORES_*.md
+
+# === CHANGELOGS RAIZ ===
+*_CHANGELOG.md
+*_README.md
+
+# === SQL GRANDES ===
+*.sql
+
+# === CLOUDFRONT/LAMBDA ===
+cloudfront-functions/
+lambda-edge/
+
+# === HERRAMIENTAS EXTERNAS ===
+linearapp/
+AWS_Project/
+
+# === CURSOR (no necesario para Claude Code) ===
+.cursor/handovers/
+.cursor/templates/
+
+# === SUPABASE LOCAL ===
+supabase/.branches/
+supabase/.temp/
+
+# === GIT ===
+.git/
+
+# === CACHE ===
+.cache/
+.parcel-cache/
+.turbo/
+
+# === DOCS PROCESADOS ===
+docs/MIGRACION_*.md
+docs/DEPLOY_*.md
+docs/GUIA_*.md
+
+# === CONFIGS EXTERNOS ===
+*.toml
+Procfile
+nixpacks.json
+buildspec.yml
+*.sh

@@ -508,7 +508,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
       <div className="glass-card p-8">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <span className="ml-3 text-slate-600 dark:text-slate-400">Cargando configuración...</span>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Cargando configuración...</span>
         </div>
       </div>
     );
@@ -520,20 +520,20 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
       <div className="glass-card p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               Prompts del Sistema
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Personaliza la identidad y flujos de conversación de tu agente
             </p>
           </div>
           <div className="flex items-center gap-3">
             {/* Filtro por rol */}
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-lg p-1 flex">
+            <div className="bg-gray-100 dark:bg-gray-800 rounded-lg p-1 flex">
               {(['all','system','user','assistant'] as const).map(r => (
                 <button key={r}
                   onClick={()=>setRoleFilter(r)}
-                  className={`px-3 py-1 rounded-md text-sm ${roleFilter===r?'bg-indigo-600 text-white':'text-slate-600 hover:bg-slate-200 dark:hover:bg-slate-700'}`}
+                  className={`px-3 py-1 rounded-md text-sm ${roleFilter===r?'bg-indigo-600 text-white':'text-gray-600 hover:bg-gray-200 dark:hover:bg-gray-700'}`}
                 >{r==='all'?'Todos':r}</button>
               ))}
             </div>
@@ -555,7 +555,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
               </div>
               <button
                 onClick={() => setShowSquadConfig(!showSquadConfig)}
-                className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                 title={showSquadConfig ? "Ocultar configuración de squad" : "Mostrar configuración de squad"}
               >
                 <svg className={`w-4 h-4 transition-transform ${showSquadConfig ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -568,28 +568,28 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
 
         {/* Squad Configuration Panel */}
         {squadConfig && showSquadConfig && (
-          <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-blue-200/50 dark:border-purple-500/30">
+          <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-blue-200/50 dark:border-purple-500/30">
             <div className="flex items-center space-x-2 mb-3">
               <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <h4 className="font-medium text-slate-900 dark:text-white">Configuración del Squad Principal</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white">Configuración del Squad Principal</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div>
-                <span className="font-medium text-slate-700 dark:text-slate-300">Nombre:</span>
-                <p className="text-slate-600 dark:text-slate-400">{squadConfig.name}</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Nombre:</span>
+                <p className="text-gray-600 dark:text-gray-400">{squadConfig.name}</p>
               </div>
               <div>
-                <span className="font-medium text-slate-700 dark:text-slate-300">Miembros:</span>
-                <p className="text-slate-600 dark:text-slate-400">{squadConfig.squadMembers.length} agentes</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Miembros:</span>
+                <p className="text-gray-600 dark:text-gray-400">{squadConfig.squadMembers.length} agentes</p>
               </div>
               <div>
-                <span className="font-medium text-slate-700 dark:text-slate-300">Rol:</span>
-                <p className="text-slate-600 dark:text-slate-400">Agente Principal</p>
+                <span className="font-medium text-gray-700 dark:text-gray-300">Rol:</span>
+                <p className="text-gray-600 dark:text-gray-400">Agente Principal</p>
               </div>
             </div>
-            <div className="mt-3 p-3 bg-blue-100/50 dark:bg-slate-800/50 rounded border border-blue-200/30 dark:border-slate-600">
+            <div className="mt-3 p-3 bg-blue-100/50 dark:bg-gray-800/50 rounded border border-blue-200/30 dark:border-gray-600">
               <p className="text-xs text-blue-700 dark:text-blue-300">
                 ℹ️ Esta es la configuración del squad principal. Para editar miembros adicionales y reglas de transferencia, ve a la pestaña "Squads".
               </p>
@@ -608,17 +608,17 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
               </svg>
             </div>
             <div>
-              <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Prompts Configurados
               </h4>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {selectedPrompts.length} prompts activos
               </p>
             </div>
           </div>
           
           {selectedPrompts.length > 0 && (
-            <div className="flex items-center space-x-2 text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
               </svg>
@@ -628,14 +628,14 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
         </div>
         
         {selectedPrompts.length === 0 ? (
-          <div className="text-center py-12 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50/50 dark:bg-slate-800/50">
-            <div className="flex items-center justify-center w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4">
-              <svg className="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+            <div className="flex items-center justify-center w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4">
+              <svg className="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
               </svg>
             </div>
-            <p className="text-slate-600 dark:text-slate-400 mb-2 font-medium">No hay prompts configurados</p>
-            <p className="text-sm text-slate-500 dark:text-slate-500">Agrega prompts desde el catálogo para comenzar</p>
+            <p className="text-gray-600 dark:text-gray-400 mb-2 font-medium">No hay prompts configurados</p>
+            <p className="text-sm text-gray-500 dark:text-gray-500">Agrega prompts desde el catálogo para comenzar</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -658,7 +658,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                       }`}>
                         {memberIndex + 1}
                       </div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                         {memberName} ({memberPrompts.length} roles)
                       </h4>
                       {memberIndex > 0 && (
@@ -670,14 +670,14 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                     
                     <div className="space-y-4">
                       {memberPrompts.map((prompt, promptIndex) => (
-                        <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
+                        <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-4">
                                 <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-lg font-semibold">
                                   {startIndex + promptIndex + 1}
                                 </div>
-                                <h5 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h5>
+                                <h5 className="font-semibold text-gray-900 dark:text-white">{prompt.title}</h5>
                                 
                                 <div className="flex items-center gap-2">
                                   {prompt.is_required && (
@@ -690,7 +690,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                                       Personalizado
                                     </span>
                                   )}
-                                  <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
+                                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full font-medium">
                                     {prompt.role}
                                   </span>
                                 </div>
@@ -699,7 +699,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                               <textarea
                                 value={prompt.is_customized ? (prompt.custom_content || prompt.content) : prompt.content}
                                 onChange={(e) => updatePromptContent(prompt.id, e.target.value)}
-                                className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors"
+                                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white transition-colors"
                                 rows={4}
                                 placeholder="Contenido del prompt..."
                               />
@@ -714,14 +714,14 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
             ) : (
               // Mostrar prompts normalmente (sin squad)
               selectedPrompts.filter(p=> roleFilter==='all' || p.role===roleFilter).map((prompt, index) => (
-              <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
+              <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-4">
                       <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs rounded-lg font-semibold">
                         {index + 1}
                       </div>
-                      <h5 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h5>
+                      <h5 className="font-semibold text-gray-900 dark:text-white">{prompt.title}</h5>
                       {prompt.context_tags?.find(t=>t.startsWith('member:')) && (
                         <span className="px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-full">{prompt.context_tags.find(t=>t.startsWith('member:'))?.replace('member:','Miembro: ')}</span>
                       )}
@@ -737,7 +737,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                             Personalizado
                           </span>
                         )}
-                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full font-medium">
                           {prompt.role}
                         </span>
                       </div>
@@ -746,7 +746,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                     <textarea
                       value={prompt.is_customized ? (prompt.custom_content || prompt.content) : prompt.content}
                       onChange={(e) => updatePromptContent(prompt.id, e.target.value)}
-                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors"
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white transition-colors"
                       rows={4}
                       placeholder="Contenido del prompt..."
                     />
@@ -756,7 +756,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                     {index > 0 && (
                       <button
                         onClick={() => movePrompt(index, index - 1)}
-                        className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                         title="Mover arriba"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -767,7 +767,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                     {index < selectedPrompts.length - 1 && (
                       <button
                         onClick={() => movePrompt(index, index + 1)}
-                        className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                        className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                         title="Mover abajo"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -777,7 +777,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                     )}
                     <button
                       onClick={() => removePrompt(prompt.id)}
-                      className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                      className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                       title="Eliminar"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -802,10 +802,10 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
             </svg>
           </div>
           <div>
-            <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
               Catálogo de Prompts
             </h4>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               {availablePrompts.length} prompts disponibles
             </p>
           </div>
@@ -815,7 +815,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="relative">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
@@ -824,14 +824,14 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
               placeholder="Buscar prompts..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white transition-colors"
             />
           </div>
           <div className="relative">
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors appearance-none"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white transition-colors appearance-none"
             >
               {categories.map(cat => (
                 <option key={cat.value} value={cat.value}>
@@ -840,7 +840,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
               ))}
             </select>
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <svg className="h-4 w-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="h-4 w-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
               </svg>
             </div>
@@ -850,15 +850,15 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
         {/* Lista de Prompts Disponibles mejorada */}
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {filteredPrompts.map(prompt => (
-            <div key={prompt.id} className="group bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-4 hover:shadow-md hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-200">
+            <div key={prompt.id} className="group bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-4 hover:shadow-md hover:border-purple-300 dark:hover:border-purple-500 transition-all duration-200">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
-                    <h5 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h5>
+                    <h5 className="font-semibold text-gray-900 dark:text-white">{prompt.title}</h5>
                     <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs rounded-full font-medium">
                       {prompt.category}
                     </span>
-                    <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full font-medium">
                       {prompt.role}
                     </span>
                     {prompt.is_required && (
@@ -867,7 +867,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                       </span>
                     )}
                   </div>
-                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2 mb-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
                     {prompt.content.length > 150 
                       ? `${prompt.content.substring(0, 150)}...` 
                       : prompt.content
@@ -875,7 +875,7 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                   </p>
                   {prompt.variables.length > 0 && (
                     <div className="flex items-center gap-1 flex-wrap">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Variables:</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Variables:</span>
                       {prompt.variables.map((variable, index) => (
                         <span key={`${prompt.id}-${variable}-${index}`} className="inline-block px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded font-medium">
                           {variable}
@@ -901,13 +901,13 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
           
           {filteredPrompts.length === 0 && (
             <div className="text-center py-12">
-              <div className="flex items-center justify-center w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4">
-                <svg className="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="flex items-center justify-center w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4">
+                <svg className="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               </div>
-              <p className="text-slate-600 dark:text-slate-400 font-medium mb-1">No se encontraron prompts</p>
-              <p className="text-sm text-slate-500 dark:text-slate-500">Intenta cambiar los criterios de búsqueda</p>
+              <p className="text-gray-600 dark:text-gray-400 font-medium mb-1">No se encontraron prompts</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">Intenta cambiar los criterios de búsqueda</p>
             </div>
           )}
         </div>
@@ -915,19 +915,19 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
 
       {/* Modal Crear Prompt */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
             <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold text-slate-900">Nuevo prompt</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Nuevo prompt</h3>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Título</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Título</label>
                 <input className="w-full px-3 py-2 border rounded-md" value={newPromptData.title} onChange={e=>setNewPromptData({...newPromptData,title:e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Rol</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rol</label>
                   <select className="w-full px-3 py-2 border rounded-md" value={newPromptData.role} onChange={e=>setNewPromptData({...newPromptData,role:e.target.value as any})}>
                     <option value="system">system</option>
                     <option value="user">user</option>
@@ -936,12 +936,12 @@ const SystemMessageEditor: React.FC<SystemMessageEditorProps> = ({ systemMessage
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Contenido</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Contenido</label>
                 <textarea className="w-full px-3 py-2 border rounded-md" rows={6} value={newPromptData.content} onChange={e=>setNewPromptData({...newPromptData,content:e.target.value})} />
               </div>
             </div>
             <div className="p-6 border-t flex justify-end gap-3">
-              <button className="px-4 py-2 bg-slate-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
+              <button className="px-4 py-2 bg-gray-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
               <button className="px-4 py-2 bg-indigo-600 text-white rounded-md" onClick={() => { if(newPromptData.content.trim()) { const np = { id: `temp-${Date.now()}`, title: newPromptData.title.trim()||'Nuevo Prompt', content: newPromptData.content, role: newPromptData.role, category: 'custom', prompt_type: 'custom', is_required: false, order_priority: (selectedPrompts.length + 1), variables: [], is_customized: true, custom_content: newPromptData.content, order_index: selectedPrompts.length } as any; const list = [...selectedPrompts, np]; setSelectedPrompts(list); updateMessages(list); setShowCreateModal(false);} else { alert('Contenido requerido'); } }}>Agregar</button>
             </div>
           </div>

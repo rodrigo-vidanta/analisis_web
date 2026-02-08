@@ -43,7 +43,7 @@ const GROUP_COLORS = [
   { name: 'Azul', value: 'from-blue-500 to-indigo-600' },
   { name: 'Púrpura', value: 'from-purple-500 to-violet-600' },
   { name: 'Rosa', value: 'from-pink-500 to-rose-600' },
-  { name: 'Gris', value: 'from-gray-500 to-slate-600' }
+  { name: 'Gris', value: 'from-gray-500 to-gray-600' }
 ];
 
 // ============================================
@@ -395,7 +395,7 @@ const GroupEditModal: React.FC<GroupEditModalProps> = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
       onClick={onClose}
     >
       <motion.div

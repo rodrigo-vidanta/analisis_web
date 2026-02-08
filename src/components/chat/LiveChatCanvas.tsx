@@ -377,7 +377,7 @@ const RequiereAtencionFlag: React.FC<RequiereAtencionFlagProps> = ({ prospectId,
               duration: 0.15, 
               ease: [0.16, 1, 0.3, 1]
             }}
-            className="absolute top-full mt-2 left-0 z-[9999] shadow-lg pointer-events-none whitespace-normal
+            className="absolute top-full mt-2 left-0 z-[60] shadow-lg pointer-events-none whitespace-normal
               max-w-xs w-64
               sm:max-w-sm sm:w-80
               md:max-w-md md:w-96"
@@ -529,7 +529,7 @@ const CRMDataModal: React.FC<CRMDataModalProps> = ({ isOpen, onClose, prospectoI
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[100]"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={onClose}
         >
           <motion.div
@@ -879,10 +879,10 @@ const ConversationItem = React.memo<ConversationItemProps>(({
   
   return (
     <div
-      className={`relative p-4 border-b border-slate-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
+      className={`relative p-4 border-b border-gray-50 dark:border-gray-700 cursor-pointer transition-all duration-200 ${
         isSelected
           ? 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-l-blue-500 shadow-sm'
-          : 'hover:bg-slate-25 dark:hover:bg-gray-700/50'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
       }`}
       onClick={onSelect}
       onContextMenu={onContextMenu}
@@ -912,7 +912,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-2 flex-1 min-w-0 flex-wrap">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                 {conversation.customer_name}
               </h3>
               {userId && conversation.metadata?.ejecutivo_id && (
@@ -937,7 +937,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
             </div>
           </div>
           
-          <p className="text-xs text-slate-500 dark:text-gray-400 mb-1">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">
             <PhoneText 
               phone={conversation.customer_phone || conversation.numero_telefono} 
               prospecto={{ 
@@ -1000,7 +1000,7 @@ const ConversationItem = React.memo<ConversationItemProps>(({
             </button>
           )}
           
-          <div className="flex items-center justify-between text-xs text-slate-400 dark:text-gray-500">
+          <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500">
             <div className="flex items-center gap-2">
               <span>{Number(conversation.message_count ?? 0)} msj</span>
               {/* Etiquetas de Coordinación y Ejecutivo - A la derecha del contador de mensajes */}
@@ -7038,9 +7038,9 @@ const LiveChatCanvas: React.FC = () => {
       case 'transferred': 
         return <Circle className="w-2 h-2 fill-blue-500 text-blue-500" />;
       case 'closed': 
-        return <Circle className="w-2 h-2 fill-slate-400 text-slate-400" />;
+        return <Circle className="w-2 h-2 fill-gray-400 text-gray-400" />;
       default: 
-        return <Circle className="w-2 h-2 fill-slate-300 text-slate-300" />;
+        return <Circle className="w-2 h-2 fill-gray-300 text-gray-300" />;
     }
   };
 
@@ -7258,8 +7258,8 @@ const LiveChatCanvas: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-96 bg-white dark:bg-gray-900">
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-8 h-8 border-2 border-slate-200 dark:border-gray-600 border-t-slate-600 dark:border-t-gray-400 rounded-full animate-spin"></div>
-          <p className="text-sm text-slate-500 dark:text-gray-400">Cargando conversaciones reales...</p>
+          <div className="w-8 h-8 border-2 border-gray-200 dark:border-gray-600 border-t-gray-600 dark:border-t-gray-400 rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Cargando conversaciones reales...</p>
         </div>
       </div>
     );
@@ -7280,7 +7280,7 @@ const LiveChatCanvas: React.FC = () => {
     >
       {/* SECCIÓN 1: Lista de Conversaciones - CAJA INDEPENDIENTE */}
       <div 
-        className="bg-white dark:bg-gray-800 border-r border-slate-200/50 dark:border-gray-700/50"
+        className="bg-white dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50"
         style={{ 
           width: `${adjustedConversationsWidth}px`,
           height: '100%',
@@ -7292,7 +7292,7 @@ const LiveChatCanvas: React.FC = () => {
       >
         {/* Header fijo de la caja */}
         <div 
-          className="p-4 border-b border-slate-100 dark:border-gray-700 bg-white dark:bg-gray-800"
+          className="p-4 border-b border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800"
           style={{ 
             flexShrink: 0,
             minHeight: '200px'
@@ -7304,20 +7304,20 @@ const LiveChatCanvas: React.FC = () => {
               onClick={() => filterByUnread && setFilterByUnread(false)}
               className={`text-center px-2 py-1 rounded-lg transition-all ${
                 filterByUnread 
-                  ? 'hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer' 
+                  ? 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer' 
                   : 'cursor-default'
               }`}
               title={filterByUnread ? 'Clic para ver todas las conversaciones' : ''}
               disabled={!filterByUnread}
             >
               {/* v6.4.0: Mostrar conteo real del usuario según permisos */}
-              <div className="text-sm font-semibold text-slate-900 dark:text-white">
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">
                 {userConversationsCount !== null 
                   ? `${filteredConversations.length}/${userConversationsCount}`
                   : (filteredConversations.length > 0 ? filteredConversations.length : conversations.length)
                 }
               </div>
-              <div className="text-[10px] text-slate-500 dark:text-gray-400">
+              <div className="text-[10px] text-gray-500 dark:text-gray-400">
                 {userConversationsCount !== null ? 'Cargadas/Total' : 'Total'}
               </div>
             </button>
@@ -7326,14 +7326,14 @@ const LiveChatCanvas: React.FC = () => {
               onClick={() => filterByUnread && setFilterByUnread(false)}
               className={`text-center px-2 py-1 rounded-lg transition-all ${
                 filterByUnread 
-                  ? 'hover:bg-slate-100 dark:hover:bg-gray-700 cursor-pointer' 
+                  ? 'hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer' 
                   : 'cursor-default'
               }`}
               title={filterByUnread ? 'Clic para ver todas las conversaciones' : ''}
               disabled={!filterByUnread}
             >
               <div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{metrics.activeConversations}</div>
-              <div className="text-[10px] text-slate-500 dark:text-gray-400">Activas</div>
+              <div className="text-[10px] text-gray-500 dark:text-gray-400">Activas</div>
             </button>
             {/* v6.6.0: Contador de CONVERSACIONES no leídas - clickeable para filtrar */}
             <button
@@ -7341,7 +7341,7 @@ const LiveChatCanvas: React.FC = () => {
               className={`text-center px-2 py-1 rounded-lg transition-all cursor-pointer ${
                 filterByUnread 
                   ? 'bg-blue-100 dark:bg-blue-900/40 ring-2 ring-blue-500' 
-                  : 'hover:bg-slate-100 dark:hover:bg-gray-700'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
               title={filterByUnread ? 'Clic para ver todas' : 'Clic para filtrar no leídas'}
             >
@@ -7355,7 +7355,7 @@ const LiveChatCanvas: React.FC = () => {
               <div className={`text-[10px] ${
                 filterByUnread 
                   ? 'text-blue-600 dark:text-blue-400 font-medium' 
-                  : 'text-slate-500 dark:text-gray-400'
+                  : 'text-gray-500 dark:text-gray-400'
               }`}>
                 {filterByUnread ? '✓ No leídas' : 'No leídas'}
               </div>
@@ -7368,7 +7368,7 @@ const LiveChatCanvas: React.FC = () => {
               <label htmlFor="livechat-search-input" className="sr-only">
                 Buscar conversaciones
               </label>
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-gray-500 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
               <input
                 id="livechat-search-input"
                 name="livechat-search"
@@ -7377,7 +7377,7 @@ const LiveChatCanvas: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 autoComplete="off"
-                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300 dark:focus:ring-gray-500"
+                className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-300 dark:focus:ring-gray-500"
               />
               {/* v6.5.0: Indicador de carga de búsqueda */}
               {isSearchingAllBatches && (
@@ -7390,7 +7390,7 @@ const LiveChatCanvas: React.FC = () => {
             {isSearchingAllBatches && (
               <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1 mt-1">
                 <span>{filterByUnread ? 'Cargando conversaciones no leídas...' : 'Buscando en todas las conversaciones...'}</span>
-                <span className="text-slate-400">({allConversationsLoaded.length} cargadas)</span>
+                <span className="text-gray-400">({allConversationsLoaded.length} cargadas)</span>
               </div>
             )}
             
@@ -7398,20 +7398,20 @@ const LiveChatCanvas: React.FC = () => {
             <div className="relative" ref={etapasFilterRef}>
               <button
                 onClick={() => setShowEtapasFilter(!showEtapasFilter)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
                   selectedEtapas.size > 0 ? 'border-blue-500 dark:border-blue-400' : ''
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-slate-400 dark:text-gray-500" />
-                  <span className="text-xs text-slate-600 dark:text-gray-300">
+                  <Filter className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-300">
                     {selectedEtapas.size === 0 
                       ? 'Todas las etapas' 
                       : `${selectedEtapas.size} etapa${selectedEtapas.size > 1 ? 's' : ''} seleccionada${selectedEtapas.size > 1 ? 's' : ''}`
                     }
                   </span>
                 </div>
-                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-gray-500 transition-transform ${showEtapasFilter ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${showEtapasFilter ? 'rotate-90' : ''}`} />
               </button>
               
               {/* Dropdown de etapas */}
@@ -7422,16 +7422,16 @@ const LiveChatCanvas: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
                   >
                     <div className="p-2 space-y-1">
                       {etapasLoading ? (
                         <div className="flex items-center justify-center py-4">
-                          <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
-                          <span className="ml-2 text-xs text-slate-500">Cargando etapas...</span>
+                          <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+                          <span className="ml-2 text-xs text-gray-500">Cargando etapas...</span>
                         </div>
                       ) : etapasDinamicas.length === 0 ? (
-                        <div className="px-2 py-4 text-center text-xs text-slate-500">
+                        <div className="px-2 py-4 text-center text-xs text-gray-500">
                           No hay etapas disponibles
                         </div>
                       ) : (
@@ -7441,18 +7441,18 @@ const LiveChatCanvas: React.FC = () => {
                             return (
                               <label
                                 key={etapa.id}
-                                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-slate-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                                className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                               >
                                 <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                                   isSelected
                                     ? 'bg-blue-500 border-blue-500'
-                                    : 'border-slate-300 dark:border-gray-600'
+                                    : 'border-gray-300 dark:border-gray-600'
                                 }`}>
                                   {isSelected && (
                                     <Check className="w-3 h-3 text-white" />
                                   )}
                                 </div>
-                                <span className="text-xs text-slate-700 dark:text-gray-300">{etapa.nombre}</span>
+                                <span className="text-xs text-gray-700 dark:text-gray-300">{etapa.nombre}</span>
                                 <input
                                   type="checkbox"
                                   checked={isSelected}
@@ -7492,20 +7492,20 @@ const LiveChatCanvas: React.FC = () => {
             <div className="relative" ref={labelsFilterRef}>
               <button
                 onClick={() => setShowLabelsFilter(!showLabelsFilter)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white rounded-md hover:bg-slate-50 dark:hover:bg-gray-600 transition-colors ${
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
                   (labelFilters.include.size > 0 || labelFilters.exclude.size > 0) ? 'border-purple-500 dark:border-purple-400' : ''
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-slate-400 dark:text-gray-500" />
-                  <span className="text-xs text-slate-600 dark:text-gray-300">
+                  <Tag className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                  <span className="text-xs text-gray-600 dark:text-gray-300">
                     {(labelFilters.include.size === 0 && labelFilters.exclude.size === 0)
                       ? 'Filtrar por etiquetas' 
                       : `${labelFilters.include.size + labelFilters.exclude.size} filtro${(labelFilters.include.size + labelFilters.exclude.size) > 1 ? 's' : ''} activo${(labelFilters.include.size + labelFilters.exclude.size) > 1 ? 's' : ''}`
                     }
                   </span>
                 </div>
-                <ChevronRight className={`w-4 h-4 text-slate-400 dark:text-gray-500 transition-transform ${showLabelsFilter ? 'rotate-90' : ''}`} />
+                <ChevronRight className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform ${showLabelsFilter ? 'rotate-90' : ''}`} />
               </button>
               
               {/* Dropdown de filtros de etiquetas */}
@@ -7516,7 +7516,7 @@ const LiveChatCanvas: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto"
+                    className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-96 overflow-y-auto"
                   >
                     <div className="p-3 space-y-4">
                       {/* Filtros Inclusivos */}
@@ -7690,7 +7690,7 @@ const LiveChatCanvas: React.FC = () => {
           
           {/* 🚀 Indicador discreto de carga incremental (v6.2.0) */}
           {loadingMoreConversations && filteredConversations.length > 0 && (
-            <div className="p-3 border-t border-slate-100 dark:border-gray-700 bg-slate-50/50 dark:bg-gray-800/50">
+            <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
                 <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cargando más conversaciones...</span>
@@ -7806,7 +7806,7 @@ const LiveChatCanvas: React.FC = () => {
 
       {/* DIVISOR REDIMENSIONABLE 1 */}
       <div 
-        className="w-[0.5px] bg-slate-200/50 dark:bg-gray-600/50 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
+        className="w-[0.5px] bg-gray-200/50 dark:bg-gray-600/50 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
         style={{ 
           height: '100%',
           flexShrink: 0,
@@ -7814,14 +7814,14 @@ const LiveChatCanvas: React.FC = () => {
         }}
         onMouseDown={(e) => handleMouseDown(e, 'conversations')}
       >
-        <GripVertical className="w-3 h-3 text-slate-400/50 dark:text-gray-400/50 group-hover:text-slate-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+        <GripVertical className="w-3 h-3 text-gray-400/50 dark:text-gray-400/50 group-hover:text-gray-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
       </div>
 
       {/* SECCIÓN 2: Bloques de Conversación - CAJA INDEPENDIENTE */}
       {selectedConversation && (
         <>
           <div 
-            className="bg-white dark:bg-gray-800 border-r border-slate-200/50 dark:border-gray-700/50"
+            className="bg-white dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50"
             style={{ 
               width: `${columnWidths.blocks}px`,
               height: '100%',
@@ -7852,11 +7852,11 @@ const LiveChatCanvas: React.FC = () => {
                 return (
                   <div key={block.date}>
                     <button
-                      className="w-full py-2.5 px-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700/50 transition-all duration-200 flex flex-col items-center justify-center group"
+                      className="w-full py-2.5 px-1 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-200 flex flex-col items-center justify-center group"
                       onClick={() => scrollToDateInMessages(block.date)}
                     >
                       {/* Solo texto - Ultra minimalista */}
-                      <div className={`flex flex-col items-center justify-center w-full ${isToday ? 'text-blue-600 dark:text-blue-400' : isYesterday ? 'text-purple-600 dark:text-purple-400' : 'text-slate-700 dark:text-gray-300'}`}>
+                      <div className={`flex flex-col items-center justify-center w-full ${isToday ? 'text-blue-600 dark:text-blue-400' : isYesterday ? 'text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'}`}>
                         {/* Mes arriba (muy pequeño) */}
                         {month && (
                           <span className="text-[8px] font-semibold uppercase tracking-tight leading-none mb-0.5 opacity-70">
@@ -7868,14 +7868,14 @@ const LiveChatCanvas: React.FC = () => {
                           {day}
                         </span>
                         {/* Contador de mensajes (muy pequeño) */}
-                        <span className="text-[9px] font-medium text-slate-500 dark:text-gray-400 group-hover:text-slate-700 dark:group-hover:text-gray-200 transition-colors mt-1 leading-none">
+                        <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors mt-1 leading-none">
                           {block.message_count} msj
                         </span>
                       </div>
                     </button>
                     {/* Divisor entre días */}
                     {index < conversationBlocks.length - 1 && (
-                      <div className="h-px bg-slate-200 dark:bg-gray-700 mx-2 my-1" />
+                      <div className="h-px bg-gray-200 dark:bg-gray-700 mx-2 my-1" />
                     )}
                   </div>
                 );
@@ -7885,7 +7885,7 @@ const LiveChatCanvas: React.FC = () => {
 
           {/* DIVISOR REDIMENSIONABLE 2 */}
           <div 
-            className="w-[0.5px] bg-slate-200/50 dark:bg-gray-600/50 hover:bg-slate-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
+            className="w-[0.5px] bg-gray-200/50 dark:bg-gray-600/50 hover:bg-gray-300 dark:hover:bg-gray-500 cursor-col-resize flex items-center justify-center group"
             style={{ 
               height: '100%',
               flexShrink: 0,
@@ -7893,7 +7893,7 @@ const LiveChatCanvas: React.FC = () => {
             }}
             onMouseDown={(e) => handleMouseDown(e, 'blocks')}
           >
-            <GripVertical className="w-3 h-3 text-slate-400/50 dark:text-gray-400/50 group-hover:text-slate-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
+            <GripVertical className="w-3 h-3 text-gray-400/50 dark:text-gray-400/50 group-hover:text-gray-600 dark:group-hover:text-gray-300 opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
         </>
       )}
@@ -7911,7 +7911,7 @@ const LiveChatCanvas: React.FC = () => {
         >
           {/* Header fijo del chat - CON EXPANSIÓN */}
           <div 
-            className="border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-800 dark:to-gray-700 transition-all duration-300"
+            className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 transition-all duration-300"
             style={{ 
               flexShrink: 0,
               height: headerExpanded ? 'auto' : '80px'
@@ -7931,11 +7931,11 @@ const LiveChatCanvas: React.FC = () => {
                     showIcon={false}
                   />
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white truncate">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                       {selectedConversation.customer_name}
                     </h3>
                     {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
-                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-gray-400 mt-0.5">
+                    <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {/* Badges de asignación inline */}
                       <AssignmentBadge
                         call={{
@@ -7961,7 +7961,7 @@ const LiveChatCanvas: React.FC = () => {
                             size="sm"
                             copyable
                             inline
-                            textClassName="text-slate-500 dark:text-gray-400"
+                            textClassName="text-gray-500 dark:text-gray-400"
                             emptyText="Sin teléfono"
                           />
                         );
@@ -7969,7 +7969,7 @@ const LiveChatCanvas: React.FC = () => {
                       {/* Separador y Prospecto ID */}
                       {selectedConversation.prospecto_id && (
                         <>
-                          <span className="text-slate-300 dark:text-gray-600">|</span>
+                          <span className="text-gray-300 dark:text-gray-600">|</span>
                           <button
                             onClick={async (e) => {
                               e.stopPropagation();
@@ -7982,7 +7982,7 @@ const LiveChatCanvas: React.FC = () => {
                                 }
                               }
                             }}
-                            className="hover:text-slate-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
+                            className="hover:text-gray-700 dark:hover:text-gray-300 hover:underline transition-colors cursor-pointer font-mono text-[11px]"
                             title="Click para copiar ID del prospecto"
                           >
                             {selectedConversation.prospecto_id}
@@ -8076,7 +8076,7 @@ const LiveChatCanvas: React.FC = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setHeaderExpanded(!headerExpanded)}
-                    className="p-2 text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200"
+                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-all duration-200"
                     title={headerExpanded ? "Ocultar controles de conversación" : "Mostrar controles de conversación"}
                   >
                     {headerExpanded ? (
@@ -8099,7 +8099,7 @@ const LiveChatCanvas: React.FC = () => {
               transition={{ duration: 0.3, ease: 'easeInOut' }}
               className="overflow-hidden"
             >
-              <div className="px-4 pb-4 pt-2 border-t border-slate-200/50 dark:border-gray-700/50">
+              <div className="px-4 pb-4 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                 <div className="grid grid-cols-2 gap-3">
                   {/* Toggle IA Responde Chat */}
                   <div className="group relative">
@@ -8107,8 +8107,8 @@ const LiveChatCanvas: React.FC = () => {
                       onClick={handleToggleAiResponde}
                       className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
                         updatingAiConfig || !aiConfig 
-                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
-                          : 'border-slate-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer'
+                          ? 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-500 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
@@ -8121,7 +8121,7 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Bot className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Responde chat</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">IA Responde chat</span>
                         </div>
                       </div>
                     </label>
@@ -8133,8 +8133,8 @@ const LiveChatCanvas: React.FC = () => {
                       onClick={handleTogglePermiteLlamadasAuto}
                       className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
                         updatingAiConfig || !aiConfig 
-                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
-                          : 'border-slate-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer'
+                          ? 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-500 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
@@ -8147,7 +8147,7 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Programa llamada</span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">IA Programa llamada</span>
                         </div>
                       </div>
                     </label>
@@ -8159,8 +8159,8 @@ const LiveChatCanvas: React.FC = () => {
                       onClick={handleToggleMensajesReactivacion}
                       className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
                         updatingAiConfig || !aiConfig 
-                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
-                          : 'border-slate-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer'
+                          ? 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-500 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
@@ -8173,7 +8173,7 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Clock className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Reactiva chat <span className="text-xs opacity-70">(en desarrollo)</span></span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">IA Reactiva chat <span className="text-xs opacity-70">(en desarrollo)</span></span>
                         </div>
                       </div>
                     </label>
@@ -8185,8 +8185,8 @@ const LiveChatCanvas: React.FC = () => {
                       onClick={handleTogglePlantillasReactivacion}
                       className={`flex items-center justify-between p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border transition-all duration-200 ${
                         updatingAiConfig || !aiConfig 
-                          ? 'border-slate-200 dark:border-gray-700 cursor-not-allowed opacity-50'
-                          : 'border-slate-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer'
+                          ? 'border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-50'
+                          : 'border-gray-200 dark:border-gray-700 hover:border-amber-400 dark:hover:border-amber-500 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center space-x-2.5">
@@ -8199,7 +8199,7 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                         <div className="flex items-center space-x-1.5">
                           <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                          <span className="text-sm font-medium text-slate-700 dark:text-gray-300">IA Manda plantillas <span className="text-xs opacity-70">(en desarrollo)</span></span>
+                          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">IA Manda plantillas <span className="text-xs opacity-70">(en desarrollo)</span></span>
                         </div>
                       </div>
                     </label>
@@ -8212,7 +8212,7 @@ const LiveChatCanvas: React.FC = () => {
           {/* Área de mensajes - SCROLL INDIVIDUAL (hacia arriba desde abajo) */}
           <div 
             ref={messagesScrollRef}
-            className="flex-1 overflow-y-auto scrollbar-ultra-thin p-6 bg-gradient-to-b from-slate-50 to-white dark:from-gray-800 dark:to-gray-900"
+            className="flex-1 overflow-y-auto scrollbar-ultra-thin p-6 bg-gradient-to-b from-gray-50 to-white dark:from-gray-800 dark:to-gray-900"
             style={{ 
               overscrollBehavior: 'contain',
               display: 'flex',
@@ -8238,13 +8238,13 @@ const LiveChatCanvas: React.FC = () => {
               }
             `}</style>
             {combinedMessages.length === 0 ? (
-              <div className="flex items-center justify-center h-full text-slate-500 dark:text-gray-400">
+              <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-slate-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <MessageSquare className="w-8 h-8 text-slate-400 dark:text-gray-500" />
+                  <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <MessageSquare className="w-8 h-8 text-gray-400 dark:text-gray-500" />
                   </div>
-                  <h3 className="text-lg font-medium text-slate-900 dark:text-white mb-2">No hay mensajes</h3>
-                  <p className="text-sm text-slate-600 dark:text-gray-400">Esta conversación aún no tiene mensajes</p>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No hay mensajes</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Esta conversación aún no tiene mensajes</p>
                 </div>
               </div>
             ) : (
@@ -8263,7 +8263,7 @@ const LiveChatCanvas: React.FC = () => {
                           className="flex justify-center my-6"
                           data-date={formatDate(message.created_at)}
                         >
-                          <span className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-slate-200 dark:border-gray-600 rounded-full shadow-sm">
+                          <span className="px-4 py-2 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full shadow-sm">
                             {formatDate(message.created_at)}
                           </span>
                         </div>
@@ -8427,7 +8427,7 @@ const LiveChatCanvas: React.FC = () => {
                                       
                                       {/* Info detallada para llamadas ejecutadas */}
                                       {isExecuted && (
-                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 dark:text-gray-300">
+                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-300">
                                           {/* Duración */}
                                           {message.call_data.duracion_segundos && message.call_data.duracion_segundos > 0 && (
                                             <div className="flex items-center gap-1">
@@ -8461,14 +8461,14 @@ const LiveChatCanvas: React.FC = () => {
                                       
                                       {/* Programada por */}
                                       {message.call_data.programada_por_nombre && (
-                                        <div className="text-xs text-slate-500 dark:text-gray-400 mt-1">
+                                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                           Por: {message.call_data.programada_por_nombre}
                                         </div>
                                       )}
                                     </div>
 
                                     {/* Timestamp a la derecha */}
-                                    <div className="text-xs text-slate-400 dark:text-gray-500 self-end">
+                                    <div className="text-xs text-gray-400 dark:text-gray-500 self-end">
                                       {formatTime(message.created_at)}
                                     </div>
                                   </div>
@@ -8655,7 +8655,7 @@ const LiveChatCanvas: React.FC = () => {
                                     {/* Pico del globo - Cliente (izquierda) */}
                                     {isCustomer && (
                                       <div className="absolute -left-2 bottom-2 w-3 h-3 overflow-hidden">
-                                        <div className="absolute transform rotate-45 bg-white dark:bg-slate-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-slate-500/50" 
+                                        <div className="absolute transform rotate-45 bg-white dark:bg-gray-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-gray-500/50" 
                                              style={{ left: '4px', top: '-2px' }} />
                                       </div>
                                     )}
@@ -8669,7 +8669,7 @@ const LiveChatCanvas: React.FC = () => {
                                             : isBot 
                                             ? 'bg-cyan-600' 
                                             : message.message_id.startsWith('cache_')
-                                              ? 'bg-slate-500'
+                                              ? 'bg-gray-500'
                                               : 'bg-purple-600'
                                         }`} 
                                              style={{ right: '4px', top: '-2px' }} />
@@ -8678,13 +8678,13 @@ const LiveChatCanvas: React.FC = () => {
 
                                     <div className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
                                       isCustomer 
-                                        ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md' 
+                                        ? 'bg-white/95 dark:bg-gray-600/95 border border-gray-200/50 dark:border-gray-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md' 
                                         : message.sender_type === 'template'
                                           ? 'bg-gradient-to-br from-emerald-500/95 to-teal-500/95 text-white rounded-2xl rounded-br-md shadow-md border border-emerald-400/30'
                                           : isBot
                                           ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                           : message.message_id.startsWith('cache_')
-                                            ? 'bg-slate-500/90 text-white border-2 border-dashed border-slate-400 dark:border-slate-400 rounded-2xl rounded-br-md'
+                                            ? 'bg-gray-500/90 text-white border-2 border-dashed border-gray-400 dark:border-gray-400 rounded-2xl rounded-br-md'
                                             : 'bg-gradient-to-br from-violet-600/95 to-purple-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                     }`}>
                                       {message.content && (
@@ -8729,7 +8729,7 @@ const LiveChatCanvas: React.FC = () => {
                                       />
                                     )}
                                     {/* Timestamp pequeño debajo */}
-                                    <div className={`text-xs text-slate-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+                                    <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
                                       {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </div>
                                   </div>
@@ -8797,7 +8797,7 @@ const LiveChatCanvas: React.FC = () => {
 
           {/* Input FIJO - Separado del historial pero en el mismo grupo */}
           <div 
-            className="border-t border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800"
+            className="border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             style={{ 
               flexShrink: 0
             }}
@@ -8810,7 +8810,7 @@ const LiveChatCanvas: React.FC = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
-                  className="px-4 pt-3 pb-2 border-b border-slate-100 dark:border-gray-700 bg-gradient-to-r from-slate-50/50 to-transparent dark:from-gray-800/50"
+                  className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50"
                 >
                   <div className="flex items-center gap-2 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent pb-1">
                     {quickReplies.map((reply, index) => (
@@ -8839,7 +8839,7 @@ const LiveChatCanvas: React.FC = () => {
                         className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm ${
                           sending 
                             ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700' 
-                            : 'text-slate-700 dark:text-slate-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border-slate-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow'
+                            : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow'
                         }`}
                         title={sending ? 'Enviando mensaje...' : reply.text}
                       >
@@ -9026,7 +9026,7 @@ const LiveChatCanvas: React.FC = () => {
                   rows={1}
                   autoComplete="off"
                   disabled={isRecording}
-                  className="w-full px-4 py-3 text-sm border border-slate-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ 
                     minHeight: '44px',
                     maxHeight: '96px', // 3 renglones máximo (24px * 3 + padding)
@@ -9121,13 +9121,13 @@ const LiveChatCanvas: React.FC = () => {
           </div>
         </div>
       ) : (
-        <div className="flex-1 flex items-center justify-center text-slate-500 dark:text-gray-400 bg-white dark:bg-gray-800">
+        <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800">
           <div className="text-center">
             <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <MessageSquare className="w-10 h-10 text-blue-500 dark:text-blue-400" />
             </div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-3">Selecciona una conversación</h3>
-            <p className="text-sm text-slate-600 dark:text-gray-400">Elige una conversación para ver el historial completo</p>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Selecciona una conversación</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Elige una conversación para ver el historial completo</p>
           </div>
         </div>
       )}

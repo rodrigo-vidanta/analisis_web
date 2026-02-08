@@ -2688,7 +2688,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   {/* Avatar izquierda - Cliente */}
                   {isCustomer && (
                     <div
-                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-white shadow-md bg-gradient-to-br from-slate-400 to-slate-500"
+                      className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-medium text-white shadow-md bg-gradient-to-br from-gray-400 to-gray-500"
                       title={selectedConversation?.customer_name || 'Cliente'}
                     >
                       {selectedConversation?.customer_name?.charAt(0).toUpperCase() || 
@@ -2835,7 +2835,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             {/* Pico del globo - Cliente (izquierda) */}
                             {isCustomer && (
                               <div className="absolute -left-2 bottom-2 w-3 h-3 overflow-hidden">
-                                <div className="absolute transform rotate-45 bg-white dark:bg-slate-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-slate-500/50" 
+                                <div className="absolute transform rotate-45 bg-white dark:bg-gray-600 w-3 h-3 border-l border-b border-gray-200/50 dark:border-gray-500/50" 
                                      style={{ left: '4px', top: '-2px' }} />
                               </div>
                             )}
@@ -2858,7 +2858,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             <div
                               className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
                                 isCustomer
-                                  ? 'bg-white/95 dark:bg-slate-600/95 border border-gray-200/50 dark:border-slate-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md'
+                                  ? 'bg-white/95 dark:bg-gray-600/95 border border-gray-200/50 dark:border-gray-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md'
                                   : isTemplate
                                     ? 'bg-gradient-to-br from-emerald-500/95 to-teal-500/95 text-white rounded-2xl rounded-br-md shadow-md border border-emerald-400/30'
                                     : isBot

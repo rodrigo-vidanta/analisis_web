@@ -241,7 +241,7 @@ export const ROLE_HIERARCHY: Role[] = [
     description: 'Acceso técnico',
     level: 2,
     icon: 'Code',
-    color: 'from-gray-600 to-slate-700'
+    color: 'from-gray-600 to-gray-700'
   }
 ];
 

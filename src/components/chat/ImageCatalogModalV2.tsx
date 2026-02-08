@@ -671,9 +671,8 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+            className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 z-[60]"
             onClick={onClose}
-            style={{ zIndex: 2147483647 }} // Max z-index value
           >
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -1278,9 +1277,8 @@ const PreviewModalV2: React.FC<PreviewModalV2Props> = ({ item, onClose, onSelect
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-center justify-center bg-black/90 backdrop-blur-lg p-4"
+      className="fixed inset-0 flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 z-[60]"
       onClick={onClose}
-      style={{ zIndex: 2147483647 }}
     >
       <motion.div 
         initial={{ scale: 0.9, opacity: 0 }}
@@ -1317,7 +1315,7 @@ const PreviewModalV2: React.FC<PreviewModalV2Props> = ({ item, onClose, onSelect
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.1 }}
-          className="mt-4 p-4 bg-white/10 backdrop-blur-md rounded-xl w-full max-w-2xl"
+          className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-xl w-full max-w-2xl"
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -1396,9 +1394,8 @@ const SendModalV2: React.FC<SendModalV2Props> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
+      className="fixed inset-0 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 z-[60]"
       onClick={onClose}
-      style={{ zIndex: 2147483647 }}
     >
       <motion.div 
         initial={{ scale: 0.95, opacity: 0, y: 20 }}

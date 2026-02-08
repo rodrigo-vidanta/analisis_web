@@ -371,7 +371,7 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
   
   const inactiveStyles = isNinjaMode
     ? 'text-red-400 hover:bg-red-900/20 hover:text-red-300'
-    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800';
+    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800';
 
   return (
     <div>
@@ -442,8 +442,8 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
                 item.active
                   ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
                   : item.disabled
-                  ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  ? 'text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'
               }`}
             >
               {item.label}
@@ -830,14 +830,14 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
       {/* Overlay para móviles */}
       {!isCollapsed && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
           onClick={onToggle}
         />
       )}
 
       {/* Sidebar */}
       <motion.div 
-        className="fixed top-0 left-0 h-full bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-700 z-50 flex flex-col"
+        className="fixed top-0 left-0 h-full bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 z-50 flex flex-col"
         initial={false}
         animate={{
           width: isCollapsed ? (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 64 : 0) : 256,
@@ -853,7 +853,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         
         {/* Header del Sidebar */}
         <motion.div 
-          className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-slate-200 dark:border-slate-700`}
+          className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} p-4 border-b border-gray-200 dark:border-gray-700`}
           initial={false}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.2 }}
@@ -896,10 +896,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               </button>
               <button
                 onClick={onToggle}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 title="Expandir sidebar"
               >
-                <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
@@ -955,10 +955,10 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               
               <button
                 onClick={onToggle}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                 title="Colapsar sidebar"
               >
-                <svg className="w-5 h-5 text-slate-600 dark:text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
                 </svg>
               </button>
@@ -981,21 +981,21 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
 
         {/* Campañas - Solo para Admin */}
         {campaignsItem && (
-          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-gray-200 dark:border-gray-700'}`}>
             <MenuItem {...campaignsItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
 
         {/* Dashboard Ejecutivo - Solo Admin y Coordinadores Calidad */}
         {dashboardItem && (
-          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-gray-200 dark:border-gray-700'}`}>
             <MenuItem {...dashboardItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
 
         {/* Admin al final */}
         {adminItem && (
-          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}>
+          <div className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-gray-200 dark:border-gray-700'}`}>
             <MenuItem {...adminItem} isCollapsed={isCollapsed} isNinjaMode={isNinjaMode} />
           </div>
         )}
@@ -1003,7 +1003,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
         {/* Información del usuario si está expandido */}
         {!isCollapsed && user && (
           <motion.div 
-            className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-slate-200 dark:border-slate-700'}`}
+            className={`p-4 border-t ${isNinjaMode ? 'border-red-900/30' : 'border-gray-200 dark:border-gray-700'}`}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: 0.1 }}
@@ -1051,7 +1051,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 <p className={`text-sm font-medium truncate ${
                   isNinjaMode 
                     ? 'text-red-400' 
-                    : 'text-slate-900 dark:text-white'
+                    : 'text-gray-900 dark:text-white'
                 }`}>
                   {isNinjaMode && effectiveUser 
                     ? effectiveUser.full_name 
@@ -1062,7 +1062,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   <p className={`text-xs capitalize ${
                     isNinjaMode 
                       ? 'text-red-500/70' 
-                      : 'text-slate-500 dark:text-slate-400'
+                      : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {isNinjaMode && effectiveRoleName 
                       ? effectiveRoleName 
@@ -1070,7 +1070,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                     }
                   </p>
                   {!isNinjaMode && (user.role_name === 'productor' || isRealAdmin) && getRemainingTokens() && (
-                    <span className="text-xs text-slate-400 dark:text-slate-500">
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
                       • {getRemainingTokens()} tokens
                     </span>
                   )}

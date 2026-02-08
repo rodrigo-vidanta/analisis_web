@@ -153,7 +153,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
       <div className="glass-card p-6">
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-slate-600 dark:text-slate-400">Cargando herramientas...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando herramientas...</p>
         </div>
       </div>
     );
@@ -165,10 +165,10 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Herramientas del Agente
             </h3>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               Gestiona las herramientas disponibles para este agente
             </p>
           </div>
@@ -177,25 +177,25 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
 
       {/* Herramientas Actuales */}
       <div className="glass-card p-6">
-        <h4 className="font-medium text-slate-900 dark:text-white mb-4">
+        <h4 className="font-medium text-gray-900 dark:text-white mb-4">
           Herramientas Activas ({templateTools.length})
         </h4>
         
         {templateTools.length > 0 ? (
           <div className="space-y-3">
             {templateTools.map((agentTool) => (
-              <div key={agentTool.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+              <div key={agentTool.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    agentTool.is_enabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-slate-100 dark:bg-slate-700'
+                    agentTool.is_enabled ? 'bg-green-100 dark:bg-green-900/30' : 'bg-gray-100 dark:bg-gray-700'
                   }`}>
                     {getToolIcon(agentTool.tool?.tool_type)}
                   </div>
                   <div>
-                    <h5 className="font-medium text-slate-900 dark:text-white">
+                    <h5 className="font-medium text-gray-900 dark:text-white">
                       {agentTool.tool?.name}
                     </h5>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {agentTool.tool?.description}
                     </p>
                   </div>
@@ -207,7 +207,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
                     className={`px-3 py-1 rounded text-sm transition-colors ${
                       agentTool.is_enabled
                         ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                        : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-400'
+                        : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400'
                     }`}
                   >
                     {agentTool.is_enabled ? 'Activa' : 'Inactiva'}
@@ -226,13 +226,13 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             </div>
-            <p className="text-slate-500 dark:text-slate-400">No hay herramientas configuradas</p>
+            <p className="text-gray-500 dark:text-gray-400">No hay herramientas configuradas</p>
           </div>
         )}
       </div>
@@ -240,7 +240,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
       {/* Catálogo de Herramientas */}
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
-          <h4 className="font-medium text-slate-900 dark:text-white">
+          <h4 className="font-medium text-gray-900 dark:text-white">
             Catálogo de Herramientas ({filteredAvailableTools.length})
           </h4>
         </div>
@@ -253,13 +253,13 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
               placeholder="Buscar herramientas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="all">Todas las categorías</option>
             <option value="communication">Comunicación</option>
@@ -273,16 +273,16 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
         {filteredAvailableTools.length > 0 ? (
           <div className="space-y-3">
             {filteredAvailableTools.map((tool) => (
-              <div key={tool.id} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
+              <div key={tool.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-blue-100 dark:bg-blue-900/30">
                     {getToolIcon(tool.tool_type)}
                   </div>
                   <div>
-                    <h5 className="font-medium text-slate-900 dark:text-white">
+                    <h5 className="font-medium text-gray-900 dark:text-white">
                       {tool.name}
                     </h5>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       {tool.description}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
@@ -293,7 +293,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
                       }`}>
                         {tool.complexity}
                       </span>
-                      <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400 rounded text-xs">
+                      <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded text-xs">
                         {tool.category}
                       </span>
                     </div>
@@ -311,12 +311,12 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({ template, onUpdate }) => {
           </div>
         ) : (
           <div className="text-center py-8">
-            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </div>
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-gray-500 dark:text-gray-400">
               {searchTerm || selectedCategory !== 'all' 
                 ? 'No se encontraron herramientas con los filtros aplicados'
                 : 'No hay herramientas disponibles en el catálogo'

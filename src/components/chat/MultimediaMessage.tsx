@@ -442,11 +442,11 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
 
         return (
           <div key={index} className={`rounded-lg overflow-hidden ${
-            fileType === 'sticker' ? '' : 'bg-slate-50 dark:bg-gray-700/50'
+            fileType === 'sticker' ? '' : 'bg-gray-50 dark:bg-gray-700/50'
           }`}>
             {/* Loading State */}
             {loading && !url && (
-              <div className="flex items-center justify-center p-4 space-x-2 text-slate-600 dark:text-gray-300">
+              <div className="flex items-center justify-center p-4 space-x-2 text-gray-600 dark:text-gray-300">
                 <Loader className="w-5 h-5 animate-spin" />
                 <span className="text-sm">Cargando...</span>
               </div>
@@ -503,13 +503,13 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
 
             {/* Audio - Diseño minimalista estilo WhatsApp */}
             {url && fileType === 'audio' && (
-              <div className={`${isFromCustomer ? 'bg-white dark:bg-gray-700' : 'bg-slate-900 dark:bg-gray-800'} rounded-2xl overflow-hidden`}>
+              <div className={`${isFromCustomer ? 'bg-white dark:bg-gray-700' : 'bg-gray-900 dark:bg-gray-800'} rounded-2xl overflow-hidden`}>
                 <AudioPlayer url={url} isFromCustomer={isFromCustomer} />
                 {/* Descripción del audio si existe */}
                 {adjunto.descripcion && (
                   <div className={`px-3 pb-2 pt-1 text-sm leading-relaxed whitespace-pre-wrap ${
                     isFromCustomer 
-                      ? 'text-slate-900 dark:text-white' 
+                      ? 'text-gray-900 dark:text-white' 
                       : 'text-white'
                   }`}>
                     {adjunto.descripcion}
@@ -547,18 +547,18 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 flex items-center space-x-3 hover:bg-slate-100 dark:hover:bg-gray-600/50 transition-colors"
+                className="p-3 flex items-center space-x-3 hover:bg-gray-100 dark:hover:bg-gray-600/50 transition-colors"
               >
                 {getFileIcon(adjunto.tipo)}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {filename}
                   </p>
-                  <p className="text-xs text-slate-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     {adjunto.tipo || 'Documento'} {adjunto.timestamp ? `• ${new Date(adjunto.timestamp).toLocaleDateString()}` : ''}
                   </p>
                 </div>
-                <Download className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <Download className="w-4 h-4 text-gray-400 flex-shrink-0" />
               </a>
             )}
 
@@ -568,8 +568,8 @@ export const MultimediaMessage: React.FC<MultimediaMessageProps> = ({ adjuntos, 
             {adjunto.descripcion && url && fileType !== 'sticker' && fileType !== 'audio' && !(fileType === 'image' && isFromCustomer) && (
               <div className={`px-3 pb-2 pt-2 text-sm leading-relaxed whitespace-pre-wrap ${
                 isFromCustomer 
-                  ? 'bg-white dark:bg-gray-700 text-slate-900 dark:text-white' 
-                  : 'bg-slate-900 dark:bg-gray-800 text-white'
+                  ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white' 
+                  : 'bg-gray-900 dark:bg-gray-800 text-white'
               }`}>
                 {adjunto.descripcion}
               </div>
@@ -634,21 +634,21 @@ const AudioPlayer: React.FC<{ url: string; isFromCustomer?: boolean }> = ({ url,
   // Colores que coinciden con los mensajes del chat
   const buttonBg = isFromCustomer 
     ? 'bg-white dark:bg-gray-700' 
-    : 'bg-slate-900 dark:bg-gray-800';
+    : 'bg-gray-900 dark:bg-gray-800';
   const buttonHover = isFromCustomer
-    ? 'hover:bg-slate-50 dark:hover:bg-gray-600'
-    : 'hover:bg-slate-800 dark:hover:bg-gray-700';
+    ? 'hover:bg-gray-50 dark:hover:bg-gray-600'
+    : 'hover:bg-gray-800 dark:hover:bg-gray-700';
   const buttonIcon = isFromCustomer
-    ? 'text-slate-600 dark:text-slate-300'
+    ? 'text-gray-600 dark:text-gray-300'
     : 'text-white';
   const progressBg = isFromCustomer
-    ? 'bg-slate-200 dark:bg-gray-600'
-    : 'bg-slate-700 dark:bg-gray-600';
+    ? 'bg-gray-200 dark:bg-gray-600'
+    : 'bg-gray-700 dark:bg-gray-600';
   const progressFill = isFromCustomer
-    ? 'bg-slate-400 dark:bg-slate-400'
+    ? 'bg-gray-400 dark:bg-gray-400'
     : 'bg-white dark:bg-gray-300';
   const textColor = isFromCustomer
-    ? 'text-slate-900 dark:text-white'
+    ? 'text-gray-900 dark:text-white'
     : 'text-white';
 
   return (

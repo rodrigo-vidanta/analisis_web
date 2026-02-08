@@ -545,7 +545,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className={`fixed inset-0 bg-black bg-opacity-50 ${zIndexBackdrop}`}
+            className={`fixed inset-0 bg-black/50 backdrop-blur-sm ${zIndexBackdrop}`}
             onClick={onClose}
           />
           
@@ -620,7 +620,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                       onClick={() => {
                         onNavigateToLiveChat(prospecto.id);
                       }}
-                      className="p-2.5 rounded-full transition-all duration-200 shadow-xl bg-white/60 hover:bg-white/70 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-lg border-2 border-white/40"
+                      className="p-2.5 rounded-full transition-all duration-200 shadow-xl bg-white/60 hover:bg-white/70 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-sm border-2 border-white/40"
                       title="Ir a Live Chat (buscar o crear conversación)"
                     >
                       <MessageSquare size={20} className="text-white drop-shadow-lg" strokeWidth={2.5} />
@@ -628,7 +628,7 @@ const ProspectoSidebar: React.FC<SidebarProps> = ({
                   )}
                   <button 
                     onClick={onClose}
-                    className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-lg border-2 border-white/35"
+                    className="p-2.5 rounded-full transition-all duration-200 bg-white/55 hover:bg-white/65 text-white hover:scale-110 active:scale-95 shadow-xl backdrop-blur-sm border-2 border-white/35"
                     title="Cerrar"
                   >
                     <X size={24} className="text-white drop-shadow-lg" strokeWidth={3} />

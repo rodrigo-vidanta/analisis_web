@@ -32,7 +32,7 @@ const ThemeParticles: React.FC<{ isDark: boolean }> = ({ isDark }) => {
           }}
           transition={{ duration: 0.4, ease: "easeOut" }}
           className={`absolute left-1/2 top-1/2 w-1 h-1 rounded-full ${
-            isDark ? 'bg-amber-400/70' : 'bg-slate-400/70'
+            isDark ? 'bg-amber-400/70' : 'bg-gray-400/70'
           }`}
           style={{ marginLeft: -2, marginTop: -2 }}
         />
@@ -97,7 +97,7 @@ const MoonIcon: React.FC = () => (
     ].map((star, i) => (
       <motion.div
         key={i}
-        className="absolute bg-slate-500 dark:bg-slate-400 rounded-full"
+        className="absolute bg-gray-500 dark:bg-gray-400 rounded-full"
         style={{ 
           left: `calc(50% + ${star.x}px)`,
           top: `calc(50% + ${star.y}px)`,
@@ -114,7 +114,7 @@ const MoonIcon: React.FC = () => (
     
     {/* Luna */}
     <motion.svg 
-      className="w-5 h-5 text-slate-500 dark:text-slate-400" 
+      className="w-5 h-5 text-gray-500 dark:text-gray-400" 
       fill="currentColor" 
       viewBox="0 0 20 20"
       animate={{ rotate: [0, 3, -3, 0] }}
@@ -224,7 +224,7 @@ const LinearHeader: React.FC<LinearHeaderProps> = ({
             {/* Resplandor muy sutil */}
             <motion.div
               className={`absolute inset-0 rounded-lg pointer-events-none ${
-                darkMode ? 'bg-amber-400/5' : 'bg-slate-400/5'
+                darkMode ? 'bg-amber-400/5' : 'bg-gray-400/5'
               }`}
               animate={{ opacity: [0, 0.3, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}

@@ -448,7 +448,7 @@ export const LiveCallActivityWidget: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] pointer-events-none"
+            className="fixed inset-0 z-50 pointer-events-none"
           >
             {/* Backdrop semi-transparente */}
             <motion.div
@@ -511,7 +511,7 @@ export const LiveCallActivityWidget: React.FC = () => {
       
       {/* Cards colapsadas y cuñas minimizadas - mismo contenedor para mantener posición */}
       <div 
-        className="fixed top-0 right-0 bottom-0 z-[100] pointer-events-none"
+        className="fixed top-0 right-0 bottom-0 z-50 pointer-events-none"
         style={{ width: '320px' }}
       >
         <AnimatePresence>

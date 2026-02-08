@@ -317,13 +317,13 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-medium text-slate-900">Herramientas</h3>
-          <p className="text-sm text-slate-600">
+          <h3 className="text-lg font-medium text-gray-900">Herramientas</h3>
+          <p className="text-sm text-gray-600">
             Selecciona de la librería o crea tus propias herramientas
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="text-sm text-slate-500">
+          <div className="text-sm text-gray-500">
             {selectedTools.length} seleccionada{selectedTools.length !== 1 ? 's' : ''}
           </div>
           <button
@@ -344,7 +344,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
             className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center space-x-2 ${
               selectedCategory === cat.id
                 ? 'bg-indigo-600 text-white'
-                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
             <span>{cat.icon}</span>
@@ -354,13 +354,13 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
         <div className="ml-auto flex gap-2">
           <button
             onClick={() => setOwnerFilter('all')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='all'?'bg-slate-900 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='all'?'bg-gray-900 text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           >
             Todas
           </button>
           <button
             onClick={() => setOwnerFilter('mine')}
-            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='mine'?'bg-slate-900 text-white':'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}
+            className={`px-3 py-2 rounded-lg text-sm font-medium ${ownerFilter==='mine'?'bg-gray-900 text-white':'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
           >
             Mis herramientas
           </button>
@@ -421,14 +421,14 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
       {/* Squad Tools Section */}
       {squadEnabled && squadMembers.length > 0 && (
         <div className="space-y-4">
-          <h4 className="text-md font-medium text-slate-900">Herramientas del Squad</h4>
+          <h4 className="text-md font-medium text-gray-900">Herramientas del Squad</h4>
           <div className="space-y-4">
             {squadMembers.map((member, index) => {
               const memberTools = member.assistant?.tools || [];
               const isDetectedMember = member.id.startsWith('member-');
               
               return (
-                <div key={member.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                <div key={member.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-white text-xs ${
                       isDetectedMember ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-gradient-to-r from-blue-500 to-purple-600'
@@ -436,8 +436,8 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                       {index + 1}
                     </div>
                     <div>
-                      <h5 className="font-medium text-slate-900 dark:text-white">{member.name}</h5>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <h5 className="font-medium text-gray-900 dark:text-white">{member.name}</h5>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         {memberTools.length} herramienta{memberTools.length !== 1 ? 's' : ''}
                         {isDetectedMember && ' • Auto-detectado'}
                       </p>
@@ -447,7 +447,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                   {memberTools.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {memberTools.map((tool: any, toolIndex: number) => (
-                        <div key={toolIndex} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                        <div key={toolIndex} className="bg-white dark:bg-gray-700 rounded-lg p-3 border border-gray-200 dark:border-gray-600">
                           <div className="flex items-center gap-2 mb-2">
                             <div className="w-6 h-6 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                               <svg className="w-3 h-3 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -455,11 +455,11 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                               </svg>
                             </div>
-                            <h6 className="font-medium text-slate-900 dark:text-white text-sm">
+                            <h6 className="font-medium text-gray-900 dark:text-white text-sm">
                               {tool.name || tool.type || `Tool ${toolIndex + 1}`}
                             </h6>
                           </div>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
                             {tool.description || 'Sin descripción'}
                           </p>
                           <div className="mt-2">
@@ -471,7 +471,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">
                       No hay herramientas configuradas para este miembro
                     </p>
                   )}
@@ -496,14 +496,14 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                 className={`border rounded-lg p-4 cursor-pointer transition-all ${
                   isSelected
                     ? 'border-emerald-200 bg-emerald-50'
-                    : 'border-slate-200 bg-white hover:border-indigo-300 hover:bg-indigo-50'
+                    : 'border-gray-200 bg-white hover:border-indigo-300 hover:bg-indigo-50'
                 }`}
                 onClick={() => !isSelected && toggleTool(tool)}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
-                      <h5 className="text-sm font-medium text-slate-900">{tool.name}</h5>
+                      <h5 className="text-sm font-medium text-gray-900">{tool.name}</h5>
                       <span className={`px-2 py-1 text-xs rounded-full ${
                         tool.complexity === 'simple' ? 'bg-green-100 text-green-700' :
                         tool.complexity === 'medium' ? 'bg-yellow-100 text-yellow-700' :
@@ -512,13 +512,13 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                         {tool.complexity}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 mb-2">{tool.description}</p>
+                    <p className="text-xs text-gray-600 mb-2">{tool.description}</p>
                     {tool.tool_type === 'function' && (
-                      <p className="text-[11px] text-slate-500">{tool.config?.server?.url || 'sin servidor'}</p>
+                      <p className="text-[11px] text-gray-500">{tool.config?.server?.url || 'sin servidor'}</p>
                     )}
                     <div className="flex flex-wrap gap-1">
                       {tool.keywords.slice(0, 3).map((keyword, idx) => (
-                        <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded">
+                        <span key={idx} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
                           {keyword}
                         </span>
                       ))}
@@ -531,7 +531,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                         <span className="text-white text-xs">✓</span>
                       </div>
                     ) : (
-                      <div className="w-6 h-6 border-2 border-slate-300 rounded-full"></div>
+                      <div className="w-6 h-6 border-2 border-gray-300 rounded-full"></div>
                     )}
                   </div>
                 </div>
@@ -541,7 +541,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
         </div>
 
         {filteredTools.length === 0 && (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-gray-500">
             No hay herramientas disponibles para esta categoría.
           </div>
         )}
@@ -549,19 +549,19 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
 
       {/* Modal Crear Herramienta */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
             <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold text-slate-900">Nueva herramienta</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Nueva herramienta</h3>
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Nombre</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                 <input className="w-full px-3 py-2 border rounded-md" value={newToolData.name} onChange={e=>setNewToolData({...newToolData,name:e.target.value})} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
                   <select className="w-full px-3 py-2 border rounded-md" value={newToolData.tool_type} onChange={e=>setNewToolData({...newToolData,tool_type:e.target.value as any})}>
                     <option value="function">Función</option>
                     <option value="transferCall">Transferencia</option>
@@ -569,7 +569,7 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Categoría</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
                   <select className="w-full px-3 py-2 border rounded-md" value={newToolData.category} onChange={e=>setNewToolData({...newToolData,category:e.target.value})}>
                     {toolCategories.filter(t=>t.id!=='all').map(t=> (
                       <option key={t.id} value={t.id}>{t.name}</option>
@@ -578,16 +578,16 @@ const ToolsSelector: React.FC<ToolsSelectorProps> = ({ selectedTools, category, 
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descripción</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                 <textarea className="w-full px-3 py-2 border rounded-md" rows={2} value={newToolData.description} onChange={e=>setNewToolData({...newToolData,description:e.target.value})} />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Config (JSON)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Config (JSON)</label>
                 <textarea className="w-full px-3 py-2 border rounded-md font-mono text-xs" rows={6} value={newToolData.configText} onChange={e=>setNewToolData({...newToolData,configText:e.target.value})} />
               </div>
             </div>
             <div className="p-6 border-t flex justify-end gap-3">
-              <button className="px-4 py-2 bg-slate-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
+              <button className="px-4 py-2 bg-gray-100 rounded-md" onClick={()=>setShowCreateModal(false)}>Cancelar</button>
               <button className="px-4 py-2 bg-indigo-600 text-white rounded-md" onClick={async ()=>{
                 try {
                   const cfg = JSON.parse(newToolData.configText||'{}');

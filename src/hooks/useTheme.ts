@@ -99,25 +99,25 @@ export const useTheme = () => {
       buttonPrimary: isLinear ? 'linear-button linear-button-primary' : 'btn-modern bg-blue-500 hover:bg-blue-600 text-white',
       
       // Sidebar - Ajustado para modo claro menos brillante
-      sidebar: isLinear ? 'linear-sidebar' : 'bg-slate-50 dark:bg-slate-800',
+      sidebar: isLinear ? 'linear-sidebar' : 'bg-gray-50 dark:bg-gray-800',
       
       // Backgrounds - Ajustado para modo claro menos brillante (WCAG compliant)
       background: isLinear 
-        ? 'bg-slate-100 dark:bg-slate-900' 
-        : 'bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800',
+        ? 'bg-gray-100 dark:bg-gray-900' 
+        : 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900 dark:to-gray-800',
       
       // Text colors
       textPrimary: isLinear 
-        ? 'text-slate-900 dark:text-slate-50' 
-        : 'text-slate-900 dark:text-white',
+        ? 'text-gray-900 dark:text-gray-50' 
+        : 'text-gray-900 dark:text-white',
       textSecondary: isLinear 
-        ? 'text-slate-500 dark:text-slate-400' 
-        : 'text-slate-600 dark:text-slate-400',
+        ? 'text-gray-500 dark:text-gray-400' 
+        : 'text-gray-600 dark:text-gray-400',
       
       // Borders
       border: isLinear 
-        ? 'border-slate-200 dark:border-slate-700' 
-        : 'border-slate-200 dark:border-slate-700'
+        ? 'border-gray-200 dark:border-gray-700' 
+        : 'border-gray-200 dark:border-gray-700'
     };
   };
 

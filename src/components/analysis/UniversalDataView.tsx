@@ -242,11 +242,11 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
   
   const renderValue = (value: any, key: string = ''): React.ReactNode => {
     if (value === null || value === undefined) {
-      return <span className="text-slate-400 dark:text-slate-500 italic">No especificado</span>;
+      return <span className="text-gray-400 dark:text-gray-500 italic">No especificado</span>;
     }
     
     if (value === '') {
-      return <span className="text-slate-400 dark:text-slate-500 italic">Vacío</span>;
+      return <span className="text-gray-400 dark:text-gray-500 italic">Vacío</span>;
     }
     
     if (typeof value === 'boolean') {
@@ -259,7 +259,7 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
     
     if (Array.isArray(value)) {
       if (value.length === 0) {
-        return <span className="text-slate-400 dark:text-slate-500 italic">Lista vacía</span>;
+        return <span className="text-gray-400 dark:text-gray-500 italic">Lista vacía</span>;
       }
       return (
         <div className="flex flex-wrap gap-1">
@@ -277,10 +277,10 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
         <div className="space-y-2">
           {Object.entries(value).map(([subKey, subValue]) => (
             <div key={subKey} className="flex justify-between items-start">
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+              <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
                 {subKey.replace(/([A-Z])/g, ' $1')}:
               </span>
-              <div className="text-sm text-slate-900 dark:text-white ml-2 flex-1 text-right">
+              <div className="text-sm text-gray-900 dark:text-white ml-2 flex-1 text-right">
                 {renderValue(subValue, subKey)}
               </div>
             </div>
@@ -289,7 +289,7 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
       );
     }
     
-    return <span className="text-slate-900 dark:text-white">{String(value)}</span>;
+    return <span className="text-gray-900 dark:text-white">{String(value)}</span>;
   };
   
   // ============================================
@@ -303,13 +303,13 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
     return (
       <div className={`space-y-4 ${className}`}>
         {/* Header principal */}
-        <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
+        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
               {icon}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {title}
               </h2>
               <p className="text-sm text-yellow-600 dark:text-yellow-400">
@@ -321,14 +321,14 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
         
         {/* Mostrar estructura esperada */}
         {expectedStructure && (
-          <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border border-slate-200 dark:border-slate-700">
-            <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3">
+          <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
               Estructura esperada de datos:
             </h3>
             <div className="space-y-2">
               {expectedStructure.map((section, index) => (
-                <div key={index} className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
-                  <div className="w-2 h-2 bg-slate-300 dark:bg-slate-600 rounded-full"></div>
+                <div key={index} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="w-2 h-2 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
                   <span>{section}</span>
                 </div>
               ))}
@@ -381,21 +381,21 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
       
       {/* Header principal - Solo mostrar si hay título */}
       {title && (
-        <div className={`bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 rounded-lg p-4 ${
+        <div className={`bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-lg p-4 ${
           title === 'Datos de Compliance' || title === 'Evaluación General de la Llamada' || 
           title === 'Información del Cliente' || title === 'Servicio Ofrecido' || title === 'Datos de Comunicación'
             ? '' 
-            : 'border border-slate-200 dark:border-slate-700'
+            : 'border border-gray-200 dark:border-gray-700'
         }`}>
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
               {icon}
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {title}
               </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 {sections.length} secciones disponibles
               </p>
             </div>
@@ -410,37 +410,37 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
           const hasData = hasValue(section.data);
           
           return (
-            <div key={section.key || `section-${sectionIndex}`} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+            <div key={section.key || `section-${sectionIndex}`} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
               
               {/* Header de sección */}
               <button
                 onClick={() => toggleSection(section.key)}
-                className="w-full p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-6 h-6 rounded flex items-center justify-center ${
                     hasData 
                       ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400' 
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-400'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-400'
                   }`}>
                     {section.icon}
                   </div>
                   
                   <div className="text-left">
-                    <h3 className="font-medium text-slate-900 dark:text-white">
+                    <h3 className="font-medium text-gray-900 dark:text-white">
                       {section.title}
                     </h3>
                     
                     {/* Highlights cuando está colapsado */}
                     {!isExpanded && section.highlights && section.highlights.length > 0 && (
-                      <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {section.highlights.slice(0, 2).join(' • ')}
                         {section.highlights.length > 2 && '...'}
                       </div>
                     )}
                     
                     {!isExpanded && !hasData && (
-                      <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                      <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                         Sin información disponible
                       </div>
                     )}
@@ -450,12 +450,12 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
                 <div className="flex items-center gap-2">
                   {/* Indicador de datos */}
                   <div className={`w-2 h-2 rounded-full ${
-                    hasData ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
+                    hasData ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'
                   }`}></div>
                   
                   {/* Flecha */}
                   <svg 
-                    className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
+                    className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} 
                     fill="none" 
                     stroke="currentColor" 
                     viewBox="0 0 24 24"
@@ -467,22 +467,22 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
               
               {/* Contenido expandido */}
               {isExpanded && (
-                <div className="border-t border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900">
+                <div className="border-t border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-900">
                   {typeof section.data === 'object' && section.data !== null ? (
                     <div className="space-y-3">
                       {Object.entries(section.data).map(([key, value]) => (
-                        <div key={key} className="flex justify-between items-start py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                          <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize flex-shrink-0 w-1/3">
+                        <div key={key} className="flex justify-between items-start py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                          <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize flex-shrink-0 w-1/3">
                             {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
                           </span>
-                          <div className="text-sm text-slate-900 dark:text-white ml-4 flex-1">
+                          <div className="text-sm text-gray-900 dark:text-white ml-4 flex-1">
                             {renderValue(value, key)}
                           </div>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-sm text-slate-900 dark:text-white">
+                    <div className="text-sm text-gray-900 dark:text-white">
                       {renderValue(section.data)}
                     </div>
                   )}
@@ -504,7 +504,7 @@ const UniversalDataView: React.FC<UniversalDataViewProps> = ({
               setExpandedSections(new Set(sections.map(s => s.key)));
             }
           }}
-          className="px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors text-sm font-medium"
+          className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
         >
           {expandedSections.size === sections.length ? 'Colapsar Todo' : 'Expandir Todo'}
         </button>

@@ -602,7 +602,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className={selectedAnalysis === 'pqnc' ? 'w-full px-6 py-8' : 'max-w-7xl mx-auto px-6 py-8'}>
 
         {/* Renderizado Condicional */}
@@ -631,14 +631,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
             </div>
 
             {/* Controles de Búsqueda y Filtros */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-6 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-6 mb-8">
         <div className="flex items-center gap-3 mb-6">
           <div className="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg">
             <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Búsqueda y Filtros
           </h2>
         </div>
@@ -646,7 +646,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {/* Búsqueda por ID específico */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Buscar por Call ID
             </label>
             <div className="flex space-x-2">
@@ -656,12 +656,12 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                 onChange={(e) => setSearchCallId(e.target.value)}
                 onKeyUp={(e) => e.key === 'Enter' && searchById()}
                 placeholder="Ingrese el Call ID..."
-                className="flex-1 px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
               />
               <button 
                 onClick={searchById}
                 disabled={!searchCallId}
-                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-slate-400 transition duration-200"
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-400 transition duration-200"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -672,7 +672,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
           {/* Cargar últimos registros */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Cargar Registros Recientes
             </label>
             <div className="flex space-x-2">
@@ -699,14 +699,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
           {/* Filtro por fecha */}
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Filtrar por Fecha
             </label>
             <input 
               type="date" 
               value={filterDate}
               onChange={(e) => setFilterDate(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             />
           </div>
         </div>
@@ -714,7 +714,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
         {/* Filtros adicionales */}
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Score Mínimo
             </label>
             <div className="flex items-center space-x-3">
@@ -727,20 +727,20 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                 onChange={(e) => setMinScore(Number(e.target.value))}
                 className="flex-1"
               />
-              <span className="text-sm font-semibold w-12 text-center text-slate-700 dark:text-slate-300">
+              <span className="text-sm font-semibold w-12 text-center text-gray-700 dark:text-gray-300">
                 {minScore}
               </span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Categoría
             </label>
             <select 
               value={filterCategory} 
               onChange={(e) => setFilterCategory(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="">Todas las categorías</option>
               <option value="EXCELENTE">Excelente</option>
@@ -753,13 +753,13 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Nivel de Interés
             </label>
             <select 
               value={filterInteres} 
               onChange={(e) => setFilterInteres(e.target.value)}
-              className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition-colors"
             >
               <option value="">Todos los niveles</option>
               <option value="MUY_ALTO">Muy Alto</option>
@@ -791,7 +791,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 ${
                 showOnlyIntelligent 
                   ? 'bg-emerald-600' 
-                  : 'bg-slate-200 dark:bg-slate-600'
+                  : 'bg-gray-200 dark:bg-gray-600'
               }`}
             >
               <span
@@ -840,10 +840,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
       {/* Tabla de Resultados */}
       {!loading && filteredData.length > 0 && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 <svg className="w-5 h-5 inline mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -863,39 +863,39 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
           
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-50 dark:bg-slate-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Call ID
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Fecha
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Score
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Categoría
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Checkpoint
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Nivel Interés
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Resultado
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredData.map((record) => (
                   <tr 
                     key={record.analysis_id}
-                    className="hover:bg-slate-50 dark:hover:bg-slate-700 cursor-pointer transition-colors"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
                     onClick={() => viewDetail(record)}
                   >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                       <div className="flex items-center">
                         <span 
                           title={record.call_id}
@@ -914,7 +914,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(record.created_at).toLocaleDateString('es-MX')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
@@ -946,10 +946,10 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center">
                       <div className="flex items-center justify-center">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300 mr-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-2">
                           {record.checkpoint_alcanzado || 0}
                         </span>
-                        <div className="w-20 bg-slate-200 dark:bg-slate-600 rounded-full h-2">
+                        <div className="w-20 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                           <div 
                             className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full" 
                             style={{ width: `${(record.checkpoint_alcanzado || 0) * 10}%` }}
@@ -968,7 +968,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                         {record.nivel_interes_detectado ? record.nivel_interes_detectado.replace('_', ' ') : 'No detectado'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-slate-500 dark:text-slate-400">
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500 dark:text-gray-400">
                       {(record.resultado_llamada || 'Sin resultado').substring(0, 50)}...
                     </td>
                   </tr>
@@ -981,14 +981,14 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
 
       {/* Mensaje cuando no hay datos */}
       {!loading && filteredData.length === 0 && !error && (
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 p-12 text-center">
-          <div className="flex items-center justify-center w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-12 text-center">
+          <div className="flex items-center justify-center w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414a1 1 0 00-.707-.293H4" />
             </svg>
           </div>
-          <h3 className="text-xl font-semibold text-slate-600 dark:text-slate-300 mb-2">No se encontraron registros</h3>
-          <p className="text-slate-500 dark:text-slate-400">Intenta ajustar los filtros o cargar más registros</p>
+          <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-300 mb-2">No se encontraron registros</h3>
+          <p className="text-gray-500 dark:text-gray-400">Intenta ajustar los filtros o cargar más registros</p>
         </div>
       )}
 
@@ -1000,7 +1000,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:p-6"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowDetailModal(false);
@@ -1126,7 +1126,7 @@ const AnalysisDashboard: React.FC<AnalysisDashboardProps> = ({ forceMode }) => {
                       />
                     </svg>
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-3xl font-bold text-slate-800 dark:text-slate-200">
+                      <span className="text-3xl font-bold text-gray-800 dark:text-gray-200">
                         {parseFloat(selectedRecord.score_general.toString()).toFixed(0)}
                       </span>
                     </div>

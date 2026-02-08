@@ -604,7 +604,7 @@ const DynamicsCRMManager: React.FC = () => {
   // Estado de carga de permisos
   if (isCheckingAccess) {
     return (
-      <div className="h-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
           <p className="text-gray-500 dark:text-gray-400">Verificando permisos...</p>
@@ -616,7 +616,7 @@ const DynamicsCRMManager: React.FC = () => {
   // Sin acceso al módulo
   if (!hasAccess) {
     return (
-      <div className="h-full flex items-center justify-center bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+      <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -652,7 +652,7 @@ const DynamicsCRMManager: React.FC = () => {
   }
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       {/* Header */}
       <div className="flex-shrink-0 px-6 py-5 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
         <div className="flex items-center justify-between">
@@ -858,7 +858,7 @@ const DynamicsCRMManager: React.FC = () => {
         </div>
 
         {/* Panel de comparación */}
-        <div className="w-1/2 flex flex-col bg-gradient-to-br from-slate-50 to-white dark:from-gray-900 dark:to-gray-800">
+        <div className="w-1/2 flex flex-col bg-gradient-to-br from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
           <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/50">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1181,7 +1181,7 @@ const DynamicsCRMManager: React.FC = () => {
                     
                     {/* Coordinadores */}
                     {ejecutivosFiltered.filter(e => e.is_coordinator === true).length > 0 && (
-                      <option disabled className="text-slate-500 font-semibold">── Coordinadores ──</option>
+                      <option disabled className="text-gray-500 font-semibold">── Coordinadores ──</option>
                     )}
                     {ejecutivosFiltered
                       .filter(e => e.is_coordinator === true)
@@ -1193,7 +1193,7 @@ const DynamicsCRMManager: React.FC = () => {
                     
                     {/* Supervisores */}
                     {ejecutivosFiltered.filter(e => e.is_supervisor === true).length > 0 && (
-                      <option disabled className="text-slate-500 font-semibold">── Supervisores ──</option>
+                      <option disabled className="text-gray-500 font-semibold">── Supervisores ──</option>
                     )}
                     {ejecutivosFiltered
                       .filter(e => e.is_supervisor === true)
@@ -1205,7 +1205,7 @@ const DynamicsCRMManager: React.FC = () => {
                     
                     {/* Ejecutivos activos */}
                     {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true).length > 0 && (
-                      <option disabled className="text-slate-500 font-semibold">── Ejecutivos ──</option>
+                      <option disabled className="text-gray-500 font-semibold">── Ejecutivos ──</option>
                     )}
                     {ejecutivosFiltered
                       .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true)
@@ -1217,18 +1217,18 @@ const DynamicsCRMManager: React.FC = () => {
                     
                     {/* Ejecutivos inactivos (deshabilitados) */}
                     {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active !== true).length > 0 && (
-                      <option disabled className="text-slate-400">── No disponibles ──</option>
+                      <option disabled className="text-gray-400">── No disponibles ──</option>
                     )}
                     {ejecutivosFiltered
                       .filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active !== true)
                       .map(e => (
-                        <option key={e.id} value={e.id} disabled className="text-slate-400">
+                        <option key={e.id} value={e.id} disabled className="text-gray-400">
                           {e.full_name} (Inactivo)
                         </option>
                       ))}
                   </select>
                   {selectedCoordinacion && ejecutivosFiltered.length > 0 && (
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="mt-1 text-xs text-gray-400">
                       {ejecutivosFiltered.filter(e => e.is_coordinator === true).length} coordinadores, {ejecutivosFiltered.filter(e => e.is_supervisor === true).length} supervisores, {ejecutivosFiltered.filter(e => !e.is_coordinator && !e.is_supervisor && e.is_active === true).length} ejecutivos activos
                     </p>
                   )}

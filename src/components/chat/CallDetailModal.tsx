@@ -228,7 +228,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[110]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           
@@ -237,7 +237,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-[110] overflow-hidden"
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex flex-col h-full">
               {/* Header */}
@@ -257,7 +257,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
                 </div>
                 <button 
                   onClick={onClose}
-                  className="p-2 rounded-full transition-all duration-200 bg-white/35 hover:bg-white/45 text-white hover:scale-110 active:scale-95 shadow-md backdrop-blur-md border border-white/25 relative z-10"
+                  className="p-2 rounded-full transition-all duration-200 bg-white/35 hover:bg-white/45 text-white hover:scale-110 active:scale-95 shadow-md backdrop-blur-sm border border-white/25 relative z-10"
                   title="Cerrar"
                 >
                   <X size={24} className="text-white drop-shadow-md" strokeWidth={2.5} />

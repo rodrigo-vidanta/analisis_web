@@ -1394,7 +1394,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={onClose}
         >
           <motion.div
@@ -1650,7 +1650,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                       formData.con_menores === true
                         ? 'border-pink-500 bg-pink-50 dark:bg-pink-900/30'
                         : formData.con_menores === false
-                          ? 'border-slate-500 bg-slate-50 dark:bg-slate-900/30'
+                          ? 'border-gray-500 bg-gray-50 dark:bg-gray-900/30'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }`}
                   >
@@ -1658,14 +1658,14 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
                       formData.con_menores === true 
                         ? 'text-pink-600 dark:text-pink-400' 
                         : formData.con_menores === false
-                          ? 'text-slate-600 dark:text-slate-400'
+                          ? 'text-gray-600 dark:text-gray-400'
                           : 'text-gray-500 dark:text-gray-400'
                     }`} />
                     <span className={`text-xs font-medium ${
                       formData.con_menores === true 
                         ? 'text-pink-700 dark:text-pink-300' 
                         : formData.con_menores === false
-                          ? 'text-slate-700 dark:text-slate-300'
+                          ? 'text-gray-700 dark:text-gray-300'
                           : 'text-gray-600 dark:text-gray-400'
                     }`}>
                       {formData.con_menores === true ? 'Con menores' : formData.con_menores === false ? 'Sin menores' : 'Menores'}

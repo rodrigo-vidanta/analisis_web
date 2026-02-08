@@ -793,7 +793,7 @@ const LiveChatAnalytics: React.FC = () => {
 
   if (!analytics) {
     return (
-      <div className="flex items-center justify-center h-96 text-slate-500">
+      <div className="flex items-center justify-center h-96 text-gray-500">
         No hay datos disponibles
       </div>
     );
@@ -807,18 +807,18 @@ const LiveChatAnalytics: React.FC = () => {
       {/* Filtro de tiempo */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Analíticas</h2>
-          <p className="text-sm text-slate-500 dark:text-gray-400 mt-1">Métricas y estadísticas del sistema de chat</p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Analíticas</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Métricas y estadísticas del sistema de chat</p>
         </div>
-        <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-1">
+        <div className="flex items-center space-x-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-1">
           {(['7d', '30d', '90d'] as const).map(range => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
               className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                 timeRange === range
-                  ? 'bg-slate-900 dark:bg-gray-700 text-white'
-                  : 'text-slate-600 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
+                  ? 'bg-gray-900 dark:bg-gray-700 text-white'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
               }`}
             >
               {range}
@@ -988,7 +988,7 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, previous, icon: I
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl p-6"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6"
     >
       <div className="flex items-center justify-between mb-4">
         <div className={`p-2 rounded-lg ${colorClasses[color]}`}>
@@ -1003,10 +1003,10 @@ const MetricCard: React.FC<MetricCardProps> = ({ title, value, previous, icon: I
           </div>
         )}
       </div>
-      <div className="text-2xl font-semibold text-slate-900 dark:text-white mb-1">
+      <div className="text-2xl font-semibold text-gray-900 dark:text-white mb-1">
         {displayValue}
       </div>
-      <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wide">
+      <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">
         {title}
       </div>
     </motion.div>
@@ -1025,15 +1025,15 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, icon: Icon, description, c
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl p-6"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6"
     >
       <div className="flex items-center space-x-3 mb-4">
-        <div className="p-2 bg-slate-100 dark:bg-gray-700 rounded-lg">
-          <Icon className="w-5 h-5 text-slate-600 dark:text-gray-300" />
+        <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+          <Icon className="w-5 h-5 text-gray-600 dark:text-gray-300" />
         </div>
         <div>
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">{title}</h3>
-          <p className="text-xs text-slate-500 dark:text-gray-400">{description}</p>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white">{title}</h3>
+          <p className="text-xs text-gray-500 dark:text-gray-400">{description}</p>
         </div>
       </div>
       {children}
@@ -1052,15 +1052,15 @@ const DetailCard: React.FC<DetailCardProps> = ({ title, value, icon: Icon }) => 
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-lg p-4"
+      className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
     >
       <div className="flex items-center space-x-3">
-        <div className="p-2 bg-slate-100 dark:bg-gray-700 rounded-lg">
-          <Icon className="w-4 h-4 text-slate-600 dark:text-gray-300" />
+        <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+          <Icon className="w-4 h-4 text-gray-600 dark:text-gray-300" />
         </div>
         <div className="flex-1">
-          <div className="text-sm font-semibold text-slate-900 dark:text-white">{value}</div>
-          <div className="text-xs text-slate-500 dark:text-gray-400">{title}</div>
+          <div className="text-sm font-semibold text-gray-900 dark:text-white">{value}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{title}</div>
         </div>
       </div>
     </motion.div>

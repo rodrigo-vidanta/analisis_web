@@ -356,10 +356,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Tipo de Agente
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 ¿Cómo funcionará tu agente?
               </p>
             </div>
@@ -399,15 +399,15 @@ Tu empresa: ${agentConfig.companyDescription}`,
                 >
                   <div className="text-center">
                     <div className="text-4xl mb-4">{option.icon}</div>
-                    <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                       {option.title}
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                       {option.description}
                     </p>
                     <div className="space-y-1">
                       {option.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-center text-xs text-slate-500">
+                        <div key={idx} className="flex items-center text-xs text-gray-500">
                           <div className="w-1.5 h-1.5 bg-indigo-500 rounded-full mr-2"></div>
                           {feature}
                         </div>
@@ -429,10 +429,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Información de la Empresa
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Cuéntanos sobre tu empresa y agente
               </p>
             </div>
@@ -440,7 +440,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
             <div className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Nombre del Agente
                   </label>
                   <input
@@ -448,12 +448,12 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     value={agentConfig.name}
                     onChange={(e) => updateConfig('name', e.target.value)}
                     placeholder="Ej: Asistente de Ventas"
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Nombre de la Empresa
                   </label>
                   <input
@@ -461,13 +461,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     value={agentConfig.companyName}
                     onChange={(e) => updateConfig('companyName', e.target.value)}
                     placeholder="Ej: TechSolutions Corp"
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Descripción de la Empresa
                 </label>
                 <textarea
@@ -475,12 +475,12 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   onChange={(e) => updateConfig('companyDescription', e.target.value)}
                   placeholder="Describe tu empresa: ubicación, sucursales, historia, valores..."
                   rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Producto o Servicio
                 </label>
                 <textarea
@@ -488,27 +488,27 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   onChange={(e) => updateConfig('productService', e.target.value)}
                   placeholder="Describe detalladamente qué vendes o qué servicio ofreces..."
                   rows={3}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none"
                 />
               </div>
 
               {/* Horarios de servicio */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                   Horarios de Servicio
                 </label>
                 <div className="space-y-3">
                   {daysOfWeek.map((day) => (
-                    <div key={day.key} className="flex items-center space-x-4 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg">
+                    <div key={day.key} className="flex items-center space-x-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                       <div className="w-20">
                         <label className="flex items-center">
                           <input
                             type="checkbox"
                             checked={agentConfig.businessHours[day.key].enabled}
                             onChange={(e) => updateBusinessHours(day.key, 'enabled', e.target.checked)}
-                            className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
-                          <span className="ml-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                          <span className="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                             {day.label}
                           </span>
                         </label>
@@ -520,14 +520,14 @@ Tu empresa: ${agentConfig.companyDescription}`,
                             type="time"
                             value={agentConfig.businessHours[day.key].start}
                             onChange={(e) => updateBusinessHours(day.key, 'start', e.target.value)}
-                            className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-md text-sm"
+                            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm"
                           />
-                          <span className="text-slate-500">a</span>
+                          <span className="text-gray-500">a</span>
                           <input
                             type="time"
                             value={agentConfig.businessHours[day.key].end}
                             onChange={(e) => updateBusinessHours(day.key, 'end', e.target.value)}
-                            className="px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-md text-sm"
+                            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm"
                           />
                         </div>
                       )}
@@ -548,10 +548,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Configuración de Número
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 {agentConfig.type === 'inbound' && 'Número desde el cual recibirás las llamadas'}
                 {agentConfig.type === 'outbound' && 'Número desde el cual se realizarán las llamadas'}
                 {agentConfig.type === 'both' && 'Número principal para tu agente'}
@@ -561,13 +561,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
             <div className="modern-card p-6">
               <div className="grid md:grid-cols-2 gap-6 mb-6">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     País
                   </label>
                   <select
                     value={agentConfig.countryCode}
                     onChange={(e) => updateConfig('countryCode', e.target.value)}
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="MX">🇲🇽 México (+52)</option>
                     <option value="US">🇺🇸 Estados Unidos (+1)</option>
@@ -575,7 +575,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Tipo de Número
                   </label>
                   <div className="flex items-center space-x-4 pt-2">
@@ -585,9 +585,9 @@ Tu empresa: ${agentConfig.companyDescription}`,
                         name="phone-type"
                         checked={!agentConfig.isBYO}
                         onChange={() => updateConfig('isBYO', false)}
-                        className="text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                        className="text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">Nuevo</span>
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Nuevo</span>
                     </label>
                     <label className="flex items-center">
                       <input
@@ -595,22 +595,22 @@ Tu empresa: ${agentConfig.companyDescription}`,
                         name="phone-type"
                         checked={agentConfig.isBYO}
                         onChange={() => updateConfig('isBYO', true)}
-                        className="text-indigo-600 border-slate-300 focus:ring-indigo-500"
+                        className="text-indigo-600 border-gray-300 focus:ring-indigo-500"
                       />
-                      <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">BYO (Bring Your Own)</span>
+                      <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">BYO (Bring Your Own)</span>
                     </label>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Número de Teléfono
                   {agentConfig.isBYO && <span className="text-xs text-indigo-600 ml-2">(BYO - Bring Your Own)</span>}
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-slate-500 text-sm">
+                    <span className="text-gray-500 text-sm">
                       {agentConfig.countryCode === 'MX' ? '🇲🇽 +52' : '🇺🇸 +1'}
                     </span>
                   </div>
@@ -621,14 +621,14 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     placeholder={agentConfig.countryCode === 'MX' ? '5512345678' : '5551234567'}
                     maxLength={10}
                     pattern="[0-9]{10}"
-                    className="w-full pl-20 pr-4 py-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg font-mono"
+                    className="w-full pl-20 pr-4 py-3 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-lg font-mono"
                   />
                 </div>
                 <div className="flex justify-between items-center mt-2">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
                     Ingresa 10 dígitos sin espacios ni caracteres especiales
                   </p>
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     <span className="font-mono">
                       {agentConfig.phoneNumber 
                         ? `${agentConfig.countryCode === 'MX' ? '+52' : '+1'}${agentConfig.phoneNumber}` 
@@ -651,23 +651,23 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Personalidad y Voz
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Define cómo sonará tu agente
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Personalidad
                 </label>
                 <select
                   value={agentConfig.personality}
                   onChange={(e) => updateConfig('personality', e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="profesional">Profesional</option>
                   <option value="amigable">Amigable</option>
@@ -678,13 +678,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Idioma
                 </label>
                 <select
                   value={agentConfig.language}
                   onChange={(e) => updateConfig('language', e.target.value)}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="es">Español</option>
                   <option value="en">Inglés</option>
@@ -693,7 +693,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">
                 Selecciona una Voz
               </label>
               <div className="grid md:grid-cols-2 gap-4">
@@ -709,7 +709,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   >
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="font-medium text-slate-900 dark:text-white">
+                        <h3 className="font-medium text-gray-900 dark:text-white">
                           {voice.name}
                         </h3>
                       </div>
@@ -732,13 +732,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Modelo de IA
               </label>
               <select
                 value={agentConfig.model}
                 onChange={(e) => updateConfig('model', e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="gpt-4">GPT-4 (Recomendado)</option>
                 <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
@@ -757,10 +757,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Plantillas de Agente
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Selecciona una plantilla predefinida o personaliza
               </p>
             </div>
@@ -783,10 +783,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     <div className="flex items-center space-x-3">
                       <div className="text-2xl">{template.icon}</div>
                       <div>
-                        <h3 className="font-semibold text-slate-900 dark:text-white">
+                        <h3 className="font-semibold text-gray-900 dark:text-white">
                           {template.name}
                         </h3>
-                        <p className="text-xs text-slate-500 capitalize">
+                        <p className="text-xs text-gray-500 capitalize">
                           {template.personality}
                         </p>
                       </div>
@@ -798,7 +798,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
                         // Abrir modal de personalización
                         console.log('Personalizar plantilla:', template.id);
                       }}
-                      className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                       title="Personalizar"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -807,11 +807,11 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     </button>
                   </div>
                   
-                  <p className="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
                     {template.description}
                   </p>
                   
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     {template.category === 'sales' && '💼 Ventas'}
                     {template.category === 'collection' && '💳 Cobranza'}
                     {template.category === 'support' && '🔧 Soporte'}
@@ -823,17 +823,17 @@ Tu empresa: ${agentConfig.companyDescription}`,
 
             {agentConfig.selectedTemplate && (
               <div className="modern-card p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Prompt del Sistema (Personalizable)
                 </h3>
                 <textarea
                   value={agentConfig.customSystemPrompt}
                   onChange={(e) => updateConfig('customSystemPrompt', e.target.value)}
                   rows={8}
-                  className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none text-sm"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all resize-none text-sm"
                   placeholder="El prompt del sistema se adaptará automáticamente con la información de tu empresa..."
                 />
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Las modificaciones se guardarán solo para esta sesión
                 </p>
               </div>
@@ -850,10 +850,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Configuraciones Avanzadas
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Configuración de fin de llamada y transferencias
               </p>
             </div>
@@ -863,10 +863,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
               <div className="modern-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                       Fin de Llamada *
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Permite que el agente termine la llamada (Requerido)
                     </p>
                   </div>
@@ -877,12 +877,12 @@ Tu empresa: ${agentConfig.companyDescription}`,
                       onChange={(e) => updateNestedConfig('endCallConfig', 'enabled', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Frase de Despedida * (Obligatoria)
                   </label>
                   <input
@@ -890,7 +890,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
                     value={agentConfig.endCallConfig.phrase}
                     onChange={(e) => updateNestedConfig('endCallConfig', 'phrase', e.target.value)}
                     placeholder="Gracias por llamar. ¡Que tengas un buen día!"
-                    className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     required
                   />
                 </div>
@@ -900,10 +900,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
               <div className="modern-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">
                       Transferencia de Llamadas
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
                       Permite transferir llamadas a un número específico
                     </p>
                   </div>
@@ -914,14 +914,14 @@ Tu empresa: ${agentConfig.companyDescription}`,
                       onChange={(e) => updateNestedConfig('transferConfig', 'enabled', e.target.checked)}
                       className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                   </label>
                 </div>
                 
                 {agentConfig.transferConfig.enabled && (
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Número de Transferencia
                       </label>
                       <input
@@ -929,16 +929,16 @@ Tu empresa: ${agentConfig.companyDescription}`,
                         value={agentConfig.transferConfig.phone}
                         onChange={(e) => updateNestedConfig('transferConfig', 'phone', e.target.value)}
                         placeholder="+1234567890"
-                        className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                       />
                     </div>
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                           ¿Tiene Extensión?
                         </h4>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           Agregar extensión al número de transferencia
                         </p>
                       </div>
@@ -949,13 +949,13 @@ Tu empresa: ${agentConfig.companyDescription}`,
                           onChange={(e) => updateNestedConfig('transferConfig', 'hasExtension', e.target.checked)}
                           className="sr-only peer"
                         />
-                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-indigo-600"></div>
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
                       </label>
                     </div>
 
                     {agentConfig.transferConfig.hasExtension && (
                       <div>
-                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                           Extensión (máximo 8 dígitos)
                         </label>
                         <input
@@ -966,7 +966,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
                           min="0"
                           max="99999999"
                           maxLength={8}
-                          className="w-full px-4 py-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         />
                       </div>
                     )}
@@ -986,10 +986,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h2 className="text-2xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
                 Resumen Final
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 Revisa la configuración de tu agente antes de generar
               </p>
             </div>
@@ -997,10 +997,10 @@ Tu empresa: ${agentConfig.companyDescription}`,
             <div className="modern-card p-6 space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Tipo de Agente
                   </h3>
-                  <p className="text-slate-900 dark:text-white capitalize">
+                  <p className="text-gray-900 dark:text-white capitalize">
                     {agentConfig.type === 'inbound' && 'Llamadas Entrantes'}
                     {agentConfig.type === 'outbound' && 'Llamadas Salientes'}
                     {agentConfig.type === 'both' && 'Entrantes y Salientes'}
@@ -1008,24 +1008,24 @@ Tu empresa: ${agentConfig.companyDescription}`,
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Nombre del Agente
                   </h3>
-                  <p className="text-slate-900 dark:text-white">{agentConfig.name || 'Sin definir'}</p>
+                  <p className="text-gray-900 dark:text-white">{agentConfig.name || 'Sin definir'}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Empresa
                   </h3>
-                  <p className="text-slate-900 dark:text-white">{agentConfig.companyName || 'Sin definir'}</p>
+                  <p className="text-gray-900 dark:text-white">{agentConfig.companyName || 'Sin definir'}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Teléfono
                   </h3>
-                  <p className="text-slate-900 dark:text-white font-mono">
+                  <p className="text-gray-900 dark:text-white font-mono">
                     {agentConfig.phoneNumber 
                       ? `${agentConfig.countryCode === 'MX' ? '+52' : '+1'}${agentConfig.phoneNumber}` 
                       : 'Sin definir'
@@ -1034,54 +1034,54 @@ Tu empresa: ${agentConfig.companyDescription}`,
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Personalidad
                   </h3>
-                  <p className="text-slate-900 dark:text-white capitalize">{agentConfig.personality}</p>
+                  <p className="text-gray-900 dark:text-white capitalize">{agentConfig.personality}</p>
                 </div>
 
                 <div>
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">
                     Voz
                   </h3>
-                  <p className="text-slate-900 dark:text-white">{agentConfig.voice}</p>
+                  <p className="text-gray-900 dark:text-white">{agentConfig.voice}</p>
                 </div>
               </div>
 
               {agentConfig.productService && (
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                     Producto/Servicio
                   </h3>
-                  <p className="text-slate-900 dark:text-white text-sm">{agentConfig.productService}</p>
+                  <p className="text-gray-900 dark:text-white text-sm">{agentConfig.productService}</p>
                 </div>
               )}
 
               {agentConfig.selectedTemplate && (
-                <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                  <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                     Plantilla Seleccionada
                   </h3>
-                  <p className="text-slate-900 dark:text-white text-sm">
+                  <p className="text-gray-900 dark:text-white text-sm">
                     {agentTemplates.find(t => t.id === agentConfig.selectedTemplate)?.name || 'Personalizada'}
                   </p>
                 </div>
               )}
 
-              <div className="border-t border-slate-200 dark:border-slate-700 pt-4">
-                <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-2">
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
                   Configuraciones
                 </h3>
                 <div className="space-y-1 text-sm">
                   <div className="flex items-center space-x-2">
                     <div className={`w-2 h-2 rounded-full ${agentConfig.endCallConfig.enabled ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                    <span className="text-slate-600 dark:text-slate-300">
+                    <span className="text-gray-600 dark:text-gray-300">
                       Fin de llamada: {agentConfig.endCallConfig.enabled ? 'Habilitado' : 'Deshabilitado'}
                     </span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <div className={`w-2 h-2 rounded-full ${agentConfig.transferConfig.enabled ? 'bg-green-400' : 'bg-red-400'}`}></div>
-                    <span className="text-slate-600 dark:text-slate-300">
+                    <span className="text-gray-600 dark:text-gray-300">
                       Transferencias: {agentConfig.transferConfig.enabled ? 'Habilitado' : 'Deshabilitado'}
                     </span>
                   </div>
@@ -1097,19 +1097,19 @@ Tu empresa: ${agentConfig.companyDescription}`,
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-8">
       <div className="max-w-5xl mx-auto px-6">
         {/* Progress bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
               Paso {currentWizardStep} de {totalSteps}
             </span>
-            <span className="text-sm text-slate-500 dark:text-slate-400">
+            <span className="text-sm text-gray-500 dark:text-gray-400">
               {Math.round(progressPercentage)}% completado
             </span>
           </div>
-          <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
             <div 
               className="bg-gradient-to-r from-indigo-500 to-purple-600 h-2 rounded-full transition-all duration-500"
               style={{ width: `${progressPercentage}%` }}
@@ -1126,7 +1126,7 @@ Tu empresa: ${agentConfig.companyDescription}`,
         <div className="flex justify-between items-center">
           <button
             onClick={handlePrevious}
-            className="flex items-center space-x-2 px-6 py-3 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-all duration-200"
+            className="flex items-center space-x-2 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all duration-200"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />

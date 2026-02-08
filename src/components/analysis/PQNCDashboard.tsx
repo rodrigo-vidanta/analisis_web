@@ -494,14 +494,14 @@ const PQNCDashboard: React.FC = () => {
     
     return (
       <th 
-        className={`px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors select-none ${className}`}
+        className={`px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors select-none ${className}`}
         onClick={() => handleSort(field)}
       >
         <div className="flex items-center gap-2">
           <span>{children}</span>
           <div className="flex flex-col">
             <svg 
-              className={`w-3 h-3 ${isAsc ? 'text-blue-600' : 'text-slate-400'} transition-colors`} 
+              className={`w-3 h-3 ${isAsc ? 'text-blue-600' : 'text-gray-400'} transition-colors`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -509,7 +509,7 @@ const PQNCDashboard: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
             </svg>
             <svg 
-              className={`w-3 h-3 -mt-1 ${isDesc ? 'text-blue-600' : 'text-slate-400'} transition-colors`} 
+              className={`w-3 h-3 -mt-1 ${isDesc ? 'text-blue-600' : 'text-gray-400'} transition-colors`} 
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -1211,7 +1211,7 @@ const PQNCDashboard: React.FC = () => {
   return (
     <div className="space-y-6 scroll-fade-in prevent-horizontal-scroll" /* DEBUG: Clases agregadas para scroll mejorado */>
         {/* Búsqueda Principal con Indicadores */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
           <div className="space-y-4">
             {/* Campo de búsqueda e Indicadores en la misma línea */}
             <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-stretch md:items-center">
@@ -1222,10 +1222,10 @@ const PQNCDashboard: React.FC = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Buscar por agente, cliente, ID, resultado, calidad..."
-                  className="w-full px-4 py-2.5 text-sm border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
@@ -1241,8 +1241,8 @@ const PQNCDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Total</p>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{generalMetrics.totalCalls.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Total</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{generalMetrics.totalCalls.toLocaleString()}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1252,8 +1252,8 @@ const PQNCDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Score</p>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{generalMetrics.avgQualityPonderada.toFixed(1)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Score</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{generalMetrics.avgQualityPonderada.toFixed(1)}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1263,8 +1263,8 @@ const PQNCDashboard: React.FC = () => {
                       </svg>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Duración</p>
-                      <p className="text-sm font-semibold text-slate-900 dark:text-white">{formatDuration(generalMetrics.avgDuration)}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Duración</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{formatDuration(generalMetrics.avgDuration)}</p>
                     </div>
                   </div>
                 </div>
@@ -1274,7 +1274,7 @@ const PQNCDashboard: React.FC = () => {
             {/* Controles en una línea alineados */}
             <div className="flex items-end justify-between">
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Top Registros
                 </label>
                 <div className="flex gap-2">
@@ -1285,7 +1285,7 @@ const PQNCDashboard: React.FC = () => {
                       className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                         topRecords === num
                           ? 'bg-blue-600 text-white shadow-md'
-                          : 'bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-500'
+                          : 'bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-500'
                       }`}
                     >
                       {num === 999999 ? 'TODOS' : `Top ${num/1000}K`}
@@ -1304,7 +1304,7 @@ const PQNCDashboard: React.FC = () => {
               {/* Botón para mostrar filtros avanzados - Alineado */}
               <button
                     onClick={() => startTransition(() => setShowAdvancedFilters(!showAdvancedFilters))}
-                className="px-4 py-2 bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-500 transition-all text-sm font-medium flex items-center gap-2"
+                className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-all text-sm font-medium flex items-center gap-2"
               >
                 <svg className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1317,43 +1317,43 @@ const PQNCDashboard: React.FC = () => {
 
         {/* Filtros Avanzados Colapsables */}
         {showAdvancedFilters && (
-          <div className="p-6 bg-slate-50 dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700">
-            <h4 className="text-md font-semibold text-slate-900 dark:text-white mb-4">Filtros Avanzados</h4>
+          <div className="p-6 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+            <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Filtros Avanzados</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
               {/* Filtros de fecha opcionales */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Desde (opcional)
                 </label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Hasta (opcional)
                 </label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Rango de Calidad
                 </label>
                 <select
                   value={qualityFilter}
                   onChange={(e) => setQualityFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todas las calidades</option>
                   <option value="0-20">Deficiente (0-20)</option>
@@ -1365,13 +1365,13 @@ const PQNCDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Organización
                 </label>
                 <select
                   value={organizationFilter}
                   onChange={(e) => setOrganizationFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todas las organizaciones</option>
                   {uniqueOrganizations.map(org => (
@@ -1381,13 +1381,13 @@ const PQNCDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Agente
                 </label>
                 <select
                   value={agentFilter}
                   onChange={(e) => setAgentFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos los agentes</option>
                   {uniqueAgents.map(agent => (
@@ -1397,13 +1397,13 @@ const PQNCDashboard: React.FC = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Resultado
                 </label>
                 <select
                   value={resultFilter}
                   onChange={(e) => setResultFilter(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos los resultados</option>
                   {uniqueResults.map(result => (
@@ -1414,11 +1414,11 @@ const PQNCDashboard: React.FC = () => {
             </div>
 
             {/* Nuevos Filtros Adicionales */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-slate-200 dark:border-slate-600">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
               
               {/* Filtro de Seguimiento */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                   <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v6a2 2 0 002 2h6a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
@@ -1427,7 +1427,7 @@ const PQNCDashboard: React.FC = () => {
                 <select
                   value={requiresFollowupFilter === null ? '' : requiresFollowupFilter.toString()}
                   onChange={(e) => setRequiresFollowupFilter(e.target.value === '' ? null : e.target.value === 'true')}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="true">Requiere seguimiento</option>
@@ -1437,7 +1437,7 @@ const PQNCDashboard: React.FC = () => {
 
               {/* Filtro de Duración */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                   <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
@@ -1446,7 +1446,7 @@ const PQNCDashboard: React.FC = () => {
                 <select
                   value={durationRangeFilter}
                   onChange={(e) => setDurationRangeFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todas las duraciones</option>
                   <option value="short">Cortas (&lt; 2 min)</option>
@@ -1457,7 +1457,7 @@ const PQNCDashboard: React.FC = () => {
 
               {/* Filtro de Calidad Score */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                   <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
@@ -1471,7 +1471,7 @@ const PQNCDashboard: React.FC = () => {
                       max="100"
                       value={qualityScoreRangeFilter.min}
                       onChange={(e) => setQualityScoreRangeFilter(prev => ({...prev, min: Number(e.target.value)}))}
-                      className="w-1/2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded"
+                      className="w-1/2 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded"
                       placeholder="Min"
                     />
                     <input
@@ -1480,11 +1480,11 @@ const PQNCDashboard: React.FC = () => {
                       max="100"
                       value={qualityScoreRangeFilter.max}
                       onChange={(e) => setQualityScoreRangeFilter(prev => ({...prev, max: Number(e.target.value)}))}
-                      className="w-1/2 px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded"
+                      className="w-1/2 px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded"
                       placeholder="Max"
                     />
                   </div>
-                  <div className="text-xs text-slate-500">
+                  <div className="text-xs text-gray-500">
                     Rango: {qualityScoreRangeFilter.min} - {qualityScoreRangeFilter.max}
                   </div>
                 </div>
@@ -1492,7 +1492,7 @@ const PQNCDashboard: React.FC = () => {
 
               {/* Filtro de Audio */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 flex items-center gap-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
                   <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M12 6.5v11m0-11a1 1 0 011 1v9a1 1 0 01-1 1m0-11a1 1 0 00-1 1v9a1 1 0 001 1" />
                   </svg>
@@ -1501,7 +1501,7 @@ const PQNCDashboard: React.FC = () => {
                 <select
                   value={hasAudioFilter === null ? '' : hasAudioFilter.toString()}
                   onChange={(e) => setHasAudioFilter(e.target.value === '' ? null : e.target.value === 'true')}
-                  className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Todos</option>
                   <option value="true">Con audio</option>
@@ -1533,7 +1533,7 @@ const PQNCDashboard: React.FC = () => {
                   setServiceOfferedFilter([]);
                   console.log('✅ Filtros limpiados - calls.length:', calls.length);
                 }}
-                className="w-full px-4 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -1555,15 +1555,15 @@ const PQNCDashboard: React.FC = () => {
             {error}
           </div>
         ) : (
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-            <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                     Registro de Llamadas ({filteredCalls.length})
                   </h3>
                 </div>
-                <span className="text-sm text-slate-500 dark:text-slate-400">
+                <span className="text-sm text-gray-500 dark:text-gray-400">
                   📊 Total en BD: {totalRecords.toLocaleString()}
                 </span>
               </div>
@@ -1571,7 +1571,7 @@ const PQNCDashboard: React.FC = () => {
 
             <div className="overflow-x-auto" style={{ overflow: 'visible' }}>
               <table className="w-full table-fixed" style={{ position: 'relative' }}>
-                <thead className="bg-slate-50 dark:bg-slate-700">
+                <thead className="bg-gray-50 dark:bg-gray-700">
                   <tr>
                     <SortableHeader field="agent_name" className="w-48">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1609,36 +1609,36 @@ const PQNCDashboard: React.FC = () => {
                       </svg>
                       Fecha
                     </SortableHeader>
-                    <th className="px-2 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-12">
+                    <th className="px-2 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
                       <svg className="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                     </th>
-                    <th className="px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-12">
+                    <th className="px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-12">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
                       Ver
                     </th>
-                    <th className="px-1 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-8">
+                    <th className="px-1 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-8">
                     </th>
                   </tr>
                 </thead>
-              <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {loading ? (
                   // SKELETON ROWS - Evita layout shifts en tabla
                   Array.from({ length: 10 }).map((_, i) => (
                     <tr key={`skeleton-${i}`} className="animate-pulse">
-                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-32"></div></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-28"></div></td>
-                      <td className="px-4 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded-full w-20"></div></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-12"></div></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-                      <td className="px-4 py-4"><div className="h-4 bg-slate-200 dark:bg-slate-700 rounded w-16"></div></td>
-                      <td className="px-2 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-6 mx-auto"></div></td>
-                      <td className="px-2 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-6"></div></td>
-                      <td className="px-1 py-4"><div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-4 mx-auto"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-32"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-28"></div></td>
+                      <td className="px-4 py-4"><div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-20"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-12"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div></td>
+                      <td className="px-4 py-4"><div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-16"></div></td>
+                      <td className="px-2 py-4"><div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-6 mx-auto"></div></td>
+                      <td className="px-2 py-4"><div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-6"></div></td>
+                      <td className="px-1 py-4"><div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-4 mx-auto"></div></td>
                     </tr>
                   ))
                 ) : (
@@ -1650,7 +1650,7 @@ const PQNCDashboard: React.FC = () => {
                   return (
                     <tr 
                       key={call.id} 
-                      className="hover:bg-slate-50 dark:hover:bg-slate-700/50 cursor-pointer transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                       onClick={() => {
                         // ✅ OPTIMIZACIÓN: Diferir handler pesado
                         startTransition(() => {
@@ -1658,12 +1658,12 @@ const PQNCDashboard: React.FC = () => {
                         });
                       }}
                     >
-                      <td className="px-4 py-4 text-sm font-medium text-slate-900 dark:text-white truncate">
+                      <td className="px-4 py-4 text-sm font-medium text-gray-900 dark:text-white truncate">
                         <div className="truncate" title={call.agent_name}>
                           {call.agent_name}
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-300 truncate">
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-300 truncate">
                         <div className="truncate" title={call.customer_name}>
                           {call.customer_name}
                         </div>
@@ -1674,7 +1674,7 @@ const PQNCDashboard: React.FC = () => {
                             call.call_result === 'venta_concretada' ? 'bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-400' :
                             call.call_result === 'seguimiento_programado' ? 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400' :
                             call.call_result === 'no_interesado' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
-                            call.call_result === 'abandonada' ? 'bg-slate-100 text-slate-800 dark:bg-slate-900/30 dark:text-slate-400' :
+                            call.call_result === 'abandonada' ? 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400' :
                             call.call_result === 'reagenda' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                             call.call_result === 'no_contesta' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
                             call.call_result === 'ocupado' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
@@ -1697,19 +1697,19 @@ const PQNCDashboard: React.FC = () => {
                             scorePonderado >= 40 ? 'bg-purple-400' :
                             'bg-pink-400'
                           }`}></div>
-                          <span className="text-sm text-slate-900 dark:text-white font-medium truncate">
+                          <span className="text-sm text-gray-900 dark:text-white font-medium truncate">
                             {scorePonderado.toFixed(1)}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-300">
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-300">
                         <div className="text-center truncate" title={call.duration || 'N/A'}>
                           <span className="font-medium">
                             {call.duration || 'N/A'}
                           </span>
                         </div>
                       </td>
-                      <td className="px-4 py-4 text-sm text-slate-500 dark:text-slate-300">
+                      <td className="px-4 py-4 text-sm text-gray-500 dark:text-gray-300">
                         <div className="flex flex-col text-center">
                           <span className="font-medium truncate">
                             {new Date(call.start_time).toLocaleDateString('es-MX', { 
@@ -1719,7 +1719,7 @@ const PQNCDashboard: React.FC = () => {
                               timeZone: 'America/Mexico_City'
                             })}
                           </span>
-                          <span className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                          <span className="text-xs text-gray-400 dark:text-gray-500 truncate">
                             {new Date(call.start_time).toLocaleTimeString('es-MX', { 
                               hour: '2-digit',
                               minute: '2-digit',
@@ -1745,7 +1745,7 @@ const PQNCDashboard: React.FC = () => {
                               className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full transition-all duration-200 ${
                                 hasFeedback 
                                   ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 hover:bg-green-200 dark:hover:bg-green-900/50 hover:scale-105 hover:shadow-lg' 
-                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 hover:scale-105'
+                                  : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 hover:scale-105'
                               }`}
                             >
                               {feedbackLoading ? (
@@ -1817,7 +1817,7 @@ const PQNCDashboard: React.FC = () => {
                             />
                           </div>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-gray-400">-</span>
                         )}
                       </td>
                     </tr>
@@ -1828,13 +1828,13 @@ const PQNCDashboard: React.FC = () => {
           </div>
 
           {/* Paginación */}
-          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700 border-t border-slate-200 dark:border-slate-600">
+          <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="text-sm text-slate-700 dark:text-slate-300">
+                <div className="text-sm text-gray-700 dark:text-gray-300">
                   <div>Mostrando {startIndex + 1}-{Math.min(startIndex + itemsPerPage, topFilteredCalls.length)} de {topFilteredCalls.length} llamadas</div>
                   {topFilteredCalls.length < generalMetrics.totalCalls && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       📊 {generalMetrics.totalCalls.toLocaleString()} registros totales en BD | {topFilteredCalls.length} después de filtros
                     </div>
                   )}
@@ -1842,7 +1842,7 @@ const PQNCDashboard: React.FC = () => {
                 
                 {/* Selector de registros por página */}
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-500 dark:text-slate-400">Por página:</span>
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Por página:</span>
                   <select
                     value={itemsPerPage}
                     onChange={(e) => {
@@ -1852,7 +1852,7 @@ const PQNCDashboard: React.FC = () => {
                         setCurrentPage(1);
                       });
                     }}
-                    className="px-2 py-1 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value={30}>30</option>
                     <option value={50}>50</option>
@@ -1866,7 +1866,7 @@ const PQNCDashboard: React.FC = () => {
                   <button
                     onClick={() => startTransition(() => setCurrentPage(page => Math.max(1, page - 1)))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                    className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Anterior
                   </button>
@@ -1876,7 +1876,7 @@ const PQNCDashboard: React.FC = () => {
                   <button
                     onClick={() => startTransition(() => setCurrentPage(page => Math.min(totalPages, page + 1)))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700"
+                    className="px-3 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Siguiente
                   </button>
@@ -1889,8 +1889,8 @@ const PQNCDashboard: React.FC = () => {
       </div>
 
       {/* Panel de Sincronización Compacto - MOVIDO DESPUÉS DE LA TABLA */}
-      <div className="bg-slate-50 dark:bg-slate-800 rounded-lg px-4 py-2 border border-slate-200 dark:border-slate-700">
-        <div className="flex items-center justify-between text-xs text-slate-600 dark:text-slate-400">
+      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700">
+        <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
           {/* Estado y estadísticas */}
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
@@ -1926,7 +1926,7 @@ const PQNCDashboard: React.FC = () => {
                   max="300"
                   value={syncInterval}
                   onChange={(e) => setSyncInterval(Number(e.target.value))}
-                  className="w-12 px-1 py-0.5 text-xs border border-slate-300 dark:border-slate-600 rounded bg-white dark:bg-slate-700 text-slate-900 dark:text-white"
+                  className="w-12 px-1 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   title="Intervalo de sincronización en segundos"
                 />
                 <span>s</span>
@@ -1936,13 +1936,13 @@ const PQNCDashboard: React.FC = () => {
               <button
                 onClick={() => syncNewRecords()}
                 disabled={loading}
-                className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 title="Sincronizar manualmente"
               >
                 {loading ? (
-                  <div className="animate-spin w-3 h-3 border border-slate-500 border-t-transparent rounded-full"></div>
+                  <div className="animate-spin w-3 h-3 border border-gray-500 border-t-transparent rounded-full"></div>
                 ) : (
-                  <svg className="w-3 h-3 text-slate-500 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-3 h-3 text-gray-500 hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 )}
@@ -1959,7 +1959,7 @@ const PQNCDashboard: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:p-6"
             onClick={() => setShowTranscriptModal(false)}
           >
             <motion.div

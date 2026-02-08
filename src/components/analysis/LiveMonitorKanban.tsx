@@ -1017,21 +1017,21 @@ const LiveMonitorKanban: React.FC = () => {
 
     return (
       <th 
-        className={`px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors ${className}`}
+        className={`px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors ${className}`}
         onClick={handleSort}
       >
         <div className="flex items-center space-x-1">
           <span>{children}</span>
           <div className="flex flex-col">
             <svg 
-              className={`w-3 h-3 ${sortConfig?.key === field && sortConfig.direction === 'asc' ? 'text-blue-500' : 'text-slate-400'}`} 
+              className={`w-3 h-3 ${sortConfig?.key === field && sortConfig.direction === 'asc' ? 'text-blue-500' : 'text-gray-400'}`} 
               fill="currentColor" 
               viewBox="0 0 20 20"
             >
               <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
             </svg>
             <svg 
-              className={`w-3 h-3 -mt-1 ${sortConfig?.key === field && sortConfig.direction === 'desc' ? 'text-blue-500' : 'text-slate-400'}`} 
+              className={`w-3 h-3 -mt-1 ${sortConfig?.key === field && sortConfig.direction === 'desc' ? 'text-blue-500' : 'text-gray-400'}`} 
               fill="currentColor" 
               viewBox="0 0 20 20"
             >
@@ -3902,7 +3902,7 @@ const LiveMonitorKanban: React.FC = () => {
     
     // Clases de animación personalizadas más intensas
     const progressBgColors = {
-      1: 'bg-slate-100/30 dark:bg-slate-700/20 hover:bg-slate-100/50 dark:hover:bg-slate-700/30',
+      1: 'bg-gray-100/30 dark:bg-gray-700/20 hover:bg-gray-100/50 dark:hover:bg-gray-700/30',
       2: 'checkpoint-pulse-blue',
       3: 'checkpoint-pulse-yellow', 
       4: 'checkpoint-pulse-orange',
@@ -3912,7 +3912,7 @@ const LiveMonitorKanban: React.FC = () => {
     return (
       <div
         key={call.call_id}
-        className={`cursor-pointer transition-all duration-300 hover:bg-white/50 dark:hover:bg-slate-600/30 rounded-lg p-2 ${progressBgColors[checkpointNumber as keyof typeof progressBgColors] || progressBgColors[1]}`}
+        className={`cursor-pointer transition-all duration-300 hover:bg-white/50 dark:hover:bg-gray-600/30 rounded-lg p-2 ${progressBgColors[checkpointNumber as keyof typeof progressBgColors] || progressBgColors[1]}`}
         onClick={() => handleCallSelect(call)}
       >
         {/* Cliente - Compacto */}
@@ -3923,10 +3923,10 @@ const LiveMonitorKanban: React.FC = () => {
             size="sm"
           />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+            <p className="text-xs font-semibold text-gray-900 dark:text-white truncate">
               {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
               {call.whatsapp}
             </p>
           </div>
@@ -3943,7 +3943,7 @@ const LiveMonitorKanban: React.FC = () => {
         <div className="space-y-1">
           {/* Destino */}
           {(call.destino_preferido || call.destino_preferencia) && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               </svg>
@@ -3984,7 +3984,7 @@ const LiveMonitorKanban: React.FC = () => {
             }
             
             return numeroPersonas ? (
-              <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+              <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
                 <svg className="w-3 h-3 mr-1 flex-shrink-0 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                 </svg>
@@ -4000,7 +4000,7 @@ const LiveMonitorKanban: React.FC = () => {
           
           {/* Mes preferencia - Solo si está actualizado */}
           {call.mes_preferencia && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -4015,7 +4015,7 @@ const LiveMonitorKanban: React.FC = () => {
           
           {/* Actividades preferidas */}
           {call.preferencia_vacaciones && call.preferencia_vacaciones.length > 0 && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
@@ -4028,7 +4028,7 @@ const LiveMonitorKanban: React.FC = () => {
           
           {/* Nivel de interés */}
           {call.nivel_interes && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
               </svg>
@@ -4038,7 +4038,7 @@ const LiveMonitorKanban: React.FC = () => {
           
           {/* Estado civil */}
           {call.estado_civil && call.estado_civil !== 'no_especificado' && (
-            <div className="flex items-center text-xs text-slate-600 dark:text-slate-400">
+            <div className="flex items-center text-xs text-gray-600 dark:text-gray-400">
               <svg className="w-3 h-3 mr-1 flex-shrink-0 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -4049,7 +4049,7 @@ const LiveMonitorKanban: React.FC = () => {
 
         {/* Tiempo - Footer compacto */}
         <div className="mt-2 text-center">
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-gray-500 dark:text-gray-400">
             {liveMonitorService.getTimeElapsed(call.updated_at)}
           </span>
         </div>
@@ -4063,13 +4063,13 @@ const LiveMonitorKanban: React.FC = () => {
     return (
       <div key={checkpointKey} className="flex flex-col h-full">
         {/* Header de columna compacto */}
-        <div className={`${checkpoint.bgColor} p-3 border-b border-slate-200 dark:border-slate-700`}>
+        <div className={`${checkpoint.bgColor} p-3 border-b border-gray-200 dark:border-gray-700`}>
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-slate-900 dark:text-white text-xs leading-tight">
+              <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight">
                 {checkpoint.title}
               </h3>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
                 {checkpoint.description}
               </p>
             </div>
@@ -4086,7 +4086,7 @@ const LiveMonitorKanban: React.FC = () => {
           </div>
           
           {calls.length === 0 && (
-            <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+            <div className="text-center py-8 text-gray-400 dark:text-gray-500">
               <svg className="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2m0 0V6a2 2 0 012-2h2.5" />
               </svg>
@@ -4193,7 +4193,7 @@ const LiveMonitorKanban: React.FC = () => {
         {/* Toggle Panel Lateral de Llamadas */}
         <div className="flex items-center justify-end px-2">
           <label className="flex items-center gap-3 cursor-pointer group">
-            <span className="text-xs text-slate-500 dark:text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-300 transition-colors">
+            <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
               Panel Lateral
             </span>
             <div className="relative">
@@ -4203,7 +4203,7 @@ const LiveMonitorKanban: React.FC = () => {
                 onChange={(e) => toggleWidget(e.target.checked)}
                 className="sr-only peer"
               />
-              <div className="w-10 h-5 bg-slate-300 dark:bg-slate-600 rounded-full peer peer-checked:bg-emerald-500 transition-colors" />
+              <div className="w-10 h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:bg-emerald-500 transition-colors" />
               <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5" />
             </div>
             {isWidgetEnabled && (
@@ -4217,13 +4217,13 @@ const LiveMonitorKanban: React.FC = () => {
 
         {/* Tabs */}
         <div className="corp-card corp-glow w-full">
-          <div className="grid grid-cols-2 border-b border-slate-200 dark:border-slate-700">
+          <div className="grid grid-cols-2 border-b border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setSelectedTab('active')}
               className={`px-6 py-4 text-sm font-medium transition-colors ${
                 selectedTab === 'active'
                   ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
               <div className="flex items-center justify-center space-x-2">
@@ -4243,7 +4243,7 @@ const LiveMonitorKanban: React.FC = () => {
                 className={`px-6 py-4 text-sm font-medium transition-colors ${
                   selectedTab === 'all'
                     ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-b-2 border-purple-500'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
                 }`}
               >
                 <div className="flex items-center justify-center space-x-2">
@@ -4266,13 +4266,13 @@ const LiveMonitorKanban: React.FC = () => {
                 {/* Headers de columnas */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0">
                   {Object.entries(CHECKPOINTS).map(([checkpointKey, checkpoint]) => (
-                    <div key={checkpointKey} className={`${checkpoint.bgColor} p-3 border-b border-slate-200 dark:border-slate-700`}>
+                    <div key={checkpointKey} className={`${checkpoint.bgColor} p-3 border-b border-gray-200 dark:border-gray-700`}>
                       <div className="flex items-center justify-between">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-slate-900 dark:text-white text-xs leading-tight">
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight">
                             {checkpoint.title}
                           </h3>
-                          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">
+                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
                             {checkpoint.description}
                           </p>
                         </div>
@@ -4293,11 +4293,11 @@ const LiveMonitorKanban: React.FC = () => {
                     ));
                     
                     const rowBgColors = {
-                      1: 'bg-slate-50/20 dark:bg-slate-800/20',
-                      2: 'bg-slate-50/30 dark:bg-slate-800/30 animate-pulse',
-                      3: 'bg-slate-50/40 dark:bg-slate-800/40 animate-pulse',
-                      4: 'bg-slate-50/50 dark:bg-slate-800/50 animate-pulse',
-                      5: 'bg-slate-50/60 dark:bg-slate-800/60 animate-pulse'
+                      1: 'bg-gray-50/20 dark:bg-gray-800/20',
+                      2: 'bg-gray-50/30 dark:bg-gray-800/30 animate-pulse',
+                      3: 'bg-gray-50/40 dark:bg-gray-800/40 animate-pulse',
+                      4: 'bg-gray-50/50 dark:bg-gray-800/50 animate-pulse',
+                      5: 'bg-gray-50/60 dark:bg-gray-800/60 animate-pulse'
                     };
                     
                     return (
@@ -4306,9 +4306,9 @@ const LiveMonitorKanban: React.FC = () => {
                         className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0 min-h-[80px] ${rowBgColors[maxCheckpoint as keyof typeof rowBgColors] || rowBgColors[1]} transition-all duration-500`}
                       >
                         {row.map((call, colIndex) => (
-                          <div key={`${rowIndex}-${colIndex}`} className="p-2 border-r border-slate-100/50 dark:border-slate-700/30 last:border-r-0">
+                          <div key={`${rowIndex}-${colIndex}`} className="p-2 border-r border-gray-100/50 dark:border-gray-700/30 last:border-r-0">
                             {call ? renderCallCard(call) : (
-                              <div className="h-full flex items-center justify-center text-slate-300 dark:text-slate-600">
+                              <div className="h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
                                 {/* Celda vacía */}
                               </div>
                             )}
@@ -4330,20 +4330,20 @@ const LiveMonitorKanban: React.FC = () => {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
-                  className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-3 sm:p-4"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-3 sm:p-4"
                 >
                   {/* Primera fila: Búsqueda y filtros principales */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-12 gap-2 mb-3">
                     {/* Búsqueda ampliada */}
                     <div className="col-span-2 sm:col-span-4 lg:col-span-5">
                       <div className="relative">
-                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <input
                           type="text"
                           placeholder="Buscar..."
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-slate-300 dark:border-slate-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
+                          className="w-full pl-8 pr-3 py-1.5 text-xs sm:text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-200"
                         />
                       </div>
                     </div>
@@ -4354,9 +4354,9 @@ const LiveMonitorKanban: React.FC = () => {
                         className="relative cursor-pointer"
                         onClick={() => setShowDatePicker(!showDatePicker)}
                       >
-                        <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-                        <div className="flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-                          <span className={`flex-1 ${!dateFrom && !dateTo ? 'text-slate-400 dark:text-slate-500' : 'text-slate-700 dark:text-slate-200'}`}>
+                        <Calendar className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                        <div className="flex items-center gap-2 pl-8 pr-3 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+                          <span className={`flex-1 ${!dateFrom && !dateTo ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-200'}`}>
                             {dateFrom && dateTo 
                               ? `${new Date(dateFrom).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })} - ${new Date(dateTo).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })}`
                               : dateFrom
@@ -4364,30 +4364,30 @@ const LiveMonitorKanban: React.FC = () => {
                                 : 'Seleccionar rango'
                             }
                           </span>
-                          <ChevronRight className={`w-3 h-3 text-slate-400 transition-transform ${showDatePicker ? 'rotate-90' : ''}`} />
+                          <ChevronRight className={`w-3 h-3 text-gray-400 transition-transform ${showDatePicker ? 'rotate-90' : ''}`} />
                         </div>
                       </div>
                       
                       {/* Calendario desplegable */}
                       {showDatePicker && (
-                        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg shadow-lg p-4 min-w-[320px]">
+                        <div className="absolute top-full left-0 mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg p-4 min-w-[320px]">
                           <div className="flex flex-col gap-3">
                             <div className="flex items-center justify-between mb-2">
-                              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Rango de fechas</span>
+                              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Rango de fechas</span>
                               <button
                                 onClick={() => {
                                   setDateFrom('');
                                   setDateTo('');
                                   setShowDatePicker(false);
                                 }}
-                                className="text-xs text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"
+                                className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                               >
                                 Limpiar
                               </button>
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Desde</label>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Desde</label>
                                 <input
                                   type="date"
                                   value={dateFrom}
@@ -4398,11 +4398,11 @@ const LiveMonitorKanban: React.FC = () => {
                                     }
                                   }}
                                   max={dateTo || undefined}
-                                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                                  className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:ring-1 focus:ring-blue-500"
                                 />
                               </div>
                               <div>
-                                <label className="block text-xs text-slate-600 dark:text-slate-400 mb-1">Hasta</label>
+                                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Hasta</label>
                                 <input
                                   type="date"
                                   value={dateTo}
@@ -4413,7 +4413,7 @@ const LiveMonitorKanban: React.FC = () => {
                                     }
                                   }}
                                   min={dateFrom || undefined}
-                                  className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                                  className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:ring-1 focus:ring-blue-500"
                                 />
                               </div>
                             </div>
@@ -4435,7 +4435,7 @@ const LiveMonitorKanban: React.FC = () => {
                       <select
                         value={ejecutivoFilter}
                         onChange={(e) => setEjecutivoFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="">Ejecutivo</option>
                         {uniqueEjecutivos.map(ejecutivo => (
@@ -4449,7 +4449,7 @@ const LiveMonitorKanban: React.FC = () => {
                       <select
                         value={interestFilter}
                         onChange={(e) => setInterestFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="">Interés</option>
                         {uniqueInterests.map(interest => (
@@ -4463,7 +4463,7 @@ const LiveMonitorKanban: React.FC = () => {
                       <select
                         value={statusFilter}
                         onChange={(e) => setStatusFilter(e.target.value)}
-                        className="w-full px-2 py-1.5 text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-md focus:ring-1 focus:ring-blue-500"
+                        className="w-full px-2 py-1.5 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-md focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="">Estado</option>
                         <option value="transferida">Transferida</option>
@@ -4477,8 +4477,8 @@ const LiveMonitorKanban: React.FC = () => {
                   </div>
                   
                   {/* Segunda fila: Filtros rápidos por tags */}
-                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-slate-200 dark:border-slate-700 overflow-x-auto scrollbar-hide">
-                    <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium whitespace-nowrap">Filtros:</span>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-2 border-t border-gray-200 dark:border-gray-700 overflow-x-auto scrollbar-hide">
+                    <span className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-medium whitespace-nowrap">Filtros:</span>
                     
                     {/* Estados rápidos */}
                     <button
@@ -4486,7 +4486,7 @@ const LiveMonitorKanban: React.FC = () => {
                       className={`px-2 py-1 text-xs rounded-md transition-colors ${
                         quickFilters.perdida 
                           ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border border-red-300 dark:border-red-700' 
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
                       Perdida
@@ -4496,7 +4496,7 @@ const LiveMonitorKanban: React.FC = () => {
                       className={`px-2 py-1 text-xs rounded-md transition-colors ${
                         quickFilters.noTransferida 
                           ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border border-yellow-300 dark:border-yellow-700' 
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
                       No Transferida
@@ -4506,7 +4506,7 @@ const LiveMonitorKanban: React.FC = () => {
                       className={`px-2 py-1 text-xs rounded-md transition-colors ${
                         quickFilters.transferida 
                           ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-300 dark:border-green-700' 
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                          : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                       }`}
                     >
                       Transferida
@@ -4520,7 +4520,7 @@ const LiveMonitorKanban: React.FC = () => {
                         className={`px-2 py-1 text-xs rounded-md transition-colors ${
                           quickFilters.interes === interest 
                             ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-300 dark:border-blue-700' 
-                            : 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600'
+                            : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
                         {interest}
@@ -4531,7 +4531,7 @@ const LiveMonitorKanban: React.FC = () => {
                     {(searchQuery || dateFrom || dateTo || interestFilter || statusFilter || ejecutivoFilter || Object.keys(quickFilters).length > 0) && (
                       <button
                         onClick={clearHistoryFilters}
-                        className="ml-auto px-2 py-1 text-xs text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                        className="ml-auto px-2 py-1 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                       >
                         Limpiar filtros
                       </button>
@@ -4544,15 +4544,15 @@ const LiveMonitorKanban: React.FC = () => {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
-                  className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
+                  className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden flex flex-col"
                   style={{ maxHeight: 'calc(100vh - 280px)', minHeight: '400px' }}
                 >
               <div ref={historyScrollContainerRef} className="w-full overflow-y-auto scrollbar-hide flex-1" style={{ maxHeight: 'calc(100vh - 350px)' }}>
-                <table className="w-full divide-y divide-slate-200 dark:divide-slate-700 table-fixed">
-                      <thead className="bg-slate-50 dark:bg-slate-700">
+                <table className="w-full divide-y divide-gray-200 dark:divide-gray-700 table-fixed">
+                      <thead className="bg-gray-50 dark:bg-gray-700">
                         <tr>
                           <th 
-                            className="w-[28%] px-3 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[28%] px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'prospecto_nombre') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -4570,7 +4570,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                           </th>
                           <th 
-                            className="w-[12%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[12%] px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'fecha_llamada') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -4588,7 +4588,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                           </th>
                           <th 
-                            className="w-[8%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[8%] px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'duracion_segundos') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -4606,7 +4606,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                           </th>
                           <th 
-                            className="w-[14%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[14%] px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'call_status') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -4624,7 +4624,7 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                           </th>
                           <th 
-                            className="w-[10%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors"
+                            className="w-[10%] px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
                             onClick={() => {
                               if (historySortField === 'nivel_interes_detectado') {
                                 setHistorySortDirection(historySortDirection === 'asc' ? 'desc' : 'asc');
@@ -4641,26 +4641,26 @@ const LiveMonitorKanban: React.FC = () => {
                               )}
                         </div>
                           </th>
-                          <th className="w-[18%] px-2 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          <th className="w-[18%] px-2 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             <span className="truncate">Asignación</span>
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                         {/* Loading discreto SOLO para carga inicial (cuando no hay datos) */}
                         {loading && filteredHistoryCalls.length === 0 ? (
                           <tr>
                             <td colSpan={6} className="px-6 py-12 text-center">
                               <div className="flex items-center justify-center gap-3">
                                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-                                <span className="text-sm text-slate-600 dark:text-slate-400">Cargando historial...</span>
+                                <span className="text-sm text-gray-600 dark:text-gray-400">Cargando historial...</span>
                               </div>
                             </td>
                           </tr>
                         ) : filteredHistoryCalls.length === 0 && !loadingMoreHistory ? (
                           <tr>
                             <td colSpan={6} className="px-6 py-12 text-center">
-                              <div className="text-slate-500 dark:text-slate-400">
+                              <div className="text-gray-500 dark:text-gray-400">
                                 {allHistoryCallsLoaded.length === 0 ? 'No hay llamadas registradas' : 'No hay resultados que coincidan con los filtros'}
                               </div>
                             </td>
@@ -4714,10 +4714,10 @@ const LiveMonitorKanban: React.FC = () => {
                                     : isOtherGroup
                                       ? 'opacity-40 blur-sm'
                                       : isGroupMain
-                                        ? 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-blue-500' 
+                                        ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-blue-500' 
                                         : isGroupSub 
-                                          ? 'hover:bg-slate-25 dark:hover:bg-slate-800/30 bg-slate-25 dark:bg-slate-800/20 border-l-4 border-slate-300 relative' 
-                                          : 'hover:bg-slate-50 dark:hover:bg-slate-700'
+                                          ? 'hover:bg-gray-50 dark:hover:bg-gray-800/30 bg-gray-50 dark:bg-gray-800/20 border-l-4 border-gray-300 relative' 
+                                          : 'hover:bg-gray-50 dark:hover:bg-gray-700'
                                 }`}
                                 style={isGroupSub ? {
                                   borderLeft: '4px solid rgb(148 163 184)',
@@ -4754,9 +4754,9 @@ const LiveMonitorKanban: React.FC = () => {
                                     {isGroupSub && (
                                       <div className="absolute left-0 top-0 bottom-0 w-4 flex items-center justify-center">
                                         {/* Línea jerárquica vertical */}
-                                        <div className="w-0.5 h-full bg-slate-300 dark:bg-slate-600"></div>
+                                        <div className="w-0.5 h-full bg-gray-300 dark:bg-gray-600"></div>
                                         {/* Punto de conexión */}
-                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-slate-400 dark:bg-slate-500 rounded-full border-2 border-white dark:border-slate-800"></div>
+                                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-2 h-2 bg-gray-400 dark:bg-gray-500 rounded-full border-2 border-white dark:border-gray-800"></div>
                   </div>
                 )}
                                     
@@ -4768,12 +4768,12 @@ const LiveMonitorKanban: React.FC = () => {
                                     <div className={`relative p-2 rounded-full flex-shrink-0 ${
                                       isGroupMain 
                                         ? 'bg-blue-50 dark:bg-blue-900/20' 
-                                        : 'bg-slate-50 dark:bg-slate-800/50'
+                                        : 'bg-gray-50 dark:bg-gray-800/50'
                                     }`}>
                                       <User size={16} className={
                                         isGroupMain 
                                           ? 'text-blue-600 dark:text-blue-400' 
-                                          : 'text-slate-500 dark:text-slate-400'
+                                          : 'text-gray-500 dark:text-gray-400'
                                       } />
                                       {/* Punto rojo solo en agrupador principal si requiere atención humana */}
                                       {isGroupMain && (() => {
@@ -4788,8 +4788,8 @@ const LiveMonitorKanban: React.FC = () => {
                                       <div className="flex items-center gap-2 flex-wrap">
                                         <div className={`text-sm font-medium truncate ${
                                           isGroupMain 
-                                            ? 'text-slate-900 dark:text-white' 
-                                            : 'text-slate-600 dark:text-slate-300'
+                                            ? 'text-gray-900 dark:text-white' 
+                                            : 'text-gray-600 dark:text-gray-300'
                                         }`} title={call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}>
                           {call.nombre_completo || call.nombre_whatsapp || 'Sin nombre'}
                         </div>
@@ -4891,10 +4891,10 @@ const LiveMonitorKanban: React.FC = () => {
                         </div>
                         </div>
                         </td>
-                              <td className="px-2 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                              <td className="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                 <div className="truncate">
                                   {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleDateString('es-MX') : 'N/A'}
-                                  <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                  <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                                     {call.fecha_llamada ? new Date(call.fecha_llamada).toLocaleTimeString('es-MX', { 
                                       hour: '2-digit', 
                                       minute: '2-digit' 
@@ -4902,7 +4902,7 @@ const LiveMonitorKanban: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                              <td className="px-2 py-3 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                              <td className="px-2 py-3 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                                 <span className="truncate">
                                   {call.duracion_segundos ? 
                                     `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 
@@ -5008,9 +5008,9 @@ const LiveMonitorKanban: React.FC = () => {
                   </div>
                   
                   {/* Indicador de carga y contador - SIEMPRE VISIBLE */}
-                  <div className="px-6 py-3 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex items-center justify-between">
+                  <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-600 dark:text-slate-400">
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
                         Mostrando {filteredHistoryCalls.length} de {totalHistoryCount} llamadas
                       </span>
                     </div>
@@ -5037,7 +5037,7 @@ const LiveMonitorKanban: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
               onClick={(e) => e.target === e.currentTarget && handleModalClose()}
             >
               <motion.div
@@ -5626,7 +5626,7 @@ const LiveMonitorKanban: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[90]"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[90]"
               onClick={(e) => {
                 if (e.target === e.currentTarget) {
                   setShowTransferModal(false);
@@ -5885,7 +5885,7 @@ const LiveMonitorKanban: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[80]"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[80]"
               onClick={(e) => e.target === e.currentTarget && setShowGlobalFeedbackModal(false)}
             >
               <motion.div

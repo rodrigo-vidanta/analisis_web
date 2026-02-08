@@ -955,14 +955,14 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
 
       {/* Modal de Loading Bloqueante durante Reasignación */}
       {/* Este modal NO se puede cerrar hasta que termine el proceso */}
-      {/* z-[9999] para estar por encima de TODOS los sidebars y modales */}
+      {/* z-[60] para estar por encima de sidebars y modales */}
       <AnimatePresence>
         {isReassigning && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[9999] bg-black/70 backdrop-blur-md flex items-center justify-center"
+            className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center"
             // No hay onClick para cerrar - es bloqueante
           >
             <motion.div

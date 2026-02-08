@@ -271,17 +271,17 @@ const FeedbackTooltip: React.FC<FeedbackTooltipProps> = ({
           ref={tooltipRef}
           onMouseEnter={handleTooltipMouseEnter}
           onMouseLeave={handleTooltipMouseLeave}
-          className="fixed z-[9999] max-w-sm"
+          className="fixed z-[60] max-w-sm"
           style={{
             top: position.top,
             left: position.left,
           }}
         >
           {/* Contenedor principal con glassmorphism */}
-          <div className="bg-slate-900/95 dark:bg-slate-800/95 backdrop-blur-lg text-white rounded-xl shadow-2xl border border-slate-700/50 p-4 animate-in fade-in-0 zoom-in-95 duration-200">
+          <div className="bg-gray-900/95 dark:bg-gray-800/95 backdrop-blur-sm text-white rounded-xl shadow-2xl border border-gray-700/50 p-4 animate-in fade-in-0 zoom-in-95 duration-200">
             
             {/* Header del tooltip */}
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-600/30">
+            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-gray-600/30">
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
               <span className="text-xs font-medium text-green-400 uppercase tracking-wide">
                 Retroalimentación
@@ -290,13 +290,13 @@ const FeedbackTooltip: React.FC<FeedbackTooltipProps> = ({
             
             {/* Preview del texto */}
             <div className="mb-3">
-              <p className="text-sm text-slate-100 leading-relaxed">
+              <p className="text-sm text-gray-100 leading-relaxed">
                 {previewText}
               </p>
             </div>
             
             {/* Metadata */}
-            <div className="space-y-1 text-xs text-slate-400">
+            <div className="space-y-1 text-xs text-gray-400">
               <div className="flex items-center gap-2">
                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -312,7 +312,7 @@ const FeedbackTooltip: React.FC<FeedbackTooltipProps> = ({
               </div>
               
               {updatedDate && updaterName && (
-                <div className="flex items-center gap-2 pt-1 border-t border-slate-600/30">
+                <div className="flex items-center gap-2 pt-1 border-t border-gray-600/30">
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
@@ -321,7 +321,7 @@ const FeedbackTooltip: React.FC<FeedbackTooltipProps> = ({
               )}
               
               {/* Estadísticas */}
-              <div className="flex items-center justify-between pt-2 border-t border-slate-600/30">
+              <div className="flex items-center justify-between pt-2 border-t border-gray-600/30">
                 <div className="flex items-center gap-3 text-xs">
                   <span className="flex items-center gap-1">
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

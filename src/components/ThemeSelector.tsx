@@ -88,7 +88,7 @@ const AnimatedMoonIcon: React.FC = () => (
     ].map((star, i) => (
       <motion.div
         key={i}
-        className="absolute bg-slate-400 dark:bg-slate-300 rounded-full"
+        className="absolute bg-gray-400 dark:bg-gray-300 rounded-full"
         style={{ 
           left: `calc(50% + ${star.x}px)`,
           top: `calc(50% + ${star.y}px)`,
@@ -105,7 +105,7 @@ const AnimatedMoonIcon: React.FC = () => (
     
     {/* Luna balanceándose */}
     <motion.svg 
-      className="w-5 h-5 text-slate-400 dark:text-slate-300" 
+      className="w-5 h-5 text-gray-400 dark:text-gray-300" 
       fill="currentColor" 
       viewBox="0 0 20 20"
       animate={{ rotate: [0, 3, -3, 0] }}
@@ -250,9 +250,9 @@ const THEMES = [
     id: 'dark' as const,
     label: 'Oscuro',
     icon: AnimatedMoonIcon,
-    color: 'text-slate-400',
-    bgActive: 'bg-slate-100 dark:bg-slate-800',
-    borderActive: 'border-slate-300 dark:border-slate-600',
+    color: 'text-gray-400',
+    bgActive: 'bg-gray-100 dark:bg-gray-800',
+    borderActive: 'border-gray-300 dark:border-gray-600',
   },
 ] as const;
 

@@ -110,8 +110,8 @@ const ScheduleManager: React.FC = () => {
       {/* Header minimalista */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-            <Clock className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+          <div className="w-10 h-10 rounded-lg bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+            <Clock className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Horarios de Servicio</h2>
@@ -505,7 +505,7 @@ const TimeRangeSlider: React.FC<TimeRangeSliderProps> = ({
         ref={trackRef}
         className={`absolute inset-0 rounded-xl overflow-hidden transition-all duration-300 ${
           isDragging 
-            ? 'bg-gradient-to-r from-slate-100 via-emerald-50 to-slate-100 dark:from-slate-700/60 dark:via-emerald-900/20 dark:to-slate-700/60 ring-2 ring-emerald-400/50' 
+            ? 'bg-gradient-to-r from-gray-100 via-emerald-50 to-gray-100 dark:from-gray-700/60 dark:via-emerald-900/20 dark:to-gray-700/60 ring-2 ring-emerald-400/50' 
             : 'bg-gray-100 dark:bg-gray-700/40 hover:bg-gray-50 dark:hover:bg-gray-700/60'
         }`}
       >
@@ -747,7 +747,7 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={onCancel}
         >
           <motion.div
@@ -1064,7 +1064,7 @@ const ExcepcionesSection: React.FC<ExcepcionesSectionProps> = ({
             </div>
             <button
               onClick={onAdd}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-lg hover:bg-slate-600 dark:hover:bg-slate-500 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-700 dark:bg-gray-600 rounded-lg hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
             >
               <Plus className="w-4 h-4" />
               <span>Agregar</span>
@@ -1485,7 +1485,7 @@ const ExcepcionModal: React.FC<ExcepcionModalProps> = ({
             className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden"
           >
             {/* Header */}
-            <div className="px-6 py-4 bg-gradient-to-r from-slate-700 to-slate-800 text-white">
+            <div className="px-6 py-4 bg-gradient-to-r from-gray-700 to-gray-800 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <CalendarOff className="w-6 h-6" />

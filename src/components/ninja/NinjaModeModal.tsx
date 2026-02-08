@@ -410,8 +410,7 @@ const NinjaModeModal: React.FC<NinjaModeModalProps> = ({ isOpen, onClose }) => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/70 backdrop-blur-md overflow-y-auto"
-          style={{ zIndex: 99999 }}
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm overflow-y-auto z-[100]"
           onClick={onClose}
         >
           {/* Contenedor para centrar vertical y horizontalmente */}
@@ -422,8 +421,7 @@ const NinjaModeModal: React.FC<NinjaModeModalProps> = ({ isOpen, onClose }) => {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 border border-red-900/50 rounded-2xl shadow-2xl shadow-red-900/20 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
-              style={{ zIndex: 100000 }}
+              className="bg-gray-900 border border-red-900/50 rounded-2xl shadow-2xl shadow-red-900/20 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col z-[100]"
             >
             {/* Header */}
             <div className="relative px-6 pt-6 pb-4 bg-gradient-to-br from-gray-900 via-gray-900 to-red-950/30 border-b border-red-900/30">

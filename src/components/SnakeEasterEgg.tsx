@@ -351,12 +351,12 @@ const SnakeEasterEgg: React.FC<SnakeEasterEggProps> = ({ isVisible, onClose }) =
   return (
     <div
       ref={containerRef}
-      className="fixed inset-0 z-[9999] cursor-pointer"
+      className="fixed inset-0 z-[100] cursor-pointer"
       onClick={handleClick}
       tabIndex={-1}
     >
       {/* Fondo blur oscuro */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-md transition-all duration-500" />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-all duration-500" />
       
       {/* Contenedor del juego */}
       <div className="absolute inset-0 flex items-center justify-center">

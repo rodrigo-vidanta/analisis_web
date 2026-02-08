@@ -67,7 +67,7 @@ const BookmarkSelector: React.FC<SimpleBookmarkSelectorProps> = ({
     
     return (
       <svg 
-        className={`w-4 h-4 ${colorInfo ? colorInfo.textClass : 'text-slate-400'}`} 
+        className={`w-4 h-4 ${colorInfo ? colorInfo.textClass : 'text-gray-400'}`} 
         fill={colorInfo ? 'currentColor' : 'none'} 
         stroke="currentColor" 
         viewBox="0 0 24 24"
@@ -91,7 +91,7 @@ const BookmarkSelector: React.FC<SimpleBookmarkSelectorProps> = ({
         className="p-1 hover:scale-110 transition-transform"
       >
         {isLoading ? (
-          <svg className="w-4 h-4 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+          <svg className="w-4 h-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
             <path fill="currentColor" className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
           </svg>
@@ -103,7 +103,7 @@ const BookmarkSelector: React.FC<SimpleBookmarkSelectorProps> = ({
       {/* Dropdown simple - Posicionado hacia la izquierda */}
       {isOpen && (
         <div className="absolute top-full mt-1 right-0 z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200 dark:border-slate-700 p-2">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 p-2">
             
             {/* Colores */}
             <div className="flex gap-1 mb-2">
@@ -116,7 +116,7 @@ const BookmarkSelector: React.FC<SimpleBookmarkSelectorProps> = ({
                     key={color}
                     onClick={() => handleColorSelect(color)}
                     className={`w-6 h-6 rounded-full ${colorInfo.bgClass} hover:scale-110 transition-transform ${
-                      isSelected ? 'ring-2 ring-slate-900' : ''
+                      isSelected ? 'ring-2 ring-gray-900' : ''
                     }`}
                   >
                     <svg className="w-3 h-3 text-white mx-auto" fill="currentColor" viewBox="0 0 24 24">
@@ -131,7 +131,7 @@ const BookmarkSelector: React.FC<SimpleBookmarkSelectorProps> = ({
             {currentBookmark && (
               <button
                 onClick={handleRemove}
-                className="w-full p-1 text-slate-400 hover:text-red-500 rounded text-center"
+                className="w-full p-1 text-gray-400 hover:text-red-500 rounded text-center"
               >
                 <svg className="w-3 h-3 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

@@ -566,7 +566,7 @@ const VoiceModelsSection: React.FC = () => {
 
   const cardClass = isLinearTheme 
     ? 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
-    : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700';
+    : 'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700';
 
   // Esquema de colores elegante por pestaña
   const tabColors = {
@@ -732,7 +732,7 @@ const VoiceModelsSection: React.FC = () => {
         <div className="space-y-4">
           {Array.from(availableFilters.entries()).map(([type, values]) => (
             <div key={type} className="space-y-2">
-              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 capitalize">
+              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
                 {type === 'category' ? 'Categoría' : 
                  type === 'gender' ? 'Género' :
                  type === 'language' ? 'Idioma' :
@@ -781,7 +781,7 @@ const VoiceModelsSection: React.FC = () => {
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="h-32 bg-slate-200 dark:bg-slate-700 rounded-2xl"></div>
+                <div className="h-32 bg-gray-200 dark:bg-gray-700 rounded-2xl"></div>
               </div>
             ))
           ) : (
@@ -814,7 +814,7 @@ const VoiceModelsSection: React.FC = () => {
                   <div className={`absolute inset-0 bg-gradient-to-br ${gradient} opacity-10 group-hover:opacity-20 transition-opacity duration-300`}></div>
                   
                   {/* Contenido */}
-                  <div className="relative p-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                  <div className="relative p-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                     
                     {/* Header con información */}
                     <div className="flex items-start space-x-4 mb-4">
@@ -840,10 +840,10 @@ const VoiceModelsSection: React.FC = () => {
                       </button>
                       
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-slate-900 dark:text-white truncate mb-1">
+                        <h3 className="font-semibold text-gray-900 dark:text-white truncate mb-1">
                           {voice.name}
                         </h3>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
                           {voice.description || 'Voz profesional de alta calidad'}
                         </p>
                       </div>
@@ -856,13 +856,13 @@ const VoiceModelsSection: React.FC = () => {
                           {voice.category}
                         </span>
                         {voice.labels.language && (
-                          <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                             {voice.labels.language}
                           </span>
                         )}
                       </div>
                       
-                      <div className="flex items-center space-x-4 text-xs text-slate-500 dark:text-slate-400">
+                      <div className="flex items-center space-x-4 text-xs text-gray-500 dark:text-gray-400">
                         {voice.labels.gender && (
                           <div className="flex items-center space-x-1">
                             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -889,7 +889,7 @@ const VoiceModelsSection: React.FC = () => {
                           e.stopPropagation();
                           navigateToTTS(voice);
                         }}
-                        className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-slate-700 dark:text-slate-300 hover:text-purple-700 dark:hover:text-purple-300 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200"
+                        className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-purple-100 dark:hover:bg-purple-900/30 text-gray-700 dark:text-gray-300 hover:text-purple-700 dark:hover:text-purple-300 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200"
                       >
                         Usar para TTS
                       </button>
@@ -900,7 +900,7 @@ const VoiceModelsSection: React.FC = () => {
                           setSelectedVoice(voice);
                           setActiveSubTab('speech-to-speech');
                         }}
-                        className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-700 dark:hover:text-blue-300 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200"
+                        className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-blue-100 dark:hover:bg-blue-900/30 text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-300 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-200"
                         title="Usar esta voz para Speech to Speech"
                       >
                         Usar para STS
@@ -923,10 +923,10 @@ const VoiceModelsSection: React.FC = () => {
 
         {filteredVoices.length === 0 && !loading && (
           <div className="text-center py-16">
-            <svg className="w-16 h-16 text-slate-300 dark:text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <p className="text-slate-500 dark:text-slate-400">
+            <p className="text-gray-500 dark:text-gray-400">
               No se encontraron voces con los criterios seleccionados
             </p>
           </div>
@@ -948,10 +948,10 @@ const VoiceModelsSection: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
                   {selectedVoice.name}
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {selectedVoice.labels.gender} • {selectedVoice.labels.language} • Speech to Speech
                 </p>
               </div>
@@ -971,10 +971,10 @@ const VoiceModelsSection: React.FC = () => {
       <div className={`${cardClass} rounded-2xl p-6`}>
         <div className="space-y-6">
           <div className="text-center">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Speech to Speech
             </h3>
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Graba tu voz o sube un archivo de audio para convertirlo usando la voz seleccionada
             </p>
           </div>
@@ -986,7 +986,7 @@ const VoiceModelsSection: React.FC = () => {
             <div className={`p-4 border-2 border-dashed rounded-xl transition-all duration-300 cursor-pointer ${
               !uploadedAudio 
                 ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 hover:border-blue-400 dark:hover:border-blue-600' 
-                : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50'
+                : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50'
             }`}
             onClick={async () => {
               if (uploadedAudio) return; // No hacer nada si hay archivo subido
@@ -1040,7 +1040,7 @@ const VoiceModelsSection: React.FC = () => {
                   isRecording
                     ? 'bg-red-500 playing-red'
                     : micPermission === 'denied' || uploadedAudio
-                      ? 'bg-slate-300 dark:bg-slate-600'
+                      ? 'bg-gray-300 dark:bg-gray-600'
                       : 'bg-blue-500 hover:bg-blue-600'
                 } text-white`}>
                   {isRecording ? (
@@ -1053,10 +1053,10 @@ const VoiceModelsSection: React.FC = () => {
                     </svg>
                   )}
                 </div>
-                <h4 className="font-medium text-slate-900 dark:text-white mb-1">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
                   {isRecording ? 'Grabando...' : 'Grabar Audio'}
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {isRecording 
                     ? 'Clic para detener'
                     : uploadedAudio
@@ -1076,7 +1076,7 @@ const VoiceModelsSection: React.FC = () => {
                   ? 'border-purple-400 dark:border-purple-500 bg-purple-100 dark:bg-purple-900/30'
                   : uploadedAudio
                     ? 'border-purple-300 dark:border-purple-700 bg-purple-50 dark:bg-purple-900/20'
-                    : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 hover:border-purple-300 dark:hover:border-purple-700'
+                    : 'border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 hover:border-purple-300 dark:hover:border-purple-700'
               }`}
               onDragOver={(e) => {
                 e.preventDefault();
@@ -1108,10 +1108,10 @@ const VoiceModelsSection: React.FC = () => {
                 <svg className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                 </svg>
-                <h4 className="font-medium text-slate-900 dark:text-white mb-1">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-1">
                   {uploadedAudio ? uploadedAudio.name : 'Subir Archivo'}
                 </h4>
-                <p className="text-xs text-slate-500 dark:text-slate-400">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
                   {uploadedAudio 
                     ? `${(uploadedAudio.size / 1024 / 1024).toFixed(2)} MB`
                     : 'MP3, WAV, FLAC, OGG, WebM, M4A'
@@ -1156,15 +1156,15 @@ const VoiceModelsSection: React.FC = () => {
 
 
           {/* Configuración de STS */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Modelo STS
               </label>
               <select
                 value={stsModel}
                 onChange={(e) => setStsModel(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
               >
                 <option value="eleven_multilingual_sts_v2">Multilingual STS v2 (Recomendado)</option>
                 <option value="eleven_english_sts_v2">English STS v2</option>
@@ -1172,7 +1172,7 @@ const VoiceModelsSection: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Estabilidad: {stsSettings.stability.toFixed(1)}
               </label>
               <input
@@ -1187,7 +1187,7 @@ const VoiceModelsSection: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Similarity: {stsSettings.similarity_boost.toFixed(1)}
               </label>
               <input
@@ -1207,9 +1207,9 @@ const VoiceModelsSection: React.FC = () => {
                   type="checkbox"
                   checked={stsSettings.use_speaker_boost}
                   onChange={(e) => setStsSettings(prev => ({ ...prev, use_speaker_boost: e.target.checked }))}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
-                <span className="text-sm text-slate-700 dark:text-slate-300">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
                   Speaker Boost
                 </span>
               </label>
@@ -1219,9 +1219,9 @@ const VoiceModelsSection: React.FC = () => {
           {/* Audio grabado */}
           {(recordedAudio || uploadedAudio) && (
             <div className="space-y-4">
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
+              <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-slate-900 dark:text-white">
+                  <h4 className="font-medium text-gray-900 dark:text-white">
                     Audio {uploadedAudio ? 'Subido' : 'Grabado'}
                   </h4>
                   <button
@@ -1244,7 +1244,7 @@ const VoiceModelsSection: React.FC = () => {
                   <source src={URL.createObjectURL(uploadedAudio || recordedAudio!)} type={uploadedAudio?.type || 'audio/webm'} />
                 </audio>
                 {uploadedAudio && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     {uploadedAudio.name} • {(uploadedAudio.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 )}
@@ -1379,7 +1379,7 @@ const VoiceModelsSection: React.FC = () => {
                   }
                 }}
                 disabled={isGenerating || !selectedVoice || (!recordedAudio && !uploadedAudio)}
-                className="w-full h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
+                className="w-full h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
               >
                 {isGenerating ? (
                   <>
@@ -1404,7 +1404,7 @@ const VoiceModelsSection: React.FC = () => {
       {(stsHistory.length > 0 || user?.id) && (
         <div className={`${cardClass} rounded-2xl p-6`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900 dark:text-white">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
               Historial de Speech to Speech ({stsHistory.length})
             </h3>
             <div className="flex items-center space-x-2">
@@ -1429,15 +1429,15 @@ const VoiceModelsSection: React.FC = () => {
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {stsHistory.length === 0 ? (
               <div className="text-center py-8">
-                <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <p className="text-slate-500 dark:text-slate-400 mb-2">No hay conversiones de voz aún</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Las conversiones aparecerán aquí después de grabar y convertir</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-2">No hay conversiones de voz aún</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Las conversiones aparecerán aquí después de grabar y convertir</p>
               </div>
             ) : (
               stsHistory.slice(0, 20).map((item, index) => (
-              <div key={item.id} className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200">
+              <div key={item.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors duration-200">
                 <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-cyan-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -1446,14 +1446,14 @@ const VoiceModelsSection: React.FC = () => {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-slate-900 dark:text-white text-sm">
+                    <span className="font-medium text-gray-900 dark:text-white text-sm">
                       {item.voice_name}
                     </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(item.created_at).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                  <p className="text-xs text-gray-600 dark:text-gray-400">
                     Conversión de voz • {item.model_id}
                   </p>
                 </div>
@@ -1520,7 +1520,7 @@ const VoiceModelsSection: React.FC = () => {
           
           {stsHistory.length > 20 && (
             <div className="mt-4 text-center">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Mostrando 20 de {stsHistory.length} conversiones • Máximo 100 en historial
               </p>
             </div>
@@ -1543,10 +1543,10 @@ const VoiceModelsSection: React.FC = () => {
                 </svg>
               </div>
               <div>
-                <h3 className="font-semibold text-slate-900 dark:text-white">
+                <h3 className="font-semibold text-gray-900 dark:text-white">
                   {selectedVoice.name}
                 </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
                   {selectedVoice.labels.gender} • {selectedVoice.labels.language} • {selectedVoice.category}
                 </p>
               </div>
@@ -1569,7 +1569,7 @@ const VoiceModelsSection: React.FC = () => {
             value={textToGenerate}
             onChange={(e) => setTextToGenerate(e.target.value)}
             placeholder="Escribe el texto que quieres convertir a audio..."
-            className="tag-textarea w-full h-40 p-4 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white"
+            className="tag-textarea w-full h-40 p-4 border-0 rounded-xl focus:ring-2 focus:ring-purple-500/20 resize-none transition-all duration-300 text-gray-900 dark:text-white"
             maxLength={5000}
             style={{
               fontFamily: 'ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace',
@@ -1579,7 +1579,7 @@ const VoiceModelsSection: React.FC = () => {
           />
           
           <div className="flex items-center justify-between text-sm">
-            <span className="text-slate-500 dark:text-slate-400">
+            <span className="text-gray-500 dark:text-gray-400">
               {textToGenerate.length}/5000 caracteres
             </span>
             <span className="text-purple-600 dark:text-purple-400 font-medium">
@@ -1612,7 +1612,7 @@ const VoiceModelsSection: React.FC = () => {
                           onClick={() => insertTag(tag.value)}
                           className={`px-3 py-1.5 text-xs rounded-full transition-all duration-200 transform hover:scale-105 ${
                             tag.tested 
-                              ? 'bg-white dark:bg-slate-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50 hover:border-purple-300 dark:hover:border-purple-600'
+                              ? 'bg-white dark:bg-gray-800 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-700 hover:bg-purple-100 dark:hover:bg-purple-900/50 hover:border-purple-300 dark:hover:border-purple-600'
                               : 'bg-orange-50 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-900/30'
                           }`}
                           title={`Insertar tag: [${tag.value}] ${tag.tested ? '(Verificado)' : '(Experimental)'}`}
@@ -1640,9 +1640,9 @@ const VoiceModelsSection: React.FC = () => {
           )}
 
           {/* Configuración avanzada específica por modelo */}
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-medium text-slate-900 dark:text-white">
+              <h4 className="font-medium text-gray-900 dark:text-white">
                 Configuración Avanzada
               </h4>
               <div className="flex items-center space-x-2">
@@ -1665,13 +1665,13 @@ const VoiceModelsSection: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Modelo */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Modelo
                     </label>
                     <select
                       value={selectedModel}
                       onChange={(e) => setSelectedModel(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       {models.map(model => (
                         <option key={model.model_id} value={model.model_id}>
@@ -1683,7 +1683,7 @@ const VoiceModelsSection: React.FC = () => {
 
                   {/* Estabilidad - Específica por modelo */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Estabilidad: {voiceSettings.stability.toFixed(1)}
                     </label>
                     {capabilities.stabilityValues === 'continuous' ? (
@@ -1700,21 +1700,21 @@ const VoiceModelsSection: React.FC = () => {
                       <select
                         value={voiceSettings.stability}
                         onChange={(e) => setVoiceSettings(prev => ({ ...prev, stability: parseFloat(e.target.value) }))}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       >
                         <option value="0.0">Creativo (0.0)</option>
                         <option value="0.5">Natural (0.5)</option>
                         <option value="1.0">Robusto (1.0)</option>
                       </select>
                     )}
-                    <p className="text-xs text-slate-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       {capabilities.stabilityValues === 'continuous' ? 'Consistencia de la voz' : 'Solo valores específicos para este modelo'}
                     </p>
                   </div>
 
                   {/* Similarity Boost */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Similarity: {voiceSettings.similarity_boost.toFixed(1)}
                     </label>
                     <input
@@ -1726,13 +1726,13 @@ const VoiceModelsSection: React.FC = () => {
                       onChange={(e) => setVoiceSettings(prev => ({ ...prev, similarity_boost: parseFloat(e.target.value) }))}
                       className="w-full accent-purple-500"
                     />
-                    <p className="text-xs text-slate-500 mt-1">Similitud con voz original</p>
+                    <p className="text-xs text-gray-500 mt-1">Similitud con voz original</p>
                   </div>
 
                   {/* Estilo - Solo si el modelo lo soporta */}
                   {capabilities.supportsStyle && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Estilo: {(voiceSettings.style || 0).toFixed(1)}
                       </label>
                       <input
@@ -1744,14 +1744,14 @@ const VoiceModelsSection: React.FC = () => {
                         onChange={(e) => setVoiceSettings(prev => ({ ...prev, style: parseFloat(e.target.value) }))}
                         className="w-full accent-purple-500"
                       />
-                      <p className="text-xs text-slate-500 mt-1">Expresividad y emoción</p>
+                      <p className="text-xs text-gray-500 mt-1">Expresividad y emoción</p>
                     </div>
                   )}
 
                   {/* Velocidad - Solo para modelos que lo soportan */}
                   {capabilities.supportsSpeed ? (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Velocidad: {voiceSpeed}x
                       </label>
                       <select
@@ -1761,7 +1761,7 @@ const VoiceModelsSection: React.FC = () => {
                           setVoiceSpeed(newSpeed);
                           voiceSpeedRef.current = newSpeed;
                         }}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                         style={{ 
                           backgroundColor: voiceSpeed !== 1.0 ? '#fef3c7' : 'transparent',
                           border: voiceSpeed !== 1.0 ? '2px solid #f59e0b' : undefined
@@ -1774,7 +1774,7 @@ const VoiceModelsSection: React.FC = () => {
                         <option value="1.25">Rápida (1.25x)</option>
                         <option value="1.5">Muy rápida (1.5x)</option>
                       </select>
-                      <p className="text-xs text-slate-500 mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         Velocidad de reproducción (speech_rate)
                       </p>
                     </div>
@@ -1797,13 +1797,13 @@ const VoiceModelsSection: React.FC = () => {
 
                   {/* Formato de salida */}
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Formato de Audio
                     </label>
                     <select
                       value={outputFormat}
                       onChange={(e) => setOutputFormat(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                      className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                     >
                       {capabilities.supportedFormats.map(format => (
                         <option key={format} value={format}>
@@ -1811,13 +1811,13 @@ const VoiceModelsSection: React.FC = () => {
                         </option>
                       ))}
                     </select>
-                    <p className="text-xs text-slate-500 mt-1">Calidad y formato de salida</p>
+                    <p className="text-xs text-gray-500 mt-1">Calidad y formato de salida</p>
                   </div>
 
                   {/* Seed - Solo si el modelo lo soporta */}
                   {capabilities.supportsSeed && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Seed (Reproducibilidad)
                       </label>
                       <input
@@ -1825,22 +1825,22 @@ const VoiceModelsSection: React.FC = () => {
                         placeholder="Ej: 12345"
                         value={seed || ''}
                         onChange={(e) => setSeed(e.target.value ? parseInt(e.target.value) : undefined)}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       />
-                      <p className="text-xs text-slate-500 mt-1">Para resultados idénticos</p>
+                      <p className="text-xs text-gray-500 mt-1">Para resultados idénticos</p>
                     </div>
                   )}
 
                   {/* Optimización de latencia - Solo para Turbo */}
                   {selectedModel.includes('turbo') && (
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Optimización: {optimizeLatency}
                       </label>
                       <select
                         value={optimizeLatency}
                         onChange={(e) => setOptimizeLatency(parseInt(e.target.value))}
-                        className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
+                        className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 text-sm"
                       >
                         <option value="0">Calidad máxima</option>
                         <option value="1">Balanceado</option>
@@ -1848,7 +1848,7 @@ const VoiceModelsSection: React.FC = () => {
                         <option value="3">Ultra rápido</option>
                         <option value="4">Máxima velocidad</option>
                       </select>
-                      <p className="text-xs text-slate-500 mt-1">Balance calidad/velocidad</p>
+                      <p className="text-xs text-gray-500 mt-1">Balance calidad/velocidad</p>
                     </div>
                   )}
 
@@ -1860,13 +1860,13 @@ const VoiceModelsSection: React.FC = () => {
                           type="checkbox"
                           checked={voiceSettings.use_speaker_boost}
                           onChange={(e) => setVoiceSettings(prev => ({ ...prev, use_speaker_boost: e.target.checked }))}
-                          className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                         />
-                        <span className="text-sm text-slate-700 dark:text-slate-300">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
                           Speaker Boost
                         </span>
                       </label>
-                      <p className="text-xs text-slate-500 mt-1">Mejora claridad y volumen</p>
+                      <p className="text-xs text-gray-500 mt-1">Mejora claridad y volumen</p>
                     </div>
                   )}
                 </div>
@@ -1885,12 +1885,12 @@ const VoiceModelsSection: React.FC = () => {
               <button
                 key={index}
                 onClick={() => setVoiceSettings(preset.settings)}
-                className="p-3 text-left bg-slate-100 dark:bg-slate-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all duration-200 transform hover:scale-105"
+                className="p-3 text-left bg-gray-100 dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-all duration-200 transform hover:scale-105"
               >
-                <div className="font-medium text-slate-900 dark:text-white text-sm">
+                <div className="font-medium text-gray-900 dark:text-white text-sm">
                   {preset.name}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {preset.desc}
                 </div>
               </button>
@@ -2018,7 +2018,7 @@ const VoiceModelsSection: React.FC = () => {
                 isGenerating 
                   ? 'generating-progress' 
                   : `bg-gradient-to-r ${getCurrentTabColors().gradient} hover:from-${getCurrentTabColors().primary}-600 hover:to-${getCurrentTabColors().primary}-600`
-              } disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed`}
+              } disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3 disabled:cursor-not-allowed`}
           >
             {isGenerating ? (
               <>
@@ -2041,7 +2041,7 @@ const VoiceModelsSection: React.FC = () => {
       {(ttsHistory.length > 0 || user?.id) && (
         <div className={`${cardClass} rounded-2xl p-6`}>
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-slate-900 dark:text-white">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
               Historial de Text to Speech ({ttsHistory.length})
             </h3>
             <div className="flex items-center space-x-2">
@@ -2066,15 +2066,15 @@ const VoiceModelsSection: React.FC = () => {
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {ttsHistory.length === 0 ? (
               <div className="text-center py-8">
-                <svg className="w-12 h-12 text-slate-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                 </svg>
-                <p className="text-slate-500 dark:text-slate-400 mb-2">No hay audios generados aún</p>
-                <p className="text-xs text-slate-400 dark:text-slate-500">Los audios aparecerán aquí después de generarlos</p>
+                <p className="text-gray-500 dark:text-gray-400 mb-2">No hay audios generados aún</p>
+                <p className="text-xs text-gray-400 dark:text-gray-500">Los audios aparecerán aquí después de generarlos</p>
               </div>
             ) : (
               ttsHistory.slice(0, 20).map((item, index) => (
-              <div key={item.id} className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200">
+              <div key={item.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors duration-200">
                 <div className="w-10 h-10 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -2083,14 +2083,14 @@ const VoiceModelsSection: React.FC = () => {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="font-medium text-slate-900 dark:text-white text-sm">
+                    <span className="font-medium text-gray-900 dark:text-white text-sm">
                       {item.voice_name}
                     </span>
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(item.created_at).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
+                  <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">
                     {item.text}
                   </p>
                 </div>
@@ -2187,19 +2187,19 @@ const VoiceModelsSection: React.FC = () => {
     <div className="space-y-6">
       {/* Configuración avanzada de STT */}
       <div className={`${cardClass} rounded-2xl p-6`}>
-        <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
           Configuración de Transcripción
         </h3>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Modelo de Transcripción
             </label>
             <select
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
             >
               {models.filter(m => m.can_do_voice_conversion).map(model => (
                 <option key={model.model_id} value={model.model_id}>
@@ -2210,10 +2210,10 @@ const VoiceModelsSection: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Idioma Esperado
             </label>
-            <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+            <select className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
               <option value="auto">Detección automática</option>
               <option value="es">Español</option>
               <option value="en">English</option>
@@ -2225,10 +2225,10 @@ const VoiceModelsSection: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Formato de Salida
             </label>
-            <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
+            <select className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm">
               <option value="text">Solo texto</option>
               <option value="srt">Subtítulos SRT</option>
               <option value="vtt">WebVTT</option>
@@ -2241,9 +2241,9 @@ const VoiceModelsSection: React.FC = () => {
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Incluir timestamps
             </span>
           </label>
@@ -2251,9 +2251,9 @@ const VoiceModelsSection: React.FC = () => {
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Detectar hablantes
             </span>
           </label>
@@ -2261,9 +2261,9 @@ const VoiceModelsSection: React.FC = () => {
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Filtrar ruido de fondo
             </span>
           </label>
@@ -2271,9 +2271,9 @@ const VoiceModelsSection: React.FC = () => {
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Puntuación automática
             </span>
           </label>
@@ -2287,7 +2287,7 @@ const VoiceModelsSection: React.FC = () => {
             ? 'ring-2 ring-blue-500 bg-blue-50 dark:bg-blue-900/20' 
             : sttFile 
             ? 'ring-2 ring-green-500 bg-green-50 dark:bg-green-900/20' 
-            : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+            : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
         }`}
         onClick={() => fileInputRef.current?.click()}
         onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -2306,16 +2306,16 @@ const VoiceModelsSection: React.FC = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
                 {sttFile.name}
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 {(sttFile.size / 1024 / 1024).toFixed(2)} MB • {Math.ceil(sttFile.size / 1024 / 1024 * 60)} segundos aprox.
               </p>
             </div>
             
             {/* Información del archivo */}
-            <div className="grid grid-cols-3 gap-4 text-xs text-slate-600 dark:text-slate-400">
+            <div className="grid grid-cols-3 gap-4 text-xs text-gray-600 dark:text-gray-400">
               <div>
                 <span className="font-medium">Tipo:</span>
                 <br />
@@ -2335,17 +2335,17 @@ const VoiceModelsSection: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-4">
-            <svg className="w-16 h-16 text-slate-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-16 h-16 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
                 Arrastra tu archivo de audio
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 MP3, WAV, M4A, FLAC • Máximo 25MB • Hasta 2 horas
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 Formatos soportados: MP3, WAV, M4A, FLAC, OGG, WEBM
               </p>
             </div>
@@ -2378,7 +2378,7 @@ const VoiceModelsSection: React.FC = () => {
             }
           }}
           disabled={sttLoading}
-          className="w-full h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
+          className="w-full h-14 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
         >
           {sttLoading ? (
             <>
@@ -2398,11 +2398,11 @@ const VoiceModelsSection: React.FC = () => {
 
       {sttResult && (
         <div className={`${cardClass} rounded-2xl p-6`}>
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
             Transcripción
           </h3>
-          <div className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl mb-4">
-            <p className="text-slate-900 dark:text-white leading-relaxed">
+          <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl mb-4">
+            <p className="text-gray-900 dark:text-white leading-relaxed">
               {sttResult}
             </p>
           </div>
@@ -2410,7 +2410,7 @@ const VoiceModelsSection: React.FC = () => {
           <div className="flex space-x-3">
             <button
               onClick={() => navigator.clipboard.writeText(sttResult)}
-              className="flex-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-300 px-4 py-2 rounded-lg font-medium transition-colors duration-200"
+              className="flex-1 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-lg font-medium transition-colors duration-200"
             >
               Copiar
             </button>
@@ -2430,22 +2430,22 @@ const VoiceModelsSection: React.FC = () => {
       {/* Historial de STT */}
       {sttHistory.length > 0 && (
         <div className={`${cardClass} rounded-2xl p-6`}>
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
             Historial de Transcripciones ({sttHistory.length})
           </h3>
           
           <div className="space-y-3 max-h-60 overflow-y-auto">
             {sttHistory.slice(0, 20).map((item, index) => (
-              <div key={item.id} className="p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl">
+              <div key={item.id} className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="font-medium text-slate-900 dark:text-white text-sm">
+                  <span className="font-medium text-gray-900 dark:text-white text-sm">
                     {item.filename}
                   </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {new Date(item.created_at).toLocaleTimeString()}
                   </span>
                 </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2">
+                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2">
                   {item.text}
                 </p>
               </div>
@@ -2469,7 +2469,7 @@ const VoiceModelsSection: React.FC = () => {
       {/* Generación de efectos */}
       <div className={`${cardClass} rounded-2xl p-6`}>
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-semibold text-slate-900 dark:text-white">
+          <h3 className="font-semibold text-gray-900 dark:text-white">
             Generar Efecto de Sonido
           </h3>
           <label className="flex items-center space-x-2">
@@ -2477,9 +2477,9 @@ const VoiceModelsSection: React.FC = () => {
               type="checkbox"
               checked={autoTranslate}
               onChange={(e) => setAutoTranslate(e.target.checked)}
-              className="rounded border-slate-300 text-green-600 focus:ring-green-500"
+              className="rounded border-gray-300 text-green-600 focus:ring-green-500"
             />
-            <span className="text-sm text-slate-700 dark:text-slate-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Auto-traducir al inglés
             </span>
             {autoTranslate && (
@@ -2498,13 +2498,13 @@ const VoiceModelsSection: React.FC = () => {
             value={effectPrompt}
             onChange={(e) => setEffectPrompt(e.target.value)}
             placeholder="Describe el efecto de sonido que quieres generar..."
-            className="w-full h-32 p-4 bg-slate-50 dark:bg-slate-900/50 border-0 rounded-xl focus:ring-2 focus:ring-green-500/20 resize-none transition-all duration-300 text-slate-900 dark:text-white placeholder-slate-400"
+            className="w-full h-32 p-4 bg-gray-50 dark:bg-gray-900/50 border-0 rounded-xl focus:ring-2 focus:ring-green-500/20 resize-none transition-all duration-300 text-gray-900 dark:text-white placeholder-gray-400"
             maxLength={500}
           />
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Duración: {effectDuration}s
               </label>
               <input
@@ -2515,17 +2515,17 @@ const VoiceModelsSection: React.FC = () => {
                 onChange={(e) => setEffectDuration(parseInt(e.target.value))}
                 className="w-full accent-green-500"
               />
-              <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>1s</span>
                 <span>30s (máximo oficial)</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 Límite máximo de ElevenLabs para efectos de sonido
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Influencia: {effectInfluence.toFixed(1)}
               </label>
               <input
@@ -2537,11 +2537,11 @@ const VoiceModelsSection: React.FC = () => {
                 onChange={(e) => setEffectInfluence(parseFloat(e.target.value))}
                 className="w-full accent-green-500"
               />
-              <div className="flex justify-between text-xs text-slate-500 mt-1">
+              <div className="flex justify-between text-xs text-gray-500 mt-1">
                 <span>0.0 (libre)</span>
                 <span>1.0 (estricto)</span>
               </div>
-              <p className="text-xs text-slate-400 mt-1">
+              <p className="text-xs text-gray-400 mt-1">
                 Controla qué tan fielmente el efecto sigue tu descripción. 
                 Valores bajos permiten más creatividad, valores altos siguen el prompt exactamente.
               </p>
@@ -2679,7 +2679,7 @@ const VoiceModelsSection: React.FC = () => {
               }
             }}
             disabled={isGenerating || !effectPrompt.trim()}
-            className="w-full h-14 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 disabled:from-slate-300 disabled:to-slate-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
+            className="w-full h-14 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600 disabled:from-gray-300 disabled:to-gray-400 text-white rounded-xl font-medium transition-all duration-300 flex items-center justify-center space-x-3"
           >
             {isGenerating ? (
               <>
@@ -2701,13 +2701,13 @@ const VoiceModelsSection: React.FC = () => {
       {/* Historial de efectos */}
       {effectsHistory.length > 0 && (
         <div className={`${cardClass} rounded-2xl p-6`}>
-          <h3 className="font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="font-semibold text-gray-900 dark:text-white mb-4">
             Historial de Efectos ({effectsHistory.length})
           </h3>
           
           <div className="space-y-3 max-h-80 overflow-y-auto">
             {effectsHistory.slice(0, 20).map((effect, index) => (
-              <div key={effect.id} className="flex items-center space-x-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/50 transition-colors duration-200">
+              <div key={effect.id} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors duration-200">
                 <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-teal-400 rounded-lg flex items-center justify-center flex-shrink-0">
                   <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -2716,11 +2716,11 @@ const VoiceModelsSection: React.FC = () => {
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <span className="text-xs text-slate-500 dark:text-slate-400">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">
                       {new Date(effect.created_at).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="text-sm text-slate-900 dark:text-white line-clamp-2">
+                  <p className="text-sm text-gray-900 dark:text-white line-clamp-2">
                     {effect.text}
                   </p>
                 </div>

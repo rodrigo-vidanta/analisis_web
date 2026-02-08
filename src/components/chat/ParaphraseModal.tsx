@@ -306,8 +306,7 @@ export const ParaphraseModal: React.FC<ParaphraseModalProps> = ({
 
   const modalContent = (
     <div 
-      className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm"
-      style={{ zIndex: 2147483647 }} // Z-index máximo para estar encima de todo
+      className="fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm z-[60]"
     >
       <div className="relative w-full max-w-4xl mx-4 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
         {/* Header */}

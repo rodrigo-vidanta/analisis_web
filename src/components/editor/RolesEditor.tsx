@@ -159,7 +159,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
       <div className="glass-card p-6">
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-slate-600 dark:text-slate-400">Cargando prompts...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando prompts...</p>
         </div>
       </div>
     );
@@ -171,10 +171,10 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Roles y Prompts del Sistema
             </h3>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               Gestiona los mensajes del sistema que definen la personalidad y comportamiento del agente
             </p>
           </div>
@@ -194,17 +194,17 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <span className="px-2 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded text-sm">
+                  <span className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded text-sm">
                     #{index + 1}
                   </span>
-                  <h4 className="font-medium text-slate-900 dark:text-white">
+                  <h4 className="font-medium text-gray-900 dark:text-white">
                     {prompt.title}
                   </h4>
                   <span className={`px-2 py-1 rounded text-xs ${
                     prompt.category === 'identity' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
                     prompt.category === 'workflow' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
                     prompt.category === 'communication' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                    'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-400'
+                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400'
                   }`}>
                     {prompt.category}
                   </span>
@@ -221,7 +221,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
                       value={newPromptContent}
                       onChange={(e) => setNewPromptContent(e.target.value)}
                       rows={6}
-                      className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Contenido del prompt..."
                     />
                     <div className="flex gap-2">
@@ -236,7 +236,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
                           setEditingPrompt(null);
                           setNewPromptContent('');
                         }}
-                        className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                        className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
                       >
                         Cancelar
                       </button>
@@ -244,15 +244,15 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="bg-slate-50 dark:bg-slate-800 p-4 rounded-lg">
-                      <pre className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                    <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+                      <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                         {prompt.customContent || prompt.content}
                       </pre>
                     </div>
                     
                     {prompt.variables && prompt.variables.length > 0 && (
                       <div className="flex flex-wrap gap-2">
-                        <span className="text-xs text-slate-500 dark:text-slate-400">Variables:</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">Variables:</span>
                         {prompt.variables.map((variable: string) => (
                           <span key={variable} className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 rounded text-xs">
                             {`{{${variable}}}`}
@@ -286,7 +286,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
       {/* Nuevo Prompt */}
       {newPromptContent !== null && (
         <div className="glass-card p-6">
-          <h4 className="font-medium text-slate-900 dark:text-white mb-4">
+          <h4 className="font-medium text-gray-900 dark:text-white mb-4">
             Nuevo Prompt Personalizado
           </h4>
           <div className="space-y-3">
@@ -294,7 +294,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
               value={newPromptContent}
               onChange={(e) => setNewPromptContent(e.target.value)}
               rows={6}
-              className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="Escribe el contenido del nuevo prompt..."
             />
             <div className="flex gap-2">
@@ -306,7 +306,7 @@ const RolesEditor: React.FC<RolesEditorProps> = ({ template, onUpdate }) => {
               </button>
               <button
                 onClick={() => setNewPromptContent('')}
-                className="px-4 py-2 bg-slate-500 text-white rounded-lg hover:bg-slate-600 transition-colors"
+                className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
               >
                 Cancelar
               </button>

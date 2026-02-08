@@ -1046,7 +1046,7 @@ export const BulkReassignmentTab: React.FC = () => {
   const currentProspecto = selectedProspectos[reassignmentState.currentIndex];
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
+    <div className="h-full flex flex-col bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       
       {/* Modal de Progreso Paralelo - Bloquea toda la UI */}
       <AnimatePresence>
@@ -1098,14 +1098,14 @@ export const BulkReassignmentTab: React.FC = () => {
                 {/* Barra de progreso general */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       Progreso General
                     </span>
                     <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
                       {completedCount} de {reassignmentState.total} completados
                     </span>
                   </div>
-                  <div className="h-4 bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <motion.div
                       className="h-full bg-gradient-to-r from-violet-500 to-purple-600 rounded-full"
                       initial={{ width: 0 }}
@@ -1113,7 +1113,7 @@ export const BulkReassignmentTab: React.FC = () => {
                       transition={{ duration: 0.3, ease: 'easeOut' }}
                     />
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-gray-400 mt-1 text-center">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">
                     {progressPercent}% completado
                   </p>
                 </div>
@@ -1121,7 +1121,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 {/* Grid de slots activos (procesando ahora) */}
                 <div className="mb-5">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="text-xs text-slate-500 dark:text-gray-400 uppercase tracking-wider font-medium flex items-center gap-2">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider font-medium flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-violet-500 animate-pulse" />
                       <span>Slots Activos ({activeSlots}/{MAX_PARALLEL_SLOTS})</span>
                     </div>
@@ -1146,7 +1146,7 @@ export const BulkReassignmentTab: React.FC = () => {
                                 {idx + 1}
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-slate-900 dark:text-white truncate">
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                   {slot.prospecto.nombre_completo || slot.prospecto.nombre_whatsapp || 'Sin nombre'}
                                 </p>
                               </div>
@@ -1164,7 +1164,7 @@ export const BulkReassignmentTab: React.FC = () => {
                       })}
                     </div>
                   ) : (
-                    <div className="flex items-center justify-center h-20 text-slate-400 dark:text-gray-500">
+                    <div className="flex items-center justify-center h-20 text-gray-400 dark:text-gray-500">
                       <p className="text-sm">
                         {reassignmentState.status === 'paused' ? 'Proceso en pausa' : 'Iniciando slots...'}
                       </p>
@@ -1192,11 +1192,11 @@ export const BulkReassignmentTab: React.FC = () => {
                     </p>
                     <p className="text-xs text-violet-700 dark:text-violet-300">En vuelo</p>
                   </div>
-                  <div className="text-center p-3 rounded-xl bg-slate-100 dark:bg-gray-700">
-                    <p className="text-2xl font-bold text-slate-600 dark:text-gray-300">
+                  <div className="text-center p-3 rounded-xl bg-gray-100 dark:bg-gray-700">
+                    <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
                       {pendingQueue.length}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-gray-400">Pendientes</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Pendientes</p>
                   </div>
                 </div>
 
@@ -1228,8 +1228,8 @@ export const BulkReassignmentTab: React.FC = () => {
               </div>
 
               {/* Botones de acción */}
-              <div className="px-6 py-4 bg-slate-50 dark:bg-gray-900/50 border-t border-slate-200 dark:border-gray-700 flex justify-between items-center">
-                <div className="text-sm text-slate-500 dark:text-gray-400">
+              <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
                   {reassignmentState.startTime && (
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
@@ -1281,17 +1281,17 @@ export const BulkReassignmentTab: React.FC = () => {
       </AnimatePresence>
       
       {/* Header con estadísticas */}
-      <div className="flex-shrink-0 px-6 py-4 border-b border-slate-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <div className="flex-shrink-0 px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
               <Users className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                 Reasignación Masiva
               </h2>
-              <p className="text-sm text-slate-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Selecciona hasta {MAX_SELECTION} prospectos para reasignar
               </p>
             </div>
@@ -1302,7 +1302,7 @@ export const BulkReassignmentTab: React.FC = () => {
             <div className={`px-4 py-2 rounded-xl font-medium transition-all ${
               selectedIds.size > 0 
                 ? 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 shadow-sm'
-                : 'bg-slate-100 dark:bg-gray-700 text-slate-500 dark:text-gray-400'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
             }`}>
               <span className="text-lg font-bold">{selectedIds.size}</span>
               <span className="text-sm ml-1">/ {MAX_SELECTION}</span>
@@ -1313,7 +1313,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 onClick={handleClearSelection}
-                className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                className="p-2 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
               >
                 <X className="w-5 h-5" />
               </motion.button>
@@ -1326,20 +1326,20 @@ export const BulkReassignmentTab: React.FC = () => {
       <div className="flex-1 flex overflow-hidden">
         
         {/* Panel izquierdo: Filtros y Lista */}
-        <div className="flex-1 flex flex-col overflow-hidden border-r border-slate-200 dark:border-gray-700">
+        <div className="flex-1 flex flex-col overflow-hidden border-r border-gray-200 dark:border-gray-700">
           
           {/* Barra de filtros */}
-          <div className="flex-shrink-0 p-4 space-y-3 bg-white/50 dark:bg-gray-800/50 border-b border-slate-200 dark:border-gray-700">
+          <div className="flex-shrink-0 p-4 space-y-3 bg-white/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700">
             
             {/* Búsqueda - Soporta múltiples nombres separados por comas o saltos de línea */}
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-5 h-5 text-slate-400" />
+              <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
               <textarea
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Buscar nombre, teléfono o email (soporta lista)"
                 rows={searchTerm.includes('\n') || searchTerm.includes(',') ? 4 : 1}
-                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all resize-none scrollbar-none"
+                className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 transition-all resize-none scrollbar-none"
                 style={{ 
                   minHeight: searchTerm.includes('\n') || searchTerm.includes(',') ? '100px' : '42px',
                   maxHeight: '150px',
@@ -1365,7 +1365,7 @@ export const BulkReassignmentTab: React.FC = () => {
                   setFilterEjecutivo('');
                   setPage(0);
                 }}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-slate-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
                 <option value="">Todas las coordinaciones</option>
                 {coordinaciones.map(c => (
@@ -1377,7 +1377,7 @@ export const BulkReassignmentTab: React.FC = () => {
               <select
                 value={filterEjecutivo}
                 onChange={(e) => { setFilterEjecutivo(e.target.value); setPage(0); }}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-slate-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
                 <option value="">Todos los ejecutivos</option>
                 {filteredEjecutivos.map(e => (
@@ -1389,7 +1389,7 @@ export const BulkReassignmentTab: React.FC = () => {
               <select
                 value={filterEtapa}
                 onChange={(e) => { setFilterEtapa(e.target.value); setPage(0); }}
-                className="px-3 py-2 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-slate-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
               >
                 <option value="">Todas las etapas</option>
                 {etapasDisponibles.map(e => (
@@ -1398,14 +1398,14 @@ export const BulkReassignmentTab: React.FC = () => {
               </select>
 
               {/* Sin asignar toggle */}
-              <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:bg-slate-50 dark:hover:bg-gray-700 transition-colors">
+              <label className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                 <input
                   type="checkbox"
                   checked={filterSinAsignar}
                   onChange={(e) => { setFilterSinAsignar(e.target.checked); setPage(0); }}
-                  className="w-4 h-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                  className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
-                <span className="text-sm text-slate-700 dark:text-gray-300">Sin asignar</span>
+                <span className="text-sm text-gray-700 dark:text-gray-300">Sin asignar</span>
               </label>
             </div>
 
@@ -1436,7 +1436,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 <button
                   onClick={handleClearFilters}
                   disabled={gridTab === 'selection'}
-                  className="px-3 py-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-1 disabled:opacity-50"
                 >
                   <Filter className="w-3.5 h-3.5" />
                   Limpiar filtros
@@ -1444,7 +1444,7 @@ export const BulkReassignmentTab: React.FC = () => {
               </div>
               
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-400">
+                <span className="text-sm text-gray-400">
                   {gridTab === 'results' 
                     ? `${totalCount.toLocaleString()} encontrados`
                     : `${selectedProspectos.length} seleccionados`
@@ -1453,7 +1453,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 <button
                   onClick={loadProspectos}
                   disabled={isLoading || gridTab === 'selection'}
-                  className="p-2 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                  className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
                 >
                   <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
                 </button>
@@ -1461,13 +1461,13 @@ export const BulkReassignmentTab: React.FC = () => {
             </div>
 
             {/* Pestañas del Grid */}
-            <div className="flex border-b border-slate-200 dark:border-gray-700 mt-2">
+            <div className="flex border-b border-gray-200 dark:border-gray-700 mt-2">
               <button
                 onClick={() => setGridTab('results')}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   gridTab === 'results'
                     ? 'border-violet-500 text-violet-600 dark:text-violet-400'
-                    : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -1480,7 +1480,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   gridTab === 'selection'
                     ? 'border-violet-500 text-violet-600 dark:text-violet-400'
-                    : 'border-transparent text-slate-500 dark:text-gray-400 hover:text-slate-700 dark:hover:text-gray-300'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
               >
                 <span className="flex items-center gap-2">
@@ -1506,7 +1506,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
                   </div>
                 ) : prospectos.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-400">
                     <Users className="w-12 h-12 mb-2 opacity-50" />
                     <p>No se encontraron prospectos</p>
                   </div>
@@ -1524,7 +1524,7 @@ export const BulkReassignmentTab: React.FC = () => {
                             p-4 rounded-xl border-2 transition-all cursor-pointer
                             ${isSelected 
                               ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-md shadow-violet-500/10' 
-                              : 'border-slate-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-300 dark:hover:border-violet-600'
+                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-300 dark:hover:border-violet-600'
                             }
                             ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                           `}
@@ -1535,7 +1535,7 @@ export const BulkReassignmentTab: React.FC = () => {
                               w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all mt-0.5 flex-shrink-0
                               ${isSelected 
                                 ? 'bg-violet-500 border-violet-500' 
-                                : 'border-slate-300 dark:border-gray-600'
+                                : 'border-gray-300 dark:border-gray-600'
                               }
                             `}>
                               {isSelected && <Check className="w-3 h-3 text-white" />}
@@ -1549,10 +1549,10 @@ export const BulkReassignmentTab: React.FC = () => {
 
                             {/* Info principal */}
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-slate-900 dark:text-white">
+                              <p className="font-semibold text-gray-900 dark:text-white">
                                 {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
                               </p>
-                              <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-gray-400 mt-1">
+                              <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {prospecto.whatsapp && (
                                   <PhoneText 
                                     phone={prospecto.whatsapp} 
@@ -1566,7 +1566,7 @@ export const BulkReassignmentTab: React.FC = () => {
                               </div>
                               {/* Fecha de creación */}
                               {prospecto.created_at && (
-                                <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-gray-500 mt-1">
+                                <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mt-1">
                                   <Calendar className="w-3 h-3" />
                                   <span>{new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                 </div>
@@ -1582,7 +1582,7 @@ export const BulkReassignmentTab: React.FC = () => {
                                 </span>
                               )}
                               {/* Ejecutivo nombre completo */}
-                              <p className="text-sm font-medium text-slate-700 dark:text-gray-200">
+                              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                                 {prospecto.ejecutivo_nombre || (
                                   <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                     <UserX className="w-3.5 h-3.5" />
@@ -1592,7 +1592,7 @@ export const BulkReassignmentTab: React.FC = () => {
                               </p>
                               {/* Etapa si existe */}
                               {prospecto.etapa && (
-                                <span className="text-xs text-slate-400 dark:text-gray-500">
+                                <span className="text-xs text-gray-400 dark:text-gray-500">
                                   {prospecto.etapa}
                                 </span>
                               )}
@@ -1606,21 +1606,21 @@ export const BulkReassignmentTab: React.FC = () => {
 
                 {/* Paginación */}
                 {totalCount > PAGE_SIZE && (
-                  <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-slate-200 dark:border-gray-700">
+                  <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <button
                       onClick={() => setPage(p => Math.max(0, p - 1))}
                       disabled={page === 0 || isProcessing}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                     >
                       Anterior
                     </button>
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-gray-500">
                       Página {page + 1} de {Math.ceil(totalCount / PAGE_SIZE)}
                     </span>
                     <button
                       onClick={() => setPage(p => p + 1)}
                       disabled={(page + 1) * PAGE_SIZE >= totalCount || isProcessing}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-slate-600 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                      className="px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
                     >
                       Siguiente
                     </button>
@@ -1633,7 +1633,7 @@ export const BulkReassignmentTab: React.FC = () => {
             {gridTab === 'selection' && (
               <>
                 {selectedProspectos.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-slate-400">
+                  <div className="flex flex-col items-center justify-center h-40 text-gray-400">
                     <CheckCircle className="w-12 h-12 mb-2 opacity-50" />
                     <p className="font-medium">No hay prospectos seleccionados</p>
                     <p className="text-sm mt-1">Ve a la pestaña "Resultados" para seleccionar prospectos</p>
@@ -1666,10 +1666,10 @@ export const BulkReassignmentTab: React.FC = () => {
 
                           {/* Info principal */}
                           <div className="flex-1 min-w-0">
-                            <p className="font-semibold text-slate-900 dark:text-white">
+                            <p className="font-semibold text-gray-900 dark:text-white">
                               {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
                             </p>
-                            <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-gray-400 mt-1">
+                            <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
                               {prospecto.whatsapp && (
                                 <PhoneText 
                                   phone={prospecto.whatsapp} 
@@ -1683,7 +1683,7 @@ export const BulkReassignmentTab: React.FC = () => {
                             </div>
                             {/* Fecha de creación */}
                             {prospecto.created_at && (
-                              <div className="flex items-center gap-1 text-xs text-slate-400 dark:text-gray-500 mt-1">
+                              <div className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500 mt-1">
                                 <Calendar className="w-3 h-3" />
                                 <span>{new Date(prospecto.created_at).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                               </div>
@@ -1697,7 +1697,7 @@ export const BulkReassignmentTab: React.FC = () => {
                                 {prospecto.coordinacion_nombre}
                               </span>
                             )}
-                            <p className="text-sm font-medium text-slate-700 dark:text-gray-200">
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
                               {prospecto.ejecutivo_nombre || (
                                 <span className="text-amber-600 dark:text-amber-400 flex items-center gap-1">
                                   <UserX className="w-3.5 h-3.5" />
@@ -1706,7 +1706,7 @@ export const BulkReassignmentTab: React.FC = () => {
                               )}
                             </p>
                             {prospecto.etapa && (
-                              <span className="text-xs text-slate-400 dark:text-gray-500">
+                              <span className="text-xs text-gray-400 dark:text-gray-500">
                                 {prospecto.etapa}
                               </span>
                             )}
@@ -1719,7 +1719,7 @@ export const BulkReassignmentTab: React.FC = () => {
                               handleSelectProspecto(prospecto.id, prospecto);
                             }}
                             disabled={isProcessing}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -1731,8 +1731,8 @@ export const BulkReassignmentTab: React.FC = () => {
 
                 {/* Acciones de Mi Selección */}
                 {selectedProspectos.length > 0 && (
-                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-slate-200 dark:border-gray-700">
-                    <span className="text-sm text-slate-500 dark:text-gray-400">
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       {selectedProspectos.length} de {MAX_SELECTION} máximo
                     </span>
                     <button
@@ -1753,25 +1753,25 @@ export const BulkReassignmentTab: React.FC = () => {
         <div className="w-[400px] flex flex-col bg-white dark:bg-gray-800 overflow-hidden">
           
           {/* Selector de destino */}
-          <div className="flex-shrink-0 p-5 border-b border-slate-200 dark:border-gray-700">
+          <div className="flex-shrink-0 p-5 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-2 mb-4">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
                 <UserPlus className="w-4 h-4 text-white" />
               </div>
-              <h3 className="font-semibold text-slate-900 dark:text-white">Destino de Reasignación</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white">Destino de Reasignación</h3>
             </div>
 
             <div className="space-y-3">
               {/* Coordinación destino */}
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Coordinación
                 </label>
                 <select
                   value={targetCoordinacionId}
                   onChange={(e) => setTargetCoordinacionId(e.target.value)}
                   disabled={isProcessing}
-                  className="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
+                  className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
                 >
                   <option value="">Seleccionar coordinación...</option>
                   {coordinaciones.map(c => (
@@ -1782,20 +1782,20 @@ export const BulkReassignmentTab: React.FC = () => {
 
               {/* Ejecutivo destino */}
               <div>
-                <label className="text-xs font-medium text-slate-500 dark:text-gray-400 uppercase tracking-wider">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Asignar a
                 </label>
                 <select
                   value={targetEjecutivoId}
                   onChange={(e) => setTargetEjecutivoId(e.target.value)}
                   disabled={isProcessing || !targetCoordinacionId}
-                  className="w-full mt-1 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
+                  className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
                 >
                   <option value="">Seleccionar persona...</option>
                   
                   {/* Coordinadores primero (siempre habilitados) */}
                   {targetEjecutivos.filter(e => e.is_coordinator === true).length > 0 && (
-                    <option disabled className="text-slate-500 font-semibold">── Coordinadores ──</option>
+                    <option disabled className="text-gray-500 font-semibold">── Coordinadores ──</option>
                   )}
                   {targetEjecutivos
                     .filter(e => e.is_coordinator === true)
@@ -1807,7 +1807,7 @@ export const BulkReassignmentTab: React.FC = () => {
                   
                   {/* Supervisores activos */}
                   {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length > 0 && (
-                    <option disabled className="text-slate-500 font-semibold">── Supervisores ──</option>
+                    <option disabled className="text-gray-500 font-semibold">── Supervisores ──</option>
                   )}
                   {targetEjecutivos
                     .filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true)
@@ -1819,7 +1819,7 @@ export const BulkReassignmentTab: React.FC = () => {
                   
                   {/* Ejecutivos activos */}
                   {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length > 0 && (
-                    <option disabled className="text-slate-500 font-semibold">── Ejecutivos ──</option>
+                    <option disabled className="text-gray-500 font-semibold">── Ejecutivos ──</option>
                   )}
                   {targetEjecutivos
                     .filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true)
@@ -1831,18 +1831,18 @@ export const BulkReassignmentTab: React.FC = () => {
                   
                   {/* Usuarios inactivos (deshabilitados) */}
                   {targetEjecutivos.filter(e => !e.is_coordinator && e.is_active !== true).length > 0 && (
-                    <option disabled className="text-slate-400">── No disponibles ──</option>
+                    <option disabled className="text-gray-400">── No disponibles ──</option>
                   )}
                   {targetEjecutivos
                     .filter(e => !e.is_coordinator && e.is_active !== true)
                     .map(e => (
-                      <option key={e.id} value={e.id} disabled className="text-slate-400">
+                      <option key={e.id} value={e.id} disabled className="text-gray-400">
                         {e.full_name} (Inactivo)
                       </option>
                     ))}
                 </select>
                 {targetCoordinacionId && targetEjecutivos.length > 0 && (
-                  <p className="mt-1 text-xs text-slate-400">
+                  <p className="mt-1 text-xs text-gray-400">
                     {targetEjecutivos.filter(e => e.is_coordinator === true).length} coordinadores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length} supervisores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length} ejecutivos activos
                   </p>
                 )}
@@ -1874,9 +1874,9 @@ export const BulkReassignmentTab: React.FC = () => {
                 className="flex-1 flex flex-col overflow-hidden"
               >
                 {/* Barra de progreso */}
-                <div className="p-5 border-b border-slate-200 dark:border-gray-700">
+                <div className="p-5 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-slate-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                       {reassignmentState.status === 'rolling_back' ? 'Revirtiendo cambios...' : 'Progreso'}
                     </span>
                     <span className="text-sm font-bold text-violet-600 dark:text-violet-400">
@@ -1884,7 +1884,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     </span>
                   </div>
                   
-                  <div className="h-3 bg-slate-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="h-3 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: `${progressPercent}%` }}
@@ -1897,7 +1897,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex items-center justify-between mt-2 text-sm text-slate-500">
+                  <div className="flex items-center justify-between mt-2 text-sm text-gray-500">
                     <span>{reassignmentState.currentIndex} / {reassignmentState.total}</span>
                     <div className="flex items-center gap-3">
                       <span className="flex items-center gap-1 text-emerald-600">
@@ -1946,8 +1946,8 @@ export const BulkReassignmentTab: React.FC = () => {
                 {/* Resumen de resultados */}
                 {showSummary && (
                   <div className="flex-1 flex flex-col overflow-hidden">
-                    <div className="p-4 border-b border-slate-200 dark:border-gray-700">
-                      <h4 className="font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                    <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                      <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                         <ListChecks className="w-5 h-5 text-violet-500" />
                         Resumen de Cambios
                       </h4>
@@ -1969,7 +1969,7 @@ export const BulkReassignmentTab: React.FC = () => {
                             ) : (
                               <XCircle className="w-4 h-4 text-red-500" />
                             )}
-                            <span className="font-medium text-sm text-slate-900 dark:text-white truncate">
+                            <span className="font-medium text-sm text-gray-900 dark:text-white truncate">
                               {result.prospecto_nombre}
                             </span>
                           </div>
@@ -1979,7 +1979,7 @@ export const BulkReassignmentTab: React.FC = () => {
                             </p>
                           )}
                           {result.success && result.ejecutivo_anterior_nombre && (
-                            <p className="mt-1 text-xs text-slate-500 dark:text-gray-400">
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                               {result.ejecutivo_anterior_nombre} → Nuevo ejecutivo
                             </p>
                           )}
@@ -1988,7 +1988,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     </div>
 
                     {/* Acciones del resumen */}
-                    <div className="p-4 border-t border-slate-200 dark:border-gray-700 space-y-2">
+                    <div className="p-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
                       {successCount > 0 && reassignmentState.status !== 'rolling_back' && (
                         <button
                           onClick={rollbackReassignments}
@@ -2000,7 +2000,7 @@ export const BulkReassignmentTab: React.FC = () => {
                       )}
                       <button
                         onClick={resetProcess}
-                        className="w-full px-4 py-2.5 rounded-xl font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                        className="w-full px-4 py-2.5 rounded-xl font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                       >
                         Nueva Reasignación
                       </button>
@@ -2023,7 +2023,7 @@ export const BulkReassignmentTab: React.FC = () => {
                         ) : (
                           <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
                         )}
-                        <span className="truncate text-slate-600 dark:text-gray-400">
+                        <span className="truncate text-gray-600 dark:text-gray-400">
                           {result.prospecto_nombre}
                         </span>
                       </motion.div>
@@ -2037,13 +2037,13 @@ export const BulkReassignmentTab: React.FC = () => {
           {/* Estado inicial: Instrucciones */}
           {reassignmentState.status === 'idle' && !showSummary && (
             <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center mb-4">
-                <ArrowRight className="w-8 h-8 text-slate-400" />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 flex items-center justify-center mb-4">
+                <ArrowRight className="w-8 h-8 text-gray-400" />
               </div>
-              <h4 className="font-semibold text-slate-700 dark:text-gray-300 mb-2">
+              <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-2">
                 Flujo de Reasignación
               </h4>
-              <ol className="text-sm text-slate-500 dark:text-gray-400 space-y-2 text-left">
+              <ol className="text-sm text-gray-500 dark:text-gray-400 space-y-2 text-left">
                 <li className="flex items-start gap-2">
                   <span className="w-5 h-5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 flex items-center justify-center text-xs font-bold flex-shrink-0">1</span>
                   <span>Filtra y selecciona los prospectos</span>

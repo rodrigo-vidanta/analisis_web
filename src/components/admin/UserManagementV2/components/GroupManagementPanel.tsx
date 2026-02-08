@@ -299,7 +299,7 @@ const GroupManagementPanel: React.FC<GroupManagementPanelProps> = ({
     'from-amber-500 to-orange-600',
     'from-red-500 to-rose-600',
     'from-pink-500 to-fuchsia-600',
-    'from-gray-500 to-slate-600'
+    'from-gray-500 to-gray-600'
   ];
 
   // ============================================

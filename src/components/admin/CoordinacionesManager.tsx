@@ -420,8 +420,8 @@ const CoordinacionesManager: React.FC = () => {
         <div className="flex items-center justify-between">
           {/* Título e información */}
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -463,7 +463,7 @@ const CoordinacionesManager: React.FC = () => {
               resetForm();
               setShowCreateModal(true);
             }}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-lg hover:bg-slate-600 dark:hover:bg-slate-500 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-700 dark:bg-gray-600 rounded-lg hover:bg-gray-600 dark:hover:bg-gray-500 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Nueva</span>
@@ -503,7 +503,7 @@ const CoordinacionesManager: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
         {loading && coordinaciones.length === 0 ? (
           <div className="px-6 py-16 text-center">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-slate-400" />
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400" />
             <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Cargando coordinaciones...</p>
           </div>
         ) : filteredCoordinaciones.length === 0 ? (
@@ -671,7 +671,7 @@ const CoordinacionesManager: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => {
               setShowCreateModal(false);
               setShowEditModal(false);
@@ -892,7 +892,7 @@ const CoordinacionesManager: React.FC = () => {
                     else handleUpdate();
                   }}
                   disabled={loading}
-                  className="px-5 py-2.5 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-xl hover:bg-slate-600 dark:hover:bg-slate-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="px-5 py-2.5 text-sm font-medium text-white bg-gray-700 dark:bg-gray-600 rounded-xl hover:bg-gray-600 dark:hover:bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {loading ? (
                     <span className="flex items-center space-x-2">
@@ -916,7 +916,7 @@ const CoordinacionesManager: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => setShowDeleteModal(false)}
           >
             <motion.div
@@ -960,7 +960,7 @@ const CoordinacionesManager: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => setShowStatsModal(false)}
           >
             <motion.div
@@ -1037,7 +1037,7 @@ const CoordinacionesManager: React.FC = () => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => setShowEjecutivosModal(false)}
           >
             <motion.div
@@ -1111,7 +1111,7 @@ const CoordinacionesManager: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => {
               if (confirmDelay === 0) {
                 setShowReasignacionModal(false);

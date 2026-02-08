@@ -435,7 +435,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
       'presentacion_costos': 'from-orange-200 to-orange-300 dark:from-orange-600 dark:to-orange-700',
       'manejo_objeciones': 'from-red-200 to-red-300 dark:from-red-600 dark:to-red-700',
       'cierre': 'from-emerald-200 to-emerald-300 dark:from-emerald-600 dark:to-emerald-700',
-      'despedida': 'from-slate-200 to-slate-300 dark:from-slate-600 dark:to-slate-700'
+      'despedida': 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700'
     };
     return colors[etapa.toLowerCase()] || 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700';
   };
@@ -702,7 +702,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                                 <div className={`max-w-[80%] p-3 rounded-lg ${
                                   conv.isAgent 
                                     ? 'bg-blue-400 dark:bg-blue-500 text-white rounded-br-none' 
-                                    : 'bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 rounded-bl-none'
+                                    : 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100 rounded-bl-none'
                                 }`}>
                                   <div className="text-xs font-medium mb-1 opacity-75">
                                     {conv.isAgent ? 'Agente' : 'Cliente'}
@@ -736,17 +736,17 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
                     {call.call_evaluation.analisisGeneral.descripcion && (
                       <div className="mb-3">
-                        <p className="text-sm text-slate-700 dark:text-slate-300">
+                        <p className="text-sm text-gray-700 dark:text-gray-300">
                           {call.call_evaluation.analisisGeneral.descripcion}
                         </p>
                       </div>
                     )}
                     {call.call_evaluation.analisisGeneral.puntosClave && (
                       <div>
-                        <h4 className="font-semibold text-slate-900 dark:text-white mb-2 text-sm">Puntos Clave:</h4>
+                        <h4 className="font-semibold text-gray-900 dark:text-white mb-2 text-sm">Puntos Clave:</h4>
                         <ul className="list-disc list-inside space-y-1">
                           {call.call_evaluation.analisisGeneral.puntosClave.map((punto: string, index: number) => (
-                            <li key={index} className="text-xs text-slate-600 dark:text-slate-400">{punto}</li>
+                            <li key={index} className="text-xs text-gray-600 dark:text-gray-400">{punto}</li>
                           ))}
                         </ul>
                       </div>
@@ -764,13 +764,13 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     customerName={call.customer_name}
                   />
                 ) : (
-                  <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-700 text-center">
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700 text-center">
                     <div className="flex items-center justify-center gap-3">
-                      <svg className="w-6 h-6 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M9 9a3 3 0 000 6h3v5a1 1 0 102 0v-5h3a3 3 0 000-6H9z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                      <span className="text-sm text-slate-500 dark:text-slate-400">
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
                         Audio no disponible para esta llamada
                       </span>
                     </div>
@@ -808,7 +808,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 </div>
 
                 <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
-                  <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Performance del Agente</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Performance del Agente</h4>
                   {renderSummaryChart()}
                 </div>
               </div>
@@ -871,13 +871,13 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     call.agent_performance.areas_performance.fortalezas.map((fortaleza: string, index: number) => (
                       <div key={index} className="flex items-start">
                         <div className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
-                        <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
                           {fortaleza.replace('_', ' ')}
                         </span>
                       </div>
                     ))
                   ) : (
-                    <span className="text-sm text-slate-500 dark:text-slate-400">No se identificaron fortalezas específicas</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">No se identificaron fortalezas específicas</span>
                   )}
                 </div>
               </motion.div>
@@ -899,7 +899,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   {call.agent_performance?.areas_performance?.debilidades?.map((debilidad: string, index: number) => (
                     <div key={index} className="flex items-start">
                       <div className="w-2 h-2 bg-red-500 rounded-full mt-2 mr-2 flex-shrink-0"></div>
-                      <span className="text-sm text-slate-700 dark:text-slate-300 capitalize">
+                      <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
                         {debilidad.replace('_', ' ')}
                       </span>
                     </div>
@@ -957,11 +957,11 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                     transition={{ delay: 0.15 }}
                     className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 p-5 rounded-xl border border-indigo-200 dark:border-indigo-800"
                   >
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-3">Balance FODA</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Balance FODA</h4>
                     <div className="flex justify-center">
                       <div className="text-center">
                         <div className="text-3xl font-bold text-indigo-600">{call.call_evaluation.metricas_foda.balance_foda}</div>
-                        <div className="text-sm text-slate-600 dark:text-slate-400">Score Balance</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">Score Balance</div>
                       </div>
                     </div>
                   </motion.div>
@@ -970,12 +970,12 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 {/* Métricas de etapas de comunicacion_data */}
                 {call.comunicacion_data?.metricas_chunks?.conteo_etapas && (
                   <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Etapas de Conversación</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Etapas de Conversación</h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                       {Object.entries(call.comunicacion_data.metricas_chunks.conteo_etapas).map(([etapa, count]) => (
-                        <div key={etapa} className="bg-slate-50 dark:bg-slate-700 p-4 rounded-lg text-center">
+                        <div key={etapa} className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg text-center">
                           <div className="text-2xl font-bold text-blue-600">{String(count)}</div>
-                          <div className="text-sm text-slate-600 dark:text-slate-400 capitalize">
+                          <div className="text-sm text-gray-600 dark:text-gray-400 capitalize">
                             {etapa.replace('_', ' ')}
                           </div>
                         </div>
@@ -987,7 +987,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 {/* FODA de call_evaluation */}
                 {call.call_evaluation?.FODA && (
                   <div>
-                    <h4 className="font-semibold text-slate-900 dark:text-white mb-4">Análisis FODA</h4>
+                    <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Análisis FODA</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
                         <h5 className="font-semibold text-green-800 dark:text-green-300 mb-2">Fortalezas</h5>
@@ -1065,11 +1065,11 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.objeciones_resumen).map(([key, value]) => (
-                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
                         </span>
-                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                        <span className="text-sm text-gray-900 dark:text-white ml-4">
                           {Array.isArray(value) ? value.join(', ') : String(value)}
                         </span>
                       </div>
@@ -1094,11 +1094,11 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
-                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
                         </span>
-                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                        <span className="text-sm text-gray-900 dark:text-white ml-4">
                           {Array.isArray(value) ? value.join(', ') : String(value)}
                         </span>
                       </div>
@@ -1180,11 +1180,11 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                   </div>
                   <div className="space-y-3">
                     {Object.entries(call.call_evaluation.problemas_detectados).map(([key, value]) => (
-                      <div key={key} className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-700 last:border-b-0">
-                        <span className="text-sm font-medium text-slate-600 dark:text-slate-400 capitalize">
+                      <div key={key} className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-400 capitalize">
                           {key.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ')}:
                         </span>
-                        <span className="text-sm text-slate-900 dark:text-white ml-4">
+                        <span className="text-sm text-gray-900 dark:text-white ml-4">
                           {Array.isArray(value) ? value.join(', ') : String(value)}
                         </span>
                       </div>
@@ -1275,7 +1275,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
               }}
               title="Todos los Datos Técnicos"
               icon={
-                <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
                 </svg>
               }
@@ -1320,13 +1320,13 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                 </div>
 
                 {/* JSON completo */}
-                <div className="bg-slate-50 dark:bg-slate-700 rounded-lg p-4">
-                  <h4 className="font-semibold text-slate-900 dark:text-white mb-3 flex items-center">
-                    <div className="w-3 h-3 bg-slate-500 rounded-full mr-2"></div>
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                    <div className="w-3 h-3 bg-gray-500 rounded-full mr-2"></div>
                     Datos Completos (JSON)
                   </h4>
-                  <div className="bg-white dark:bg-slate-800 rounded-lg p-3">
-                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap text-slate-700 dark:text-slate-300 scrollbar-hide">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg p-3">
+                    <pre className="text-xs overflow-auto max-h-96 whitespace-pre-wrap text-gray-700 dark:text-gray-300 scrollbar-hide">
                       {JSON.stringify(call, null, 2)}
                     </pre>
                   </div>
@@ -1339,7 +1339,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
       default:
         return (
           <div className="p-6">
-            <div className="text-center text-slate-500 dark:text-slate-400">
+            <div className="text-center text-gray-500 dark:text-gray-400">
               Contenido de la pestaña en desarrollo
             </div>
           </div>
@@ -1365,7 +1365,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:p-6"
           onClick={onClose}
         >
           <motion.div

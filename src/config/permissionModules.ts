@@ -514,7 +514,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     name: 'Dirección',
     description: 'Timeline y gestión de actividades para dirección',
     icon: 'Briefcase',
-    color: 'from-slate-600 to-gray-700',
+    color: 'from-gray-600 to-gray-700',
     actions: [
       {
         id: 'view',
@@ -812,7 +812,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
         name: 'Preferencias',
         description: 'Preferencias del sistema',
         icon: 'Sliders',
-        color: 'from-gray-500 to-slate-600',
+        color: 'from-gray-500 to-gray-600',
         actions: [
           {
             id: 'view',
@@ -858,7 +858,7 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
     name: 'Logs del Sistema',
     description: 'Visualización de logs y errores',
     icon: 'FileText',
-    color: 'from-gray-500 to-slate-600',
+    color: 'from-gray-500 to-gray-600',
     actions: [
       {
         id: 'view',

@@ -210,7 +210,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
       <div className="glass-card p-8">
         <div className="flex items-center justify-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-          <span className="ml-3 text-slate-600 dark:text-slate-400">Cargando configuración de squad...</span>
+          <span className="ml-3 text-gray-600 dark:text-gray-400">Cargando configuración de squad...</span>
         </div>
       </div>
     );
@@ -222,10 +222,10 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
       <div className="glass-card p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               Configuración de Squad
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               Gestiona transferencias inteligentes y roles de agentes especializados
             </p>
           </div>
@@ -237,7 +237,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                 checked={isEnabled}
                 onChange={(e) => onToggle(e.target.checked)}
               />
-              <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
             </label>
           </div>
         </div>
@@ -248,14 +248,14 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
         <div className="glass-card">
           <div className="grid grid-cols-1 lg:grid-cols-4 min-h-[600px]">
             {/* Submenú lateral izquierdo */}
-            <div className="lg:col-span-1 border-r border-slate-200 dark:border-slate-700 p-6">
+            <div className="lg:col-span-1 border-r border-gray-200 dark:border-gray-700 p-6">
               <div className="space-y-2">
                 <button
                   onClick={() => setActiveView('transfers')}
                   className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
                     activeView === 'transfers'
                       ? 'bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -274,7 +274,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                   className={`w-full text-left px-4 py-3 rounded-lg transition-all duration-200 ${
                     activeView === 'roles'
                       ? 'bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-200 dark:border-purple-500/30 text-purple-700 dark:text-purple-300'
-                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
                   }`}
                 >
                   <div className="flex items-center space-x-3">
@@ -290,11 +290,11 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
               </div>
 
               {/* Resumen del squad */}
-              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-slate-800 dark:to-slate-700 rounded-lg border border-blue-200/50 dark:border-purple-500/30">
-                <h4 className="text-sm font-medium text-slate-900 dark:text-white mb-2">
+              <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-700 rounded-lg border border-blue-200/50 dark:border-purple-500/30">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                   📋 Resumen del Squad
                 </h4>
-                <div className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
+                <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                   <p><strong>Miembros totales:</strong> {squadMembers.length}</p>
                   <p><strong>Auto-detectados:</strong> {squadMembers.filter(m => m.id.startsWith('member-')).length}</p>
                   <p><strong>Manuales:</strong> {squadMembers.filter(m => !m.id.startsWith('member-')).length}</p>
@@ -314,10 +314,10 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                       </svg>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                         Configuración de Transferencias
                       </h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         Define cuándo y cómo transferir entre miembros del squad
                       </p>
                     </div>
@@ -331,7 +331,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                       const transferMessage = member.transferConfig?.message || member.transferMessage || '';
                       
                       return (
-                        <div key={member.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
+                        <div key={member.id} className="group relative bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                           <div className="flex items-start justify-between">
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-4">
@@ -340,7 +340,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                 }`}>
                                   {index + 1}
                                 </div>
-                                <h5 className="font-semibold text-slate-900 dark:text-white">{member.name || `Especialista ${index + 1}`}</h5>
+                                <h5 className="font-semibold text-gray-900 dark:text-white">{member.name || `Especialista ${index + 1}`}</h5>
                                 
                                 <div className="flex items-center gap-2">
                                   {isDetectedMember && (
@@ -361,13 +361,13 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                   {!isDetectedMember && (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                       <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                           Plantilla de Agente
                                         </label>
                                         <select
                                           value={member.template?.id || ''}
                                           onChange={(e) => selectTemplateForMember(member.id, e.target.value)}
-                                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
+                                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white"
                                         >
                                           <option value="">Seleccionar plantilla...</option>
                                           {availableTemplates.map(template => (
@@ -379,14 +379,14 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                       </div>
 
                                       <div>
-                                        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                           Nombre del Especialista
                                         </label>
                                         <input
                                           type="text"
                                           value={member.name}
                                           onChange={(e) => updateSquadMember(member.id, { name: e.target.value })}
-                                          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
+                                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white"
                                           placeholder="Nombre del agente especialista..."
                                         />
                                       </div>
@@ -395,10 +395,10 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
 
                                   {/* Configuración de transferencia */}
                                   <div className="space-y-3">
-                                    <h6 className="text-sm font-medium text-slate-700 dark:text-slate-300">Configuración de Transferencia</h6>
+                                    <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300">Configuración de Transferencia</h6>
                                     
                                     <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Condiciones de Transferencia
                                       </label>
                                       <input
@@ -415,18 +415,18 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                             }
                                           });
                                         }}
-                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white"
                                         placeholder="Ej: ventas, precios, cotización, soporte técnico"
                                         disabled={isDetectedMember && index === 0}
                                       />
-                                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         Palabras clave separadas por comas que activarán la transferencia
                                         {isDetectedMember && index === 0 && ' (El agente principal no se transfiere)'}
                                       </p>
                                     </div>
 
                                     <div>
-                                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                                         Mensaje de Transferencia
                                       </label>
                                       <textarea
@@ -442,11 +442,11 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                           });
                                         }}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white"
+                                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white"
                                         placeholder="Mensaje que dirá el agente antes de transferir..."
                                         disabled={isDetectedMember && index === 0}
                                       />
-                                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                                         Este mensaje se dirá justo antes de realizar la transferencia
                                         {isDetectedMember && index === 0 && ' (El agente principal no se transfiere)'}
                                       </p>
@@ -457,19 +457,19 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                 <div className="space-y-3">
                                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Condiciones:</p>
-                                      <p className="text-sm text-slate-600 dark:text-slate-400">{transferConditions || 'Sin configurar'}</p>
+                                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Condiciones:</p>
+                                      <p className="text-sm text-gray-600 dark:text-gray-400">{transferConditions || 'Sin configurar'}</p>
                                     </div>
                                     <div>
-                                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Plantilla:</p>
-                                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Plantilla:</p>
+                                      <p className="text-sm text-gray-600 dark:text-gray-400">
                                         {member.template ? member.template.name : (isDetectedMember ? 'Original del squad' : 'Sin plantilla')}
                                       </p>
                                     </div>
                                   </div>
                                   <div>
-                                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">Mensaje de transferencia:</p>
-                                    <p className="text-sm text-slate-600 dark:text-slate-400">{transferMessage || 'Sin configurar'}</p>
+                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Mensaje de transferencia:</p>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">{transferMessage || 'Sin configurar'}</p>
                                   </div>
                                 </div>
                               )}
@@ -478,7 +478,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                             <div className="flex flex-col gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => toggleEditMode(member.id)}
-                                className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
+                                className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors"
                                 title={member.isEditMode ? "Guardar" : "Editar"}
                               >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -488,7 +488,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                               {!isDetectedMember && (
                                 <button
                                   onClick={() => removeSquadMember(member.id)}
-                                  className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                  className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                                   title="Eliminar"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -513,13 +513,13 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                       <button
                         onClick={addSquadMember}
                         disabled={isLoading}
-                        className="w-full p-6 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg text-slate-600 dark:text-slate-400 hover:border-purple-400 hover:text-purple-600 transition-colors disabled:opacity-50"
+                        className="w-full p-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-purple-400 hover:text-purple-600 transition-colors disabled:opacity-50"
                       >
                         <div className="flex items-center justify-center space-x-2">
                           <span className="text-2xl">+</span>
                           <span className="font-medium">Agregar Especialista al Squad</span>
                         </div>
-                        <p className="text-sm mt-2 text-slate-500 dark:text-slate-400">
+                        <p className="text-sm mt-2 text-gray-500 dark:text-gray-400">
                           {detectedMembers.length > 0 && (
                             <span className="text-green-600 dark:text-green-400 font-medium">
                               {detectedMembers.length} miembro{detectedMembers.length > 1 ? 's' : ''} auto-detectado{detectedMembers.length > 1 ? 's' : ''} • 
@@ -546,10 +546,10 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                       </svg>
                     </div>
                     <div>
-                      <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
                         Roles Adicionales del Squad
                       </h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
                         Edita los prompts de los miembros adicionales (excepto el agente principal)
                       </p>
                     </div>
@@ -557,7 +557,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
 
                   {/* Selector de miembro */}
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                       Seleccionar miembro del squad para editar
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -573,7 +573,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                             className={`p-4 text-left rounded-lg border transition-all duration-200 ${
                               isSelected
                                 ? 'border-purple-300 bg-purple-50 dark:border-purple-500 dark:bg-purple-900/20'
-                                : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:border-purple-200 dark:hover:border-purple-600'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-purple-200 dark:hover:border-purple-600'
                             }`}
                           >
                             <div className="flex items-center space-x-3">
@@ -583,8 +583,8 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                 {index + 2}
                               </div>
                               <div className="flex-1">
-                                <p className="font-medium text-slate-900 dark:text-white">{member.name}</p>
-                                <p className="text-xs text-slate-500 dark:text-slate-400">
+                                <p className="font-medium text-gray-900 dark:text-white">{member.name}</p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
                                   {promptCount} prompt{promptCount !== 1 ? 's' : ''}
                                   {isDetectedMember && ' • Auto-detectado'}
                                 </p>
@@ -612,7 +612,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                     return (
                       <div className="space-y-4">
                         {/* Header del miembro seleccionado */}
-                        <div className="bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5">
+                        <div className="bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-5">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               <div className={`flex items-center justify-center w-8 h-8 rounded-lg font-semibold text-white text-xs ${
@@ -623,8 +623,8 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                 </svg>
                               </div>
                               <div>
-                                <h5 className="font-semibold text-slate-900 dark:text-white">{selectedMember.name}</h5>
-                                <p className="text-sm text-slate-500 dark:text-slate-400">
+                                <h5 className="font-semibold text-gray-900 dark:text-white">{selectedMember.name}</h5>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">
                                   {prompts.length} prompt{prompts.length !== 1 ? 's' : ''} configurado{prompts.length !== 1 ? 's' : ''}
                                   {isDetectedMember && ' • Auto-detectado del JSON original'}
                                 </p>
@@ -647,26 +647,26 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
 
                         {/* Lista de prompts */}
                         {prompts.length === 0 ? (
-                          <div className="text-center py-12 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl bg-slate-50/50 dark:bg-slate-800/50">
-                            <div className="flex items-center justify-center w-12 h-12 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4">
-                              <svg className="w-6 h-6 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                            <div className="flex items-center justify-center w-12 h-12 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4">
+                              <svg className="w-6 h-6 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                               </svg>
                             </div>
-                            <p className="text-slate-600 dark:text-slate-400 mb-2 font-medium">No hay prompts configurados</p>
-                            <p className="text-sm text-slate-500 dark:text-slate-500">Agrega prompts para definir el comportamiento de este miembro del squad</p>
+                            <p className="text-gray-600 dark:text-gray-400 mb-2 font-medium">No hay prompts configurados</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-500">Agrega prompts para definir el comportamiento de este miembro del squad</p>
                           </div>
                         ) : (
                           <div className="space-y-4">
                             {prompts.map((prompt, index) => (
-                              <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-slate-50 dark:from-slate-800 dark:to-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
+                              <div key={prompt.id} className="group relative bg-gradient-to-r from-white to-gray-50 dark:from-gray-800 dark:to-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-5 hover:shadow-md transition-all duration-200">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-4">
                                       <div className="flex items-center justify-center w-7 h-7 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-xs rounded-lg font-semibold">
                                         {index + 1}
                                       </div>
-                                      <h6 className="font-semibold text-slate-900 dark:text-white">{prompt.title}</h6>
+                                      <h6 className="font-semibold text-gray-900 dark:text-white">{prompt.title}</h6>
                                       
                                       <div className="flex items-center gap-2">
                                         {prompt.is_customized && (
@@ -674,7 +674,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                             Personalizado
                                           </span>
                                         )}
-                                        <span className="px-2 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs rounded-full font-medium">
+                                        <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full font-medium">
                                           {prompt.role}
                                         </span>
                                       </div>
@@ -683,7 +683,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                     <textarea
                                       value={prompt.content}
                                       onChange={(e) => updatePromptContent(selectedMemberForRoles, prompt.id, e.target.value)}
-                                      className="w-full px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-800 dark:text-white transition-colors"
+                                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg text-sm resize-vertical focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-gray-800 dark:text-white transition-colors"
                                       rows={4}
                                       placeholder="Contenido del prompt..."
                                     />
@@ -692,7 +692,7 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                                   <div className="flex flex-col gap-2 ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => removePromptFromMember(selectedMemberForRoles, prompt.id)}
-                                      className="flex items-center justify-center w-8 h-8 text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                      className="flex items-center justify-center w-8 h-8 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
                                       title="Eliminar"
                                     >
                                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -712,13 +712,13 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                   {/* Mensaje informativo si no hay miembros adicionales */}
                   {squadMembers.length <= 1 && (
                     <div className="text-center py-12">
-                      <div className="flex items-center justify-center w-16 h-16 bg-slate-200 dark:bg-slate-700 rounded-full mx-auto mb-4">
-                        <svg className="w-8 h-8 text-slate-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="flex items-center justify-center w-16 h-16 bg-gray-200 dark:bg-gray-700 rounded-full mx-auto mb-4">
+                        <svg className="w-8 h-8 text-gray-400 dark:text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                         </svg>
                       </div>
-                      <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Sin miembros adicionales</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
+                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Sin miembros adicionales</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                         Ve a la sección "Transferencias" para agregar miembros al squad
                       </p>
                     </div>
@@ -731,8 +731,8 @@ const SquadEditor: React.FC<SquadEditorProps> = ({
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
                       </div>
-                      <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Selecciona un miembro</p>
-                      <p className="text-sm text-slate-500 dark:text-slate-500 mt-1">
+                      <p className="text-lg font-medium text-gray-600 dark:text-gray-400">Selecciona un miembro</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
                         Elige un miembro del squad para editar sus prompts
                       </p>
                     </div>

@@ -1125,7 +1125,7 @@ export const ProspectosMetricsWidget: React.FC<ProspectosMetricsWidgetProps> = (
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
             onClick={onToggleExpand}
           >
             <motion.div

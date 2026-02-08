@@ -87,10 +87,10 @@ const LiveMonitorOptimizedExample: React.FC = () => {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           🚀 Live Monitor Optimizado - Ejemplo
         </h2>
-        <p className="text-slate-600 dark:text-slate-300">
+        <p className="text-gray-600 dark:text-gray-300">
           Datos obtenidos desde vista optimizada sin JOINs manuales
         </p>
       </div>
@@ -102,7 +102,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {stats.activas}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Realmente Activas
             </div>
           </div>
@@ -110,7 +110,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
             <div className="text-2xl font-bold text-red-600 dark:text-red-400">
               {stats.perdidas}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Perdidas
             </div>
           </div>
@@ -118,7 +118,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
               {stats.transferidas}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Transferidas
             </div>
           </div>
@@ -126,7 +126,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
               {stats.finalizadas}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Finalizadas
             </div>
           </div>
@@ -134,7 +134,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
               {stats.reclasificadas}
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Auto-corregidas
             </div>
           </div>
@@ -142,44 +142,44 @@ const LiveMonitorOptimizedExample: React.FC = () => {
       )}
 
       {/* Lista de llamadas */}
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-medium text-slate-900 dark:text-white">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             Últimas 20 Llamadas - Vista Optimizada
           </h3>
         </div>
         
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-            <thead className="bg-slate-50 dark:bg-slate-700">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Prospecto
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Estado BD → Inteligente
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Checkpoint
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Tiempo
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Razón
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {calls.map((call) => (
-                <tr key={call.call_id} className="hover:bg-slate-50 dark:hover:bg-slate-700">
+                <tr key={call.call_id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <div>
-                        <div className="text-sm font-medium text-slate-900 dark:text-white">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {call.nombre_completo || call.nombre_whatsapp}
                         </div>
-                        <div className="text-sm text-slate-500 dark:text-slate-400">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           {call.whatsapp}
                         </div>
                       </div>
@@ -190,7 +190,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         call.call_status_bd === 'activa' 
                           ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                          : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                          : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                       }`}>
                         {call.call_status_bd}
                       </span>
@@ -210,13 +210,13 @@ const LiveMonitorOptimizedExample: React.FC = () => {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {call.checkpoint_venta_actual || 'N/A'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {Math.round(call.minutos_transcurridos || 0)} min
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {call.razon_finalizacion || '-'}
                   </td>
                 </tr>
@@ -227,7 +227,7 @@ const LiveMonitorOptimizedExample: React.FC = () => {
       </div>
 
       {/* Footer informativo */}
-      <div className="mt-6 text-sm text-slate-600 dark:text-slate-400">
+      <div className="mt-6 text-sm text-gray-600 dark:text-gray-400">
         <p>
           💡 <strong>Nota:</strong> Este componente usa la vista optimizada <code>live_monitor_view</code> 
           que combina automáticamente datos de <code>llamadas_ventas</code> y <code>prospectos</code> 

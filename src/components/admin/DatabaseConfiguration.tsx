@@ -570,8 +570,8 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Database className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <Database className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -601,7 +601,7 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
           {/* Botón de test all */}
           <button
             onClick={() => Object.keys(configs).forEach(key => testConnection(key))}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <Zap className="w-4 h-4" />
             Probar Todas
@@ -707,7 +707,7 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
                         </button>
                         <button
                           onClick={saveConfig}
-                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
+                          className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-xl hover:bg-gray-600 transition-all"
                         >
                           <Save className="w-4 h-4" />
                           Guardar
@@ -853,7 +853,7 @@ WHERE NOT EXISTS (SELECT 1 FROM call_analysis WHERE analysis_id = 'analysis-nata
                 </button>
                 <button
                   onClick={() => executeSchema(showSchemaModal)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-slate-700 rounded-xl hover:bg-slate-600 transition-all"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gray-700 rounded-xl hover:bg-gray-600 transition-all"
                 >
                   <Zap className="w-4 h-4" />
                   Ejecutar

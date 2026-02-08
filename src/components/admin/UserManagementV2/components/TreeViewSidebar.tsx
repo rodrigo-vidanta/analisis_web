@@ -172,11 +172,11 @@ const TreeNodeItem: React.FC<TreeNodeItemProps> = ({
           </div>
         )}
         {node.type === 'coordinacion' && (
-          <div className="w-5 h-5 rounded bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+          <div className="w-5 h-5 rounded bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
             {isExpanded ? (
-              <FolderOpen className="w-3 h-3 text-slate-500" />
+              <FolderOpen className="w-3 h-3 text-gray-500" />
             ) : (
-              <Folder className="w-3 h-3 text-slate-500" />
+              <Folder className="w-3 h-3 text-gray-500" />
             )}
           </div>
         )}

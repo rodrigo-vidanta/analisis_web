@@ -154,14 +154,14 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
         <div className="flex items-center space-x-3">
           <div className="text-2xl">{tool.icon}</div>
           <div>
-            <h4 className="font-semibold text-slate-900 dark:text-white">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
               {tool.name}
             </h4>
             <div className="flex items-center space-x-2">
-              <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                 {tool.type}
               </span>
-              <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+              <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
                 {tool.complexity}
               </span>
               {tool.async && (
@@ -175,7 +175,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
         <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => handleEditTool(tool)}
-            className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
             title="Editar"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +184,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
           </button>
           <button
             onClick={() => handleDuplicateTool(tool)}
-            className="p-2 text-slate-400 hover:text-green-500 transition-colors"
+            className="p-2 text-gray-400 hover:text-green-500 transition-colors"
             title="Duplicar"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -193,7 +193,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
           </button>
           <button
             onClick={() => handleDeleteTool(tool.id)}
-            className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+            className="p-2 text-gray-400 hover:text-red-500 transition-colors"
             title="Eliminar"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -203,28 +203,28 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
         </div>
       </div>
       
-      <p className="text-sm text-slate-600 dark:text-slate-300 mb-4 line-clamp-2">
+      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">
         {tool.description}
       </p>
       
       <div className="flex items-center justify-between">
         <div className="flex space-x-1">
           {tool.compatibleCategories.slice(0, 2).map((category, idx) => (
-            <span key={idx} className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+            <span key={idx} className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
               {category}
             </span>
           ))}
           {tool.compatibleCategories.length > 2 && (
-            <span className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-1 rounded">
+            <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-1 rounded">
               +{tool.compatibleCategories.length - 2}
             </span>
           )}
         </div>
         <div className="flex items-center space-x-1">
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-gray-500">
             {tool.usageExamples.length} ejemplos
           </span>
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-gray-500">
             {tool.messages.length} mensajes
           </span>
         </div>
@@ -236,10 +236,10 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
     if (!editingTool) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white dark:bg-slate-900 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               {editingTool.id.startsWith('tool_') && !tools.find(t => t.id === editingTool.id) ? 'Nueva Herramienta' : 'Editar Herramienta'}
             </h3>
           </div>
@@ -261,10 +261,10 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             Editor de Herramientas
           </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Gestiona las herramientas disponibles para tu agente
           </p>
         </div>
@@ -280,7 +280,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
       </div>
 
       {/* Category Navigation */}
-      <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         {categories.map((category) => (
           <button
             key={category.id}
@@ -288,7 +288,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
             className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
               activeCategory === category.id
                 ? `bg-${category.color}-100 text-${category.color}-700 dark:bg-${category.color}-900/20 dark:text-${category.color}-300`
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >
             {category.icon}
@@ -302,10 +302,10 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
         <div className="flex items-center space-x-3">
           {categories.find(c => c.id === activeCategory)?.icon}
           <div>
-            <h4 className="font-medium text-slate-900 dark:text-white">
+            <h4 className="font-medium text-gray-900 dark:text-white">
               {categories.find(c => c.id === activeCategory)?.name}
             </h4>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {categories.find(c => c.id === activeCategory)?.description}
             </p>
           </div>
@@ -316,7 +316,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="flex-1">
           <div className="relative">
-            <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -324,7 +324,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
               placeholder="Buscar herramientas..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             />
           </div>
         </div>
@@ -332,7 +332,7 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
           <select
             value={selectedType}
             onChange={(e) => setSelectedType(e.target.value as ToolType)}
-            className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="all">Todos los tipos</option>
             {toolTypes.map((type) => (
@@ -351,16 +351,16 @@ const ToolsEditor: React.FC<ToolsEditorProps> = ({
 
       {filteredTools.length === 0 && (
         <div className="text-center py-12">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             No hay herramientas en esta categoría
           </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             {searchTerm ? 'No se encontraron herramientas que coincidan con tu búsqueda' : 'Crea tu primera herramienta para esta categoría'}
           </p>
           <button
@@ -440,26 +440,26 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Nombre de la Herramienta *
           </label>
           <input
             type="text"
             value={formData.name}
             onChange={(e) => handleInputChange('name', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Tipo de Herramienta
           </label>
           <select
             value={formData.type}
             onChange={(e) => handleInputChange('type', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="function">Función</option>
             <option value="transferCall">Transferir Llamada</option>
@@ -470,13 +470,13 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Categoría
           </label>
           <select
             value={formData.category}
             onChange={(e) => handleInputChange('category', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="communication">Comunicación</option>
             <option value="data_collection">Recolección de Datos</option>
@@ -486,13 +486,13 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Complejidad
           </label>
           <select
             value={formData.complexity}
             onChange={(e) => handleInputChange('complexity', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="simple">Simple</option>
             <option value="medium">Medio</option>
@@ -502,28 +502,28 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Descripción *
         </label>
         <textarea
           value={formData.description}
           onChange={(e) => handleInputChange('description', e.target.value)}
           rows={3}
-          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
           placeholder="Describe qué hace esta herramienta..."
           required
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Contexto de Negocio
         </label>
         <textarea
           value={formData.businessContext}
           onChange={(e) => handleInputChange('businessContext', e.target.value)}
           rows={2}
-          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
           placeholder="Explica cuándo y por qué usar esta herramienta..."
         />
       </div>
@@ -534,16 +534,16 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
             type="checkbox"
             checked={formData.async}
             onChange={(e) => handleInputChange('async', e.target.checked)}
-            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+          <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
             Ejecución asíncrona
           </span>
         </label>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Mensajes de la Herramienta
         </label>
         <div className="space-y-2">
@@ -557,7 +557,7 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
                   newMessages[index] = { ...message, content: e.target.value };
                   handleInputChange('messages', newMessages);
                 }}
-                className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                 placeholder="Mensaje de la herramienta..."
               />
               <button
@@ -577,7 +577,7 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Agregar nuevo mensaje..."
-              className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddMessage())}
             />
             <button
@@ -592,13 +592,13 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Ejemplos de Uso
         </label>
         <div className="space-y-2">
           {formData.usageExamples.map((example, index) => (
             <div key={index} className="flex items-center space-x-2">
-              <span className="flex-1 px-3 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-md">
+              <span className="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md">
                 {example}
               </span>
               <button
@@ -618,7 +618,7 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
               value={newExample}
               onChange={(e) => setNewExample(e.target.value)}
               placeholder="Agregar nuevo ejemplo..."
-              className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
               onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddExample())}
             />
             <button
@@ -632,11 +632,11 @@ const ToolForm: React.FC<ToolFormProps> = ({ tool, onSave, onCancel }) => {
         </div>
       </div>
 
-      <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
         >
           Cancelar
         </button>

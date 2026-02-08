@@ -87,13 +87,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Proveedor
           </label>
           <select
             value={parameters.model?.provider || 'openai'}
             onChange={(e) => handleParameterChange('model.provider', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="openai">OpenAI</option>
             <option value="anthropic">Anthropic</option>
@@ -102,13 +102,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Modelo
           </label>
           <select
             value={parameters.model?.model || 'gpt-4o'}
             onChange={(e) => handleParameterChange('model.model', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="gpt-4o">GPT-4o</option>
             <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -119,7 +119,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Temperatura
           </label>
           <input
@@ -131,7 +131,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
             onChange={(e) => handleParameterChange('model.temperature', parseFloat(e.target.value))}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
             <span>Conservador (0)</span>
             <span className="font-medium">{parameters.model?.temperature || 0.7}</span>
             <span>Creativo (2)</span>
@@ -139,14 +139,14 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Duración Máxima (segundos)
           </label>
           <input
             type="number"
             value={parameters.maxDurationSeconds || 900}
             onChange={(e) => handleParameterChange('maxDurationSeconds', parseInt(e.target.value))}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             min="60"
             max="3600"
           />
@@ -159,13 +159,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Proveedor de Voz
           </label>
           <select
             value={parameters.voice?.provider || 'elevenlabs'}
             onChange={(e) => handleParameterChange('voice.provider', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="elevenlabs">ElevenLabs</option>
             <option value="openai">OpenAI</option>
@@ -174,20 +174,20 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             ID de Voz
           </label>
           <input
             type="text"
             value={parameters.voice?.voiceId || ''}
             onChange={(e) => handleParameterChange('voice.voiceId', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Ej: 21m00Tcm4TlvDq8ikWAM"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Estabilidad
           </label>
           <input
@@ -199,7 +199,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
             onChange={(e) => handleParameterChange('voice.stability', parseFloat(e.target.value))}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
             <span>Variable (0)</span>
             <span className="font-medium">{parameters.voice?.stability || 0.5}</span>
             <span>Estable (1)</span>
@@ -207,7 +207,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Velocidad
           </label>
           <input
@@ -219,7 +219,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
             onChange={(e) => handleParameterChange('voice.speed', parseFloat(e.target.value))}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
             <span>Lento (0.25x)</span>
             <span className="font-medium">{parameters.voice?.speed || 1}x</span>
             <span>Rápido (4x)</span>
@@ -233,13 +233,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Proveedor
           </label>
           <select
             value={parameters.transcriber?.provider || 'deepgram'}
             onChange={(e) => handleParameterChange('transcriber.provider', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="deepgram">Deepgram</option>
             <option value="openai">OpenAI</option>
@@ -248,13 +248,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Modelo
           </label>
           <select
             value={parameters.transcriber?.model || 'nova-2'}
             onChange={(e) => handleParameterChange('transcriber.model', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="nova-2">Nova-2</option>
             <option value="nova">Nova</option>
@@ -264,13 +264,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Idioma
           </label>
           <select
             value={parameters.transcriber?.language || 'es'}
             onChange={(e) => handleParameterChange('transcriber.language', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="es">Español</option>
             <option value="en">Inglés</option>
@@ -279,7 +279,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Formato Inteligente
           </label>
           <div className="flex items-center">
@@ -287,9 +287,9 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
               type="checkbox"
               checked={parameters.transcriber?.smartFormat || false}
               onChange={(e) => handleParameterChange('transcriber.smartFormat', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-            <label className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
               Activar formato inteligente
             </label>
           </div>
@@ -302,13 +302,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Sonido de Fondo
           </label>
           <select
             value={parameters.backgroundSound || 'office'}
             onChange={(e) => handleParameterChange('backgroundSound', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="office">Oficina</option>
             <option value="cafe">Café</option>
@@ -318,13 +318,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Modo de Primer Mensaje
           </label>
           <select
             value={parameters.firstMessageMode || 'assistant-speaks-first'}
             onChange={(e) => handleParameterChange('firstMessageMode', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="assistant-speaks-first">Asistente habla primero</option>
             <option value="user-speaks-first">Usuario habla primero</option>
@@ -333,7 +333,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Reducción de Ruido
           </label>
           <div className="flex items-center">
@@ -341,16 +341,16 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
               type="checkbox"
               checked={parameters.backgroundDenoisingEnabled || false}
               onChange={(e) => handleParameterChange('backgroundDenoisingEnabled', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-            <label className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
               Activar reducción de ruido
             </label>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Grabación Habilitada
           </label>
           <div className="flex items-center">
@@ -358,9 +358,9 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
               type="checkbox"
               checked={parameters.recordingEnabled || false}
               onChange={(e) => handleParameterChange('recordingEnabled', e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-slate-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
             />
-            <label className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+            <label className="ml-2 text-sm text-gray-700 dark:text-gray-300">
               Permitir grabación
             </label>
           </div>
@@ -368,13 +368,13 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Mensaje de Despedida
         </label>
         <textarea
           value={parameters.endCallMessage || ''}
           onChange={(e) => handleParameterChange('endCallMessage', e.target.value)}
-          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           rows={3}
           placeholder="Mensaje que se reproducirá al finalizar la llamada..."
         />
@@ -386,40 +386,40 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             URL del Servidor
           </label>
           <input
             type="url"
             value={parameters.serverUrl || ''}
             onChange={(e) => handleParameterChange('serverUrl', e.target.value)}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="https://api.ejemplo.com/webhook"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Mensajes del Servidor
           </label>
           <input
             type="text"
             value={parameters.serverMessages?.join(', ') || ''}
             onChange={(e) => handleParameterChange('serverMessages', e.target.value.split(',').map(s => s.trim()).filter(s => s))}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="end-of-call-report, analysis-complete"
           />
         </div>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Frases de Finalización
         </label>
         <textarea
           value={parameters.endCallPhrases?.join('\n') || ''}
           onChange={(e) => handleParameterChange('endCallPhrases', e.target.value.split('\n').filter(s => s.trim()))}
-          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           rows={4}
           placeholder="Cada frase en una línea separada..."
         />
@@ -450,10 +450,10 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Parámetros del Agente
             </h3>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               Configura el comportamiento y capacidades del agente
             </p>
           </div>
@@ -470,7 +470,7 @@ const ParametersEditor: React.FC<ParametersEditorProps> = ({ template, onUpdate 
               className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
                 activeTab === tab.id
                   ? 'bg-blue-500 text-white'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800'
               }`}
             >
               {tab.icon}

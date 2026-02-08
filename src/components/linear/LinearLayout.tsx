@@ -37,7 +37,7 @@ const LinearLayout: React.FC<LinearLayoutProps> = ({
   }, [darkMode]);
 
   return (
-    <div className="relative min-h-screen bg-slate-100 dark:bg-gray-900 transition-colors duration-500 ease-in-out">
+    <div className="relative min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-500 ease-in-out">
       
       {/* Overlay de transición con efecto de onda */}
       <AnimatePresence>
@@ -115,7 +115,7 @@ const LinearLayout: React.FC<LinearLayoutProps> = ({
         
         {/* Sidebar con transición suave */}
         <motion.div 
-          className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-slate-50 dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50`}
+          className={`${sidebarCollapsed ? 'w-16' : 'w-64'} bg-gray-50 dark:bg-gray-800 border-r border-gray-200/50 dark:border-gray-700/50`}
           animate={{ 
             width: sidebarCollapsed ? 64 : 256,
             backgroundColor: darkMode ? 'rgb(31, 41, 55)' : 'rgb(248, 250, 252)'
@@ -144,7 +144,7 @@ const LinearLayout: React.FC<LinearLayoutProps> = ({
 
           {/* Content con transición */}
           <motion.main 
-            className="flex-1 overflow-auto bg-slate-100 dark:bg-gray-900"
+            className="flex-1 overflow-auto bg-gray-100 dark:bg-gray-900"
             animate={{
               backgroundColor: darkMode ? 'rgb(17, 24, 39)' : 'rgb(241, 245, 249)'
             }}

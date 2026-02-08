@@ -169,10 +169,10 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
   }
   
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden ${className}`}>
       
       {/* Header minimalista */}
-      <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -181,17 +181,17 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Audio de la Llamada
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {customerName}
               </p>
             </div>
           </div>
           
           {/* Duración */}
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {duration > 0 ? formatTime(duration) : '--:--'}
           </div>
         </div>
@@ -203,8 +203,8 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
         {/* Estado de carga */}
         {isLoading && (
           <div className="flex items-center justify-center py-6">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-blue-600"></div>
-            <span className="ml-3 text-sm text-slate-600 dark:text-slate-400">Cargando audio...</span>
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-blue-600"></div>
+            <span className="ml-3 text-sm text-gray-600 dark:text-gray-400">Cargando audio...</span>
           </div>
         )}
         
@@ -249,14 +249,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                   max={duration || 0}
                   value={currentTime}
                   onChange={handleSeek}
-                  className="w-full h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-progress"
+                  className="w-full h-1 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer audio-progress"
                   style={{
                     background: `linear-gradient(to right, rgb(59 130 246) 0%, rgb(59 130 246) ${(currentTime / (duration || 1)) * 100}%, rgb(226 232 240) ${(currentTime / (duration || 1)) * 100}%, rgb(226 232 240) 100%)`
                   }}
                 />
                 
                 {/* Tiempos */}
-                <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+                <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
                   <span>{formatTime(currentTime)}</span>
                   <span>{formatTime(duration)}</span>
                 </div>
@@ -283,14 +283,14 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                 
                 {/* Información del archivo */}
                 <div className="text-center">
-                  <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
                     {getFileName()}
                   </div>
                 </div>
                 
                 {/* Control de volumen minimalista */}
                 <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     {volume > 0.5 ? (
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M9 9a3 3 0 000 6h3v5a1 1 0 102 0v-5h3a3 3 0 000-6H9z" />
                     ) : volume > 0 ? (
@@ -306,7 +306,7 @@ const AudioPlayer: React.FC<AudioPlayerProps> = ({
                     step="0.1"
                     value={volume}
                     onChange={handleVolumeChange}
-                    className="w-16 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-volume"
+                    className="w-16 h-1 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer audio-volume"
                   />
                 </div>
               </div>

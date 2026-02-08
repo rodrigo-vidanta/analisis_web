@@ -88,7 +88,7 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-slate-600 dark:text-slate-400">Cargando CV del agente...</p>
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Cargando CV del agente...</p>
         </div>
       </div>
     );
@@ -102,10 +102,10 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
       <div className="glass-card p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               {template.name}
             </h2>
-            <p className="text-slate-600 dark:text-slate-400 mt-1">
+            <p className="text-gray-600 dark:text-gray-400 mt-1">
               {template.description}
             </p>
           </div>
@@ -120,7 +120,7 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
             </button>
             <button
               onClick={onBack}
-              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             >
               Volver al Catálogo
             </button>
@@ -129,21 +129,21 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
 
         {/* Información básica */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Categoría</h3>
-            <p className="text-slate-600 dark:text-slate-400">
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Categoría</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {template.agent_categories?.name || 'Sin categoría'}
             </p>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Tipo</h3>
-            <p className="text-slate-600 dark:text-slate-400">
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Tipo</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {template.agent_type || 'No especificado'}
             </p>
           </div>
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-            <h3 className="font-semibold text-slate-900 dark:text-white mb-2">Dificultad</h3>
-            <p className="text-slate-600 dark:text-slate-400">
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Dificultad</h3>
+            <p className="text-gray-600 dark:text-gray-400">
               {template.difficulty || 'No especificada'}
             </p>
           </div>
@@ -153,33 +153,33 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
       {/* Configuración VAPI */}
       {vapiInfo && (
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Configuración Técnica
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Modelo LLM</h4>
-              <p className="text-slate-600 dark:text-slate-400">{vapiInfo.model}</p>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Modelo LLM</h4>
+              <p className="text-gray-600 dark:text-gray-400">{vapiInfo.model}</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Voz</h4>
-              <p className="text-slate-600 dark:text-slate-400">{vapiInfo.voice}</p>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Voz</h4>
+              <p className="text-gray-600 dark:text-gray-400">{vapiInfo.voice}</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Transcriber</h4>
-              <p className="text-slate-600 dark:text-slate-400">{vapiInfo.transcriber}</p>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Transcriber</h4>
+              <p className="text-gray-600 dark:text-gray-400">{vapiInfo.transcriber}</p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Mensaje Inicial</h4>
-              <p className="text-slate-600 dark:text-slate-400 text-sm">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Mensaje Inicial</h4>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
                 {vapiInfo.firstMessage.length > 100 
                   ? `${vapiInfo.firstMessage.substring(0, 100)}...` 
                   : vapiInfo.firstMessage}
               </p>
             </div>
-            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Duración Máxima</h4>
-              <p className="text-slate-600 dark:text-slate-400">{vapiInfo.maxDuration} segundos</p>
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Duración Máxima</h4>
+              <p className="text-gray-600 dark:text-gray-400">{vapiInfo.maxDuration} segundos</p>
             </div>
           </div>
         </div>
@@ -187,49 +187,49 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
 
       {/* Roles/Prompts */}
       <div className="glass-card p-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Roles del Sistema ({agentPrompts.length})
         </h3>
         {agentPrompts.length > 0 ? (
           <div className="space-y-4">
             {agentPrompts.map((prompt, index) => (
-              <div key={prompt.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+              <div key={prompt.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-slate-900 dark:text-white">
+                  <h4 className="font-medium text-gray-900 dark:text-white">
                     {prompt.system_prompts?.name || `Rol ${index + 1}`}
                   </h4>
                   <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded">
                     Orden {prompt.order_index}
                   </span>
                 </div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {prompt.custom_content || prompt.system_prompts?.content || 'Sin contenido'}
                 </p>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400">No hay roles configurados</p>
+          <p className="text-gray-500 dark:text-gray-400">No hay roles configurados</p>
         )}
       </div>
 
       {/* Squad Information */}
       {template.vapi_config?.squad && (
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Squad ({template.vapi_config.squad.members?.length || 0} miembros)
           </h3>
           {template.vapi_config.squad.members && template.vapi_config.squad.members.length > 0 ? (
             <div className="space-y-4">
               {template.vapi_config.squad.members.map((member: any, index: number) => (
-                <div key={index} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+                <div key={index} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                   <div className="flex items-center gap-3 mb-3">
                     <div className="w-8 h-8 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center">
                       <svg className="w-4 h-4 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                       </svg>
                     </div>
-                    <h4 className="font-medium text-slate-900 dark:text-white">
+                    <h4 className="font-medium text-gray-900 dark:text-white">
                       {member.name || `Miembro ${index + 1}`}
                     </h4>
                     <span className="text-xs bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 px-2 py-1 rounded">
@@ -239,17 +239,17 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
                   
                   {member.assistant?.model?.messages && (
                     <div className="mb-3">
-                      <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Roles del Sistema ({member.assistant.model.messages.length})
                       </h5>
                       <div className="space-y-2">
                         {member.assistant.model.messages.slice(0, 3).map((msg: any, msgIndex: number) => (
-                          <div key={msgIndex} className="text-xs text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-700 p-2 rounded border">
+                          <div key={msgIndex} className="text-xs text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-700 p-2 rounded border">
                             <span className="font-medium">Rol {msgIndex + 1}:</span> {msg.content?.substring(0, 100)}...
                           </div>
                         ))}
                         {member.assistant.model.messages.length > 3 && (
-                          <div className="text-xs text-slate-500 dark:text-slate-400 italic">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 italic">
                             ... y {member.assistant.model.messages.length - 3} roles más
                           </div>
                         )}
@@ -259,7 +259,7 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
 
                   {member.assistant?.tools && (
                     <div>
-                      <h5 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Herramientas ({member.assistant.tools.length})
                       </h5>
                       <div className="flex flex-wrap gap-1">
@@ -275,20 +275,20 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
               ))}
             </div>
           ) : (
-            <p className="text-slate-500 dark:text-slate-400">No hay miembros en el squad</p>
+            <p className="text-gray-500 dark:text-gray-400">No hay miembros en el squad</p>
           )}
         </div>
       )}
 
       {/* Herramientas */}
       <div className="glass-card p-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           Herramientas ({agentTools.length})
         </h3>
         {agentTools.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {agentTools.map((tool) => (
-              <div key={tool.id} className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-4">
+              <div key={tool.id} className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                     <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -296,11 +296,11 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                   </div>
-                  <h4 className="font-medium text-slate-900 dark:text-white">
+                  <h4 className="font-medium text-gray-900 dark:text-white">
                     {tool.tools_catalog?.name || 'Herramienta sin nombre'}
                   </h4>
                 </div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">
+                <p className="text-gray-600 dark:text-gray-400 text-sm">
                   {tool.tools_catalog?.description || 'Sin descripción'}
                 </p>
                 <div className="mt-2">
@@ -312,20 +312,20 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
             ))}
           </div>
         ) : (
-          <p className="text-slate-500 dark:text-slate-400">No hay herramientas configuradas</p>
+          <p className="text-gray-500 dark:text-gray-400">No hay herramientas configuradas</p>
         )}
       </div>
 
       {/* Tags y casos de uso */}
       {(template.keywords?.length > 0 || template.use_cases?.length > 0) && (
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Información Adicional
           </h3>
           
           {template.keywords?.length > 0 && (
             <div className="mb-4">
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Palabras Clave</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Palabras Clave</h4>
               <div className="flex flex-wrap gap-2">
                 {template.keywords.map((keyword, index) => (
                   <span key={index} className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded text-sm">
@@ -338,10 +338,10 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
 
           {template.use_cases?.length > 0 && (
             <div>
-              <h4 className="font-medium text-slate-900 dark:text-white mb-2">Casos de Uso</h4>
+              <h4 className="font-medium text-gray-900 dark:text-white mb-2">Casos de Uso</h4>
               <ul className="list-disc list-inside space-y-1">
                 {template.use_cases.map((useCase, index) => (
-                  <li key={index} className="text-slate-600 dark:text-slate-400 text-sm">
+                  <li key={index} className="text-gray-600 dark:text-gray-400 text-sm">
                     {useCase}
                   </li>
                 ))}
@@ -353,18 +353,18 @@ const AgentCV: React.FC<AgentCVProps> = ({ template, onBack, onDelete }) => {
 
       {/* Delete Modal - Funcionalidad integrada en TemplateManager */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Eliminar Plantilla
             </h3>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
               Esta funcionalidad se ha movido al gestor de plantillas principal.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-2 bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600"
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
               >
                 Cerrar
               </button>

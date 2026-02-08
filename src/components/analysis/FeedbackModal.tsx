@@ -205,16 +205,16 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl">
         
         {/* HEADER */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-1">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
               {isEditing ? 'Editar Retroalimentación' : 'Agregar Retroalimentación'}
             </h2>
-            <div className="text-sm text-slate-600 dark:text-slate-400">
+            <div className="text-sm text-gray-600 dark:text-gray-400">
               <p><strong>Cliente:</strong> {callInfo.customer_name}</p>
               <p><strong>Agente:</strong> {callInfo.agent_name} • {callInfo.call_type}</p>
               <p><strong>Fecha:</strong> {formatDate(callInfo.start_time)}</p>
@@ -224,9 +224,9 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors disabled:opacity-50"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors disabled:opacity-50"
           >
-            <svg className="w-6 h-6 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -253,7 +253,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
           
           {/* Área de texto */}
           <div className="mb-4">
-            <label htmlFor="feedback-text" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            <label htmlFor="feedback-text" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Retroalimentación <span className="text-red-500">*</span>
             </label>
             <textarea
@@ -262,9 +262,9 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
               onChange={handleTextChange}
               disabled={isLoading}
               placeholder="Escribe tu retroalimentación sobre esta llamada. Incluye aspectos positivos, áreas de mejora, técnicas utilizadas, y recomendaciones específicas..."
-              className="w-full h-48 px-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg 
-                         bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100
-                         placeholder-slate-400 dark:placeholder-slate-500
+              className="w-full h-48 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg 
+                         bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                         placeholder-gray-400 dark:placeholder-gray-500
                          focus:ring-2 focus:ring-blue-500 focus:border-blue-500
                          disabled:opacity-50 disabled:cursor-not-allowed
                          resize-none transition-colors"
@@ -273,7 +273,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
             
             {/* Contador de caracteres */}
             <div className="flex justify-between items-center mt-2">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 Máximo {MAX_CHARACTERS} caracteres. Esta retroalimentación será visible para todos los usuarios.
               </p>
               <span className={`text-xs font-medium ${getCharacterCountColor()}`}>
@@ -308,11 +308,11 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({
         </div>
         
         {/* FOOTER */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={handleClose}
             disabled={isLoading}
-            className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 
                        rounded-lg transition-colors disabled:opacity-50"
           >
             Cancelar

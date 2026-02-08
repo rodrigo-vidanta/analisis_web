@@ -118,39 +118,39 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
   const renderStep1 = () => (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Nombre del Agente
         </label>
         <input
           type="text"
           value={newTemplate.name || ''}
           onChange={(e) => setNewTemplate({ ...newTemplate, name: e.target.value })}
-          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Nombre del nuevo agente..."
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Descripción
         </label>
         <textarea
           value={newTemplate.description || ''}
           onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           rows={3}
           placeholder="Descripción del agente..."
         />
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Categoría
         </label>
         <select
           value={newTemplate.category_id || ''}
           onChange={(e) => setNewTemplate({ ...newTemplate, category_id: e.target.value })}
-          className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         >
           <option value="">Seleccionar categoría...</option>
           <option value="atencion_clientes">Atención a Clientes</option>
@@ -166,7 +166,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Modelo
           </label>
           <select
@@ -181,7 +181,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
                 }
               }
             })}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="gpt-4o">GPT-4o</option>
             <option value="gpt-4-turbo">GPT-4 Turbo</option>
@@ -190,7 +190,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Temperatura
           </label>
           <input
@@ -211,7 +211,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
             })}
             className="w-full"
           />
-          <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
             <span>Conservador (0)</span>
             <span className="font-medium">{newTemplate.vapi_config?.model?.temperature || 0.7}</span>
             <span>Creativo (2)</span>
@@ -219,7 +219,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Duración Máxima (segundos)
           </label>
           <input
@@ -232,14 +232,14 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
                 maxDurationSeconds: parseInt(e.target.value)
               }
             })}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             min="60"
             max="3600"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Sonido de Fondo
           </label>
           <select
@@ -251,7 +251,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
                 backgroundSound: e.target.value
               }
             })}
-            className="w-full px-3 py-2 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="office">Oficina</option>
             <option value="cafe">Café</option>
@@ -266,57 +266,57 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
   const renderStep3 = () => (
     <div className="space-y-6">
       <div className="glass-card p-6">
-        <h4 className="font-medium text-slate-900 dark:text-white mb-4">Resumen del Nuevo Agente</h4>
+        <h4 className="font-medium text-gray-900 dark:text-white mb-4">Resumen del Nuevo Agente</h4>
         
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Nombre:</label>
-            <p className="text-slate-900 dark:text-white">{newTemplate.name}</p>
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Nombre:</label>
+            <p className="text-gray-900 dark:text-white">{newTemplate.name}</p>
           </div>
           
           <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Descripción:</label>
-            <p className="text-slate-900 dark:text-white">{newTemplate.description}</p>
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Descripción:</label>
+            <p className="text-gray-900 dark:text-white">{newTemplate.description}</p>
           </div>
           
           <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Modelo:</label>
-            <p className="text-slate-900 dark:text-white">{newTemplate.vapi_config?.model?.model}</p>
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Modelo:</label>
+            <p className="text-gray-900 dark:text-white">{newTemplate.vapi_config?.model?.model}</p>
           </div>
           
           <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Temperatura:</label>
-            <p className="text-slate-900 dark:text-white">{newTemplate.vapi_config?.model?.temperature}</p>
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Temperatura:</label>
+            <p className="text-gray-900 dark:text-white">{newTemplate.vapi_config?.model?.temperature}</p>
           </div>
           
           <div>
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">Duración Máxima:</label>
-            <p className="text-slate-900 dark:text-white">{newTemplate.vapi_config?.maxDurationSeconds} segundos</p>
+            <label className="text-sm font-medium text-gray-600 dark:text-gray-400">Duración Máxima:</label>
+            <p className="text-gray-900 dark:text-white">{newTemplate.vapi_config?.maxDurationSeconds} segundos</p>
           </div>
         </div>
       </div>
 
       <div className="glass-card p-6">
-        <h4 className="font-medium text-slate-900 dark:text-white mb-4">Elementos Copiados del Template Original</h4>
+        <h4 className="font-medium text-gray-900 dark:text-white mb-4">Elementos Copiados del Template Original</h4>
         
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm text-slate-600 dark:text-slate-400">Prompts del sistema</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Prompts del sistema</span>
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm text-slate-600 dark:text-slate-400">Herramientas configuradas</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Herramientas configuradas</span>
           </div>
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm text-slate-600 dark:text-slate-400">Configuración base</span>
+            <span className="text-sm text-gray-600 dark:text-gray-400">Configuración base</span>
           </div>
         </div>
       </div>
@@ -350,21 +350,21 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-slate-900 rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Generar Nuevo Agente
             </h2>
-            <p className="text-slate-600 dark:text-slate-400">
+            <p className="text-gray-600 dark:text-gray-400">
               Basado en: {template.name}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -373,14 +373,14 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
         </div>
 
         {/* Steps */}
-        <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             {steps.map((stepItem, index) => (
               <div key={stepItem.id} className="flex items-center">
                 <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
                   step >= stepItem.id
                     ? 'bg-blue-500 text-white'
-                    : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-400'
+                    : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                 }`}>
                   {step > stepItem.id ? (
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,8 +393,8 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
                 <div className="ml-3">
                   <p className={`text-sm font-medium ${
                     step >= stepItem.id
-                      ? 'text-slate-900 dark:text-white'
-                      : 'text-slate-600 dark:text-slate-400'
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-600 dark:text-gray-400'
                   }`}>
                     {stepItem.name}
                   </p>
@@ -403,7 +403,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
                   <div className={`w-16 h-0.5 mx-4 ${
                     step > stepItem.id
                       ? 'bg-blue-500'
-                      : 'bg-slate-200 dark:bg-slate-700'
+                      : 'bg-gray-200 dark:bg-gray-700'
                   }`} />
                 )}
               </div>
@@ -417,10 +417,10 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between p-6 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+            className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             Cancelar
           </button>
@@ -429,7 +429,7 @@ const AgentGenerator: React.FC<AgentGeneratorProps> = ({ template, onGenerate, o
             {step > 1 && (
               <button
                 onClick={() => setStep(step - 1)}
-                className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Anterior
               </button>

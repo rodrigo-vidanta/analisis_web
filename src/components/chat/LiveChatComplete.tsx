@@ -400,9 +400,9 @@ const LiveChatComplete: React.FC = () => {
       case 'transferred': 
         return <Circle className="w-2 h-2 fill-blue-500 text-blue-500" />;
       case 'closed': 
-        return <Circle className="w-2 h-2 fill-slate-400 text-slate-400" />;
+        return <Circle className="w-2 h-2 fill-gray-400 text-gray-400" />;
       default: 
-        return <Circle className="w-2 h-2 fill-slate-300 text-slate-300" />;
+        return <Circle className="w-2 h-2 fill-gray-300 text-gray-300" />;
     }
   };
 
@@ -427,7 +427,7 @@ const LiveChatComplete: React.FC = () => {
         {/* Separador de fecha */}
         {showDate && (
           <div className="flex justify-center my-6">
-            <span className="px-3 py-1 text-xs text-slate-500 bg-slate-50 rounded-full">
+            <span className="px-3 py-1 text-xs text-gray-500 bg-gray-50 rounded-full">
               {formatDate(message.created_at)}
             </span>
           </div>
@@ -438,17 +438,17 @@ const LiveChatComplete: React.FC = () => {
           <div className={`max-w-xs lg:max-w-md ${isCustomer ? 'order-2 ml-3' : 'order-1 mr-3'}`}>
             
             {/* Nombre del remitente */}
-            <div className={`text-xs text-slate-500 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
+            <div className={`text-xs text-gray-500 mb-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
               {message.sender_name || (isCustomer ? 'Cliente' : isBot ? 'Bot Vidanta' : 'Agente')}
             </div>
 
             {/* Burbuja del mensaje */}
             <div className={`relative px-4 py-2 rounded-2xl ${
               isCustomer 
-                ? 'bg-slate-100 text-slate-900' 
+                ? 'bg-gray-100 text-gray-900' 
                 : isBot
                   ? 'bg-blue-50 text-blue-900 border border-blue-100'
-                  : 'bg-slate-900 text-white'
+                  : 'bg-gray-900 text-white'
             }`}>
               {/* Contenido con Markdown */}
               {message.content && (
@@ -458,7 +458,7 @@ const LiveChatComplete: React.FC = () => {
                       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
                       strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
                       em: ({ children }) => <em className="italic">{children}</em>,
-                      code: ({ children }) => <code className="bg-black bg-opacity-10 px-1 py-0.5 rounded text-xs">{children}</code>,
+                      code: ({ children }) => <code className="bg-black/10 px-1 py-0.5 rounded text-xs">{children}</code>,
                       ul: ({ children }) => <ul className="list-disc list-inside mb-2">{children}</ul>,
                       ol: ({ children }) => <ol className="list-decimal list-inside mb-2">{children}</ol>,
                       li: ({ children }) => <li className="mb-1">{children}</li>
@@ -471,7 +471,7 @@ const LiveChatComplete: React.FC = () => {
 
               {/* Hora */}
               <div className={`text-xs mt-1 ${
-                isCustomer || isBot ? 'text-slate-500' : 'text-slate-300'
+                isCustomer || isBot ? 'text-gray-500' : 'text-gray-300'
               }`}>
                 {formatTime(message.created_at)}
               </div>
@@ -483,10 +483,10 @@ const LiveChatComplete: React.FC = () => {
             isCustomer ? 'order-1' : 'order-2'
           } ${
             isCustomer 
-              ? 'bg-slate-200 text-slate-600' 
+              ? 'bg-gray-200 text-gray-600' 
               : isBot
                 ? 'bg-blue-100 text-blue-600'
-                : 'bg-slate-800 text-white'
+                : 'bg-gray-800 text-white'
           }`}>
             <span className="text-xs font-medium">
               {isCustomer 
@@ -510,8 +510,8 @@ const LiveChatComplete: React.FC = () => {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="flex flex-col items-center space-y-4">
-          <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-600 rounded-full animate-spin"></div>
-          <p className="text-sm text-slate-500">Cargando conversaciones reales...</p>
+          <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-600 rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-500">Cargando conversaciones reales...</p>
         </div>
       </div>
     );
@@ -521,19 +521,19 @@ const LiveChatComplete: React.FC = () => {
     <div className="flex h-full bg-white">
       {/* Columna 1: Lista de Conversaciones */}
       <div 
-        className="border-r border-slate-200 flex flex-col"
+        className="border-r border-gray-200 flex flex-col"
         style={{ width: `${columnWidths.conversations}%` }}
       >
         {/* Header */}
-        <div className="p-4 border-b border-slate-100">
+        <div className="p-4 border-b border-gray-100">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-lg font-semibold text-slate-900">Conversaciones</h1>
-              <p className="text-xs text-slate-500">Datos reales de UChat</p>
+              <h1 className="text-lg font-semibold text-gray-900">Conversaciones</h1>
+              <p className="text-xs text-gray-500">Datos reales de UChat</p>
             </div>
             <button 
               onClick={loadConversations}
-              className="text-xs px-2 py-1 text-slate-600 bg-slate-50 border border-slate-200 rounded hover:bg-slate-100"
+              className="text-xs px-2 py-1 text-gray-600 bg-gray-50 border border-gray-200 rounded hover:bg-gray-100"
             >
               Actualizar
             </button>
@@ -542,24 +542,24 @@ const LiveChatComplete: React.FC = () => {
           {/* Métricas compactas */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="text-center">
-              <div className="text-lg font-semibold text-slate-900">{metrics.totalConversations}</div>
-              <div className="text-xs text-slate-500">Total</div>
+              <div className="text-lg font-semibold text-gray-900">{metrics.totalConversations}</div>
+              <div className="text-xs text-gray-500">Total</div>
             </div>
             <div className="text-center">
               <div className="text-lg font-semibold text-emerald-600">{metrics.activeConversations}</div>
-              <div className="text-xs text-slate-500">Activas</div>
+              <div className="text-xs text-gray-500">Activas</div>
             </div>
           </div>
 
           {/* Búsqueda */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
             <input
               type="text"
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-300"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-300"
             />
           </div>
         </div>
@@ -572,32 +572,32 @@ const LiveChatComplete: React.FC = () => {
           {filteredConversations.map((conversation) => (
             <div
               key={conversation.id}
-              className={`p-3 border-b border-slate-50 cursor-pointer transition-colors ${
+              className={`p-3 border-b border-gray-50 cursor-pointer transition-colors ${
                 selectedConversation?.id === conversation.id
                   ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                  : 'hover:bg-slate-25'
+                  : 'hover:bg-gray-50'
               }`}
               onClick={() => setSelectedConversation(conversation)}
             >
               <div className="flex items-start space-x-3">
-                <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-medium text-slate-600">
+                <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-medium text-gray-600">
                     {conversation.customer_name?.charAt(0).toUpperCase() || 'C'}
                   </span>
                 </div>
                 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2 mb-1">
-                    <h3 className="text-sm font-medium text-slate-900 truncate">
+                    <h3 className="text-sm font-medium text-gray-900 truncate">
                       {conversation.customer_name}
                     </h3>
                     {getStatusIndicator(conversation.status)}
                   </div>
                   
-                  <p className="text-xs text-slate-500 mb-1">{conversation.customer_phone}</p>
+                  <p className="text-xs text-gray-500 mb-1">{conversation.customer_phone}</p>
                   <p className="text-xs text-blue-600 font-medium mb-1">{conversation.metadata?.etapa}</p>
                   
-                  <div className="flex items-center justify-between text-xs text-slate-400">
+                  <div className="flex items-center justify-between text-xs text-gray-400">
                     <span>{conversation.message_count} mensajes</span>
                     <span>{formatTimeAgo(conversation.last_message_at)}</span>
                   </div>
@@ -611,12 +611,12 @@ const LiveChatComplete: React.FC = () => {
       {/* Columna 2: Bloques de Conversación (24h) */}
       {selectedConversation && (
         <div 
-          className="border-r border-slate-200 flex flex-col"
+          className="border-r border-gray-200 flex flex-col"
           style={{ width: `${columnWidths.blocks}%` }}
         >
-          <div className="p-4 border-b border-slate-100">
-            <h3 className="text-sm font-semibold text-slate-900 mb-1">Bloques por Día</h3>
-            <p className="text-xs text-slate-500">{selectedConversation.customer_name}</p>
+          <div className="p-4 border-b border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 mb-1">Bloques por Día</h3>
+            <p className="text-xs text-gray-500">{selectedConversation.customer_name}</p>
           </div>
 
           <div 
@@ -627,25 +627,25 @@ const LiveChatComplete: React.FC = () => {
               <div
                 key={block.date}
                 onClick={() => scrollToBlock(block)}
-                className={`p-3 border-b border-slate-50 cursor-pointer transition-colors ${
+                className={`p-3 border-b border-gray-50 cursor-pointer transition-colors ${
                   selectedBlock?.date === block.date
                     ? 'bg-blue-50 border-l-4 border-l-blue-500'
-                    : 'hover:bg-slate-25'
+                    : 'hover:bg-gray-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="flex items-center space-x-2 mb-1">
-                      <Calendar className="w-4 h-4 text-slate-400" />
-                      <span className="text-sm font-medium text-slate-900">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm font-medium text-gray-900">
                         {formatDate(block.date)}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-gray-500">
                       {block.message_count} mensajes
                     </p>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400" />
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
                 </div>
               </div>
             ))}
@@ -660,19 +660,19 @@ const LiveChatComplete: React.FC = () => {
           style={{ width: `${columnWidths.chat}%` }}
         >
           {/* Header del chat */}
-          <div className="p-4 border-b border-slate-100 bg-slate-50">
+          <div className="p-4 border-b border-gray-100 bg-gray-50">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center">
-                  <span className="text-sm font-medium text-slate-600">
+                <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                  <span className="text-sm font-medium text-gray-600">
                     {selectedConversation.customer_name?.charAt(0).toUpperCase()}
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-sm font-semibold text-gray-900">
                     {selectedConversation.customer_name}
                   </h3>
-                  <div className="flex items-center space-x-2 text-xs text-slate-500">
+                  <div className="flex items-center space-x-2 text-xs text-gray-500">
                     <Phone className="w-3 h-3" />
                     <span>{selectedConversation.customer_phone}</span>
                     <span className="text-blue-600 font-medium">
@@ -684,7 +684,7 @@ const LiveChatComplete: React.FC = () => {
 
               <button
                 onClick={() => setSelectedConversation(null)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-md transition-colors"
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -697,7 +697,7 @@ const LiveChatComplete: React.FC = () => {
             className="flex-1 overflow-y-auto p-4"
           >
             {allMessages.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-slate-500">
+              <div className="flex items-center justify-center h-32 text-gray-500">
                 <div className="text-center">
                   <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">No hay mensajes en esta conversación</p>
@@ -710,7 +710,7 @@ const LiveChatComplete: React.FC = () => {
           </div>
 
           {/* Input de mensaje fijo */}
-          <div className="p-4 border-t border-slate-100 bg-white">
+          <div className="p-4 border-t border-gray-100 bg-white">
             <div className="flex items-end space-x-3">
               <div className="flex-1 relative">
                 <textarea
@@ -719,7 +719,7 @@ const LiveChatComplete: React.FC = () => {
                   onKeyPress={handleKeyPress}
                   placeholder="Escribe un mensaje..."
                   rows={1}
-                  className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-300 resize-none"
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-300 resize-none"
                   style={{ minHeight: '36px', maxHeight: '120px' }}
                 />
               </div>
@@ -727,7 +727,7 @@ const LiveChatComplete: React.FC = () => {
               <button
                 onClick={handleSendMessage}
                 disabled={!newMessage.trim() || sending}
-                className="p-2 bg-slate-900 text-white rounded-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-2 bg-gray-900 text-white rounded-md hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {sending ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
@@ -740,21 +740,21 @@ const LiveChatComplete: React.FC = () => {
         </div>
       ) : (
         <div 
-          className="flex items-center justify-center text-slate-500"
+          className="flex items-center justify-center text-gray-500"
           style={{ width: `${columnWidths.blocks + columnWidths.chat}%` }}
         >
           <div className="text-center">
             <MessageSquare className="w-16 h-16 mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium text-slate-900 mb-2">Selecciona una conversación</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Selecciona una conversación</h3>
             <p className="text-sm">Elige una conversación para ver el historial completo</p>
           </div>
         </div>
       )}
 
       {/* Controles de redimensionamiento */}
-      <div className="fixed bottom-4 right-4 bg-white border border-slate-200 rounded-lg p-2 shadow-lg">
+      <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg p-2 shadow-lg">
         <div className="flex items-center space-x-2">
-          <Settings className="w-4 h-4 text-slate-400" />
+          <Settings className="w-4 h-4 text-gray-400" />
           <input
             type="range"
             min="20"
@@ -771,7 +771,7 @@ const LiveChatComplete: React.FC = () => {
             }}
             className="w-20"
           />
-          <span className="text-xs text-slate-500">{columnWidths.conversations}%</span>
+          <span className="text-xs text-gray-500">{columnWidths.conversations}%</span>
         </div>
       </div>
     </div>

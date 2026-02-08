@@ -158,7 +158,7 @@ const ComplianceChart: React.FC<ComplianceChartProps> = ({
       case 'bajo': return 'text-green-600 bg-green-100 dark:bg-green-900/30';
       case 'medio': return 'text-yellow-600 bg-yellow-100 dark:bg-yellow-900/30';
       case 'alto': return 'text-red-600 bg-red-100 dark:bg-red-900/30';
-      default: return 'text-slate-600 bg-slate-100 dark:bg-slate-800';
+      default: return 'text-gray-600 bg-gray-100 dark:bg-gray-800';
     }
   };
   
@@ -170,11 +170,11 @@ const ComplianceChart: React.FC<ComplianceChartProps> = ({
   const riesgoNormativo = getRiskLevel();
   
   return (
-    <div className={`bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 p-6 ${className}`}>
+    <div className={`bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 ${className}`}>
       
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
           </svg>
@@ -199,18 +199,18 @@ const ComplianceChart: React.FC<ComplianceChartProps> = ({
           <div className="flex items-center gap-4 mt-4">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Cumplidos</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Cumplidos</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-              <span className="text-xs text-slate-600 dark:text-slate-400">Pendientes</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">Pendientes</span>
             </div>
           </div>
         </div>
         
         {/* Lista de elementos */}
         <div className="space-y-3">
-          <h4 className="font-medium text-slate-900 dark:text-white text-sm">
+          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
             Elementos Obligatorios ({elementos.filter(e => e.mencionado).length}/{elementos.length})
           </h4>
           
@@ -226,11 +226,11 @@ const ComplianceChart: React.FC<ComplianceChartProps> = ({
                 }`}></div>
                 
                 <div className="flex-1">
-                  <div className="text-sm font-medium text-slate-900 dark:text-white">
+                  <div className="text-sm font-medium text-gray-900 dark:text-white">
                     {elemento.name}
                   </div>
                   {elemento.textoExacto && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
                       "{elemento.textoExacto.substring(0, 60)}..."
                     </div>
                   )}

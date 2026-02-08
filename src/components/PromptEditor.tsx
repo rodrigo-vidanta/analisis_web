@@ -138,7 +138,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
-            <h4 className="font-semibold text-slate-900 dark:text-white">
+            <h4 className="font-semibold text-gray-900 dark:text-white">
               {prompt.title}
             </h4>
             <div className="flex items-center space-x-2">
@@ -148,20 +148,20 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
                 </span>
               )}
               {!prompt.isEditable && (
-                <span className="text-xs bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 px-2 py-1 rounded">
+                <span className="text-xs bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-1 rounded">
                   Solo lectura
                 </span>
               )}
             </div>
           </div>
-          <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-3">
+          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">
             {prompt.content}
           </p>
         </div>
         <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => handleEditPrompt(prompt)}
-            className="p-2 text-slate-400 hover:text-blue-500 transition-colors"
+            className="p-2 text-gray-400 hover:text-blue-500 transition-colors"
             title="Editar"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -170,7 +170,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
           </button>
           <button
             onClick={() => handleDuplicatePrompt(prompt)}
-            className="p-2 text-slate-400 hover:text-green-500 transition-colors"
+            className="p-2 text-gray-400 hover:text-green-500 transition-colors"
             title="Duplicar"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -180,7 +180,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
           {prompt.isEditable && (
             <button
               onClick={() => handleDeletePrompt(prompt.id)}
-              className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+              className="p-2 text-gray-400 hover:text-red-500 transition-colors"
               title="Eliminar"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,10 +207,10 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
     if (!editingPrompt) return null;
 
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white dark:bg-slate-900 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               {editingPrompt.id.startsWith('prompt_') && !prompts.find(p => p.id === editingPrompt.id) ? 'Nuevo Prompt' : 'Editar Prompt'}
             </h3>
           </div>
@@ -232,10 +232,10 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-xl font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
             Editor de Prompts
           </h3>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
             Gestiona los prompts del sistema para tu agente
           </p>
         </div>
@@ -251,7 +251,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
       </div>
 
       {/* Category Navigation */}
-      <div className="flex space-x-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
         {categories.map((category) => (
           <button
             key={category.id}
@@ -259,7 +259,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
             className={`flex-1 flex items-center justify-center space-x-2 px-4 py-3 rounded-md text-sm font-medium transition-colors ${
               activeCategory === category.id
                 ? `bg-${category.color}-100 text-${category.color}-700 dark:bg-${category.color}-900/20 dark:text-${category.color}-300`
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
             }`}
           >
             {category.icon}
@@ -273,10 +273,10 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
         <div className="flex items-center space-x-3">
           {categories.find(c => c.id === activeCategory)?.icon}
           <div>
-            <h4 className="font-medium text-slate-900 dark:text-white">
+            <h4 className="font-medium text-gray-900 dark:text-white">
               {categories.find(c => c.id === activeCategory)?.name}
             </h4>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {categories.find(c => c.id === activeCategory)?.description}
             </p>
           </div>
@@ -285,7 +285,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
 
       {/* Search */}
       <div className="relative">
-        <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
         </svg>
         <input
@@ -293,7 +293,7 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
           placeholder="Buscar prompts..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+          className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         />
       </div>
 
@@ -304,15 +304,15 @@ const PromptEditor: React.FC<PromptEditorProps> = ({
 
       {filteredPrompts.length === 0 && (
         <div className="text-center py-12">
-          <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             No hay prompts en esta categoría
           </h3>
-          <p className="text-slate-600 dark:text-slate-400 mb-4">
+          <p className="text-gray-600 dark:text-gray-400 mb-4">
             {searchTerm ? 'No se encontraron prompts que coincidan con tu búsqueda' : 'Crea tu primer prompt para esta categoría'}
           </p>
           <button
@@ -371,26 +371,26 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Título del Prompt *
           </label>
           <input
             type="text"
             value={formData.title}
             onChange={(e) => handleInputChange('title', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             required
           />
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Categoría
           </label>
           <select
             value={formData.category}
             onChange={(e) => handleInputChange('category', e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="identity">Identidad</option>
             <option value="workflow">Flujo de Trabajo</option>
@@ -402,14 +402,14 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Contenido del Prompt *
         </label>
         <textarea
           value={formData.content}
           onChange={(e) => handleInputChange('content', e.target.value)}
           rows={8}
-          className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white resize-none"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-none"
           placeholder="Escribe el contenido del prompt aquí..."
           required
         />
@@ -422,9 +422,9 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
               type="checkbox"
               checked={formData.isRequired}
               onChange={(e) => handleInputChange('isRequired', e.target.checked)}
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
               Prompt requerido
             </span>
           </label>
@@ -436,9 +436,9 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
               type="checkbox"
               checked={formData.isEditable}
               onChange={(e) => handleInputChange('isEditable', e.target.checked)}
-              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
-            <span className="ml-2 text-sm text-slate-700 dark:text-slate-300">
+            <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
               Editable por usuarios
             </span>
           </label>
@@ -446,7 +446,7 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
           Variables Dinámicas
         </label>
         <div className="flex space-x-2 mb-2">
@@ -455,7 +455,7 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
             value={newVariable}
             onChange={(e) => setNewVariable(e.target.value)}
             placeholder="Nombre de variable (ej: agentName)"
-            className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+            className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddVariable())}
           />
           <button
@@ -490,11 +490,11 @@ const PromptForm: React.FC<PromptFormProps> = ({ prompt, onSave, onCancel }) => 
         )}
       </div>
 
-      <div className="flex justify-end space-x-3 pt-6 border-t border-slate-200 dark:border-slate-700">
+      <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+          className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
         >
           Cancelar
         </button>

@@ -365,7 +365,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
 
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
       <div className="max-w-7xl mx-auto px-6 py-8">
         
         {/* Header con navegación de regreso */}
@@ -373,7 +373,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
           <div className="flex items-center space-x-4">
             <button
               onClick={onBack}
-              className="flex items-center space-x-2 px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+              className="flex items-center space-x-2 px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -381,13 +381,13 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
               <span>Volver al Dashboard</span>
             </button>
             
-            <div className="h-6 w-px bg-slate-300 dark:bg-slate-600"></div>
+            <div className="h-6 w-px bg-gray-300 dark:bg-gray-600"></div>
             
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {agentData.name}
               </h1>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-gray-600 dark:text-gray-400">
                 {agentData.description}
               </p>
             </div>
@@ -395,12 +395,12 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
 
           {/* Indicadores de progreso */}
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm text-slate-500 dark:text-slate-400">
+            <div className="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
               <span>Auto-guardado</span>
             </div>
             
-            <div className="text-sm text-slate-500 dark:text-slate-400">
+            <div className="text-sm text-gray-500 dark:text-gray-400">
               Tiempo estimado: {agentData.estimated_time}
             </div>
           </div>
@@ -408,7 +408,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
 
         {/* Navegación por tabs */}
         <div className="glass-card mb-6">
-          <div className="border-b border-slate-200 dark:border-slate-700">
+          <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 px-6">
               {tabs.map((tab) => (
                 <button
@@ -417,7 +417,7 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
                   className={`flex items-center space-x-2 py-4 border-b-2 font-medium text-sm transition-colors ${
                     activeTab === tab.id
                       ? 'border-purple-500 text-purple-600 dark:text-purple-400'
-                      : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                   }`}
                 >
                   {tab.icon}
@@ -428,8 +428,8 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
           </div>
           
           {/* Descripción del tab activo */}
-          <div className="px-6 py-3 bg-slate-50 dark:bg-slate-800/50">
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+          <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {tabs.find(tab => tab.id === activeTab)?.description}
             </p>
           </div>
@@ -500,12 +500,12 @@ const AgentEditor: React.FC<AgentEditorProps> = ({ template, onBack }) => {
               <button
                 onClick={async () => { try { await saveAsDraft(); } catch {} }}
                 disabled={isSaving}
-                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors disabled:opacity-60"
+                className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors disabled:opacity-60"
               >
                 {isSaving ? 'Guardando...' : 'Guardar como Borrador'}
               </button>
               
-              <div className="h-4 w-px bg-slate-300 dark:bg-slate-600"></div>
+              <div className="h-4 w-px bg-gray-300 dark:bg-gray-600"></div>
 
               <button
                 onClick={async () => { try { await generateAgent(); setActiveTab('json'); } catch {} }}

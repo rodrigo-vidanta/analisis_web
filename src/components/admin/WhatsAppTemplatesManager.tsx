@@ -1548,7 +1548,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           <motion.div
@@ -2411,7 +2411,7 @@ const HeaderImageEditor: React.FC<HeaderImageEditorProps> = ({ imageUrl, onImage
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => setShowCatalog(false)}
           >
             <motion.div
@@ -3086,7 +3086,7 @@ const PreviewModal: React.FC<{ isOpen: boolean; onClose: () => void; template: W
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           <motion.div
@@ -3727,7 +3727,7 @@ const CreateAudienceModal: React.FC<CreateAudienceModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-[60]"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={onClose}
         >
           <motion.div

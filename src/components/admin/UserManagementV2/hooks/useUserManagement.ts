@@ -95,7 +95,7 @@ const ROLE_HIERARCHY_DATA: Role[] = [
   { id: 'supervisor', name: 'supervisor', display_name: 'Supervisor', description: 'Supervisión de equipos', level: 3, icon: 'UserCheck', color: 'from-cyan-500 to-teal-600' },
   { id: 'ejecutivo', name: 'ejecutivo', display_name: 'Ejecutivo', description: 'Ejecución de operaciones', level: 4, icon: 'Briefcase', color: 'from-emerald-500 to-teal-600' },
   { id: 'evaluador', name: 'evaluador', display_name: 'Evaluador', description: 'Evaluación de calidad', level: 4, icon: 'ClipboardCheck', color: 'from-amber-500 to-orange-600' },
-  { id: 'developer', name: 'developer', display_name: 'Desarrollador', description: 'Acceso técnico', level: 2, icon: 'Code', color: 'from-gray-600 to-slate-700' }
+  { id: 'developer', name: 'developer', display_name: 'Desarrollador', description: 'Acceso técnico', level: 2, icon: 'Code', color: 'from-gray-600 to-gray-700' }
 ];
 
 // ============================================

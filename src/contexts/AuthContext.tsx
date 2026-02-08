@@ -809,10 +809,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Mostrar loading mientras se verifica la autenticación
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-slate-600 dark:text-slate-400">Verificando autenticación...</p>
+          <p className="text-gray-600 dark:text-gray-400">Verificando autenticación...</p>
         </div>
       </div>
     );
@@ -846,17 +846,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 // ============================================
 
 const LoginRequired: React.FC = () => (
-  <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-    <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center">
+  <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+    <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
       <div className="w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
         <svg className="w-8 h-8 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
       </div>
-      <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+      <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
         Autenticación Requerida
       </h2>
-      <p className="text-slate-600 dark:text-slate-400 mb-6">
+      <p className="text-gray-600 dark:text-gray-400 mb-6">
         Debes iniciar sesión para acceder a esta página.
       </p>
       <button
@@ -889,17 +889,17 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({ permission, module, subModu
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
-      <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
         <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
           Acceso Denegado
         </h2>
-        <p className="text-slate-600 dark:text-slate-400 mb-6">
+        <p className="text-gray-600 dark:text-gray-400 mb-6">
           No tienes permisos para acceder a{' '}
           {permission && `la función: ${permission}`}
           {module && `el módulo: ${module}`}
@@ -907,7 +907,7 @@ const AccessDenied: React.FC<AccessDeniedProps> = ({ permission, module, subModu
         </p>
         <button
           onClick={handleRedirect}
-          className="w-full px-4 py-2 bg-slate-600 hover:bg-slate-700 text-white rounded-lg transition-colors"
+          className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
         >
           Ir al módulo principal
         </button>

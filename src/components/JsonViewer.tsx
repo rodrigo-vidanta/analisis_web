@@ -100,7 +100,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   return (
     <div className={`glass-card ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center space-x-3">
           <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
             <svg className="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -108,10 +108,10 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
             </svg>
           </div>
           <div>
-            <h3 className="font-semibold text-slate-900 dark:text-white">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
               {title}
             </h3>
-            <p className="text-sm text-slate-600 dark:text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               {isValid ? 'JSON válido' : 'Error en el JSON'}
             </p>
           </div>
@@ -123,7 +123,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
               copied 
                 ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-300'
-                : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
             <div className="flex items-center space-x-1">
@@ -147,7 +147,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
           
           <button
             onClick={handleDownload}
-            className="px-3 py-1.5 text-sm bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-md transition-colors"
+            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors"
           >
             <div className="flex items-center space-x-1">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -161,15 +161,15 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
 
       {/* JSON Content */}
       <div className="relative">
-        <pre className="p-4 text-sm font-mono overflow-x-auto bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-100 leading-relaxed">
+        <pre className="p-4 text-sm font-mono overflow-x-auto bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-gray-100 leading-relaxed">
           <code>
             {renderJsonWithSyntaxHighlighting(formattedJson)}
           </code>
         </pre>
         
         {/* Line numbers */}
-        <div className="absolute left-0 top-0 bottom-0 w-12 bg-slate-100 dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700">
-          <div className="p-4 text-xs text-slate-500 dark:text-slate-400 font-mono leading-relaxed">
+        <div className="absolute left-0 top-0 bottom-0 w-12 bg-gray-100 dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700">
+          <div className="p-4 text-xs text-gray-500 dark:text-gray-400 font-mono leading-relaxed">
             {formattedJson.split('\n').map((_, index) => (
               <div key={index} className="text-right">
                 {index + 1}
@@ -180,8 +180,8 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
       </div>
 
       {/* Footer with stats */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
-        <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+      <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
           <div className="flex items-center space-x-4">
             <span>
               {formattedJson.split('\n').length} líneas

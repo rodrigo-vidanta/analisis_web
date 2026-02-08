@@ -92,7 +92,7 @@ const ProjectSelector = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 py-16 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 py-16 px-4">
       <div className="max-w-5xl mx-auto">
         {/* Header minimalista */}
         <div className="text-center mb-16 animate-fade-in-up">
@@ -102,10 +102,10 @@ const ProjectSelector = () => {
             </svg>
           </div>
           
-          <h1 className="text-4xl font-semibold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-300 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent mb-4">
             Selecciona tu Proyecto
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto leading-relaxed font-light">
+          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto leading-relaxed font-light">
             Elige el tipo de sistema de inteligencia artificial que deseas desarrollar para comenzar tu experiencia de construcción
           </p>
         </div>
@@ -128,10 +128,10 @@ const ProjectSelector = () => {
                       {project.icon}
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-1">
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
                         {project.title}
                       </h3>
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                         {project.subtitle}
                       </p>
                     </div>
@@ -139,25 +139,25 @@ const ProjectSelector = () => {
                   
                   {/* Arrow indicator sutil */}
                   <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-1">
-                    <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
                   </div>
                 </div>
 
                 {/* Description */}
-                <p className="text-slate-600 dark:text-slate-300 mb-5 leading-relaxed text-sm">
+                <p className="text-gray-600 dark:text-gray-300 mb-5 leading-relaxed text-sm">
                   {project.description}
                 </p>
 
                 {/* Features list minimalista */}
                 <div className="space-y-2.5">
-                  <h4 className="text-xs font-semibold text-slate-900 dark:text-white uppercase tracking-wide mb-3">
+                  <h4 className="text-xs font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-3">
                     Características Principales
                   </h4>
                   <ul className="space-y-2">
                     {project.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center space-x-2.5 text-xs text-slate-600 dark:text-slate-300">
+                      <li key={featureIndex} className="flex items-center space-x-2.5 text-xs text-gray-600 dark:text-gray-300">
                         <div className={`w-1.5 h-1.5 rounded-full bg-gradient-to-r ${project.gradient} flex-shrink-0`}></div>
                         <span>{feature}</span>
                       </li>
@@ -190,14 +190,14 @@ const ProjectSelector = () => {
         {/* Bottom info section con verticales de negocio */}
         <div className="mt-12 text-center animate-fade-in-up" style={{ animationDelay: '0.3s' }}>
           <div className="max-w-2xl mx-auto">
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
+            <p className="text-gray-500 dark:text-gray-400 text-sm leading-relaxed mb-8">
               ¿No estás seguro de qué opción elegir? Puedes cambiar entre proyectos en cualquier momento 
               durante el proceso de desarrollo.
             </p>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {businessVerticals.map((vertical, index) => (
-                <div key={index} className="flex flex-col items-center space-y-2 text-xs text-slate-400">
+                <div key={index} className="flex flex-col items-center space-y-2 text-xs text-gray-400">
                   <div className={`w-8 h-8 ${vertical.color} rounded-lg flex items-center justify-center text-white`}>
                     {vertical.icon}
                   </div>

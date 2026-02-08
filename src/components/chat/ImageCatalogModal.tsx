@@ -459,7 +459,7 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   return (
     <>
       {/* Modal Principal */}
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] flex flex-col overflow-hidden">
           {/* Header */}
           <div className="p-4 md:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -741,7 +741,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ item, getImageUrl, onClose 
 
   return (
     <div 
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
@@ -758,7 +758,7 @@ const PreviewModal: React.FC<PreviewModalProps> = ({ item, getImageUrl, onClose 
           className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
         />
         
-        <div className="mt-4 p-4 bg-white/10 backdrop-blur-md rounded-lg">
+        <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-lg">
           <h3 className="text-white font-semibold text-lg">{item.nombre}</h3>
           {item.destinos && item.destinos.length > 0 && (
             <p className="text-white/80 text-sm mt-1">
@@ -809,7 +809,7 @@ const SendModal: React.FC<SendModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
       onClick={onClose}
     >
       <div 

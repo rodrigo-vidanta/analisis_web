@@ -598,8 +598,8 @@ const UserHierarchyView: React.FC<{
             </div>
           )}
           {node.type === 'coordinacion' && (
-            <div className="w-5 h-5 rounded bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-              <Settings className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+            <div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+              <Settings className="w-3 h-3 text-gray-600 dark:text-gray-400" />
             </div>
           )}
           {node.type === 'user' && (

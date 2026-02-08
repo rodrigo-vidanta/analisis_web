@@ -295,7 +295,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
           />
 
           {/* Modal */}
@@ -304,8 +304,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-[10000] flex items-center justify-center p-4 pointer-events-none"
-            style={{ zIndex: 10000 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
               className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md border border-gray-200 dark:border-gray-800 pointer-events-auto"

@@ -176,9 +176,9 @@ const getCallStatus = (prospect: ExtendedProspect | LiveCallData) => {
     isActive: true,
     isFailed: false,
     statusText: 'En Vivo',
-    bgColor: 'bg-white dark:bg-slate-800',
-    borderColor: 'border-slate-200 dark:border-slate-700',
-    textColor: 'text-slate-900 dark:text-white',
+    bgColor: 'bg-white dark:bg-gray-800',
+    borderColor: 'border-gray-200 dark:border-gray-700',
+    textColor: 'text-gray-900 dark:text-white',
     duration: null
   };
 };
@@ -189,7 +189,7 @@ const getTemperatureColor = (temperatura?: string) => {
     case 'caliente': return 'from-red-500 to-orange-500';
     case 'tibio': return 'from-yellow-500 to-amber-500';
     case 'frio': return 'from-blue-500 to-cyan-500';
-    default: return 'from-slate-500 to-gray-500';
+    default: return 'from-gray-500 to-gray-500';
   }
 };
 
@@ -375,8 +375,8 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4">
-      <div className="bg-slate-900 rounded-xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-gray-900 rounded-xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
@@ -404,7 +404,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
 
         <div className="grid lg:grid-cols-3 gap-6">
           {/* Canal Izquierdo (IA) - Configuración Técnica */}
-          <div className="bg-slate-800 rounded-lg p-4">
+          <div className="bg-gray-800 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-blue-400 mb-4 flex items-center gap-2">
               <span>🤖</span> Canal Izquierdo (IA)
             </h3>
@@ -419,7 +419,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.leftVolume || 0.9}
                   onChange={(e) => handleChange('leftVolume', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -428,7 +428,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 <select
                   value={audioSettings.leftSampleRate || 16000}
                   onChange={(e) => handleChange('leftSampleRate', parseInt(e.target.value))}
-                  className="w-full bg-slate-700 text-white p-2 rounded"
+                  className="w-full bg-gray-700 text-white p-2 rounded"
                 >
                   <option value={8000}>8000 Hz (Teléfono)</option>
                   <option value={16000}>16000 Hz (VAPI)</option>
@@ -442,7 +442,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 <select
                   value={audioSettings.leftChannelMode || 'stereo'}
                   onChange={(e) => handleChange('leftChannelMode', e.target.value)}
-                  className="w-full bg-slate-700 text-white p-2 rounded"
+                  className="w-full bg-gray-700 text-white p-2 rounded"
                 >
                   <option value="stereo">Estéreo (Normal)</option>
                   <option value="mono">Mono (Mezclado)</option>
@@ -459,7 +459,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.leftCompression || 1.0}
                   onChange={(e) => handleChange('leftCompression', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -472,7 +472,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.leftDynamicRange || 1.0}
                   onChange={(e) => handleChange('leftDynamicRange', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -485,14 +485,14 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.001"
                   value={audioSettings.leftNoiseGate || 0.003}
                   onChange={(e) => handleChange('leftNoiseGate', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
             </div>
           </div>
 
           {/* Canal Derecho (Cliente) - Configuración Técnica */}
-          <div className="bg-slate-800 rounded-lg p-4">
+          <div className="bg-gray-800 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-green-400 mb-4 flex items-center gap-2">
               <span>👤</span> Canal Derecho (Cliente)
             </h3>
@@ -507,7 +507,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.rightVolume || 2.2}
                   onChange={(e) => handleChange('rightVolume', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -516,7 +516,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 <select
                   value={audioSettings.rightSampleRate || 16000}
                   onChange={(e) => handleChange('rightSampleRate', parseInt(e.target.value))}
-                  className="w-full bg-slate-700 text-white p-2 rounded"
+                  className="w-full bg-gray-700 text-white p-2 rounded"
                 >
                   <option value={8000}>8000 Hz (Teléfono)</option>
                   <option value={16000}>16000 Hz (VAPI)</option>
@@ -530,7 +530,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 <select
                   value={audioSettings.rightChannelMode || 'stereo'}
                   onChange={(e) => handleChange('rightChannelMode', e.target.value)}
-                  className="w-full bg-slate-700 text-white p-2 rounded"
+                  className="w-full bg-gray-700 text-white p-2 rounded"
                 >
                   <option value="stereo">Estéreo (Normal)</option>
                   <option value="mono">Mono (Mezclado)</option>
@@ -547,7 +547,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.rightCompression || 0.8}
                   onChange={(e) => handleChange('rightCompression', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -560,7 +560,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.rightDynamicRange || 1.2}
                   onChange={(e) => handleChange('rightDynamicRange', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -573,7 +573,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.001"
                   value={audioSettings.rightNoiseGate || 0.003}
                   onChange={(e) => handleChange('rightNoiseGate', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
             </div>
@@ -581,7 +581,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
           
           {/* Panel específico para Tone.js */}
           {audioSettings.useToneJS && (
-            <div className="bg-slate-800 rounded-lg p-4">
+            <div className="bg-gray-800 rounded-lg p-4">
               <h3 className="text-lg font-semibold text-blue-400 mb-4 flex items-center gap-2">
                 <span>🎵</span> Tone.js - EQ Paramétrico
               </h3>
@@ -596,7 +596,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     step="0.5"
                     value={audioSettings.toneEQ?.low || 0}
                     onChange={(e) => handleChange('toneEQ.low', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
                 
@@ -609,7 +609,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     step="0.5"
                     value={audioSettings.toneEQ?.lowMid || 0}
                     onChange={(e) => handleChange('toneEQ.lowMid', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
                 
@@ -622,7 +622,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     step="0.5"
                     value={audioSettings.toneEQ?.mid || 0}
                     onChange={(e) => handleChange('toneEQ.mid', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
                 
@@ -635,7 +635,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     step="0.5"
                     value={audioSettings.toneEQ?.highMid || 0}
                     onChange={(e) => handleChange('toneEQ.highMid', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
                 
@@ -648,7 +648,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     step="0.5"
                     value={audioSettings.toneEQ?.high || 0}
                     onChange={(e) => handleChange('toneEQ.high', parseFloat(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                 </div>
               </div>
@@ -656,7 +656,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
           )}
           
           {/* Configuración Global Técnica */}
-          <div className="bg-slate-800 rounded-lg p-4">
+          <div className="bg-gray-800 rounded-lg p-4">
             <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
               <span>🔧</span> {audioSettings.useToneJS ? 'Tone.js Avanzado' : 'Configuración Global'}
             </h3>
@@ -674,7 +674,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="1"
                       value={audioSettings.toneCompressor?.threshold || -24}
                       onChange={(e) => handleChange('toneCompressor.threshold', parseFloat(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                   
@@ -687,7 +687,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="0.5"
                       value={audioSettings.toneCompressor?.ratio || 4}
                       onChange={(e) => handleChange('toneCompressor.ratio', parseFloat(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                   
@@ -700,7 +700,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="10"
                       value={audioSettings.toneFilters?.highpass || 80}
                       onChange={(e) => handleChange('toneFilters.highpass', parseInt(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                   
@@ -713,7 +713,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="100"
                       value={audioSettings.toneFilters?.lowpass || 8000}
                       onChange={(e) => handleChange('toneFilters.lowpass', parseInt(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                   
@@ -726,7 +726,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="0.1"
                       value={audioSettings.toneChannels?.stereoWidth || 1.0}
                       onChange={(e) => handleChange('toneChannels.stereoWidth', parseFloat(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                   
@@ -739,7 +739,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                       step="0.05"
                       value={audioSettings.toneEffects?.reverb || 0}
                       onChange={(e) => handleChange('toneEffects.reverb', parseFloat(e.target.value))}
-                      className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                     />
                   </div>
                 </>
@@ -751,7 +751,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     <select
                       value={audioSettings.globalSampleRate || 16000}
                       onChange={(e) => handleChange('globalSampleRate', parseInt(e.target.value))}
-                      className="w-full bg-slate-700 text-white p-2 rounded"
+                      className="w-full bg-gray-700 text-white p-2 rounded"
                     >
                       <option value={8000}>8000 Hz</option>
                       <option value={16000}>16000 Hz (Recomendado)</option>
@@ -771,7 +771,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="1"
                   value={audioSettings.bufferSize || 4}
                   onChange={(e) => handleChange('bufferSize', parseInt(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -784,7 +784,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="5"
                   value={audioSettings.bufferChunks || 40}
                   onChange={(e) => handleChange('bufferChunks', parseInt(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
               
@@ -793,7 +793,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 <select
                   value={audioSettings.latencyMode || 'low'}
                   onChange={(e) => handleChange('latencyMode', e.target.value)}
-                  className="w-full bg-slate-700 text-white p-2 rounded"
+                  className="w-full bg-gray-700 text-white p-2 rounded"
                 >
                   <option value="ultra-low">Ultra Baja (Más cortes)</option>
                   <option value="low">Baja (Recomendado)</option>
@@ -807,7 +807,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                     <select
                       value={audioSettings.processingMode || 'batch'}
                       onChange={(e) => handleChange('processingMode', e.target.value)}
-                      className="w-full bg-slate-700 text-white p-2 rounded"
+                      className="w-full bg-gray-700 text-white p-2 rounded"
                     >
                       <option value="realtime">⚡ Tiempo Real (Baja latencia)</option>
                       <option value="buffered">🔄 Con Buffer (Balance)</option>
@@ -824,7 +824,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   </div>
                   
                   {/* Presets Rápidos */}
-                  <div className="border-t border-slate-600 pt-4">
+                  <div className="border-t border-gray-600 pt-4">
                     <label className="block text-gray-300 text-sm mb-3">🎯 Presets de Calidad</label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -889,7 +889,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                   step="0.1"
                   value={audioSettings.masterVolume || 1.0}
                   onChange={(e) => handleChange('masterVolume', parseFloat(e.target.value))}
-                  className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+                  className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
             </div>
@@ -897,7 +897,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
         </div>
 
         {/* Controles Globales */}
-        <div className="mt-6 bg-slate-800 rounded-lg p-4">
+        <div className="mt-6 bg-gray-800 rounded-lg p-4">
           <h3 className="text-lg font-semibold text-purple-400 mb-4 flex items-center gap-2">
             <span>🎚️</span> Controles Globales
           </h3>
@@ -912,7 +912,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 step="0.1"
                 value={audioSettings.masterVolume}
                 onChange={(e) => handleChange('masterVolume', parseFloat(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-purple"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-purple"
               />
             </div>
             
@@ -925,20 +925,20 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
                 step="1"
                 value={audioSettings.bufferSize}
                 onChange={(e) => handleChange('bufferSize', parseInt(e.target.value))}
-                className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer slider-purple"
+                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer slider-purple"
               />
             </div>
           </div>
         </div>
 
         {/* Indicadores en Tiempo Real */}
-        <div className="mt-6 bg-slate-800 rounded-lg p-4">
+        <div className="mt-6 bg-gray-800 rounded-lg p-4">
           <h3 className="text-lg font-semibold text-yellow-400 mb-4 flex items-center gap-2">
             <span>📊</span> Monitoreo en Tiempo Real
           </h3>
           
           <div className="grid md:grid-cols-2 gap-4">
-            <div className="bg-slate-700 rounded p-3">
+            <div className="bg-gray-700 rounded p-3">
               <h4 className="text-blue-400 font-medium mb-2">🤖 Canal IA (Izquierdo)</h4>
               <div className="text-sm text-gray-300 space-y-1">
                 <div>Volumen: <span className="text-blue-400 font-mono">{(audioSettings.leftVolume || 0.9).toFixed(2)}x</span></div>
@@ -948,7 +948,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
               </div>
             </div>
             
-            <div className="bg-slate-700 rounded p-3">
+            <div className="bg-gray-700 rounded p-3">
               <h4 className="text-green-400 font-medium mb-2">👤 Canal Cliente (Derecho)</h4>
               <div className="text-sm text-gray-300 space-y-1">
                 <div>Volumen: <span className="text-green-400 font-mono">{(audioSettings.rightVolume || 2.2).toFixed(2)}x</span></div>
@@ -959,7 +959,7 @@ const AudioConfigPanel: React.FC<AudioConfigPanelProps> = ({
             </div>
           </div>
           
-          <div className="mt-4 bg-slate-700 rounded p-3">
+          <div className="mt-4 bg-gray-700 rounded p-3">
             <h4 className="text-purple-400 font-medium mb-2">🔧 Configuración Global</h4>
             <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-300">
               <div>Sample Rate: <span className="text-purple-400 font-mono">{audioSettings.globalSampleRate || 16000} Hz</span></div>
@@ -1161,7 +1161,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[100]"
+            className="fixed inset-0 bg-black/50 z-50"
             onClick={onClose}
           />
           
@@ -1170,7 +1170,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+            className="fixed right-0 top-0 h-full w-3/5 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
@@ -1557,7 +1557,7 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
         <motion.div
@@ -2094,7 +2094,7 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[70] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
             onClick={(e) => e.target === e.currentTarget && (setShowFeedbackModal(false), setFeedbackType(null), setFeedbackComment(''))}
           >
             <motion.div
@@ -3558,7 +3558,7 @@ Debería sonar MUCHO mejor ahora.`);
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 lg:p-6"
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 lg:p-6"
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
         <motion.div
@@ -4023,7 +4023,7 @@ Debería sonar MUCHO mejor ahora.`);
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[60] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 setShowTransferModal(false);
@@ -4254,7 +4254,7 @@ Debería sonar MUCHO mejor ahora.`);
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md z-[70] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[70] flex items-center justify-center p-4"
             onClick={(e) => e.target === e.currentTarget && (setShowFeedbackModal(false), setFeedbackType(null), setFeedbackComment(''))}
           >
             <motion.div
@@ -4416,7 +4416,7 @@ const LiveMonitor: React.FC = () => {
   // Componente Header para ordenamiento
   const SortableHeader = ({ field, children, className = "" }: { field: string; children: React.ReactNode; className?: string }) => (
     <th 
-      className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors hover:bg-slate-100 dark:hover:bg-slate-700 ${getSortClass(field)} ${className}`}
+      className={`px-6 py-3 text-left text-xs font-medium uppercase tracking-wider cursor-pointer select-none transition-colors hover:bg-gray-100 dark:hover:bg-gray-700 ${getSortClass(field)} ${className}`}
       onClick={() => requestSort(field)}
     >
       <div className="flex items-center space-x-1">
@@ -4486,7 +4486,7 @@ const LiveMonitor: React.FC = () => {
   // Función para obtener la clase CSS del header de ordenamiento
   const getSortClass = (key: string) => {
     if (!sortConfig || sortConfig.key !== key) {
-      return 'text-slate-500 dark:text-slate-300';
+      return 'text-gray-500 dark:text-gray-300';
     }
     return sortConfig.direction === 'asc' 
       ? 'text-blue-600 dark:text-blue-400' 
@@ -4670,7 +4670,7 @@ const LiveMonitor: React.FC = () => {
     } else if (progress >= 60) {
       return 'animate-bounce bg-yellow-50 dark:bg-yellow-900/30 border-yellow-200 dark:border-yellow-800 shadow-md shadow-yellow-500/20';
     }
-    return 'hover:bg-slate-50 dark:hover:bg-slate-700';
+    return 'hover:bg-gray-50 dark:hover:bg-gray-700';
   };
 
   // Efecto de sonido para llamadas críticas al 80%
@@ -4797,54 +4797,54 @@ const LiveMonitor: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
             Monitor de Llamadas en Vivo
                 </h1>
-                <p className="text-slate-600 dark:text-slate-400">
+                <p className="text-gray-600 dark:text-gray-400">
             Gestión en tiempo real de {sortedProspects.filter(shouldShowInPipeline).length} llamadas activas y finalizadas
                 </p>
             </div>
             
         {/* Pipeline de Llamadas */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
-          <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Pipeline de Llamadas
               </h2>
           </div>
 
           {sortedProspects.filter(shouldShowInPipeline).length === 0 ? (
             <div className="p-12 text-center">
-              <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2M4 13h2m0 0V9a2 2 0 012-2h2m0 0V6a2 2 0 012-2h2.5" />
               </svg>
               </div>
-              <p className="text-slate-500 dark:text-slate-400">No hay llamadas activas en este momento</p>
+              <p className="text-gray-500 dark:text-gray-400">No hay llamadas activas en este momento</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                <thead className="bg-slate-50 dark:bg-slate-900">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-gray-900">
                   <tr>
                     <SortableHeader field="cliente" className="w-64">Cliente</SortableHeader>
                     <SortableHeader field="checkpoint" className="w-48">Checkpoint</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-32">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-32">
                       Estado
                     </th>
                     <SortableHeader field="progreso" className="w-64">Progreso</SortableHeader>
                     <SortableHeader field="temperatura" className="w-32">Temperatura</SortableHeader>
                     <SortableHeader field="tiempo" className="w-20">Tiempo</SortableHeader>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase tracking-wider w-20">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider w-20">
                       Acciones
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {sortedProspects.filter(shouldShowInPipeline).map(prospect => {
                     const checkpoint = liveMonitorService.mapEtapaToCheckpoint(prospect.etapa);
                     const temperatura = liveMonitorService.inferTemperature(prospect);
@@ -4892,10 +4892,10 @@ const LiveMonitor: React.FC = () => {
                               size="md"
                             />
                             <div className="ml-3">
-                              <div className="text-sm font-medium text-slate-900 dark:text-white">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">
                                 {prospect.nombre_completo || prospect.nombre_whatsapp || 'Sin nombre'}
                               </div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
                                 {prospect.whatsapp}
                               </div>
                             </div>
@@ -4908,7 +4908,7 @@ const LiveMonitor: React.FC = () => {
                             <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               {getCheckpointIcon(checkpoint)}
                             </svg>
-                            <span className="text-sm font-medium text-slate-900 dark:text-white">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
                               {prospect.etapa}
                             </span>
                           </div>
@@ -4947,7 +4947,7 @@ const LiveMonitor: React.FC = () => {
                                 {prospect.etapa}
                               </span>
                             </div>
-                            <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-3 overflow-hidden shadow-inner">
+                            <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-3 overflow-hidden shadow-inner">
                               {callStatus.isActive ? (
                               <div 
                                 className={`h-full bg-gradient-to-r ${getTemperatureColor(temperatura)} transition-all duration-1000 relative overflow-hidden`}
@@ -4986,7 +4986,7 @@ const LiveMonitor: React.FC = () => {
                         </td>
 
                         {/* Tiempo */}
-                        <td className="px-3 py-4 whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+                        <td className="px-3 py-4 whitespace-nowrap text-xs text-gray-500 dark:text-gray-400">
                           {liveMonitorService.getTimeElapsed(prospect.updated_at)}
                         </td>
 
@@ -5012,15 +5012,15 @@ const LiveMonitor: React.FC = () => {
         </div>
 
         {/* Panel de Agentes Disponibles */}
-        <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg overflow-hidden">
-              <div className="p-6 border-b border-slate-200 dark:border-slate-700">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden">
+              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Agentes Disponibles
               </h2>
                 <div className="flex items-center space-x-2">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-sm text-slate-600 dark:text-slate-400">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   {agents.length} agentes activos
                 </span>
                 </div>
@@ -5035,7 +5035,7 @@ const LiveMonitor: React.FC = () => {
                   className={`p-4 rounded-lg border transition-all cursor-pointer ${
                     nextAgent?.id === agent.id
                       ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                      : 'bg-slate-50 dark:bg-slate-700 border-slate-200 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-600'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
                   }`}
                   onClick={() => setNextAgent(agent)}
                 >
@@ -5044,10 +5044,10 @@ const LiveMonitor: React.FC = () => {
                       {agent.agent_name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-semibold text-slate-900 dark:text-white truncate">
+                      <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
                         {agent.agent_name}
                       </h3>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                         {agent.agent_email}
                       </p>
                     </div>
@@ -5060,7 +5060,7 @@ const LiveMonitor: React.FC = () => {
                     )}
               </div>
               
-                  <div className="mt-3 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+                  <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                     <span>Llamadas: {agent.total_calls_handled}</span>
                     <span className="flex items-center">
                       <div className="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
@@ -5073,12 +5073,12 @@ const LiveMonitor: React.FC = () => {
 
             {agents.length === 0 && (
               <div className="text-center py-8">
-                <div className="w-16 h-16 mx-auto mb-4 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
-                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                   </svg>
                 </div>
-                <p className="text-slate-500 dark:text-slate-400">No hay agentes disponibles</p>
+                <p className="text-gray-500 dark:text-gray-400">No hay agentes disponibles</p>
               </div>
             )}
             </div>
@@ -5104,20 +5104,20 @@ const LiveMonitor: React.FC = () => {
 
         {/* Modal de Feedback Global */}
         {showGlobalFeedbackModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-75 z-[80] flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full">
               <div className="p-6">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                   Feedback Obligatorio - {globalFeedbackType === 'contestada' ? 'Llamada Contestada' : 'Llamada Perdida'}
                   </h3>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Comentarios sobre la llamada: *
                   </label>
                   <textarea
                     value={globalFeedbackComment}
                     onChange={(e) => setGlobalFeedbackComment(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
                     rows={4}
                     placeholder="Describe qué pasó en la llamada, calidad del prospecto, observaciones importantes..."
                     autoFocus

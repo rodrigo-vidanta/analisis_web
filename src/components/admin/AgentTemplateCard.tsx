@@ -147,7 +147,7 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
         {/* Avatar circular con emoji */}
         <div className="absolute -bottom-5 left-4 z-20">
           <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur shadow-md flex items-center justify-center border border-white/70">
-            <span className="text-sm text-slate-700">
+            <span className="text-sm text-gray-700">
               {template.category?.name?.slice(0,1) || 'A'}
             </span>
           </div>
@@ -171,16 +171,16 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
       {/* Content */}
       <div className="p-4 pt-7 relative">
         <div className="mb-3">
-          <h3 className="font-semibold text-slate-900 text-base group-hover:text-indigo-600 transition-colors line-clamp-1">
+          <h3 className="font-semibold text-gray-900 text-base group-hover:text-indigo-600 transition-colors line-clamp-1">
             {template.name}
           </h3>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-gray-500">
             {template.category?.name || 'Sin categoría'}
           </p>
         </div>
         
         {/* Descripción */}
-        <p className="text-slate-600 text-sm mb-3 line-clamp-2">
+        <p className="text-gray-600 text-sm mb-3 line-clamp-2">
           {template.description || 'Plantilla de agente conversacional'}
         </p>
 
@@ -190,13 +190,13 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
             {template.keywords.slice(0, 2).map((keyword, index) => (
               <span 
                 key={index}
-                className="px-2 py-1 bg-slate-100 text-slate-600 text-xs rounded-md"
+                className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-md"
               >
                 {keyword}
               </span>
             ))}
             {template.keywords.length > 2 && (
-              <span className="px-2 py-1 bg-slate-100 text-slate-500 text-xs rounded-md">
+              <span className="px-2 py-1 bg-gray-100 text-gray-500 text-xs rounded-md">
                 +{template.keywords.length - 2}
               </span>
             )}
@@ -204,7 +204,7 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
         )}
 
         {/* Stats y tiempo */}
-        <div className="flex items-center justify-between text-xs text-slate-500">
+        <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center space-x-1">
             <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -224,7 +224,7 @@ const AgentTemplateCard: React.FC<AgentTemplateCardProps> = ({ template, onClick
           {deleteState === 'idle' ? (
             <button
               onClick={handleDeleteClick}
-              className="w-6 h-6 rounded-full bg-black bg-opacity-20 hover:bg-red-500 flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100"
+              className="w-6 h-6 rounded-full bg-black/20 hover:bg-red-500 flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100"
               title="Eliminar agente"
             >
               <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

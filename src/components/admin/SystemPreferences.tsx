@@ -414,8 +414,8 @@ const SystemPreferences: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <div className="animate-spin rounded-full h-6 w-6 border-2 border-slate-300 border-t-slate-600"></div>
-        <span className="ml-3 text-sm text-slate-500 dark:text-slate-400">Cargando preferencias...</span>
+        <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-300 border-t-gray-600"></div>
+        <span className="ml-3 text-sm text-gray-500 dark:text-gray-400">Cargando preferencias...</span>
       </div>
     );
   }
@@ -426,8 +426,8 @@ const SystemPreferences: React.FC = () => {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Settings className="w-5 h-5 text-slate-600 dark:text-slate-400" />
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+              <Settings className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -530,7 +530,7 @@ const SystemPreferences: React.FC = () => {
                   {/* Logo */}
                   <div className="group">
                     <div className="flex items-center gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 transition-colors">
-                      <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-slate-600 to-slate-700 rounded-xl flex items-center justify-center overflow-hidden">
+                      <div className="flex-shrink-0 w-14 h-14 bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl flex items-center justify-center overflow-hidden">
                         {logoPreview ? (
                           <img src={logoPreview} alt="Preview" className="w-full h-full object-contain" />
                         ) : brandingConfig.logo_url ? (
@@ -783,7 +783,7 @@ const SystemPreferences: React.FC = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-slate-700 dark:bg-slate-600 rounded-xl hover:bg-slate-600 dark:hover:bg-slate-500 disabled:opacity-50 transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gray-700 dark:bg-gray-600 rounded-xl hover:bg-gray-600 dark:hover:bg-gray-500 disabled:opacity-50 transition-all"
                 >
                   {saving ? (
                     <>

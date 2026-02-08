@@ -106,7 +106,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
             stroke="currentColor"
             strokeWidth={sizeConfig.stroke}
             fill="none"
-            className="text-slate-200 dark:text-slate-700"
+            className="text-gray-200 dark:text-gray-700"
           />
           {/* Círculo de progreso */}
           <circle
@@ -131,7 +131,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
       {/* Tooltip con detalles */}
       {showTooltip && (
         <div className="absolute bottom-full left-full ml-2 z-50">
-          <div className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 px-3 py-2 rounded-lg shadow-xl text-xs whitespace-nowrap">
+          <div className="bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 py-2 rounded-lg shadow-xl text-xs whitespace-nowrap">
             <div className="space-y-1">
               <div className="font-semibold">Uso de Tokens - {user.full_name}</div>
               <div>Mensual: {tokenInfo.monthly_limit === -1 
@@ -151,7 +151,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
             </div>
             {/* Flecha del tooltip apuntando hacia la izquierda */}
             <div className="absolute top-1/2 right-full transform -translate-y-1/2">
-              <div className="border-4 border-transparent border-r-slate-900 dark:border-r-slate-100"></div>
+              <div className="border-4 border-transparent border-r-gray-900 dark:border-r-gray-100"></div>
             </div>
           </div>
         </div>
@@ -168,7 +168,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
       {showDetails && tokenInfo && (
         <div className="mt-2 text-xs space-y-1">
           <div className="flex justify-between">
-            <span className="text-slate-500 dark:text-slate-400">Mensual:</span>
+            <span className="text-gray-500 dark:text-gray-400">Mensual:</span>
             <span className={textColor}>
 {tokenInfo.monthly_limit === -1 
                 ? `${tokenInfo.current_month_usage.toLocaleString()}/∞`
@@ -177,7 +177,7 @@ const TokenUsageIndicator: React.FC<TokenUsageIndicatorProps> = ({
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-500 dark:text-slate-400">Diario:</span>
+            <span className="text-gray-500 dark:text-gray-400">Diario:</span>
             <span className={textColor}>
 {tokenInfo.daily_limit === -1 
                 ? `${tokenInfo.current_day_usage.toLocaleString()}/∞`

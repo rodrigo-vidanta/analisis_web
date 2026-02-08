@@ -567,7 +567,7 @@ class DynamicsLeadService {
       'Q Standard': 'from-blue-500 to-cyan-500',
       'Hot Lead': 'from-red-500 to-orange-500',
       'Warm Lead': 'from-yellow-500 to-amber-500',
-      'Cold Lead': 'from-gray-500 to-slate-500',
+      'Cold Lead': 'from-gray-500 to-gray-500',
     };
     return mapping[calificacion] || 'from-gray-400 to-gray-500';
   }

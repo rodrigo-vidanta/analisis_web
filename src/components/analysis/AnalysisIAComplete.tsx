@@ -307,7 +307,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black bg-opacity-50 z-[100]"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
             onClick={onClose}
           />
           
@@ -316,7 +316,7 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: '100%', opacity: 0 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-slate-900 shadow-2xl z-[100] overflow-hidden"
+            className="fixed right-0 top-0 h-full w-[540px] bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-hidden"
           >
             <div className="flex flex-col h-full">
               <motion.div 
@@ -355,8 +355,8 @@ const ProspectoSidebar: React.FC<ProspectoSidebarProps> = ({ prospecto, isOpen, 
                     disabled={!hasActiveChat}
                     className={`p-2 rounded-full transition-colors shadow-lg ${
                       hasActiveChat 
-                        ? 'bg-white/40 hover:bg-white/50 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-md border border-white/30' 
-                        : 'bg-white/25 text-white/60 cursor-not-allowed opacity-60 backdrop-blur-md border border-white/20'
+                        ? 'bg-white/40 hover:bg-white/50 text-white cursor-pointer hover:scale-110 active:scale-95 backdrop-blur-sm border border-white/30' 
+                        : 'bg-white/25 text-white/60 cursor-not-allowed opacity-60 backdrop-blur-sm border border-white/20'
                     }`}
                     title={hasActiveChat ? "Ir a conversación activa" : "No hay conversación activa"}
                   >
@@ -796,10 +796,10 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.3 }}
-      className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+      className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden"
     >
       {/* Header minimalista */}
-      <div className="bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
+      <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 px-4 py-3 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
@@ -808,15 +808,15 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
                 Audio de la Llamada
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
                 {customerName}
               </p>
             </div>
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             {duration > 0 ? formatTime(duration) : '--:--'}
           </div>
         </div>
@@ -836,12 +836,12 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
               max={duration || 0}
               value={currentTime}
               onChange={handleSeek}
-              className="w-full h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-progress"
+              className="w-full h-1 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer audio-progress"
               style={{
                 background: `linear-gradient(to right, rgb(59 130 246) 0%, rgb(59 130 246) ${(currentTime / (duration || 1)) * 100}%, rgb(226 232 240) ${(currentTime / (duration || 1)) * 100}%, rgb(226 232 240) 100%)`
               }}
             />
-            <div className="flex justify-between items-center text-xs text-slate-500 dark:text-slate-400">
+            <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
               <span>{formatTime(currentTime)}</span>
               <span>{formatTime(duration)}</span>
             </div>
@@ -867,14 +867,14 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
 
             {/* Información del archivo */}
             <div className="text-center">
-              <div className="text-xs text-slate-500 dark:text-slate-400">
+              <div className="text-xs text-gray-500 dark:text-gray-400">
                 Grabación de Audio
               </div>
             </div>
 
             {/* Control de volumen minimalista */}
             <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 {volume > 0.5 ? (
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 14.142M9 9a3 3 0 000 6h3v5a1 1 0 102 0v-5h3a3 3 0 000-6H9z" />
                 ) : volume > 0 ? (
@@ -890,7 +890,7 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
                 step="0.1"
                 value={volume}
                 onChange={handleVolumeChange}
-                className="w-16 h-1 bg-slate-200 dark:bg-slate-600 rounded-full appearance-none cursor-pointer audio-volume"
+                className="w-16 h-1 bg-gray-200 dark:bg-gray-600 rounded-full appearance-none cursor-pointer audio-volume"
               />
             </div>
           </div>
@@ -1837,7 +1837,7 @@ const AnalysisIAComplete: React.FC = () => {
   const totalPages = Math.ceil(filteredCalls.length / itemsPerPage);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-900">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-full mx-auto pl-6 pr-6 py-8">
         
         {/* Header estilo PQNC Humans */}
@@ -1848,23 +1848,23 @@ const AnalysisIAComplete: React.FC = () => {
         >
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
                 Análisis IA - Continuidad y Discovery
               </h1>
-              <p className="text-slate-600 dark:text-slate-400 mt-1">
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
                 Evaluación de continuidad WhatsApp, discovery familiar y transferencias • {filteredCalls.length} de {totalRecords} registros
               </p>
             </div>
             
             <div className="flex items-center gap-4">
               {/* Auto-sync indicator */}
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <div className={`w-2 h-2 rounded-full ${autoSyncEnabled ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`}></div>
+              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <div className={`w-2 h-2 rounded-full ${autoSyncEnabled ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
                 <span>Auto-sync {autoSyncEnabled ? 'activo' : 'inactivo'}</span>
               </div>
               
               {lastSyncTime && (
-                <div className="text-xs text-slate-500 dark:text-slate-400">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   Última actualización: {new Date(lastSyncTime).toLocaleTimeString()}
                 </div>
               )}
@@ -1879,7 +1879,7 @@ const AnalysisIAComplete: React.FC = () => {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8"
         >
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-900/30">
                 <svg className="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1887,15 +1887,15 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Total Llamadas</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Llamadas</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {globalMetrics.totalCalls.toLocaleString()}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-green-100 dark:bg-green-900/30">
                 <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1903,15 +1903,15 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Score Promedio</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Score Promedio</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {globalMetrics.avgScore.toFixed(1)}/100
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-purple-100 dark:bg-purple-900/30">
                 <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1919,15 +1919,15 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Checkpoint Promedio</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Checkpoint Promedio</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {globalMetrics.avgCheckpoint.toFixed(1)}/5
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-orange-100 dark:bg-orange-900/30">
                 <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1935,15 +1935,15 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Duración Promedio</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Duración Promedio</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {Math.floor((globalMetrics.avgDuration || 0) / 60)}:{((globalMetrics.avgDuration || 0) % 60).toFixed(0).padStart(2, '0')}
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-emerald-100 dark:bg-emerald-900/30">
                 <svg className="w-6 h-6 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1951,15 +1951,15 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Continuidad WhatsApp</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Continuidad WhatsApp</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {((filteredCalls.filter(c => c.calificaciones?.continuidad_whatsapp === 'PERFECTO').length / filteredCalls.length) * 100 || 0).toFixed(1)}%
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
             <div className="flex items-center">
               <div className="p-3 rounded-full bg-violet-100 dark:bg-violet-900/30">
                 <svg className="w-6 h-6 text-violet-600 dark:text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1967,8 +1967,8 @@ const AnalysisIAComplete: React.FC = () => {
                 </svg>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Discovery Completo</p>
-                <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Discovery Completo</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">
                   {((filteredCalls.filter(c => c.calificaciones?.discovery_familiar === 'COMPLETO').length / filteredCalls.length) * 100 || 0).toFixed(1)}%
                 </p>
               </div>
@@ -1981,11 +1981,11 @@ const AnalysisIAComplete: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8"
         >
           <div className="p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Búsqueda y Filtros
               </h2>
               <button
@@ -2000,7 +2000,7 @@ const AnalysisIAComplete: React.FC = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="md:col-span-2">
                 <div className="relative">
-                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                   <input
@@ -2008,7 +2008,7 @@ const AnalysisIAComplete: React.FC = () => {
                     placeholder="Buscar por Call ID, categoría, interés..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-slate-700 dark:text-slate-200"
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-200"
                   />
                 </div>
               </div>
@@ -2022,7 +2022,7 @@ const AnalysisIAComplete: React.FC = () => {
               
               <button
                 onClick={clearFilters}
-                className="px-6 py-3 bg-slate-600 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
               >
                 Limpiar
               </button>
@@ -2038,39 +2038,39 @@ const AnalysisIAComplete: React.FC = () => {
                   transition={{ duration: 0.3, ease: "easeInOut" }}
                   className="overflow-hidden"
                 >
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-slate-200 dark:border-slate-700">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Fecha Desde
                       </label>
                       <input
                         type="date"
                         value={dateFrom}
                         onChange={(e) => setDateFrom(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Fecha Hasta
                       </label>
                       <input
                         type="date"
                         value={dateTo}
                         onChange={(e) => setDateTo(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Categoría
                       </label>
                       <select
                         value={categoryFilter}
                         onChange={(e) => setCategoryFilter(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Todas las categorías</option>
                         {uniqueCategories.map(cat => (
@@ -2080,13 +2080,13 @@ const AnalysisIAComplete: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Nivel Interés
                       </label>
                       <select
                         value={interestFilter}
                         onChange={(e) => setInterestFilter(e.target.value)}
-                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500"
                       >
                         <option value="">Todos los niveles</option>
                         {uniqueInterests.map(interest => (
@@ -2106,12 +2106,12 @@ const AnalysisIAComplete: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
         >
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-              <span className="ml-3 text-slate-600 dark:text-slate-400">Cargando análisis...</span>
+              <span className="ml-3 text-gray-600 dark:text-gray-400">Cargando análisis...</span>
             </div>
           ) : error ? (
             <div className="text-center py-12">
@@ -2126,42 +2126,42 @@ const AnalysisIAComplete: React.FC = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                  <thead className="bg-slate-50 dark:bg-slate-700">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Prospecto
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Asignaciones
                       </th>
                       <th 
                         onClick={() => handleSort('created_at')}
-                        className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       >
                         Fecha
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Duración
                       </th>
                       <th 
                         onClick={() => handleSort('score_general')}
-                        className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-600"
+                        className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600"
                       >
                         Score IA
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Checkpoint
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Nivel Interés
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                         Acciones
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                     {paginatedCalls.map((call, index) => {
                       const prospectKey = call.prospecto_nombre || call.prospecto_id || 'Sin prospecto';
                       const isGroupMain = call.isGroupMain;
@@ -2178,10 +2178,10 @@ const AnalysisIAComplete: React.FC = () => {
                           onClick={() => openDetailedView(call)}
                           className={`cursor-pointer transition-colors ${
                             isGroupMain 
-                              ? 'hover:bg-slate-50 dark:hover:bg-slate-700/50 border-l-4 border-blue-500' 
+                              ? 'hover:bg-gray-50 dark:hover:bg-gray-700/50 border-l-4 border-blue-500' 
                               : isGroupSub 
-                                ? 'hover:bg-slate-25 dark:hover:bg-slate-800/30 bg-slate-25 dark:bg-slate-800/20 border-l-4 border-slate-300' 
-                                : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                                ? 'hover:bg-gray-50 dark:hover:bg-gray-800/30 bg-gray-50 dark:bg-gray-800/20 border-l-4 border-gray-300' 
+                                : 'hover:bg-gray-50 dark:hover:bg-gray-700/50'
                           }`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -2212,26 +2212,26 @@ const AnalysisIAComplete: React.FC = () => {
                               {/* Indicador visual para sub-llamadas */}
                               {isGroupSub && (
                                 <div className="w-4 h-4 flex items-center justify-center">
-                                  <div className="w-2 h-2 bg-slate-400 rounded-full"></div>
+                                  <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
                                 </div>
                               )}
                               
                               <div className={`p-2 rounded-full ${
                                 isGroupMain 
                                   ? 'bg-blue-50 dark:bg-blue-900/20' 
-                                  : 'bg-slate-50 dark:bg-slate-800/50'
+                                  : 'bg-gray-50 dark:bg-gray-800/50'
                               }`}>
                                 <User size={16} className={
                                   isGroupMain 
                                     ? 'text-blue-600 dark:text-blue-400' 
-                                    : 'text-slate-500 dark:text-slate-400'
+                                    : 'text-gray-500 dark:text-gray-400'
                                 } />
                               </div>
                               <div>
                                 <div className={`text-sm font-medium ${
                                   isGroupMain 
-                                    ? 'text-slate-900 dark:text-white' 
-                                    : 'text-slate-600 dark:text-slate-300'
+                                    ? 'text-gray-900 dark:text-white' 
+                                    : 'text-gray-600 dark:text-gray-300'
                                 }`}>
                                   {call.prospecto_nombre || 'Prospecto sin nombre'}
                                   {isGroupMain && groupSize > 1 && (
@@ -2240,7 +2240,7 @@ const AnalysisIAComplete: React.FC = () => {
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                                <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
                                   {call.call_id.slice(0, 8)}...
                                 </div>
                               </div>
@@ -2249,10 +2249,10 @@ const AnalysisIAComplete: React.FC = () => {
                         <td className="px-6 py-4 whitespace-nowrap">
                           <AssignmentBadge call={call as any} variant="compact" />
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                           <div>
                             {new Date(call.fecha_llamada || call.created_at).toLocaleDateString('es-MX')}
-                            <div className="text-xs text-slate-500 dark:text-slate-400">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
                               {new Date(call.fecha_llamada || call.created_at).toLocaleTimeString('es-MX', { 
                                 hour: '2-digit', 
                                 minute: '2-digit' 
@@ -2260,7 +2260,7 @@ const AnalysisIAComplete: React.FC = () => {
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                           {call.duracion_segundos ? 
                             `${Math.floor(call.duracion_segundos / 60)}:${(call.duracion_segundos % 60).toString().padStart(2, '0')}` : 
                             'N/A'
@@ -2279,7 +2279,7 @@ const AnalysisIAComplete: React.FC = () => {
                                 call.score_general >= 40 ? 'bg-orange-500' : 'bg-red-500'
                               }`} style={{ width: `${call.score_general}%` }}></div>
                             </div>
-                            <span className="text-slate-900 dark:text-white font-medium">
+                            <span className="text-gray-900 dark:text-white font-medium">
                               {call.score_general.toFixed(1)}
                             </span>
                           </div>
@@ -2389,22 +2389,22 @@ const AnalysisIAComplete: React.FC = () => {
               </div>
 
               {/* Paginación estilo PQNC */}
-              <div className="px-6 py-3 bg-slate-50 dark:bg-slate-700 border-t border-slate-200 dark:border-slate-600">
+              <div className="px-6 py-3 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="text-sm text-slate-700 dark:text-slate-300">
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
                       Mostrando {startIndex + 1}-{Math.min(endIndex, filteredCalls.length)} de {filteredCalls.length} llamadas
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <span className="text-xs text-slate-500 dark:text-slate-400">Por página:</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">Por página:</span>
                       <select
                         value={itemsPerPage}
                         onChange={(e) => {
                           setItemsPerPage(Number(e.target.value));
                           setCurrentPage(1);
                         }}
-                        className="text-xs border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200 rounded px-2 py-1"
+                        className="text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 rounded px-2 py-1"
                       >
                         <option value={25}>25</option>
                         <option value={50}>50</option>
@@ -2417,17 +2417,17 @@ const AnalysisIAComplete: React.FC = () => {
                     <button
                       onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
-                      className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                      className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                       Anterior
                     </button>
-                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                    <span className="text-sm text-gray-700 dark:text-gray-300">
                       Página {currentPage} de {totalPages}
                     </span>
                     <button
                       onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                       disabled={currentPage === totalPages}
-                      className="px-3 py-1 text-xs border border-slate-300 dark:border-slate-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-600 transition-colors"
+                      className="px-3 py-1 text-xs border border-gray-300 dark:border-gray-600 rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                     >
                       Siguiente
                     </button>
@@ -2448,7 +2448,7 @@ const AnalysisIAComplete: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md z-50"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
               onClick={() => {
                 setShowDetailedView(false);
                 setSelectedCallForDetail(null);
@@ -2557,29 +2557,29 @@ const AnalysisIAComplete: React.FC = () => {
                           </h3>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                          <div className="text-center p-4 bg-white dark:bg-slate-700 rounded-lg">
+                          <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-lg">
                             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                               {selectedCallForDetail.score_general.toFixed(1)}/100
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">Score General</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Score General</div>
                           </div>
-                          <div className="text-center p-4 bg-white dark:bg-slate-700 rounded-lg">
+                          <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-lg">
                             <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                               {selectedCallForDetail.checkpoint_alcanzado}/5
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">Checkpoint</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Checkpoint</div>
                           </div>
-                          <div className="text-center p-4 bg-white dark:bg-slate-700 rounded-lg">
+                          <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-lg">
                             <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                               {selectedCallForDetail.total_puntos_positivos}
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">Puntos Positivos</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Puntos Positivos</div>
                           </div>
-                          <div className="text-center p-4 bg-white dark:bg-slate-700 rounded-lg">
+                          <div className="text-center p-4 bg-white dark:bg-gray-700 rounded-lg">
                             <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
                               {selectedCallForDetail.total_areas_mejora}
                             </div>
-                            <div className="text-sm text-slate-600 dark:text-slate-400">Áreas Mejora</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400">Áreas Mejora</div>
                           </div>
                         </div>
                       </motion.div>
@@ -2616,8 +2616,8 @@ const AnalysisIAComplete: React.FC = () => {
                                 const displayLabel = labelMap[key] || key.replace(/_/g, ' ').toUpperCase();
                                 
                                 return (
-                                  <div key={key} className="flex items-center justify-between p-3 bg-white dark:bg-slate-700 rounded-lg">
-                                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                                  <div key={key} className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg">
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                                       {displayLabel}
                                     </span>
                                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -2679,26 +2679,26 @@ const AnalysisIAComplete: React.FC = () => {
                                 className={`p-3 rounded-lg ${
                                   segment.speaker === 'cliente' 
                                     ? 'bg-blue-100 dark:bg-blue-900/30 ml-8' 
-                                    : 'bg-gray-100 dark:bg-slate-700 mr-8'
+                                    : 'bg-gray-100 dark:bg-gray-700 mr-8'
                                 }`}
                               >
                                 <div className="flex items-center gap-2 mb-1">
                                   <span className={`text-xs font-medium ${
-                                    segment.speaker === 'cliente' ? 'text-blue-700 dark:text-blue-300' : 'text-slate-700 dark:text-slate-300'
+                                    segment.speaker === 'cliente' ? 'text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
                                   }`}>
                                     {segment.speaker === 'cliente' ? 'Cliente' : 'Agente'}
                                   </span>
-                                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                                  <span className="text-xs text-gray-500 dark:text-gray-400">
                                     {segment.timestamp}
                                   </span>
                                 </div>
-                                <p className="text-sm text-slate-900 dark:text-white leading-relaxed">
+                                <p className="text-sm text-gray-900 dark:text-white leading-relaxed">
                                   {segment.content}
                                 </p>
                               </div>
                             ))
                           ) : (
-                            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                               <MessageSquare size={48} className="mx-auto mb-4 opacity-50" />
                               <p>No hay transcripción disponible</p>
                             </div>
@@ -2720,7 +2720,7 @@ const AnalysisIAComplete: React.FC = () => {
                               Resumen de la Llamada
                             </h3>
                           </div>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                          <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
                             {selectedCallForDetail.resumen_llamada}
                           </p>
                         </motion.div>
@@ -2748,7 +2748,7 @@ const AnalysisIAComplete: React.FC = () => {
                               </h4>
                               <ul className="space-y-1">
                                 {selectedCallForDetail.feedback_positivo.map((item, index) => (
-                                  <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                  <li key={index} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                                     <CheckCircle size={16} className="text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
                                     {item}
                                   </li>
@@ -2764,7 +2764,7 @@ const AnalysisIAComplete: React.FC = () => {
                               </h4>
                               <ul className="space-y-1">
                                 {selectedCallForDetail.feedback_constructivo.map((item, index) => (
-                                  <li key={index} className="flex items-start gap-2 text-sm text-slate-700 dark:text-slate-300">
+                                  <li key={index} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
                                     <AlertTriangle size={16} className="text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
                                     {typeof item === 'string' ? item : 
                                      typeof item === 'object' ? (item.problema || item.descripcion || JSON.stringify(item)) : 
@@ -2799,7 +2799,7 @@ const AnalysisIAComplete: React.FC = () => {
                           </div>
                           
                           {/* Leyenda de valores con código de colores universal */}
-                          <div className="mt-4 text-xs text-slate-600 dark:text-slate-400">
+                          <div className="mt-4 text-xs text-gray-600 dark:text-gray-400">
                             <div className="grid grid-cols-2 gap-2">
                               <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 bg-green-500 rounded-full"></div>

@@ -223,7 +223,7 @@ const UserInfractionsGrid: React.FC<{ user: UserV2 }> = ({ user }) => {
       case 'inactive':
         return { icon: XCircle, bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
       case 'archived':
-        return { icon: Archive, bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-600 dark:text-slate-400', border: 'border-slate-200 dark:border-slate-700' };
+        return { icon: Archive, bg: 'bg-gray-100 dark:bg-gray-800', text: 'text-gray-600 dark:text-gray-400', border: 'border-gray-200 dark:border-gray-700' };
       case 'session':
         return { icon: User, bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' };
       case 'unblocked':

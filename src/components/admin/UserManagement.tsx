@@ -2442,7 +2442,7 @@ const UserManagement: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => { setShowCreateModal(false); resetForm(); }}
           >
             <motion.div
@@ -2976,7 +2976,7 @@ const UserManagement: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => { setShowEditModal(false); setSelectedUser(null); resetForm(); }}
           >
             <motion.div
@@ -3735,7 +3735,7 @@ const UserManagement: React.FC = () => {
 
       {/* Permissions Modal */}
       {showPermissionsModal && selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-2xl w-full max-h-screen overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Permisos de {selectedUser.full_name}
@@ -3819,7 +3819,7 @@ const UserManagement: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => { setShowArchiveModal(false); setUserToArchive(null); }}
           >
             <motion.div
@@ -3961,7 +3961,7 @@ const UserManagement: React.FC = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center p-4 z-50"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
             onClick={() => { setShowArchiveConfirmModal(false); setSelectedCoordinatorForArchive(''); }}
           >
             <motion.div

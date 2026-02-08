@@ -132,10 +132,10 @@ const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 py-4">
+    <footer className="bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 py-4">
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-center">
-          <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             
             {/* Texto principal con logo */}
             <div className="flex items-center gap-2">
@@ -167,13 +167,13 @@ const Footer: React.FC = () => {
             </div>
             
             {/* Separador */}
-            <span className="text-slate-300 dark:text-slate-600">•</span>
+            <span className="text-gray-300 dark:text-gray-600">•</span>
             
             {/* Diseñado por AI Division con tooltip */}
             <div className="relative flex items-center gap-1">
               <span>Designed by</span>
               <span 
-                className="font-semibold text-slate-700 dark:text-slate-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="font-semibold text-gray-700 dark:text-gray-300 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                 onMouseEnter={() => setShowAIDivisionTooltip(true)}
                 onMouseLeave={() => setShowAIDivisionTooltip(false)}
               >
@@ -228,14 +228,14 @@ const Footer: React.FC = () => {
             </div>
             
             {/* Separador */}
-            <span className="text-slate-300 dark:text-slate-600">•</span>
+            <span className="text-gray-300 dark:text-gray-600">•</span>
             
             {/* Versión Beta con serpiente clickeable */}
             <div className="flex items-center gap-2">
               {/* Icono de serpiente - Easter Egg secreto */}
               <div
                 onClick={handleSnakeClick}
-                className="w-4 h-4 text-slate-700 dark:text-slate-300 cursor-default select-none"
+                className="w-4 h-4 text-gray-700 dark:text-gray-300 cursor-default select-none"
                 style={{ animation: 'heartbeat 1.5s ease-in-out infinite' }}
               >
                 <style>{`
@@ -255,7 +255,7 @@ const Footer: React.FC = () => {
                 </svg>
               </div>
               
-              <span className="font-mono text-xs text-slate-700 dark:text-slate-300">
+              <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
                 {version}
               </span>
             </div>

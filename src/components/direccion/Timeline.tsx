@@ -1059,10 +1059,10 @@ const Timeline: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center transition-colors duration-300 bg-slate-50 dark:bg-black text-slate-900 dark:text-white">
+      <div className="min-h-screen flex items-center justify-center transition-colors duration-300 bg-gray-50 dark:bg-black text-gray-900 dark:text-white">
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center">
-          <div className="w-16 h-16 border-2 rounded-full animate-spin mx-auto mb-4 transition-colors duration-300 border-slate-200 dark:border-white/10 border-t-slate-800 dark:border-t-white"></div>
-          <p className="transition-colors duration-300 text-slate-500 dark:text-white/60">Cargando timeline...</p>
+          <div className="w-16 h-16 border-2 rounded-full animate-spin mx-auto mb-4 transition-colors duration-300 border-gray-200 dark:border-white/10 border-t-gray-800 dark:border-t-white"></div>
+          <p className="transition-colors duration-300 text-gray-500 dark:text-white/60">Cargando timeline...</p>
         </motion.div>
       </div>
     );
@@ -1070,8 +1070,8 @@ const Timeline: React.FC = () => {
 
   return (
     <div id="timeline-direccion-container" className={cn(
-      "h-screen relative overflow-hidden flex flex-row transition-colors duration-300 text-slate-900 dark:text-white",
-      theme === 'light' ? "bg-slate-50" : 
+      "h-screen relative overflow-hidden flex flex-row transition-colors duration-300 text-gray-900 dark:text-white",
+      theme === 'light' ? "bg-gray-50" : 
       theme === 'indigo' ? "bg-[#1e293b]" : 
       "bg-black"
     )}>
@@ -1117,7 +1117,7 @@ const Timeline: React.FC = () => {
       {/* Calendario lateral izquierdo */}
       <motion.div 
         className={cn(
-          "flex flex-col flex-shrink-0 relative transition-colors duration-300 h-full z-30 border-r border-slate-200 dark:border-white/5",
+          "flex flex-col flex-shrink-0 relative transition-colors duration-300 h-full z-30 border-r border-gray-200 dark:border-white/5",
           theme === 'light' ? "bg-white" : 
           theme === 'indigo' ? "bg-[#1e293b]" : 
           "bg-black"
@@ -1131,11 +1131,11 @@ const Timeline: React.FC = () => {
         {/* Barra lateral colapsada (Trigger) */}
         <div className={cn(
           "absolute left-0 top-0 bottom-0 w-5 flex flex-col items-center pt-24 gap-4 cursor-pointer group transition-colors",
-          isCalendarVisible ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-slate-100 dark:hover:bg-white/5'
+          isCalendarVisible ? 'opacity-0 pointer-events-none' : 'opacity-100 hover:bg-gray-100 dark:hover:bg-white/5'
         )}>
-          <div className="h-32 w-0.5 rounded-full transition-colors bg-slate-300 dark:bg-white/20 group-hover:bg-slate-400 dark:group-hover:bg-white/40" />
-          <span className="text-[10px] font-mono uppercase tracking-widest whitespace-nowrap text-slate-400 dark:text-white/30" style={{ transform: 'rotate(-90deg)' }}>Calendario</span>
-          <div className="h-32 w-0.5 rounded-full transition-colors bg-slate-300 dark:bg-white/20 group-hover:bg-slate-400 dark:group-hover:bg-white/40" />
+          <div className="h-32 w-0.5 rounded-full transition-colors bg-gray-300 dark:bg-white/20 group-hover:bg-gray-400 dark:group-hover:bg-white/40" />
+          <span className="text-[10px] font-mono uppercase tracking-widest whitespace-nowrap text-gray-400 dark:text-white/30" style={{ transform: 'rotate(-90deg)' }}>Calendario</span>
+          <div className="h-32 w-0.5 rounded-full transition-colors bg-gray-300 dark:bg-white/20 group-hover:bg-gray-400 dark:group-hover:bg-white/40" />
         </div>
 
         {/* Contenido del Calendario */}
@@ -1148,7 +1148,7 @@ const Timeline: React.FC = () => {
               "absolute top-6 right-4 p-2 rounded-lg transition-all duration-200",
               isCalendarPinned 
                 ? "bg-purple-100 dark:bg-purple-500/20 text-purple-600 dark:text-purple-400" 
-                : "text-slate-400 dark:text-white/20 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/10"
+                : "text-gray-400 dark:text-white/20 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/10"
             )}
             title={isCalendarPinned ? "Desfijar calendario" : "Fijar calendario"}
           >
@@ -1182,14 +1182,14 @@ const Timeline: React.FC = () => {
                     transition={{ delay: monthIndex * 0.05 }}
                     className="space-y-3"
                   >
-                    <h3 className="text-xs font-medium uppercase tracking-wider px-1 transition-colors duration-300 text-slate-500 dark:text-white/60">
+                    <h3 className="text-xs font-medium uppercase tracking-wider px-1 transition-colors duration-300 text-gray-500 dark:text-white/60">
                       {monthNames[monthData.month]} {monthData.year}
                     </h3>
                     
                     {/* Días de la semana */}
                     <div className="grid grid-cols-7 gap-1 mb-2">
                       {dayNames.map(day => (
-                        <div key={day} className="text-center text-xs font-medium py-1 transition-colors duration-300 text-slate-400 dark:text-white/40">
+                        <div key={day} className="text-center text-xs font-medium py-1 transition-colors duration-300 text-gray-400 dark:text-white/40">
                           {day}
                         </div>
                       ))}
@@ -1212,7 +1212,7 @@ const Timeline: React.FC = () => {
                             transition={{ delay: (monthIndex * 0.05) + (dayIndex * 0.001) }}
                             className={cn(
                                 "aspect-square flex items-center justify-center text-sm rounded transition-all cursor-pointer font-medium",
-                                !dayData.hasActivity && "text-slate-400 dark:text-white/60 hover:text-slate-900 dark:hover:text-white"
+                                !dayData.hasActivity && "text-gray-400 dark:text-white/60 hover:text-gray-900 dark:hover:text-white"
                             )}
                             style={{
                               background: dayData.hasActivity 
@@ -1291,15 +1291,15 @@ const Timeline: React.FC = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header minimalista - Fijo arriba */}
       <header className={cn(
-        "relative z-20 px-8 py-6 flex-shrink-0 transition-colors duration-300 border-b border-slate-200 dark:border-white/10",
-        theme === 'light' ? "bg-slate-50" : 
+        "relative z-20 px-8 py-6 flex-shrink-0 transition-colors duration-300 border-b border-gray-200 dark:border-white/10",
+        theme === 'light' ? "bg-gray-50" : 
         theme === 'indigo' ? "bg-[#1e293b]" : 
         "bg-black"
       )}>
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-light tracking-wider transition-colors duration-300 text-slate-900 dark:text-white">TIMELINE</h1>
-            <p className="text-sm mt-1 transition-colors duration-300 text-slate-500 dark:text-white/40">
+            <h1 className="text-2xl font-light tracking-wider transition-colors duration-300 text-gray-900 dark:text-white">TIMELINE</h1>
+            <p className="text-sm mt-1 transition-colors duration-300 text-gray-500 dark:text-white/40">
               {showArchivedView ? 'Actividades archivadas' : 'Gestión de actividades y pendientes'}
             </p>
           </div>
@@ -1307,16 +1307,16 @@ const Timeline: React.FC = () => {
             {!showArchivedView && (
               <div className="flex-1 max-w-md mx-8">
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   <input 
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Buscar tarea, etiqueta o asignado..."
-                    className="w-full pl-10 pr-4 py-2 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl focus:outline-none focus:border-blue-500/50 focus:bg-white dark:focus:bg-white/10 transition-all text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-white/30"
+                    className="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl focus:outline-none focus:border-blue-500/50 focus:bg-white dark:focus:bg-white/10 transition-all text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-white/30"
                   />
                   {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-white">
+                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-white">
                       <XCircle className="w-4 h-4" />
                     </button>
                   )}
@@ -1325,9 +1325,9 @@ const Timeline: React.FC = () => {
             )}
 
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 pr-3 mr-3 transition-colors duration-300 border-r border-slate-200 dark:border-white/10">
-                <button onClick={() => { setShowArchivedView(false); loadActivities(); }} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", !showArchivedView ? "bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white" : "text-slate-500 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5")}>Activas</button>
-                <button onClick={async () => { setShowArchivedView(true); await loadArchivedActivities(); }} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5", showArchivedView ? "bg-slate-200 dark:bg-white/10 text-slate-900 dark:text-white" : "text-slate-500 dark:text-white/60 hover:bg-slate-100 dark:hover:bg-white/5")}><Archive className="w-3.5 h-3.5" /> Archivadas ({archivedActivities.length})</button>
+            <div className="flex items-center gap-1 pr-3 mr-3 transition-colors duration-300 border-r border-gray-200 dark:border-white/10">
+                <button onClick={() => { setShowArchivedView(false); loadActivities(); }} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all", !showArchivedView ? "bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 dark:text-white/60 hover:bg-gray-100 dark:hover:bg-white/5")}>Activas</button>
+                <button onClick={async () => { setShowArchivedView(true); await loadArchivedActivities(); }} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5", showArchivedView ? "bg-gray-200 dark:bg-white/10 text-gray-900 dark:text-white" : "text-gray-500 dark:text-white/60 hover:bg-gray-100 dark:hover:bg-white/5")}><Archive className="w-3.5 h-3.5" /> Archivadas ({archivedActivities.length})</button>
             </div>
               
             {selectedActivities.size > 0 && (
@@ -1337,7 +1337,7 @@ const Timeline: React.FC = () => {
                     {showArchivedView ? 'Desarchivar' : 'Archivar'} ({selectedActivities.size})
                   </button>
                   <button onClick={handleDeleteSelected} className="px-4 py-2 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors text-sm flex items-center gap-2"><Trash className="w-4 h-4" /> Eliminar ({selectedActivities.size})</button>
-                  <button onClick={() => setSelectedActivities(new Set())} className="px-4 py-2 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white transition-colors text-sm">Cancelar</button>
+                  <button onClick={() => setSelectedActivities(new Set())} className="px-4 py-2 text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white transition-colors text-sm">Cancelar</button>
               </>
             )}
 
@@ -1345,7 +1345,7 @@ const Timeline: React.FC = () => {
                 <button onClick={() => setShowDeleteAllModal(true)} className="px-4 py-2 text-red-500 dark:text-red-400 hover:text-red-600 dark:hover:text-red-300 transition-colors text-sm flex items-center gap-2"><Trash className="w-4 h-4" /> Eliminar Todo</button>
             )}
 
-              <button onClick={toggleTheme} className="px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 transition-colors text-sm flex items-center gap-2 text-slate-500 dark:text-white/60">
+              <button onClick={toggleTheme} className="px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-sm flex items-center gap-2 text-gray-500 dark:text-white/60">
                   {theme === 'light' ? <Sun className="w-4 h-4" /> : theme === 'indigo' ? <Palette className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
               
@@ -1353,7 +1353,7 @@ const Timeline: React.FC = () => {
               {user?.role_name !== 'direccion' && (
                 <button 
                   onClick={() => setAppMode('admin')} 
-                  className="px-4 py-2 transition-colors text-sm text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white flex items-center gap-2"
+                  className="px-4 py-2 transition-colors text-sm text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white flex items-center gap-2"
                   title="Volver a la aplicación"
                 >
                   <ArrowLeft className="w-4 h-4" />
@@ -1361,7 +1361,7 @@ const Timeline: React.FC = () => {
                 </button>
               )}
               
-              <button onClick={() => { if (isAdmin) window.location.href = '/'; else logout(); }} className="px-4 py-2 transition-colors text-sm text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">
+              <button onClick={() => { if (isAdmin) window.location.href = '/'; else logout(); }} className="px-4 py-2 transition-colors text-sm text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white">
                   {isAdmin ? 'Salir' : 'Cerrar Sesión'}
               </button>
           </div>
@@ -1373,16 +1373,16 @@ const Timeline: React.FC = () => {
             <motion.div className="fixed inset-0 pointer-events-none z-30" initial={{ opacity: 0 }} animate={{ opacity: scrollIntensity * 0.35 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ background: `radial-gradient(ellipse at center, rgba(147, 51, 234, ${scrollIntensity * 0.15}) 0%, rgba(59, 130, 246, ${scrollIntensity * 0.12}) 35%, transparent 65%)`, mixBlendMode: 'screen', filter: `blur(${50 + scrollIntensity * 30}px)` }} />
         )}
           
-          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-8 py-12 scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-white/10 scrollbar-track-transparent">
+          <div ref={scrollContainerRef} className="h-full overflow-y-auto px-8 py-12 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-white/10 scrollbar-track-transparent">
           <div className="max-w-5xl mx-auto relative" ref={timelineRef}>
           {/* Línea central de spine */}
-          <div className="absolute left-8 top-0 bottom-0 w-px bg-gradient-to-b from-purple-500/20 via-slate-200 dark:via-white/10 to-transparent hidden md:block"></div>
+          <div className="absolute left-8 top-0 bottom-0 w-px bg-gradient-to-b from-purple-500/20 via-gray-200 dark:via-white/10 to-transparent hidden md:block"></div>
 
           {showArchivedView ? (
             archivedActivities.length === 0 ? (
                   <div className="text-center py-24">
-                        <Archive className="w-16 h-16 mx-auto mb-4 transition-colors duration-300 text-slate-300 dark:text-white/20" />
-                        <p className="text-lg transition-colors duration-300 text-slate-500 dark:text-white/40">No hay actividades archivadas</p>
+                        <Archive className="w-16 h-16 mx-auto mb-4 transition-colors duration-300 text-gray-300 dark:text-white/20" />
+                        <p className="text-lg transition-colors duration-300 text-gray-500 dark:text-white/40">No hay actividades archivadas</p>
                   </div>
             ) : (
               <div className="relative">
@@ -1397,7 +1397,7 @@ const Timeline: React.FC = () => {
                       return Object.keys(archivedGrouped).sort((a, b) => new Date(a).getTime() - new Date(b).getTime()).map((dateKey, dateIndex) => (
                         <motion.div key={dateKey} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dateIndex * 0.1 }} className="mb-12 relative">
                         <div className="flex items-center justify-center mb-8 relative z-10 w-full"> {/* Centrado de fecha */}
-                          <div className="px-4 py-1 rounded-full bg-slate-800 dark:bg-black/40 border border-slate-700 dark:border-white/10 backdrop-blur-md text-sm font-medium text-white/90 dark:text-white/70 shadow-lg">
+                          <div className="px-4 py-1 rounded-full bg-gray-800 dark:bg-black/40 border border-gray-700 dark:border-white/10 backdrop-blur-sm text-sm font-medium text-white/90 dark:text-white/70 shadow-lg">
                               {formatDate(dateKey)}
                           </div>
                         </div>
@@ -1428,8 +1428,8 @@ const Timeline: React.FC = () => {
             )
           ) : sortedDates.length === 0 ? (
                 <div className="text-center py-24">
-              <Calendar className="w-16 h-16 mx-auto mb-4 transition-colors duration-300 text-slate-300 dark:text-white/20" />
-              <p className="text-lg transition-colors duration-300 text-slate-500 dark:text-white/40">No hay actividades programadas</p>
+              <Calendar className="w-16 h-16 mx-auto mb-4 transition-colors duration-300 text-gray-300 dark:text-white/20" />
+              <p className="text-lg transition-colors duration-300 text-gray-500 dark:text-white/40">No hay actividades programadas</p>
                 </div>
           ) : (
             <div className="relative pl-16">
@@ -1452,8 +1452,8 @@ const Timeline: React.FC = () => {
                       <motion.div key={dateKey} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: dateIndex * 0.1 }} className="mb-16 relative">
                         {/* Fecha Central */}
                         <div className="flex items-center justify-center mb-10 relative z-10 w-full"> {/* Centrado de fecha */}
-                           <div className="px-6 py-2 rounded-full bg-slate-900/90 dark:bg-[#0f172a]/80 border border-slate-800 dark:border-white/10 backdrop-blur-md shadow-xl flex flex-col items-center">
-                              <span className="text-xs font-medium text-slate-400 dark:text-white/40 uppercase tracking-widest mb-0.5">
+                           <div className="px-6 py-2 rounded-full bg-gray-900/90 dark:bg-[#0f172a]/80 border border-gray-800 dark:border-white/10 backdrop-blur-sm shadow-xl flex flex-col items-center">
+                              <span className="text-xs font-medium text-gray-400 dark:text-white/40 uppercase tracking-widest mb-0.5">
                                  {new Date(dateKey).toLocaleDateString('es-MX', { 
                                    weekday: 'long',
                                    timeZone: 'America/Mexico_City'
@@ -1509,10 +1509,10 @@ const Timeline: React.FC = () => {
                                           if (e.key === 'Escape') setAddingSubtaskTo(null);
                                         }}
                                         placeholder="Escribe el título de la subtarea..."
-                                        className="bg-transparent border-none outline-none text-sm text-slate-900 dark:text-white w-full placeholder-slate-400 dark:placeholder-white/30"
+                                        className="bg-transparent border-none outline-none text-sm text-gray-900 dark:text-white w-full placeholder-gray-400 dark:placeholder-white/30"
                                       />
                                       <div className="flex justify-end gap-2 mt-2">
-                                        <button onClick={() => setAddingSubtaskTo(null)} className="p-1 hover:text-slate-900 dark:hover:text-white text-slate-400 dark:text-white/40"><X className="w-4 h-4" /></button>
+                                        <button onClick={() => setAddingSubtaskTo(null)} className="p-1 hover:text-gray-900 dark:hover:text-white text-gray-400 dark:text-white/40"><X className="w-4 h-4" /></button>
                                         <button onClick={handleConfirmSubtask} className="p-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300"><CheckCircle2 className="w-4 h-4" /></button>
                                     </div>
                                   </div>
@@ -1563,7 +1563,7 @@ const Timeline: React.FC = () => {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             style={{ top: contextMenu.y, left: contextMenu.x }}
-            className="fixed z-50 w-48 bg-white dark:bg-[#1e293b] rounded-xl shadow-xl border border-slate-200 dark:border-white/10 overflow-hidden"
+            className="fixed z-50 w-48 bg-white dark:bg-[#1e293b] rounded-xl shadow-xl border border-gray-200 dark:border-white/10 overflow-hidden"
           >
             <button
               onClick={(e) => {
@@ -1575,7 +1575,7 @@ const Timeline: React.FC = () => {
                 }
                 setContextMenu(null);
               }}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 flex items-center gap-2"
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2"
             >
               <Edit2 className="w-4 h-4" /> Editar
             </button>
@@ -1585,7 +1585,7 @@ const Timeline: React.FC = () => {
                 handleAddSubtask(contextMenu.activityId);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 flex items-center gap-2"
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2"
             >
               <Plus className="w-4 h-4" /> Añadir Subtarea
             </button>
@@ -1595,11 +1595,11 @@ const Timeline: React.FC = () => {
                 handleArchiveActivity(contextMenu.activityId);
                 setContextMenu(null);
               }}
-              className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-white hover:bg-slate-100 dark:hover:bg-white/10 flex items-center gap-2"
+              className="w-full text-left px-4 py-2.5 text-sm text-gray-700 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10 flex items-center gap-2"
             >
               <Archive className="w-4 h-4" /> Archivar
             </button>
-            <div className="h-px bg-slate-200 dark:bg-white/10 my-1" />
+            <div className="h-px bg-gray-200 dark:bg-white/10 my-1" />
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -1640,14 +1640,14 @@ const Timeline: React.FC = () => {
         {showDeleteAllModal && (
                                 <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 dark:bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 dark:bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setShowDeleteAllModal(false)}
           >
-            <div className="border border-slate-200 dark:border-white/10 rounded-2xl p-8 max-w-md w-full bg-white dark:bg-[#111827] text-slate-900 dark:text-white shadow-xl" onClick={e => e.stopPropagation()}>
+            <div className="border border-gray-200 dark:border-white/10 rounded-2xl p-8 max-w-md w-full bg-white dark:bg-[#111827] text-gray-900 dark:text-white shadow-xl" onClick={e => e.stopPropagation()}>
               <h2 className="text-2xl font-light mb-6">Eliminar Todas las Actividades</h2>
-              <input type="text" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="eliminar" className="w-full border border-slate-300 dark:border-white/20 rounded-lg p-3 bg-slate-50 dark:bg-transparent mb-6 focus:outline-none focus:border-red-500" />
+              <input type="text" value={deleteConfirmText} onChange={e => setDeleteConfirmText(e.target.value)} placeholder="eliminar" className="w-full border border-gray-300 dark:border-white/20 rounded-lg p-3 bg-gray-50 dark:bg-transparent mb-6 focus:outline-none focus:border-red-500" />
               <div className="flex justify-end gap-3">
-                <button onClick={() => setShowDeleteAllModal(false)} className="px-4 py-2 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">Cancelar</button>
+                <button onClick={() => setShowDeleteAllModal(false)} className="px-4 py-2 text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white">Cancelar</button>
                 <button onClick={handleDeleteAll} disabled={deleteConfirmText !== 'eliminar'} className="px-4 py-2 bg-red-600 rounded text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed">Eliminar Todo</button>
                                     </div>
                                   </div>
@@ -1673,16 +1673,16 @@ const Timeline: React.FC = () => {
             className="fixed inset-0 bg-black/20 dark:bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => setShowAddModal(false)}
           >
-            <div className="bg-white dark:bg-[#1e293b] rounded-2xl p-6 w-full max-w-2xl border border-slate-200 dark:border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
-              <h3 className="text-xl font-light text-slate-900 dark:text-white mb-4">Nueva Actividad</h3>
+            <div className="bg-white dark:bg-[#1e293b] rounded-2xl p-6 w-full max-w-2xl border border-gray-200 dark:border-white/10 shadow-2xl" onClick={e => e.stopPropagation()}>
+              <h3 className="text-xl font-light text-gray-900 dark:text-white mb-4">Nueva Actividad</h3>
               <textarea
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
                 placeholder="Describe las actividades (ej: 'Reunión mañana a las 10am')"
-                className="w-full h-32 bg-slate-50 dark:bg-black/20 border border-slate-200 dark:border-white/10 rounded-xl p-4 text-slate-900 dark:text-white mb-4 resize-none focus:outline-none focus:border-blue-500/50"
+                className="w-full h-32 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-white/10 rounded-xl p-4 text-gray-900 dark:text-white mb-4 resize-none focus:outline-none focus:border-blue-500/50"
               />
               <div className="flex justify-end gap-3">
-                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">Cancelar</button>
+                <button onClick={() => setShowAddModal(false)} className="px-4 py-2 text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white">Cancelar</button>
                 <button onClick={handleProcessText} disabled={processing} className="px-6 py-2 bg-blue-600 rounded-xl text-white hover:bg-blue-700 disabled:opacity-50">
                   {processing ? 'Procesando...' : 'Procesar con IA'}
                 </button>
@@ -1697,16 +1697,16 @@ const Timeline: React.FC = () => {
         {showPreviewModal && (
           <motion.div
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 dark:bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/20 dark:bg-black/90 backdrop-blur-sm z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white dark:bg-[#1e293b] rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-slate-200 dark:border-white/10 shadow-2xl">
-              <div className="p-6 border-b border-slate-200 dark:border-white/10 flex justify-between items-center">
-                <h3 className="text-xl text-slate-900 dark:text-white">Vista Previa</h3>
-                <button onClick={() => setShowPreviewModal(false)}><X className="text-slate-400 dark:text-white/60 hover:text-slate-900 dark:hover:text-white" /></button>
+            <div className="bg-white dark:bg-[#1e293b] rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col border border-gray-200 dark:border-white/10 shadow-2xl">
+              <div className="p-6 border-b border-gray-200 dark:border-white/10 flex justify-between items-center">
+                <h3 className="text-xl text-gray-900 dark:text-white">Vista Previa</h3>
+                <button onClick={() => setShowPreviewModal(false)}><X className="text-gray-400 dark:text-white/60 hover:text-gray-900 dark:hover:text-white" /></button>
                   </div>
               <div className="flex-1 overflow-y-auto p-6 space-y-4">
                 {previewData.map((item, idx) => (
-                  <div key={idx} className={`p-4 rounded-xl border ${item.isDuplicate ? 'border-orange-500/50 bg-orange-50 dark:bg-orange-500/10' : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5'}`}>
+                  <div key={idx} className={`p-4 rounded-xl border ${item.isDuplicate ? 'border-orange-500/50 bg-orange-50 dark:bg-orange-500/10' : 'border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-white/5'}`}>
                     <div className="flex items-center gap-3 mb-2">
                             <input
                               type="checkbox"
@@ -1717,19 +1717,19 @@ const Timeline: React.FC = () => {
                                 setSelectedDuplicates(newSet);
                               }}
                             />
-                      <h4 className="text-slate-900 dark:text-white font-medium">{item.activity.title}</h4>
+                      <h4 className="text-gray-900 dark:text-white font-medium">{item.activity.title}</h4>
                       {item.isDuplicate && <span className="text-orange-600 dark:text-orange-400 text-xs px-2 py-0.5 bg-orange-100 dark:bg-orange-500/20 rounded">Duplicado</span>}
                             </div>
-                    <p className="text-slate-600 dark:text-white/60 text-sm pl-7">{item.activity.description}</p>
-                    <div className="flex gap-4 mt-2 pl-7 text-xs text-slate-400 dark:text-white/40">
+                    <p className="text-gray-600 dark:text-white/60 text-sm pl-7">{item.activity.description}</p>
+                    <div className="flex gap-4 mt-2 pl-7 text-xs text-gray-400 dark:text-white/40">
                       <span>{new Date(item.activity.due_date).toLocaleDateString()}</span>
                       <span className="capitalize">{item.activity.priority}</span>
                             </div>
                               </div>
                   ))}
                 </div>
-              <div className="p-6 border-t border-slate-200 dark:border-white/10 flex justify-end gap-3">
-                <button onClick={() => setShowPreviewModal(false)} className="px-4 py-2 text-slate-500 dark:text-white/60 hover:text-slate-900 dark:hover:text-white">Cancelar</button>
+              <div className="p-6 border-t border-gray-200 dark:border-white/10 flex justify-end gap-3">
+                <button onClick={() => setShowPreviewModal(false)} className="px-4 py-2 text-gray-500 dark:text-white/60 hover:text-gray-900 dark:hover:text-white">Cancelar</button>
                 <button onClick={handleSaveActivities} className="px-6 py-2 bg-blue-600 rounded-xl text-white hover:bg-blue-700">Guardar ({previewData.length - selectedDuplicates.size})</button>
                 </div>
               </div>
