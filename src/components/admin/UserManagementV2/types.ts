@@ -39,6 +39,8 @@ export interface UserV2 {
   coordinacion_id?: string;
   coordinaciones_ids?: string[];
   id_dynamics?: string;
+  failed_login_attempts?: number;
+  locked_until?: string;
   // Campos adicionales para la jerarquía
   coordinacion_nombre?: string;
   coordinacion_codigo?: string;
@@ -46,14 +48,16 @@ export interface UserV2 {
   coordinaciones_nombres?: string[];
 }
 
-export type RoleName = 
+export type RoleName =
   | 'admin'
   | 'administrador_operativo'
   | 'coordinador'
   | 'supervisor'
   | 'ejecutivo'
-  | 'evaluador'
-  | 'developer';
+  | 'evaluator'
+  | 'developer'
+  | 'direccion'
+  | 'productor';
 
 export interface Role {
   id: string;
@@ -226,8 +230,8 @@ export const ROLE_HIERARCHY: Role[] = [
     color: 'from-emerald-500 to-teal-600'
   },
   {
-    id: 'evaluador',
-    name: 'evaluador',
+    id: 'evaluator',
+    name: 'evaluator',
     display_name: 'Evaluador',
     description: 'Evaluación de calidad',
     level: 4,
@@ -242,6 +246,24 @@ export const ROLE_HIERARCHY: Role[] = [
     level: 2,
     icon: 'Code',
     color: 'from-gray-600 to-gray-700'
+  },
+  {
+    id: 'direccion',
+    name: 'direccion',
+    display_name: 'Dirección',
+    description: 'Dirección general',
+    level: 1,
+    icon: 'Building',
+    color: 'from-sky-500 to-blue-600'
+  },
+  {
+    id: 'productor',
+    name: 'productor',
+    display_name: 'Productor',
+    description: 'Producción de contenido',
+    level: 3,
+    icon: 'Video',
+    color: 'from-pink-500 to-rose-600'
   }
 ];
 

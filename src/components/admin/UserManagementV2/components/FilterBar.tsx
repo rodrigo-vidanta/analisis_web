@@ -45,9 +45,12 @@ const ROLE_OPTIONS: { value: RoleName | 'all'; label: string }[] = [
   { value: 'all', label: 'Todos los roles' },
   { value: 'admin', label: 'Administrador' },
   { value: 'administrador_operativo', label: 'Admin Operativo' },
+  { value: 'direccion', label: 'Dirección' },
   { value: 'coordinador', label: 'Coordinador' },
+  { value: 'supervisor', label: 'Supervisor' },
   { value: 'ejecutivo', label: 'Ejecutivo' },
-  { value: 'evaluador', label: 'Evaluador' },
+  { value: 'evaluator', label: 'Evaluador' },
+  { value: 'productor', label: 'Productor' },
   { value: 'developer', label: 'Desarrollador' }
 ];
 
@@ -111,23 +114,26 @@ const FilterBar: React.FC<FilterBarProps> = ({
       role: 'all',
       status: 'all',
       operativo: 'all',
-      coordinacion_id: 'all'
+      coordinacion_id: 'all',
+      group_id: 'all'
     });
   }, [onFiltersChange]);
 
-  const hasActiveFilters = 
+  const hasActiveFilters =
     filters.search !== '' ||
     filters.role !== 'all' ||
     filters.status !== 'all' ||
     filters.operativo !== 'all' ||
-    filters.coordinacion_id !== 'all';
+    filters.coordinacion_id !== 'all' ||
+    filters.group_id !== 'all';
 
   const activeFilterCount = [
     filters.search !== '',
     filters.role !== 'all',
     filters.status !== 'all',
     filters.operativo !== 'all',
-    filters.coordinacion_id !== 'all'
+    filters.coordinacion_id !== 'all',
+    filters.group_id !== 'all'
   ].filter(Boolean).length;
 
   return (

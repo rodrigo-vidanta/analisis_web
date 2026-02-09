@@ -88,9 +88,12 @@ const RoleBadge: React.FC<{ role: string; displayName: string }> = ({ role, disp
     admin: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
     administrador_operativo: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300',
     coordinador: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300',
+    supervisor: 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300',
     ejecutivo: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
-    evaluador: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
-    developer: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+    evaluator: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+    developer: 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300',
+    direccion: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300',
+    productor: 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300'
   };
 
   return (

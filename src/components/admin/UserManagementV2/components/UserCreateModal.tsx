@@ -167,8 +167,17 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       return;
     }
 
-    if (formData.password.length < 6) {
-      toast.error('La contraseña debe tener al menos 6 caracteres');
+    if (formData.password.length < 8) {
+      toast.error('La contraseña debe tener al menos 8 caracteres');
+      return;
+    }
+
+    const hasUpperCase = /[A-Z]/.test(formData.password);
+    const hasLowerCase = /[a-z]/.test(formData.password);
+    const hasNumber = /[0-9]/.test(formData.password);
+    const hasSpecial = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(formData.password);
+    if (!hasUpperCase || !hasLowerCase || !hasNumber || !hasSpecial) {
+      toast.error('La contraseña debe incluir mayúsculas, minúsculas, números y caracteres especiales');
       return;
     }
 
@@ -297,9 +306,9 @@ const UserCreateModal: React.FC<UserCreateModalProps> = ({
       handleClose();
       onSuccess();
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error creating user:', err);
-      toast.error(err.message || 'Error al crear usuario');
+      toast.error(err instanceof Error ? err.message : 'Error al crear usuario');
     } finally {
       setIsLoading(false);
     }

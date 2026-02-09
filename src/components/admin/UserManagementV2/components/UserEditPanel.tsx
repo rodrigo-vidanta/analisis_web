@@ -672,8 +672,8 @@ const UserEditPanel: React.FC<UserEditPanelProps> = ({
             metadata: {
               is_active: false,
               is_operativo: false,
-              archived: true,
-              archived_at: new Date().toISOString()
+              archivado: true,
+              archivado_at: new Date().toISOString()
             }
           }
         })

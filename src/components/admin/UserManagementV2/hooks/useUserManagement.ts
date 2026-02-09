@@ -94,8 +94,10 @@ const ROLE_HIERARCHY_DATA: Role[] = [
   { id: 'coordinador', name: 'coordinador', display_name: 'Coordinador', description: 'Coordinación de equipos', level: 3, icon: 'Users', color: 'from-blue-500 to-indigo-600' },
   { id: 'supervisor', name: 'supervisor', display_name: 'Supervisor', description: 'Supervisión de equipos', level: 3, icon: 'UserCheck', color: 'from-cyan-500 to-teal-600' },
   { id: 'ejecutivo', name: 'ejecutivo', display_name: 'Ejecutivo', description: 'Ejecución de operaciones', level: 4, icon: 'Briefcase', color: 'from-emerald-500 to-teal-600' },
-  { id: 'evaluador', name: 'evaluador', display_name: 'Evaluador', description: 'Evaluación de calidad', level: 4, icon: 'ClipboardCheck', color: 'from-amber-500 to-orange-600' },
-  { id: 'developer', name: 'developer', display_name: 'Desarrollador', description: 'Acceso técnico', level: 2, icon: 'Code', color: 'from-gray-600 to-gray-700' }
+  { id: 'evaluator', name: 'evaluator', display_name: 'Evaluador', description: 'Evaluación de calidad', level: 4, icon: 'ClipboardCheck', color: 'from-amber-500 to-orange-600' },
+  { id: 'developer', name: 'developer', display_name: 'Desarrollador', description: 'Acceso técnico', level: 2, icon: 'Code', color: 'from-gray-600 to-gray-700' },
+  { id: 'direccion', name: 'direccion', display_name: 'Dirección', description: 'Dirección general', level: 1, icon: 'Building', color: 'from-sky-500 to-blue-600' },
+  { id: 'productor', name: 'productor', display_name: 'Productor', description: 'Producción de contenido', level: 3, icon: 'Video', color: 'from-pink-500 to-rose-600' }
 ];
 
 // ============================================
@@ -254,14 +256,9 @@ export function useUserManagement(): UseUserManagementReturn {
       // Los coordinadores pueden tener múltiples coordinaciones asignadas
       // en la tabla intermedia auth_user_coordinaciones
       
-      // FIX 2026-01-22: Identificar coordinadores por role_name también (por si auth_roles no está disponible)
+      // Identificar coordinadores por role_name o flag is_coordinator
       const coordinadorIds = (data || [])
-        .filter(u => {
-          const isCoordByRole = u.auth_roles?.name === 'coordinador';
-          const isCoordByName = u.role_name === 'coordinador';
-          const isCoordByFlag = u.is_coordinator === true;
-          return isCoordByRole || isCoordByName || isCoordByFlag;
-        })
+        .filter(u => u.role_name === 'coordinador' || u.is_coordinator === true)
         .map(u => u.id);
       
       // Debug logs removidos para producción
@@ -337,10 +334,8 @@ export function useUserManagement(): UseUserManagementReturn {
         const coord = user.coordinacion_id ? (allCoordMap[user.coordinacion_id] || coordMap[user.coordinacion_id]) : null;
         const warningInfo = warningCounters[user.id];
         const systemUserId = user.email ? emailToSystemUserIdMap[user.email] : undefined;
-        // FIX 2026-01-22: Identificar coordinadores por múltiples campos (igual que en el filtro)
-        const isCoordinador = 
-          user.auth_roles?.name === 'coordinador' || 
-          user.role_name === 'coordinador' || 
+        const isCoordinador =
+          user.role_name === 'coordinador' ||
           user.is_coordinator === true;
         // FIX 2026-01-22: Asegurar que coordinadores siempre tengan array (nunca undefined)
         const coordIds = isCoordinador ? (userCoordinacionesMap[user.id] || []) : undefined;
@@ -357,8 +352,8 @@ export function useUserManagement(): UseUserManagementReturn {
         
         return {
           ...user,
-          role_name: user.auth_roles?.name || user.role_name,
-          role_display_name: user.auth_roles?.display_name || user.role_display_name,
+          role_name: user.role_name,
+          role_display_name: user.role_display_name,
           // Para ejecutivos: una sola coordinación
           coordinacion_nombre: coord?.nombre,
           coordinacion_codigo: coord?.codigo,
@@ -543,9 +538,10 @@ export function useUserManagement(): UseUserManagementReturn {
           break;
         case 'blocked_password':
           // Bloqueados por intentos fallidos de contraseña
-          // Usuarios que no están bloqueados por moderación pero están inactivos por contraseña
-          // TODO: Añadir campo específico is_password_locked cuando esté disponible en BD
-          result = result.filter(u => !u.is_active && !u.is_blocked && !u.archivado);
+          result = result.filter(u =>
+            (u.locked_until && new Date(u.locked_until) > new Date()) ||
+            (u.failed_login_attempts !== undefined && u.failed_login_attempts >= 3)
+          );
           break;
         case 'archived':
           result = result.filter(u => u.archivado === true);
@@ -796,9 +792,12 @@ export function useUserManagement(): UseUserManagementReturn {
       admin: 0,
       administrador_operativo: 0,
       coordinador: 0,
+      supervisor: 0,
       ejecutivo: 0,
-      evaluador: 0,
-      developer: 0
+      evaluator: 0,
+      developer: 0,
+      direccion: 0,
+      productor: 0
     };
 
     let active = 0;
@@ -1008,7 +1007,7 @@ export function useUserManagement(): UseUserManagementReturn {
         updates.is_coordinator = false;
         updates.is_ejecutivo = newRole?.name === 'ejecutivo';
       } else if (newRole && !['coordinador', 'supervisor', 'ejecutivo'].includes(newRole.name)) {
-        // Otros roles (admin, admin_operativo, evaluador, etc.): limpiar todo
+        // Otros roles (admin, admin_operativo, evaluator, etc.): limpiar todo
         await cleanAllCoordinadorRelations(userId);
 
         updates.is_coordinator = false;
