@@ -1,7 +1,7 @@
 # 🔒 Restricción de IPs para Frontend CloudFront
 
 **Fecha de configuración:** 16 de Diciembre, 2025  
-**Última actualización:** 16 de Diciembre, 2025 (IPs drosales, oficinaIA y casa rodrigo agregadas)  
+**Última actualización:** 8 de Febrero, 2026 (Fix DefaultAction Block, cambio IP oficina, agregada DGV Oficina, renombrados labels)
 **Estado:** ✅ Configurado y activo
 
 ---
@@ -12,15 +12,16 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 
 ### IPs Permitidas:
 
-| # | IP | Descripción |
+| # | IP | Descripcion |
 |---|----|-------------|
-| 1 | `189.203.238.35` | Total Play |
-| 2 | `187.210.107.179` | Telmex |
+| 1 | `189.203.238.35` | Vidanta PQNC |
+| 2 | `187.210.107.179` | Vidanta PQNC 2 |
 | 3 | `189.178.124.238` | IP del usuario 1 |
 | 4 | `189.177.138.158` | IP del usuario 2 |
 | 5 | `189.203.97.130` | drosales |
-| 6 | `187.144.0.73` | oficinaIA |
+| 6 | `189.177.48.132` | oficinaIA |
 | 7 | `187.144.87.193` | casa rodrigo |
+| 8 | `189.177.141.218` | DGV Oficina |
 
 ---
 
@@ -30,7 +31,7 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 - **Nombre:** `frontend-allowed-ips`
 - **ARN:** `arn:aws:wafv2:us-east-1:307621978585:global/ipset/frontend-allowed-ips/9ed33da4-fb8e-498e-baf7-ff0b672d7725`
 - **Scope:** `CLOUDFRONT`
-- **IPs:** 7 direcciones IPv4 (/32)
+- **IPs:** 8 direcciones IPv4 (/32)
 
 ### Web ACL:
 - **Nombre:** `frontend-ip-restriction`

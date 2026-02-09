@@ -59,6 +59,7 @@ Consultar SOLO cuando se necesite contexto especifico del dominio:
 - `ui-patterns.md` - Patrones UI, modales, animaciones
 - `integrations.md` - N8N, AWS, Dynamics, WhatsApp
 - `deploy.md` - Deploy, AWS, versionado
+- `aws-inventory.md` - Inventario completo de servicios AWS activos (actualizar tras cambios)
 
 ## Seguridad
 
@@ -77,3 +78,4 @@ Para tareas complejas por dominio, usar subagentes con contexto de:
 - `deploy-agent.md` - Build, deploy AWS, versionado
 - `n8n-agent.md` - Workflows N8N, ejecuciones, debugging (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `uchat-agent.md` - UChat API, subscribers, webhooks, triggers, debug errores WhatsApp (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+- `aws-agent.md` - AWS infra: ECS, RDS, S3, CloudFront, Redis, VPC, Route53, costos (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
