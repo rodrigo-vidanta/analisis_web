@@ -64,6 +64,14 @@ Deploy completado: {previous} -> {new}
 - **Push falla:** Verificar remote, sugerir `git pull`
 - **AWS falla:** Reportar. Version ya commiteada. Reintentar con `./update-frontend.sh`
 - **BD falla:** Dar query SQL para ejecucion manual
+- **Script falla parcialmente (exit code 1 con archivos ya staged):**
+  1. Revisar `git status` para ver que archivos el script ya modifico (CHANGELOG.md, package.json, appVersion.ts)
+  2. Revisar `git diff --cached` para verificar que el contenido generado es correcto
+  3. **CRITICO: Verificar release_notes en CHANGELOG.md** — confirmar que todos los cambios relevantes estan incluidos
+  4. Si falta contenido: editar manualmente antes de continuar
+  5. Completar manualmente: commit (con comillas simples) → push → AWS deploy → BD update
+  6. Al actualizar BD, incluir `release_notes` completas con TODOS los cambios de la sesion, no solo lo que el script auto-genero
+  7. Verificar que `force_update: true` esta en el JSON de BD para forzar recarga en clientes
 
 ## Notas
 
@@ -71,3 +79,4 @@ Deploy completado: {previous} -> {new}
 - Logs a stderr, JSON a stdout
 - UN solo commit por deploy (usa git amend internamente)
 - Backend (B) solo incrementa si hay cambios en supabase/functions, scripts/sql, o migrations
+- El script sanitiza comillas y caracteres especiales en mensajes de commit (fix 2026-02-09)

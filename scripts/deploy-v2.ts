@@ -591,13 +591,15 @@ function syncDocumentation(): void {
 
 function gitCommitPush(version: string, message: string): string {
   const numericVersion = version.split('N')[1];
-  const commitMsg = `v${numericVersion}: ${version} - ${message}`;
+  // Sanitizar mensaje: remover comillas dobles y caracteres problematicos para shell
+  const safeMessage = message.replace(/"/g, "'").replace(/[`$\\]/g, '');
+  const commitMsg = `v${numericVersion}: ${version} - ${safeMessage}`;
 
   // Stage todo excepto DocumentationModule (lo agregaremos despues del amend)
   exec('git add -A', { silent: true });
 
-  // Primer commit
-  exec(`git commit -m "${commitMsg}"`, { silent: true });
+  // Primer commit - usar comillas simples para evitar expansion de shell
+  exec(`git commit -m '${commitMsg.replace(/'/g, "'\\''")}'`, { silent: true });
 
   // Leer hash real
   const hash = exec('git rev-parse --short HEAD', { silent: true });
@@ -841,11 +843,13 @@ function generateAutoMessage(commits: CommitInfo[], bump: BumpType, handovers: H
   if (fixes.length > 0) parts.push(`${fixes.length} fix${fixes.length > 1 ? 'es' : ''}`);
   if (others.length > 0) parts.push(`${others.length} mejora${others.length > 1 ? 's' : ''}`);
 
-  // Contexto de handovers (resumen breve)
+  // Contexto de handovers (resumen breve, sin caracteres especiales)
   if (handovers.length > 0) {
     const handoverContexts = handovers.map(h => {
-      // Tomar primera oracion significativa del contexto
-      const short = h.context.split('.')[0].substring(0, 50);
+      // Tomar primera oracion significativa del contexto, sanitizar comillas y acentos problematicos
+      const short = h.context.split('.')[0].substring(0, 50)
+        .replace(/["""''`]/g, '')
+        .replace(/[`$\\]/g, '');
       return short;
     });
     parts.push(handoverContexts.join(' + '));
