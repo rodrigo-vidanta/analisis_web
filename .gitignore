@@ -49,3 +49,9 @@ supabase/.temp/
 
 # Claude Code - Archivos locales
 .claude/settings.json
+.claude/agents/
+.claude/docs/vapi/
+.claude/skills/vapi/
+scripts/vapi-cli.cjs
+scripts/uchat-cli.cjs
+scripts/n8n-cli.cjs
