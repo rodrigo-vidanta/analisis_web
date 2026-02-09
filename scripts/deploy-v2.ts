@@ -730,6 +730,8 @@ async function main(): Promise<void> {
     LOG.warn('\n  ** DRY RUN - No se ejecutaran cambios **\n');
 
     const configValue = { version: newVersionStr, force_update: true, release_notes: releaseNotes };
+    const newHistoryEntry = { version: newVersionStr, release_notes: releaseNotes, message: message.replace(/'/g, "''"), deployed_at: new Date().toISOString() };
+    const versionHistorySql = `UPDATE system_config SET config_value = (SELECT jsonb_path_query_array(('${JSON.stringify([newHistoryEntry])}'::jsonb || config_value)::jsonb, '$[0 to 4]') FROM system_config WHERE config_key = 'version_history'), updated_at = NOW() WHERE config_key = 'version_history';`;
     const result: DeployResult = {
       success: true,
       version: { previous: currentVersionStr, new: newVersionStr, frontendBump, backendBump },
@@ -740,7 +742,7 @@ async function main(): Promise<void> {
         table: 'system_config',
         key: 'app_version',
         value: JSON.stringify(configValue),
-        sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValue)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
+        sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValue)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version'; ${versionHistorySql}`,
       },
       commits: commits.map(c => ({ hash: c.hash, type: c.type, description: c.description })),
       handovers,
@@ -791,6 +793,8 @@ async function main(): Promise<void> {
   LOG.step('\n[6/6] Generando resultado...');
 
   const configValueReal = { version: newVersionStr, force_update: true, release_notes: releaseNotes };
+  const newHistoryEntryReal = { version: newVersionStr, release_notes: releaseNotes, message: message.replace(/'/g, "''"), deployed_at: new Date().toISOString() };
+  const versionHistorySqlReal = `UPDATE system_config SET config_value = (SELECT jsonb_path_query_array(('${JSON.stringify([newHistoryEntryReal])}'::jsonb || config_value)::jsonb, '$[0 to 4]') FROM system_config WHERE config_key = 'version_history'), updated_at = NOW() WHERE config_key = 'version_history';`;
   const result: DeployResult = {
     success: true,
     version: { previous: currentVersionStr, new: newVersionStr, frontendBump, backendBump },
@@ -801,7 +805,7 @@ async function main(): Promise<void> {
       table: 'system_config',
       key: 'app_version',
       value: JSON.stringify(configValueReal),
-      sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValueReal)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version';`,
+      sqlQuery: `UPDATE system_config SET config_value = '${JSON.stringify(configValueReal)}'::jsonb, updated_at = NOW() WHERE config_key = 'app_version'; ${versionHistorySqlReal}`,
     },
     commits: commits.map(c => ({ hash: c.hash, type: c.type, description: c.description })),
     handovers,

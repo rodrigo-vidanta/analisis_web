@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SnakeEasterEgg from './SnakeEasterEgg';
+import ReleaseNotesHistoryModal from './shared/ReleaseNotesHistoryModal';
 import { useSystemConfig } from '../hooks/useSystemConfig';
 import { useAuth } from '../contexts/AuthContext';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
@@ -42,6 +43,9 @@ const Footer: React.FC = () => {
   // Easter egg state
   const [clickCount, setClickCount] = useState(0);
   const [showEasterEgg, setShowEasterEgg] = useState(false);
+
+  // Release notes history modal
+  const [showReleaseNotes, setShowReleaseNotes] = useState(false);
   
   // Cargar datos del AI Division solo cuando el usuario está autenticado
   // Esto previene exposición de datos para ingeniería social a usuarios no autenticados
@@ -255,9 +259,15 @@ const Footer: React.FC = () => {
                 </svg>
               </div>
               
-              <span className="font-mono text-xs text-gray-700 dark:text-gray-300">
+              <button
+                onClick={() => isAuthenticated && setShowReleaseNotes(true)}
+                className={`font-mono text-xs text-gray-700 dark:text-gray-300 ${
+                  isAuthenticated ? 'cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors' : ''
+                }`}
+                title={isAuthenticated ? 'Ver historial de versiones' : undefined}
+              >
                 {version}
-              </span>
+              </button>
             </div>
             
           </div>
@@ -265,9 +275,15 @@ const Footer: React.FC = () => {
       </div>
       
       {/* Easter Egg Component */}
-      <SnakeEasterEgg 
+      <SnakeEasterEgg
         isVisible={showEasterEgg}
         onClose={handleCloseEasterEgg}
+      />
+
+      {/* Release Notes History Modal */}
+      <ReleaseNotesHistoryModal
+        isOpen={showReleaseNotes}
+        onClose={() => setShowReleaseNotes(false)}
       />
     </footer>
   );
