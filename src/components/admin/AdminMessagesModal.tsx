@@ -36,7 +36,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const { user } = useAuth();
   
   // Navegación
-  const [activeSection, setActiveSection] = useState<ActiveSection>('messages');
+  const [activeSection, setActiveSection] = useState<ActiveSection>('tickets');
   
   // Mensajes
   const [messages, setMessages] = useState<AdminMessage[]>([]);
@@ -48,8 +48,8 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const [resolving, setResolving] = useState(false);
   const [readMessageIds, setReadMessageIds] = useState<Set<string>>(new Set());
   
-  // Tickets
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  // Tickets (con badges persistentes de BD)
+  const [tickets, setTickets] = useState<(SupportTicket & { hasNewBadge: boolean; hasMessageBadge: boolean; unreadCount: number })[]>([]);
   const [loadingTickets, setLoadingTickets] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [ticketSearch, setTicketSearch] = useState('');
@@ -58,7 +58,6 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   const [newComment, setNewComment] = useState('');
   const [isInternal, setIsInternal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [readTicketIds, setReadTicketIds] = useState<Set<string>>(new Set());
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   
   // Estados para asignación
@@ -90,23 +89,23 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
   }, [recipientRole]);
 
   const loadTickets = useCallback(async () => {
+    if (!user?.id) return;
     setLoadingTickets(true);
     try {
-      const { tickets: data } = await ticketService.getAllTickets({});
+      const { tickets: data } = await ticketService.getTicketsWithBadges(user.id);
       setTickets(data);
     } catch (error) {
       console.error('Error:', error);
     } finally {
       setLoadingTickets(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (isOpen) {
       loadMessages();
       loadTickets();
       setReadMessageIds(new Set());
-      setReadTicketIds(new Set());
     }
   }, [isOpen, loadMessages, loadTickets]);
 
@@ -214,12 +213,13 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
 
   const handleSelectTicket = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
-    setReadTicketIds(prev => new Set(prev).add(ticket.id));
     if (user?.id) {
+      await ticketService.markTicketAsViewed(ticket.id, user.id);
       await ticketService.markTicketNotificationsAsRead(user.id, ticket.id);
     }
     const { comments } = await ticketService.getTicketComments(ticket.id);
     setTicketComments(comments);
+    loadTickets();
   };
 
   const handleStatusChange = async (status: TicketStatus) => {
@@ -449,27 +449,6 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
             {/* Tabs */}
             <div className="flex gap-2 mt-5">
               <button
-                onClick={() => { setActiveSection('messages'); setSelectedMessage(null); }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  activeSection === 'messages'
-                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                </svg>
-                <span>Mensajes</span>
-                {pendingMessages > 0 && (
-                  <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                    activeSection === 'messages' ? 'bg-white/20' : 'bg-blue-500 text-white'
-                  }`}>
-                    {pendingMessages}
-                  </span>
-                )}
-              </button>
-              
-              <button
                 onClick={() => { setActiveSection('tickets'); setSelectedTicket(null); }}
                 className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   activeSection === 'tickets'
@@ -486,6 +465,27 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                     activeSection === 'tickets' ? 'bg-white/20' : 'bg-orange-500 text-white'
                   }`}>
                     {newTickets}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => { setActiveSection('messages'); setSelectedMessage(null); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  activeSection === 'messages'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-500/25'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+                <span>Mensajes</span>
+                {pendingMessages > 0 && (
+                  <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                    activeSection === 'messages' ? 'bg-white/20' : 'bg-blue-500 text-white'
+                  }`}>
+                    {pendingMessages}
                   </span>
                 )}
               </button>
@@ -633,9 +633,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                     </div>
                   ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                      {filteredTickets.map((ticket) => {
-                        const isNew = ticket.status === 'abierto' && !readTicketIds.has(ticket.id);
-                        return (
+                      {filteredTickets.map((ticket) => (
                           <button
                             key={ticket.id}
                             onClick={() => handleSelectTicket(ticket)}
@@ -658,8 +656,11 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                                   }`}>
                                     {ticket.type === 'reporte_falla' ? 'BUG' : 'REQ'}
                                   </span>
-                                  {isNew && (
-                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-orange-500 text-white rounded uppercase flex-shrink-0">Nuevo</span>
+                                  {ticket.hasNewBadge && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-orange-500 text-white rounded uppercase flex-shrink-0 animate-pulse">Nuevo</span>
+                                  )}
+                                  {!ticket.hasNewBadge && ticket.hasMessageBadge && (
+                                    <span className="px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500 text-white rounded flex-shrink-0">💬</span>
                                   )}
                                 </div>
                                 <h4 className="text-sm font-medium text-gray-900 dark:text-white truncate">{ticket.title}</h4>
@@ -670,8 +671,7 @@ const AdminMessagesModal: React.FC<AdminMessagesModalProps> = ({ isOpen, onClose
                               </div>
                             </div>
                           </button>
-                        );
-                      })}
+                        ))}
                     </div>
                   )
                 )}

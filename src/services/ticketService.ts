@@ -907,6 +907,48 @@ class TicketService {
     }
   }
 
+  // Obtener conteo de notificaciones no leídas SOLO para tickets que el usuario reportó
+  async getReporterUnreadNotificationCount(userId: string): Promise<{ count: number; error: string | null }> {
+    try {
+      const { count, error } = await analysisSupabase
+        .from('support_ticket_notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('is_read', false)
+        .eq('assignment_context', 'reporter');
+
+      if (error) {
+        return { count: 0, error: error.message };
+      }
+
+      return { count: count || 0, error: null };
+    } catch (err) {
+      console.error('Error getting reporter notification count:', err);
+      return { count: 0, error: 'Error al obtener notificaciones' };
+    }
+  }
+
+  // Marcar como leídas SOLO notificaciones de tickets que el usuario reportó
+  async markAllReporterNotificationsAsRead(userId: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+      const { error } = await analysisSupabase
+        .from('support_ticket_notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false)
+        .eq('assignment_context', 'reporter');
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      return { success: true, error: null };
+    } catch (err) {
+      console.error('Error marking reporter notifications as read:', err);
+      return { success: false, error: 'Error al marcar como leídas' };
+    }
+  }
+
   // Suscribirse a notificaciones en tiempo real
   subscribeToNotifications(userId: string, callback: (notification: any) => void) {
     const channel = analysisSupabase

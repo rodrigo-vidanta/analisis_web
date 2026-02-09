@@ -9,8 +9,8 @@ import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
 import { permissionsService } from '../services/permissionsService';
-import { ticketService } from '../services/ticketService';
-import { analysisSupabase } from '../config/analysisSupabase';
+// Nota: ticketService y analysisSupabase ya no se usan en Header
+// Las notificaciones de tickets se manejan en SupportButton
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
@@ -247,7 +247,6 @@ const Header = ({
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [ticketUnreadCount, setTicketUnreadCount] = useState(0);
   const [prospectCount, setProspectCount] = useState<{filtered: number, total: number} | null>(null);
   
   // Estado del tema (light, twilight, dark)
@@ -393,87 +392,8 @@ const Header = ({
     }
   }, [isAdmin, isAdminOperativo, user?.role_name]);
 
-  // Cargar contador de tickets de soporte no leídos (para admins)
-  useEffect(() => {
-    if ((isAdmin || isAdminOperativo) && user?.id) {
-      const loadTicketCount = async () => {
-        try {
-          // FIX 2026-01-23: Contar solo tickets abiertos y en progreso (status en español)
-          // Los status 'new' y 'open' no existen en la BD
-          const { count, error } = await analysisSupabase
-            .from('support_tickets')
-            .select('*', { count: 'exact', head: true })
-            .in('status', ['abierto', 'en_progreso']);
-          
-          if (error) {
-            console.warn('Error contando tickets:', error);
-            setTicketUnreadCount(0);
-            return;
-          }
-          
-          // FIX 2026-01-23: Solo usar el conteo de notificaciones de tickets
-          // (No sumar tickets abiertos + notificaciones, eso duplica el conteo)
-          const { count: notifCount } = await ticketService.getUnreadNotificationCount(user.id);
-          setTicketUnreadCount(notifCount || 0);
-        } catch (error) {
-          console.warn('Error cargando contador de tickets:', error);
-          setTicketUnreadCount(0);
-        }
-      };
-      loadTicketCount();
-
-      // Actualizar cada 30 segundos
-      const interval = setInterval(loadTicketCount, 30000);
-
-      // Suscribirse a nuevos tickets en tiempo real
-      let ticketChannel: ReturnType<typeof analysisSupabase.channel> | null = null;
-      const subscribeTimeout = setTimeout(() => {
-        try {
-          ticketChannel = analysisSupabase
-            .channel(`admin-tickets-${user.id}`)
-            .on(
-              'postgres_changes',
-              {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'support_tickets'
-              },
-              () => {
-                // Nuevo ticket creado - recargar contador
-                loadTicketCount();
-              }
-            )
-            .on(
-              'postgres_changes',
-              {
-                event: 'UPDATE',
-                schema: 'public',
-                table: 'support_tickets'
-              },
-              () => {
-                // Ticket actualizado - recargar contador
-                loadTicketCount();
-              }
-            )
-            .subscribe();
-        } catch (error) {
-          console.warn('⚠️ Error suscribiéndose a tickets (no crítico):', error);
-        }
-      }, 150);
-
-      return () => {
-        clearInterval(interval);
-        clearTimeout(subscribeTimeout);
-        if (ticketChannel) {
-          try {
-            analysisSupabase.removeChannel(ticketChannel);
-          } catch (error) {
-            console.debug('Error al desconectar suscripción de tickets');
-          }
-        }
-      };
-    }
-  }, [isAdmin, isAdminOperativo, user?.id]);
+  // Nota: Las notificaciones de tickets se manejan exclusivamente en el SupportButton
+  // El botón Mail del header solo muestra mensajes admin (password reset, desbloqueo, etc.)
 
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
@@ -708,12 +628,12 @@ const Header = ({
                     <button
                       onClick={() => setShowMessagesModal(true)}
                       className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                      title={`Mensajes de administración${(unreadCount + ticketUnreadCount) > 0 ? ` (${unreadCount + ticketUnreadCount} sin leer)` : ''}`}
+                      title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
                     >
                       <Mail className="w-5 h-5" />
-                      {(unreadCount + ticketUnreadCount) > 0 && (
+                      {unreadCount > 0 && (
                         <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
-                          {(unreadCount + ticketUnreadCount) > 99 ? '99+' : (unreadCount + ticketUnreadCount)}
+                          {unreadCount > 99 ? '99+' : unreadCount}
                         </span>
                       )}
                     </button>
@@ -826,14 +746,9 @@ const Header = ({
             isOpen={showMessagesModal}
             onClose={() => {
               setShowMessagesModal(false);
-              // Recargar contadores al cerrar
+              // Recargar contador de mensajes admin al cerrar
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
-              }
-              // Recargar contador de tickets (SOLO notificaciones no leídas)
-              if (user?.id) {
-                ticketService.getUnreadNotificationCount(user.id)
-                  .then(({ count }) => setTicketUnreadCount(count || 0));
               }
             }}
             recipientRole={user.role_name}
@@ -1049,12 +964,12 @@ const Header = ({
                   <button
                     onClick={() => setShowMessagesModal(true)}
                     className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                    title={`Mensajes de administración${(unreadCount + ticketUnreadCount) > 0 ? ` (${unreadCount + ticketUnreadCount} sin leer)` : ''}`}
+                    title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
                   >
                     <Mail className="w-5 h-5" />
-                    {(unreadCount + ticketUnreadCount) > 0 && (
+                    {unreadCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
-                        {(unreadCount + ticketUnreadCount) > 99 ? '99+' : (unreadCount + ticketUnreadCount)}
+                        {unreadCount > 99 ? '99+' : unreadCount}
                       </span>
                     )}
                   </button>
@@ -1174,14 +1089,9 @@ const Header = ({
             isOpen={showMessagesModal}
             onClose={() => {
               setShowMessagesModal(false);
-              // Recargar contadores al cerrar
+              // Recargar contador de mensajes admin al cerrar
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
-              }
-              // Recargar contador de tickets (SOLO notificaciones no leídas)
-              if (user?.id) {
-                ticketService.getUnreadNotificationCount(user.id)
-                  .then(({ count }) => setTicketUnreadCount(count || 0));
               }
             }}
             recipientRole={user.role_name}

@@ -1,3 +1,14 @@
+## [v2.8.3] - 2026-02-09
+
+**B10.1.44N2.8.3** - Sesion con dos bloques: (1) Setup completo de inte
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-09-VAPI-TEMPLATE-DIAGNOSIS**: Sesion con dos bloques: (1) Setup completo de integracion VAPI voice AI, (2) Diagnostico de error 500 al enviar plantilla WhatsApp a prospecto importado manualmente.
+  - Setup VAPI: CLI, skill, agente, inventario completo, analisis de costos y llamadas
+  - Diagnostico: plantilla WhatsApp falla para prospectos sin `id_uchat`
+
+---
+
 ## [v2.8.2] - 2026-02-09
 
 **B10.1.44N2.8.2** - 2 fixes + 2 mejoras

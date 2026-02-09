@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Image as ImageIcon, Loader2, Clock } from 'lucide-react';
 import { ImageCard } from './ImageCard';
@@ -30,6 +30,23 @@ function ImageGrid({
   selectedResort
 }: ImageGridFullProps) {
 
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-cargar mas imagenes si el contenido no llena el viewport
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el || loading) return;
+    if (visibleCount >= totalFiltered) return;
+
+    const rafId = requestAnimationFrame(() => {
+      if (el.scrollHeight <= el.clientHeight + 200) {
+        onScroll({ currentTarget: el } as unknown as React.UIEvent<HTMLDivElement>);
+      }
+    });
+
+    return () => cancelAnimationFrame(rafId);
+  }, [visibleCount, totalFiltered, loading, images.length, onScroll]);
+
   const getSelectionIndex = useCallback((itemId: string): number => {
     const idx = selectedImages.findIndex(s => s.item.id === itemId);
     return idx >= 0 ? idx + 1 : 0;
@@ -42,8 +59,9 @@ function ImageGrid({
 
   return (
     <div
+      ref={scrollContainerRef}
       onScroll={onScroll}
-      className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-700 scrollbar-track-transparent"
+      className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-none"
     >
       {/* Recent Images */}
       {showRecents && (
