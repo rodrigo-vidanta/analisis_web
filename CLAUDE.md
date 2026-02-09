@@ -79,3 +79,4 @@ Para tareas complejas por dominio, usar subagentes con contexto de:
 - `n8n-agent.md` - Workflows N8N, ejecuciones, debugging (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `uchat-agent.md` - UChat API, subscribers, webhooks, triggers, debug errores WhatsApp (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `aws-agent.md` - AWS infra: ECS, RDS, S3, CloudFront, Redis, VPC, Route53, costos (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+- `vapi-agent.md` - VAPI voice AI: llamadas, assistants, phones, tools, analytics, logs, assistant override N8N (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
