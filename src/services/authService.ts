@@ -150,17 +150,26 @@ class AuthService {
       if (session?.user) {
         this.supabaseSession = session;
         await this.loadUserData(session.user);
-        
-        // 🔧 FIX: Restaurar is_operativo a true al recargar sesión
-        // Esto soluciona el problema cuando usuarios cierran el navegador sin logout
-        // o cuando hay errores de red que dejan is_operativo en false
+
+        // Verificar que el usuario esté activo (seguridad: expulsar desactivados al recargar)
+        if (this.currentUser && !this.currentUser.is_active) {
+          console.warn('⚠️ Usuario desactivado intentó restaurar sesión:', session.user.email);
+          await this.updateUserMetadata(session.user.id, { is_operativo: false });
+          await supabase!.auth.signOut();
+          this.currentUser = null;
+          this.supabaseSession = null;
+          return this.getEmptyState();
+        }
+
+        // Restaurar is_operativo a true al recargar sesión
+        // Soluciona el problema cuando usuarios cierran el navegador sin logout
         if (this.currentUser && (this.currentUser.is_ejecutivo || this.currentUser.is_coordinador)) {
           await this.updateUserMetadata(session.user.id, { is_operativo: true });
           if (this.currentUser) {
             this.currentUser.is_operativo = true;
           }
         }
-        
+
         return {
           user: this.currentUser,
           permissions: this.userPermissions,
@@ -220,6 +229,14 @@ class AuthService {
 
       // 5. Cargar datos del usuario
       await this.loadUserData(data.user);
+
+      // 5.1 Verificar que el usuario esté activo (seguridad: bloquear login de desactivados)
+      if (this.currentUser && !this.currentUser.is_active) {
+        await supabase!.auth.signOut();
+        this.currentUser = null;
+        this.supabaseSession = null;
+        throw new Error('Tu cuenta ha sido desactivada. Contacta al administrador.');
+      }
 
       // Supabase Auth resetea intentos automáticamente
 
