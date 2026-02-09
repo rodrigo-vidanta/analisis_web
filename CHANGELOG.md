@@ -1,3 +1,19 @@
+## [v2.8.2] - 2026-02-09
+
+**B10.1.44N2.8.2** - 2 fixes + 2 mejoras
+
+### Other
+- excluir herramientas locales de diagnostico del repo (`61a3f64`)
+
+### Documentation
+- agregar referencia a vapi-agent en CLAUDE.md (`820d95d`)
+
+### Bug Fixes
+- bloquear login y restauracion de sesion para usuarios desactivados (`f88671b`)
+- corregir 11 bugs en modulo UserManagementV2 (`6210132`)
+
+---
+
 ## [v2.8.1] - 2026-02-09
 
 **B10.1.44N2.8.1** - 1 fix + Cinco bloques: (1) Fix errores 401 Unauthorized po + Workflow `VAPI-Natalia_transfer_tool [PROD]` trans
