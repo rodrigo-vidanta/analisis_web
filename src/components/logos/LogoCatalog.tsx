@@ -10,6 +10,7 @@
  * 1. Default - Logo normal de PQNC
  * 2. Christmas - Logo navideño con luces y nieve
  * 3. NewYear - Logo de Año Nuevo con fuegos artificiales y reloj
+ * 4. Valentine - Logo de San Valentín con heartbeat y corazones flotantes
  */
 
 import React from 'react';
@@ -17,12 +18,13 @@ import { DefaultLogo } from './DefaultLogo';
 import { ChristmasLogo } from './ChristmasLogo';
 import { NewYearLogo } from './NewYearLogo';
 import { ReyesLogo } from './ReyesLogo';
+import { ValentineLogo } from './ValentineLogo';
 
 // ============================================
 // TIPOS
 // ============================================
 
-export type LogoType = 'default' | 'christmas' | 'newyear' | 'reyes';
+export type LogoType = 'default' | 'christmas' | 'newyear' | 'reyes' | 'valentine';
 
 export interface LogoConfig {
   id: LogoType;
@@ -78,6 +80,16 @@ export const LOGO_CATALOG: Record<LogoType, LogoConfig> = {
     availableUntil: '2025-01-10',
     isSeasonallogo: true,
   },
+  valentine: {
+    id: 'valentine',
+    name: 'Logo San Valentín',
+    description: 'Logo con heartbeat sutil en loop. Al hacer clic, corazones traslúcidos suben como globos con música romántica.',
+    preview: '/assets/logo_pqnc-valentine.png',
+    component: ValentineLogo,
+    availableFrom: '2026-02-01',
+    availableUntil: '2026-02-28',
+    isSeasonallogo: true,
+  },
 };
 
 // ============================================
@@ -121,17 +133,22 @@ export const getSuggestedLogo = (): LogoType => {
   if (month === 0 && day >= 1 && day <= 10) {
     return 'reyes';
   }
-  
+
+  // 1 Feb - 28 Feb: San Valentín
+  if (month === 1) {
+    return 'valentine';
+  }
+
   // 26 Dic - 31 Dic: Año Nuevo
   if (month === 11 && day >= 26) {
     return 'newyear';
   }
-  
+
   // 1 Dic - 25 Dic: Navidad
   if (month === 11 && day >= 1 && day <= 25) {
     return 'christmas';
   }
-  
+
   return 'default';
 };
 

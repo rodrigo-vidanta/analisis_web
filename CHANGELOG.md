@@ -1,3 +1,59 @@
+## [v2.10.0] - 2026-02-09
+
+**B10.1.44N2.10.0** - 1 feature + Rediseño del modal de reactivación de conversación + Nuevo logo de temporada "San Valentín" para el sis + Sesion con dos bloques: (1) Setup completo de inte
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-09-REACTIVATION-MODAL-TABS**: Rediseño del modal de reactivación de conversación WhatsApp (`ReactivateConversationModal`): agregar menú de 4 tabs por categoría de plantilla, filtro por etiquetas reutilizando `TemplateTagsSelector`, y ampliar ancho del modal.
+  - Tabs expandidos de 2 (`top`, `mis`) a 4 (`top`, `utilidades`, `marketing`, `mis`) con iconos y contadores
+  - Tab "Plantillas" (top) limitado a Top 10, excluye categoría UTILITY
+  - Tab "Utilidades" muestra solo `category === 'UTILITY'` + sección especial `seguimiento_contacto_utilidad`
+  - Tab "Marketing" muestra solo `category === 'MARKETING'`
+  - Filtro por etiquetas integrado usando `TemplateTagsSelector` (componente reutilizable existente)
+  - Modal ampliado de `max-w-6xl` a `max-w-7xl`
+- **HANDOVER-2026-02-09-VALENTINE-LOGO**: Nuevo logo de temporada "San Valentín" para el sistema de doodles (estilo Google Doodles) en la sección Administración > Preferencias > Logos Personalizados. 5to logo del catálogo.
+  - Nuevo componente `ValentineLogo` con heartbeat sutil en loop (scale 1→1.035→1, ciclo 3.2s)
+  - Resplandor rosado pulsante detrás del logo (radial-gradient, blur 16px, 200x80px centrado)
+  - Al hacer clic: 18 corazones traslúcidos SVG (90-240px) suben desde el fondo de pantalla como globos
+  - Corazones con movimiento oscilatorio horizontal, rotación leve y desvanecimiento progresivo al subir
+  - Audio romántico (12.1s, vol 0.5) reproducido al hacer clic
+  - Registrado en `LogoCatalog` como tipo `'valentine'` con sugerencia automática en febrero
+- **HANDOVER-2026-02-09-VAPI-TEMPLATE-DIAGNOSIS**: Sesion con dos bloques: (1) Setup completo de integracion VAPI voice AI, (2) Diagnostico de error 500 al enviar plantilla WhatsApp a prospecto importado manualmente.
+  - Setup VAPI: CLI, skill, agente, inventario completo, analisis de costos y llamadas
+  - Diagnostico: plantilla WhatsApp falla para prospectos sin `id_uchat`
+
+### Features
+- add Valentine's Day doodle + reactivation modal tabs (`c15de25`)
+
+---
+
+## [v2.9.0] - 2026-02-09
+
+**B10.1.44N2.9.0** - 1 feature + Rediseño del modal de reactivación de conversación + Nuevo logo de temporada "San Valentín" para el sis + Sesion con dos bloques: (1) Setup completo de inte
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-09-REACTIVATION-MODAL-TABS**: Rediseño del modal de reactivación de conversación WhatsApp (`ReactivateConversationModal`): agregar menú de 4 tabs por categoría de plantilla, filtro por etiquetas reutilizando `TemplateTagsSelector`, y ampliar ancho del modal.
+  - Tabs expandidos de 2 (`top`, `mis`) a 4 (`top`, `utilidades`, `marketing`, `mis`) con iconos y contadores
+  - Tab "Plantillas" (top) limitado a Top 10, excluye categoría UTILITY
+  - Tab "Utilidades" muestra solo `category === 'UTILITY'` + sección especial `seguimiento_contacto_utilidad`
+  - Tab "Marketing" muestra solo `category === 'MARKETING'`
+  - Filtro por etiquetas integrado usando `TemplateTagsSelector` (componente reutilizable existente)
+  - Modal ampliado de `max-w-6xl` a `max-w-7xl`
+- **HANDOVER-2026-02-09-VALENTINE-LOGO**: Nuevo logo de temporada "San Valentín" para el sistema de doodles (estilo Google Doodles) en la sección Administración > Preferencias > Logos Personalizados. 5to logo del catálogo.
+  - Nuevo componente `ValentineLogo` con heartbeat sutil en loop (scale 1→1.035→1, ciclo 3.2s)
+  - Resplandor rosado pulsante detrás del logo (radial-gradient, blur 16px, 200x80px centrado)
+  - Al hacer clic: 18 corazones traslúcidos SVG (90-240px) suben desde el fondo de pantalla como globos
+  - Corazones con movimiento oscilatorio horizontal, rotación leve y desvanecimiento progresivo al subir
+  - Audio romántico (12.1s, vol 0.5) reproducido al hacer clic
+  - Registrado en `LogoCatalog` como tipo `'valentine'` con sugerencia automática en febrero
+- **HANDOVER-2026-02-09-VAPI-TEMPLATE-DIAGNOSIS**: Sesion con dos bloques: (1) Setup completo de integracion VAPI voice AI, (2) Diagnostico de error 500 al enviar plantilla WhatsApp a prospecto importado manualmente.
+  - Setup VAPI: CLI, skill, agente, inventario completo, analisis de costos y llamadas
+  - Diagnostico: plantilla WhatsApp falla para prospectos sin `id_uchat`
+
+### Features
+- add Valentine's Day doodle + reactivation modal tabs (`c15de25`)
+
+---
+
 ## [v2.8.3] - 2026-02-09
 
 **B10.1.44N2.8.3** - Sesion con dos bloques: (1) Setup completo de inte

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban, Lightbulb, TrendingUp, User, MessageSquare, ChevronDown, FileText, ArrowLeft } from 'lucide-react';
+import { X, Send, Search, Loader2, CheckCircle2, Star, Sparkles, AlertTriangle, Calendar, Clock, Ban, Lightbulb, TrendingUp, User, MessageSquare, ChevronDown, FileText, ArrowLeft, Wrench, Megaphone, Tag } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService, type TemplateSendLimits, type TemplateResponseRate } from '../../services/whatsappTemplatesService';
 import type { WhatsAppTemplate } from '../../types/whatsappTemplates';
@@ -9,6 +9,7 @@ import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { whatsappTemplateSuggestionsService, type SuggestionStats } from '../../services/whatsappTemplateSuggestionsService';
+import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 
 // ============================================
 // TIPOS
@@ -33,7 +34,7 @@ interface ReactivateConversationModalProps {
   };
 }
 
-type TabType = 'top' | 'mis';
+type TabType = 'top' | 'utilidades' | 'marketing' | 'mis';
 
 type CustomVariableType = 'prospecto' | 'destino' | 'resort' | 'fecha_actual' | 'fecha_personalizada' | 'hora_actual' | 'hora_personalizada' | 'ejecutivo';
 
@@ -171,6 +172,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   const [sendingSuccess, setSendingSuccess] = useState(false);
   const [preview, setPreview] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>('top');
   const [destinos, setDestinos] = useState<Array<{ id: string; nombre: string }>>([]);
   const [resorts, setResorts] = useState<Array<{ id: string; nombre: string; nombre_completo: string }>>([]);
@@ -284,6 +286,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       // Reset state
       setSelectedTemplate(null);
       setSearchTerm('');
+      setSelectedTags([]);
       setActiveTab('top');
       setShowSuggestionForm(false);
       setSendingSuccess(false);
@@ -396,9 +399,21 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   const filteredAndSortedTemplates = useMemo((): { regular: TemplateItem[]; specialUtility: TemplateItem[] } => {
     let filtered = templates;
 
-    // Filtrar por tab "Mis plantillas"
+    // Filtrar por tab
     if (activeTab === 'mis' && user?.id) {
       filtered = filtered.filter(t => t.suggested_by === user.id);
+    } else if (activeTab === 'utilidades') {
+      filtered = filtered.filter(t => t.category === 'UTILITY');
+    } else if (activeTab === 'marketing') {
+      filtered = filtered.filter(t => t.category === 'MARKETING');
+    } else if (activeTab === 'top') {
+      // Excluir plantillas de utilidad del tab Top
+      filtered = filtered.filter(t => t.category !== 'UTILITY');
+    }
+
+    // Filtrar por etiquetas
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(t => t.tags?.some(tag => selectedTags.includes(tag)));
     }
 
     // Filtrar por búsqueda
@@ -422,8 +437,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
 
       const item: TemplateItem = { template, score, rate, canFulfill: fulfillment.canFulfill, missingFields: fulfillment.missingFields };
 
-      // Separar plantilla especial de utilidad
-      if (template.name === SPECIAL_UTILITY_TEMPLATE_NAME) {
+      // Separar plantilla especial de utilidad (solo en tab 'utilidades')
+      if (template.name === SPECIAL_UTILITY_TEMPLATE_NAME && activeTab === 'utilidades') {
         if (prospectoEtapa && (SPECIAL_UTILITY_TEMPLATE_CONFIG.blockedEtapas as readonly string[]).includes(prospectoEtapa)) {
           specialUtility.push({ ...item, canFulfill: false, missingFields: ['No disponible para "Es miembro"'] });
         } else {
@@ -458,13 +473,25 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
       return b.score - a.score;
     });
 
-    return { regular: [...compatible, ...incompatible], specialUtility };
-  }, [templates, searchTerm, activeTab, user?.id, calculateTemplateMatchScore, responseRates, canProspectFulfillTemplate, prospectoEtapa]);
+    const allRegular = [...compatible, ...incompatible];
+    // Tab "top" (Plantillas): limitar a Top 10
+    const regular = activeTab === 'top' ? allRegular.slice(0, 10) : allRegular;
+
+    return { regular, specialUtility };
+  }, [templates, searchTerm, selectedTags, activeTab, user?.id, calculateTemplateMatchScore, responseRates, canProspectFulfillTemplate, prospectoEtapa]);
 
   const myTemplatesCount = useMemo(() => {
     if (!user?.id) return 0;
     return templates.filter(t => t.suggested_by === user.id).length;
   }, [templates, user?.id]);
+
+  const utilityTemplatesCount = useMemo(() => {
+    return templates.filter(t => t.category === 'UTILITY').length;
+  }, [templates]);
+
+  const marketingTemplatesCount = useMemo(() => {
+    return templates.filter(t => t.category === 'MARKETING').length;
+  }, [templates]);
 
   // ============================================
   // MANEJO DE SELECCIÓN DE PLANTILLA
@@ -990,7 +1017,7 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         <motion.div
           {...modalContainer}
           onClick={(e) => e.stopPropagation()}
-          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200/50 dark:border-gray-700/50"
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-7xl max-h-[90vh] overflow-hidden flex flex-col border border-gray-200/50 dark:border-gray-700/50"
         >
           {/* ============================================ */}
           {/* HEADER */}
@@ -1091,39 +1118,76 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                 </div>
 
                 {/* Tabs inline */}
-                <div className="flex items-center gap-1 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
-                  <button
-                    onClick={() => setActiveTab('top')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      activeTab === 'top'
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    <TrendingUp className="w-3.5 h-3.5" />
-                    Top Plantillas
-                  </button>
-                  <button
-                    onClick={() => setActiveTab('mis')}
-                    className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      activeTab === 'mis'
-                        ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
-                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    Mis Plantillas
-                    {myTemplatesCount > 0 && (
-                      <span className={`px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
-                        activeTab === 'mis'
-                          ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
-                          : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
-                      }`}>
-                        {myTemplatesCount}
-                      </span>
-                    )}
-                  </button>
+                <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                  {([
+                    { key: 'top' as TabType, label: 'Plantillas', icon: <TrendingUp className="w-3 h-3" />, count: null },
+                    { key: 'utilidades' as TabType, label: 'Utilidades', icon: <Wrench className="w-3 h-3" />, count: utilityTemplatesCount },
+                    { key: 'marketing' as TabType, label: 'Marketing', icon: <Megaphone className="w-3 h-3" />, count: marketingTemplatesCount },
+                    { key: 'mis' as TabType, label: 'Mis Plantillas', icon: <User className="w-3 h-3" />, count: myTemplatesCount },
+                  ]).map((tab) => (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-md transition-all ${
+                        activeTab === tab.key
+                          ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                      }`}
+                    >
+                      {tab.icon}
+                      <span className="truncate">{tab.label}</span>
+                      {tab.count !== null && tab.count > 0 && (
+                        <span className={`px-1 py-0.5 text-[9px] font-bold rounded-full leading-none ${
+                          activeTab === tab.key
+                            ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  ))}
                 </div>
+              </div>
+
+              {/* Filtro por etiquetas */}
+              {selectedTags.length > 0 && (
+                <div className="px-3 pt-2 pb-1 border-b border-gray-100 dark:border-gray-800">
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <Tag className="w-3 h-3 text-gray-400" />
+                    <span className="text-[10px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filtrando por</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedTags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-[11px] font-medium"
+                      >
+                        {tag}
+                        <button
+                          onClick={() => setSelectedTags(selectedTags.filter(t => t !== tag))}
+                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded p-0.5 transition-colors"
+                        >
+                          <X className="w-2.5 h-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      onClick={() => setSelectedTags([])}
+                      className="text-[10px] text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Selector de etiquetas compacto */}
+              <div className="px-3 py-2 border-b border-gray-100 dark:border-gray-800">
+                <TemplateTagsSelector
+                  selectedTags={selectedTags}
+                  onChange={setSelectedTags}
+                />
               </div>
 
               {/* Lista de plantillas */}
@@ -1136,7 +1200,10 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                   <div className="flex flex-col items-center justify-center py-16 text-center">
                     <FileText className="w-8 h-8 text-gray-300 dark:text-gray-600 mb-2" />
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {activeTab === 'mis' ? 'No tienes plantillas sugeridas aún' : 'No se encontraron plantillas'}
+                      {activeTab === 'mis' ? 'No tienes plantillas sugeridas aún'
+                        : activeTab === 'utilidades' ? 'No hay plantillas de utilidad disponibles'
+                        : activeTab === 'marketing' ? 'No hay plantillas de marketing disponibles'
+                        : 'No se encontraron plantillas'}
                     </p>
                   </div>
                 ) : (

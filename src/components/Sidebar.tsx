@@ -946,8 +946,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
               {(() => {
                 const LogoComponent = getLogoComponent(currentLogoType);
                 return (
-                  <LogoComponent 
-                    onClick={handleLogoClick}
+                  <LogoComponent
                     isCollapsed={isCollapsed}
                   />
                 );
