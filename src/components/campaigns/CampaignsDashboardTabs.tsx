@@ -11,11 +11,11 @@ type CampaignTab = 'plantillas' | 'audiencias' | 'campanas' | 'bases-datos' | 's
 
 const CampaignsDashboardTabs: React.FC = () => {
   const { user } = useAuth();
-  const { isAdmin } = useEffectivePermissions();
+  const { isAdmin, isMarketing } = useEffectivePermissions();
   const [activeTab, setActiveTab] = useState<CampaignTab>('plantillas');
 
-  // Solo administradores pueden acceder
-  if (!isAdmin) {
+  // Administradores y marketing pueden acceder
+  if (!isAdmin && !isMarketing) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">

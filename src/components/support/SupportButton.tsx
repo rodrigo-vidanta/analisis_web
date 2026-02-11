@@ -166,7 +166,7 @@ const SupportButton: React.FC<SupportButtonProps> = ({
   }, [triggerAnimation]);
 
   const canSeeSupport = user && [
-    'admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo'
+    'admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'marketing'
   ].includes(user.role_name);
 
   const loadNotificationCount = useCallback(async () => {

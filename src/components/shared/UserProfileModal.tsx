@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, User, Lock, Upload, Eye, EyeOff, CheckCircle2, XCircle, AlertCircle, Loader2, Trash2 } from 'lucide-react';
-import { supabaseSystemUI as supabase, supabaseSystemUI as supabaseAdmin } from '../../config/supabaseSystemUI';
+import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { userProfileEvents } from '../../utils/userProfileEvents';
 import toast from 'react-hot-toast';
 
@@ -102,41 +102,24 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
       // Usar cliente admin de PQNC (donde está el bucket user-avatars)
       // El bucket está en PQNC_AI (glsmifhkoaifvaegsozd.supabase.co)
       // Verificar que el cliente esté configurado correctamente
-      console.log('🔍 Configuración del cliente:', {
-        fileName,
-        bucket: 'user-avatars',
-        supabaseUrl: supabaseAdmin.supabaseUrl,
-        fileSize: file.size,
-        fileType: file.type,
-        hasStorage: !!supabaseAdmin.storage
-      });
-      
-      // Intentar subir el archivo
-      const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
+      if (!supabaseSystemUI) {
+        throw new Error('Cliente Supabase no inicializado');
+      }
+
+      const { data: uploadData, error: uploadError } = await supabaseSystemUI.storage
         .from('user-avatars')
         .upload(fileName, file, {
           contentType: file.type,
           upsert: false,
           cacheControl: '3600'
         });
-        
-      if (uploadError) {
-        console.error('❌ Error detallado de upload:', {
-          error: uploadError,
-          message: uploadError.message,
-          statusCode: uploadError.statusCode,
-          errorCode: uploadError.error
-        });
-        throw uploadError;
-      }
-      
-      console.log('✅ Upload exitoso:', uploadData);
-      
-      const { data: { publicUrl } } = supabaseAdmin.storage
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabaseSystemUI.storage
         .from('user-avatars')
         .getPublicUrl(fileName);
-      
-      // La función RPC está en System UI, no en PQNC
+
       const { error: dbError } = await supabaseSystemUI.rpc('upload_user_avatar', {
         p_user_id: userId,
         p_avatar_url: publicUrl,
@@ -167,7 +150,10 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
     setUploadingAvatar(true);
     try {
-      // La tabla user_avatars está en System UI, no en PQNC
+      if (!supabaseSystemUI) {
+        throw new Error('Cliente Supabase no inicializado');
+      }
+
       const { error } = await supabaseSystemUI
         .from('user_avatars')
         .delete()

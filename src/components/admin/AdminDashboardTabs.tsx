@@ -14,11 +14,12 @@ import LogServerManager from './LogServerManager';
 import DocumentationModule from '../documentation/DocumentationModule';
 import AWSManager from '../aws/AWSManager';
 import DynamicsCRMManager from './DynamicsCRMManager';
+import AdminTicketsPanel from '../support/AdminTicketsPanel';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
-import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare } from 'lucide-react';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy } from 'lucide-react';
 
 // ============================================
 // FEATURE FLAG: NUEVO MÓDULO DE USUARIOS
@@ -39,7 +40,7 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -48,6 +49,7 @@ const AdminDashboardTabs: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('usuarios');
   const [showMessagesModal, setShowMessagesModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [ticketNotificationCount, setTicketNotificationCount] = useState(0);
   
   // Estado para grupos del usuario actual (para permisos efectivos)
   const [userGroupNames, setUserGroupNames] = useState<string[]>([]);
@@ -304,6 +306,15 @@ const AdminDashboardTabs: React.FC = () => {
         icon: <GitCompare className="w-5 h-5" />
       }
     ] : []),
+    // Tab de Tickets - visible para admin, admin operativo y coordinadores de calidad
+    ...((isAdmin || isAdminOperativo || isCoordinadorCalidad) ? [
+      {
+        id: 'tickets' as AdminTab,
+        name: 'Tickets',
+        icon: <LifeBuoy className="w-5 h-5" />,
+        badge: ticketNotificationCount
+      }
+    ] : []),
     // Tabs para Administrador Operativo: usuarios, coordinaciones y horarios
     ...(isAdminOperativo ? [
       {
@@ -427,7 +438,7 @@ const AdminDashboardTabs: React.FC = () => {
                 <motion.button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center rounded-lg transition-all duration-200 ${
+                  className={`w-full flex items-center rounded-lg transition-all duration-200 relative ${
                     isSidebarExpanded ? 'px-3 py-2.5' : 'px-0 py-2.5 justify-center'
                   } ${
                     activeTab === tab.id
@@ -436,10 +447,15 @@ const AdminDashboardTabs: React.FC = () => {
                   }`}
                   title={!isSidebarExpanded ? tab.name : undefined}
                 >
-                  <span className={`flex-shrink-0 ${
+                  <span className={`relative flex-shrink-0 ${
                     activeTab === tab.id ? 'text-blue-500 dark:text-blue-400' : 'text-gray-400'
                   }`}>
                     {tab.icon}
+                    {!isSidebarExpanded && 'badge' in tab && (tab as { badge?: number }).badge ? (
+                      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                        {(tab as { badge?: number }).badge! > 9 ? '9+' : (tab as { badge?: number }).badge}
+                      </span>
+                    ) : null}
                   </span>
                   <AnimatePresence>
                     {isSidebarExpanded && (
@@ -448,9 +464,14 @@ const AdminDashboardTabs: React.FC = () => {
                         animate={{ opacity: 1, width: 'auto' }}
                         exit={{ opacity: 0, width: 0 }}
                         transition={{ duration: 0.15 }}
-                        className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden"
+                        className="ml-3 text-sm font-medium whitespace-nowrap overflow-hidden flex items-center gap-2"
                       >
                         {tab.name}
+                        {'badge' in tab && (tab as { badge?: number }).badge ? (
+                          <span className="min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">
+                            {(tab as { badge?: number }).badge! > 9 ? '9+' : (tab as { badge?: number }).badge}
+                          </span>
+                        ) : null}
                       </motion.span>
                     )}
                   </AnimatePresence>
@@ -561,7 +582,7 @@ const AdminDashboardTabs: React.FC = () => {
           )}
 
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' || activeTab === 'tickets' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -644,6 +665,18 @@ const AdminDashboardTabs: React.FC = () => {
             <div className="flex-1 relative">
               <div className="absolute inset-0 overflow-hidden">
                 <DocumentationModule />
+              </div>
+            </div>
+          )}
+
+          {/* Tickets de Soporte - Ocupa todo el espacio disponible */}
+          {/* Visible para: admin, admin operativo, coordinadores de calidad */}
+          {activeTab === 'tickets' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-auto">
+                <AdminTicketsPanel
+                  onNotificationCountChange={setTicketNotificationCount}
+                />
               </div>
             </div>
           )}
