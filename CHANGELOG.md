@@ -1,3 +1,16 @@
+## [v2.11.0] - 2026-02-11
+
+**B10.1.44N2.11.0** - 2
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-11-CPU-OPTIMIZATION-LIVE-MONITOR**: Reporte de CPU al 100%
+- **2026-02-11-fix-rls-coordinacion-huerfana-rodrigo**: El ejecutivo **Meza Mendoza Rodrigo Ismael** (`rodrigomeza@vidavacations.com`, auth ID: `8eb6a28c-ec40-4318-ae9e-b6fb3ba88acb`) no podía ver los mensajes de su prospecto asignado **Maria Teresa** (`59e8ac42-be78-4cf6-b0f7-ace0b7329b6f`).
+
+### Performance
+- optimizacion CPU - eliminar tab activa + fix widget flickering + remover checkpoint #5 (`55affd5`)
+
+---
+
 ## [v2.10.2] - 2026-02-11
 
 **B10.1.44N2.10.2** - Rediseño del modal de reactivación de conversación + Sesion con dos bloques: (1) Crear logo de San Vale + Nuevo logo de temporada San Valentín para el sis + Sesion con dos bloques: (1) Setup completo de inte + El botón de Pausar Bot existe en dos ubicaciones
