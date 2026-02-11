@@ -1,3 +1,15 @@
+## [v2.12.0] - 2026-02-11
+
+**B10.1.44N2.12.0** - 1 feature + Por qué la MV existe
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-11-CPU-OPTIMIZATION-PHASE3-DEPLOY**: Por qué la MV existe
+
+### Features
+- 5 mejoras plataforma (`f645a1f`)
+
+---
+
 ## [v2.11.1] - 2026-02-11
 
 **B10.1.44N2.11.1** - Por que Fase 2
