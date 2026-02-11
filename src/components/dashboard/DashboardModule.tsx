@@ -132,6 +132,9 @@ interface CRMCategoryData {
   paquetes: { numero: string; monto: number; fecha: string; coordinacion: string }[]; // Detalle
 }
 
+// Tipo de clasificación de venta
+type SaleType = 'venta_ia' | 'venta_asistida' | 'no_contar' | 'sin_datos';
+
 // Interfaz para detalle individual de venta
 interface SaleDetail {
   id: string;
@@ -143,6 +146,16 @@ interface SaleDetail {
   ejecutivo: string;
   cliente?: string;
   prospectoId?: string;
+  saleType?: SaleType;
+}
+
+interface SalesClassification {
+  ventaIA: number;
+  ventaAsistida: number;
+  noContar: number;
+  sinDatos: number;
+  totalContabilizable: number;
+  montoContabilizable: number;
 }
 
 interface CRMSalesData {
@@ -151,9 +164,10 @@ interface CRMSalesData {
   enProceso: CRMCategoryData;
   otros: CRMCategoryData;
   total: CRMCategoryData;
-  byCoordinacion: Record<string, { count: number; certificados: number; monto: number }>;
+  byCoordinacion: Record<string, { count: number; certificados: number; monto: number; ventaIA: number; ventaAsistida: number }>;
   byPeriod: { period: string; count: number; monto: number }[];
   allSalesDetails: SaleDetail[]; // Todos los detalles para el modal
+  classification?: SalesClassification;
 }
 
 // ============================================
@@ -2270,17 +2284,21 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   const totalCertificados = data.total?.certificados || 0;
   const totalMonto = data.total?.monto || 0;
   const totalClientes = data.total?.count || 0;
+  const cls = data.classification;
 
-  // Métricas calculadas
-  const ticketPromedio = totalCertificados > 0 ? totalMonto / totalCertificados : 0;
+  // Métricas contabilizables (excluyendo falsos positivos)
+  const contabilizables = cls?.totalContabilizable || totalCertificados;
+  const montoContabilizable = cls?.montoContabilizable || totalMonto;
+  const ticketPromedio = contabilizables > 0 ? montoContabilizable / contabilizables : 0;
 
-  // Ventas del mes actual y mes anterior (calculadas de allSalesDetails)
+  // Ventas del mes actual y mes anterior (solo contabilizables)
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const thisMonthSales = (data.allSalesDetails || []).filter(s => new Date(s.fecha) >= thisMonthStart);
-  const lastMonthSales = (data.allSalesDetails || []).filter(s => {
+  const contabilizableSales = (data.allSalesDetails || []).filter(s => s.saleType === 'venta_ia' || s.saleType === 'venta_asistida');
+  const thisMonthSales = contabilizableSales.filter(s => new Date(s.fecha) >= thisMonthStart);
+  const lastMonthSales = contabilizableSales.filter(s => {
     const d = new Date(s.fecha);
     return d >= lastMonthStart && d < thisMonthStart;
   });
@@ -2293,13 +2311,13 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   // Cards principales: métricas de negocio relevantes
   const cards = [
     {
-      label: 'Certificados',
-      mainValue: totalCertificados,
-      mainUnit: 'vendidos',
-      subLabel: 'Monto total',
-      subValue: formatMoney(totalMonto),
-      extraLabel: 'Clientes',
-      extraValue: `${totalClientes}`,
+      label: 'Ventas Contabilizables',
+      mainValue: contabilizables,
+      mainUnit: 'certificados',
+      subLabel: 'Monto contabilizable',
+      subValue: formatMoney(montoContabilizable),
+      extraLabel: 'Clasificación',
+      extraValue: cls ? `IA: ${cls.ventaIA} · Asistida: ${cls.ventaAsistida}` : '-',
       icon: <Award className="w-5 h-5" />,
       gradient: 'from-purple-500 to-indigo-600',
       bgGradient: 'from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-800/20',
@@ -2311,10 +2329,8 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
       mainUnit: '',
       subLabel: 'Por certificado',
       subValue: `${totalClientes} clientes`,
-      extraLabel: 'Rango',
-      extraValue: totalCertificados > 0
-        ? `${formatMoney(Math.min(...(data.allSalesDetails || []).filter(s => s.monto > 0).map(s => s.monto)))} - ${formatMoney(Math.max(...(data.allSalesDetails || []).map(s => s.monto)))}`
-        : '-',
+      extraLabel: 'Falsos positivos',
+      extraValue: cls ? `${cls.noContar + cls.sinDatos} descartados de ${totalCertificados}` : '-',
       icon: <TrendingUp className="w-5 h-5" />,
       gradient: 'from-emerald-500 to-teal-600',
       bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-800/20',
@@ -2323,7 +2339,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     {
       label: 'Este Mes',
       mainValue: thisMonthCount,
-      mainUnit: 'certificados',
+      mainUnit: 'contabilizables',
       subLabel: 'Monto',
       subValue: formatMoney(thisMonthMonto),
       extraLabel: 'vs mes anterior',
@@ -2357,20 +2373,25 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     monto: m.monto / 1000
   }));
 
-  // Datos por coordinación
+  // Datos por coordinación con desglose IA / Asistida
   const coordData = Object.entries(data.byCoordinacion || {})
     .map(([coord, d]) => ({
       name: coord,
       certificados: d.certificados,
+      ventaIA: d.ventaIA || 0,
+      ventaAsistida: d.ventaAsistida || 0,
       monto: d.monto
     }))
     .sort((a, b) => b.certificados - a.certificados)
-    .slice(0, 6);
+    .slice(0, 8);
 
-  // Obtener ventas filtradas por coordinación para el modal
+  // Obtener ventas filtradas por coordinación para el modal (solo contabilizables)
   const filteredSales = useMemo(() => {
     if (!selectedCoord || !data.allSalesDetails) return [];
-    return data.allSalesDetails.filter(sale => sale.coordinacion === selectedCoord);
+    return data.allSalesDetails.filter(sale =>
+      sale.coordinacion === selectedCoord &&
+      (sale.saleType === 'venta_ia' || sale.saleType === 'venta_asistida')
+    );
   }, [selectedCoord, data.allSalesDetails]);
 
   // Formatear fecha para mostrar
@@ -2454,6 +2475,9 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                         <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
                           Status
                         </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Tipo
+                        </th>
                         <th className="text-right py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50 rounded-tr-lg">
                           Monto
                         </th>
@@ -2518,6 +2542,19 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                                 : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
                             }`}>
                               {sale.statusCRM.replace(' PQNC', '')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              sale.saleType === 'venta_ia'
+                                ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
+                                : sale.saleType === 'venta_asistida'
+                                ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400'
+                                : sale.saleType === 'no_contar'
+                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                            }`}>
+                              {sale.saleType === 'venta_ia' ? 'IA' : sale.saleType === 'venta_asistida' ? 'Asistida' : sale.saleType === 'no_contar' ? 'No contar' : 'Sin datos'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -2621,7 +2658,51 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
           ))}
         </div>
 
-        {/* Vista compacta: sin barra de resumen redundante (ya está en las cards) */}
+        {/* Vista compacta: gráfica de ventas por coordinación */}
+        {!isExpandedView && coordData.length > 0 && (
+          <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3">
+            <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-emerald-500" />
+              Ventas por Coordinación
+            </h4>
+            <div className="space-y-1.5">
+              {coordData.map(coord => {
+                const maxVal = Math.max(...coordData.map(c => c.certificados), 1);
+                const pctTotal = (coord.certificados / maxVal) * 100;
+                const pctIA = coord.certificados > 0 ? (coord.ventaIA / coord.certificados) * pctTotal : 0;
+                const pctAsistida = coord.certificados > 0 ? (coord.ventaAsistida / coord.certificados) * pctTotal : 0;
+                return (
+                  <button
+                    key={coord.name}
+                    onClick={() => { setSelectedCoord(coord.name); setIsDetailModalOpen(true); }}
+                    className="w-full flex items-center gap-2 group hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg px-1.5 py-1 transition-colors"
+                  >
+                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400 w-20 text-left truncate">{coord.name}</span>
+                    <div className="flex-1 h-4 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
+                      {coord.ventaIA > 0 && (
+                        <div className="h-full bg-violet-500 transition-all" style={{ width: `${pctIA}%` }} />
+                      )}
+                      {coord.ventaAsistida > 0 && (
+                        <div className="h-full bg-cyan-500 transition-all" style={{ width: `${pctAsistida}%` }} />
+                      )}
+                    </div>
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 w-6 text-right">{coord.certificados}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-sm bg-violet-500" />
+                <span className="text-[10px] text-gray-500">IA</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500" />
+                <span className="text-[10px] text-gray-500">Asistida</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Vista expandida: más gráficas */}
         {isExpandedView && (
@@ -2675,49 +2756,79 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
               )}
             </div>
 
-            {/* Distribución por coordinación - CLICKEABLE */}
+            {/* Distribución por coordinación - Barras agrupadas IA / Asistida */}
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
-              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+              <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
                 <Users className="w-4 h-4 text-emerald-500" />
-                Por Coordinación
+                Ventas por Coordinación
                 <span className="text-xs text-gray-400 font-normal ml-2">(clic para ver detalle)</span>
               </h4>
+              {/* Leyenda */}
+              <div className="flex items-center gap-4 mb-3">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-sm bg-violet-500" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Venta IA</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded-sm bg-cyan-500" />
+                  <span className="text-xs text-gray-500 dark:text-gray-400">Asistida</span>
+                </div>
+              </div>
               {coordData.length > 0 ? (
-                <ResponsiveContainer width="100%" height={200} minHeight={200}>
-                  <BarChart data={coordData} layout="vertical">
+                <ResponsiveContainer width="100%" height={Math.max(200, coordData.length * 40)} minHeight={200}>
+                  <BarChart
+                    data={coordData}
+                    layout="vertical"
+                    barGap={2}
+                    barSize={12}
+                  >
                     <XAxis type="number" tick={{ fontSize: 10, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
+                    <YAxis
+                      type="category"
+                      dataKey="name"
                       tick={{ fontSize: 10, fill: '#9CA3AF' }}
                       axisLine={false}
                       tickLine={false}
-                      width={80}
+                      width={90}
                     />
-                    <Tooltip 
-                      formatter={(value: number) => [value, 'Certificados']}
-                      cursor={{ fill: 'rgba(16, 185, 129, 0.15)' }}
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        value,
+                        name === 'ventaIA' ? 'Venta IA' : 'Asistida'
+                      ]}
+                      cursor={{ fill: 'rgba(139, 92, 246, 0.08)' }}
                     />
-                    <Bar 
-                      dataKey="certificados" 
+                    <Bar
+                      dataKey="ventaIA"
+                      name="ventaIA"
+                      fill="#8B5CF6"
                       radius={[0, 4, 4, 0]}
-                      animationDuration={2000}
+                      animationDuration={1500}
                       style={{ cursor: 'pointer' }}
-                      onClick={(barData: any) => {
-                        if (barData && barData.name) {
-                          setSelectedCoord(barData.name);
+                      onClick={(_data: Record<string, unknown>, index: number) => {
+                        const coord = coordData[index];
+                        if (coord) {
+                          setSelectedCoord(coord.name);
                           setIsDetailModalOpen(true);
                         }
                       }}
-                    >
-                      {coordData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill="#10B981"
-                          style={{ cursor: 'pointer' }}
-                        />
-                      ))}
-                    </Bar>
+                    />
+                    <Bar
+                      dataKey="ventaAsistida"
+                      name="ventaAsistida"
+                      fill="#06B6D4"
+                      radius={[0, 4, 4, 0]}
+                      animationDuration={1500}
+                      animationBegin={300}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(_data: Record<string, unknown>, index: number) => {
+                        const coord = coordData[index];
+                        if (coord) {
+                          setSelectedCoord(coord.name);
+                          setIsDetailModalOpen(true);
+                        }
+                      }}
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -2729,22 +2840,26 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
 
             {/* Resumen total expandido */}
             <div className="col-span-2 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl p-5 text-white">
-              <div className="grid grid-cols-4 gap-6">
+              <div className="grid grid-cols-5 gap-4">
                 <div className="text-center">
-                  <p className="text-3xl font-bold">{totalCertificados}</p>
-                  <p className="text-purple-200 text-sm">Certificados Vendidos</p>
+                  <p className="text-3xl font-bold">{contabilizables}</p>
+                  <p className="text-purple-200 text-sm">Contabilizables</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold">{formatMoney(totalMonto)}</p>
+                  <p className="text-3xl font-bold text-violet-200">{cls?.ventaIA || 0}</p>
+                  <p className="text-purple-200 text-sm">Ventas IA</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-cyan-200">{cls?.ventaAsistida || 0}</p>
+                  <p className="text-purple-200 text-sm">Asistidas</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-3xl font-bold">{formatMoney(montoContabilizable)}</p>
                   <p className="text-purple-200 text-sm">Monto Total</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold">{totalClientes}</p>
-                  <p className="text-purple-200 text-sm">Clientes Únicos</p>
-                </div>
-                <div className="text-center">
                   <p className="text-3xl font-bold">
-                    {totalCertificados > 0 ? formatMoney(totalMonto / totalCertificados) : '$0'}
+                    {contabilizables > 0 ? formatMoney(montoContabilizable / contabilizables) : '$0'}
                   </p>
                   <p className="text-purple-200 text-sm">Ticket Promedio</p>
                 </div>
@@ -3697,7 +3812,7 @@ const DashboardModule: React.FC = () => {
       let inactivosPQNC = createEmptyCategory();
       let enProceso = createEmptyCategory();
       let otros = createEmptyCategory();
-      const byCoordinacion: Record<string, { count: number; certificados: number; monto: number }> = {};
+      const byCoordinacion: Record<string, { count: number; certificados: number; monto: number; ventaIA: number; ventaAsistida: number }> = {};
       const periodData: Record<string, { count: number; monto: number }> = {};
       const allSalesDetails: SaleDetail[] = [];
       
@@ -3746,9 +3861,50 @@ const DashboardModule: React.FC = () => {
         }
       };
 
+      // Normalizar nombre de coordinación
+      const normalizeCoordinacion = (coord: string): string => {
+        if (coord === 'COB ACA') return 'COB Acapulco';
+        return coord;
+      };
+
+      // Obtener clasificación de ventas por conversación
+      const prospectoIds = (crmRecords || [])
+        .map(r => r.prospecto_id)
+        .filter((id): id is string => !!id);
+
+      let convStatsMap: Record<string, { first_sender_role: string; ai_count: number; vendedor_count: number; prospecto_count: number; plantilla_count: number; coordinacion_nombre: string | null }> = {};
+      const coordFallbackMap: Record<string, string> = {};
+
+      if (prospectoIds.length > 0) {
+        const { data: convStats } = await analysisSupabase
+          .rpc('get_sales_conversation_stats', { p_prospecto_ids: prospectoIds });
+
+        if (convStats) {
+          (convStats as { prospecto_id: string; first_sender_role: string; ai_count: number; vendedor_count: number; prospecto_count: number; plantilla_count: number; coordinacion_nombre: string | null }[]).forEach(stat => {
+            convStatsMap[stat.prospecto_id] = stat;
+            if (stat.coordinacion_nombre) {
+              coordFallbackMap[stat.prospecto_id] = stat.coordinacion_nombre;
+            }
+          });
+        }
+      }
+
+      // Función para clasificar tipo de venta
+      const classifySale = (prospectoId?: string): SaleType => {
+        if (!prospectoId) return 'sin_datos';
+        const stats = convStatsMap[prospectoId];
+        if (!stats) return 'sin_datos';
+
+        if (stats.first_sender_role === 'Prospecto' && stats.ai_count >= 3) return 'venta_ia';
+        if (stats.first_sender_role === 'Prospecto' && stats.ai_count >= 1) return 'venta_asistida';
+        if (stats.plantilla_count > 0 && stats.prospecto_count > 0 && stats.vendedor_count > 0) return 'venta_asistida';
+        if (stats.plantilla_count > 0 && (stats.prospecto_count === 0 || stats.vendedor_count === 0) && stats.ai_count === 0) return 'no_contar';
+        return 'venta_asistida';
+      };
+
       (crmRecords || []).forEach(record => {
         // Parsear transactions - estructura: [{ paquetes_vacacionales: [...], reservaciones: [...], total_paquetes, total_reservaciones }]
-        let transactions: any[] = [];
+        let transactions: { paquetes_vacacionales?: { FechaCreacion?: string; MontoTotal?: string | number; NumeroPaquete?: string }[]; reservaciones?: unknown[] }[] = [];
         try {
           if (typeof record.transactions === 'string') {
             const parsed = JSON.parse(record.transactions);
@@ -3771,16 +3927,19 @@ const DashboardModule: React.FC = () => {
         let totalReservaciones = 0;
         const paquetesDetalle: { numero: string; monto: number; fecha: string; coordinacion: string }[] = [];
 
-        transactions.forEach((tx: any) => {
+        // Clasificación de venta para este prospecto
+        const saleType = classifySale(record.prospecto_id || undefined);
+
+        transactions.forEach((tx) => {
           // Contar paquetes vacacionales - solo desde 27 nov 2025
           const paquetes = tx?.paquetes_vacacionales || [];
           if (Array.isArray(paquetes)) {
-            paquetes.forEach((paq: any) => {
+            paquetes.forEach((paq) => {
               const fechaCreacion = paq?.FechaCreacion || '';
               // Filtrar: solo paquetes creados desde 27 nov 2025
               if (fechaCreacion && new Date(fechaCreacion) >= new Date(CRM_START_DATE)) {
-                const monto = parseFloat(paq?.MontoTotal || 0);
-                const coordName = record.coordinacion || 'Venta Asistida por IA';
+                const monto = parseFloat(String(paq?.MontoTotal || 0));
+                const coordName = normalizeCoordinacion(record.coordinacion || coordFallbackMap[record.prospecto_id] || 'Sin coordinación');
                 totalCertificados++;
                 totalMonto += monto;
                 paquetesDetalle.push({
@@ -3799,12 +3958,13 @@ const DashboardModule: React.FC = () => {
                   statusCRM: record.status_crm || 'N/A',
                   ejecutivo: record.propietario || 'Sin asignar',
                   cliente: record.nombre || undefined,
-                  prospectoId: record.prospecto_id || undefined
+                  prospectoId: record.prospecto_id || undefined,
+                  saleType
                 });
               }
             });
           }
-          
+
           // Contar reservaciones
           const reservas = tx?.reservaciones || [];
           if (Array.isArray(reservas)) {
@@ -3815,65 +3975,75 @@ const DashboardModule: React.FC = () => {
         // Skip si no hay certificados vendidos
         if (totalCertificados === 0) return;
 
-        // Datos para acumular
-        const dataToAdd = {
-          count: 1,
-          certificados: totalCertificados,
-          monto: totalMonto,
-          reservaciones: totalReservaciones,
-          paquetes: paquetesDetalle
-        };
+        // Solo acumular en totales/gráficas si es venta contabilizable
+        const esContabilizable = saleType === 'venta_ia' || saleType === 'venta_asistida';
 
-        // Clasificar por status_crm
-        const statusCrm = (record.status_crm || '').toLowerCase().trim();
-        
-        if (statusCrm.includes('activo') && statusCrm.includes('pqnc')) {
-          activosPQNC.count += dataToAdd.count;
-          activosPQNC.certificados += dataToAdd.certificados;
-          activosPQNC.monto += dataToAdd.monto;
-          activosPQNC.reservaciones += dataToAdd.reservaciones;
-          activosPQNC.paquetes.push(...dataToAdd.paquetes);
-        } else if (statusCrm.includes('inactivo') && statusCrm.includes('pqnc')) {
-          inactivosPQNC.count += dataToAdd.count;
-          inactivosPQNC.certificados += dataToAdd.certificados;
-          inactivosPQNC.monto += dataToAdd.monto;
-          inactivosPQNC.reservaciones += dataToAdd.reservaciones;
-          inactivosPQNC.paquetes.push(...dataToAdd.paquetes);
-        } else if (statusCrm.includes('proceso') || statusCrm.includes('en proceso')) {
-          enProceso.count += dataToAdd.count;
-          enProceso.certificados += dataToAdd.certificados;
-          enProceso.monto += dataToAdd.monto;
-          enProceso.reservaciones += dataToAdd.reservaciones;
-          enProceso.paquetes.push(...dataToAdd.paquetes);
-        } else {
-          otros.count += dataToAdd.count;
-          otros.certificados += dataToAdd.certificados;
-          otros.monto += dataToAdd.monto;
-          otros.reservaciones += dataToAdd.reservaciones;
-          otros.paquetes.push(...dataToAdd.paquetes);
-        }
+        if (esContabilizable) {
+          // Datos para acumular
+          const dataToAdd = {
+            count: 1,
+            certificados: totalCertificados,
+            monto: totalMonto,
+            reservaciones: totalReservaciones,
+            paquetes: paquetesDetalle
+          };
 
-        // Agrupar por coordinación
-        const coord = record.coordinacion || 'Venta Asistida por IA';
-        if (!byCoordinacion[coord]) {
-          byCoordinacion[coord] = { count: 0, certificados: 0, monto: 0 };
-        }
-        byCoordinacion[coord].count++;
-        byCoordinacion[coord].certificados += totalCertificados;
-        byCoordinacion[coord].monto += totalMonto;
+          // Clasificar por status_crm
+          const statusCrm = (record.status_crm || '').toLowerCase().trim();
 
-        // Agrupar por periodo dinámico (usando fecha del paquete)
-        paquetesDetalle.forEach(paq => {
-          if (paq.fecha) {
-            const date = new Date(paq.fecha);
-            const periodKey = getPeriodKey(date);
-            if (!periodData[periodKey]) {
-              periodData[periodKey] = { count: 0, monto: 0 };
-            }
-            periodData[periodKey].count++;
-            periodData[periodKey].monto += paq.monto;
+          if (statusCrm.includes('activo') && statusCrm.includes('pqnc')) {
+            activosPQNC.count += dataToAdd.count;
+            activosPQNC.certificados += dataToAdd.certificados;
+            activosPQNC.monto += dataToAdd.monto;
+            activosPQNC.reservaciones += dataToAdd.reservaciones;
+            activosPQNC.paquetes.push(...dataToAdd.paquetes);
+          } else if (statusCrm.includes('inactivo') && statusCrm.includes('pqnc')) {
+            inactivosPQNC.count += dataToAdd.count;
+            inactivosPQNC.certificados += dataToAdd.certificados;
+            inactivosPQNC.monto += dataToAdd.monto;
+            inactivosPQNC.reservaciones += dataToAdd.reservaciones;
+            inactivosPQNC.paquetes.push(...dataToAdd.paquetes);
+          } else if (statusCrm.includes('proceso') || statusCrm.includes('en proceso')) {
+            enProceso.count += dataToAdd.count;
+            enProceso.certificados += dataToAdd.certificados;
+            enProceso.monto += dataToAdd.monto;
+            enProceso.reservaciones += dataToAdd.reservaciones;
+            enProceso.paquetes.push(...dataToAdd.paquetes);
+          } else {
+            otros.count += dataToAdd.count;
+            otros.certificados += dataToAdd.certificados;
+            otros.monto += dataToAdd.monto;
+            otros.reservaciones += dataToAdd.reservaciones;
+            otros.paquetes.push(...dataToAdd.paquetes);
           }
-        });
+
+          // Agrupar por coordinación (normalizado) - solo contabilizables
+          const coord = normalizeCoordinacion(record.coordinacion || coordFallbackMap[record.prospecto_id] || 'Sin coordinación');
+          if (!byCoordinacion[coord]) {
+            byCoordinacion[coord] = { count: 0, certificados: 0, monto: 0, ventaIA: 0, ventaAsistida: 0 };
+          }
+          byCoordinacion[coord].count++;
+          byCoordinacion[coord].certificados += totalCertificados;
+          byCoordinacion[coord].monto += totalMonto;
+          if (saleType === 'venta_ia') {
+            byCoordinacion[coord].ventaIA += totalCertificados;
+          } else {
+            byCoordinacion[coord].ventaAsistida += totalCertificados;
+          }
+
+          // Agrupar por periodo dinámico - solo contabilizables
+          paquetesDetalle.forEach(paq => {
+            if (paq.fecha) {
+              const date = new Date(paq.fecha);
+              const periodKey = getPeriodKey(date);
+              if (!periodData[periodKey]) {
+                periodData[periodKey] = { count: 0, monto: 0 };
+              }
+              periodData[periodKey].count++;
+              periodData[periodKey].monto += paq.monto;
+            }
+          });
+        }
       });
 
       // Convertir periodData a array ordenado
@@ -3883,6 +4053,13 @@ const DashboardModule: React.FC = () => {
         count: periodData[key].count,
         monto: periodData[key].monto
       }));
+
+      // Calcular clasificación de ventas
+      const ventaIA = allSalesDetails.filter(s => s.saleType === 'venta_ia').length;
+      const ventaAsistida = allSalesDetails.filter(s => s.saleType === 'venta_asistida').length;
+      const noContar = allSalesDetails.filter(s => s.saleType === 'no_contar').length;
+      const sinDatos = allSalesDetails.filter(s => s.saleType === 'sin_datos').length;
+      const contabilizables = allSalesDetails.filter(s => s.saleType === 'venta_ia' || s.saleType === 'venta_asistida');
 
       setCrmSalesData({
         activosPQNC,
@@ -3898,7 +4075,15 @@ const DashboardModule: React.FC = () => {
         },
         byCoordinacion,
         byPeriod,
-        allSalesDetails: allSalesDetails.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+        allSalesDetails: allSalesDetails.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
+        classification: {
+          ventaIA,
+          ventaAsistida,
+          noContar,
+          sinDatos,
+          totalContabilizable: contabilizables.length,
+          montoContabilizable: contabilizables.reduce((sum, s) => sum + s.monto, 0)
+        }
       });
     } catch (error) {
       console.error('Error loading CRM data:', error);

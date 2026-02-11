@@ -104,6 +104,7 @@ import { whatsappLabelsService, type ConversationLabel } from '../../services/wh
 import { optimizedConversationsService, USE_OPTIMIZED_VIEW } from '../../services/optimizedConversationsService';
 import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../utils/prospectRestrictions';
 import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
+import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -2162,7 +2163,7 @@ const LiveChatCanvas: React.FC = () => {
             sender_type: newMessage.rol === 'Prospecto' ? 'customer' : newMessage.rol === 'AI' ? 'bot' : 'agent',
             sender_name: newMessage.rol || 'Desconocido',
             id_sender: newMessage.id_sender || undefined,
-            sender_user_name: undefined,
+            sender_user_name: newMessage.id_sender ? agentNamesById[newMessage.id_sender] : undefined,
             content: newMessage.mensaje,
             is_read: newMessage.leido ?? false,
             created_at: newMessage.fecha_hora,
@@ -8618,9 +8619,9 @@ const LiveChatCanvas: React.FC = () => {
                                         {/* Globo de texto */}
                                         <div className="relative px-3 py-2 shadow-sm backdrop-blur-sm bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md">
                                           <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                                            {message.content.replace(/\\n/g, '\n')}
+                                            {renderWhatsAppFormattedText(message.content.replace(/\\n/g, '\n'))}
                                           </div>
-                                          
+
                                           {/* Timestamp */}
                                           <div className="text-[10px] mt-1 text-white/70 text-right">
                                             {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -8628,7 +8629,7 @@ const LiveChatCanvas: React.FC = () => {
                                         </div>
                                       </div>
                                     )}
-                                    
+
                                     {/* Otros adjuntos no-imagen (si existen) */}
                                     {hasNonImageAdjuntos && (
                                       <MultimediaMessage 
@@ -8700,7 +8701,7 @@ const LiveChatCanvas: React.FC = () => {
                                     }`}>
                                       {message.content && (
                                         <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                                          {message.content.replace(/\\n/g, '\n')}
+                                          {renderWhatsAppFormattedText(message.content.replace(/\\n/g, '\n'))}
                                         </div>
                                       )}
 
@@ -8776,21 +8777,15 @@ const LiveChatCanvas: React.FC = () => {
                               ) : (
                                 <span className="text-xs font-semibold text-white">
                                   {(() => {
+                                    // Prioridad 1: nombre del sender ya resuelto en el mensaje
                                     if (message.sender_user_name) {
                                       return getInitials(message.sender_user_name);
                                     }
-                                    const conversationId = selectedConversation?.id || '';
-                                    const prospectId = selectedConversation?.prospecto_id || '';
-                                    const agentName = agentNamesById[conversationId] 
-                                      || agentNamesById[prospectId]
-                                      || selectedConversation?.metadata?.ejecutivo_nombre
-                                      || user?.full_name;
-                                    if (agentName) {
-                                      return getInitials(agentName);
+                                    // Prioridad 2: buscar por id_sender real del mensaje (quien envió)
+                                    if (message.id_sender && agentNamesById[message.id_sender]) {
+                                      return getInitials(agentNamesById[message.id_sender]);
                                     }
-                                    if (conversationId && !agentNamesById[conversationId] && !agentNamesById[prospectId]) {
-                                      getAssignedAgentName(conversationId).catch(() => {});
-                                    }
+                                    // Prioridad 3: fallback genérico
                                     return 'A';
                                   })()}
                                 </span>

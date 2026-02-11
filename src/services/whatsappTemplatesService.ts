@@ -1910,32 +1910,19 @@ class WhatsAppTemplatesService {
 
   /**
    * Obtener tasas de respuesta por plantilla
-   * Calcula el porcentaje de respuestas y un star rating (1-5)
-   * Solo incluye plantillas con al menos 5 envíos (muestra significativa)
+   * Usa RPC server-side para agregar datos directamente en BD
+   * (evita traer 4000+ filas individuales, retorna ~20 filas agregadas)
    */
   async getTemplateResponseRates(): Promise<Map<string, TemplateResponseRate>> {
     try {
       const { data, error } = await analysisSupabase
-        .from('whatsapp_template_sends')
-        .select('template_id, replied')
-        .eq('status', 'SENT');
+        .rpc('get_template_response_rates');
 
       if (error) throw error;
 
-      // Agrupar por template_id
-      const grouped = new Map<string, { sent: number; replied: number }>();
-      for (const send of data || []) {
-        const current = grouped.get(send.template_id) || { sent: 0, replied: 0 };
-        current.sent++;
-        if (send.replied) current.replied++;
-        grouped.set(send.template_id, current);
-      }
-
-      // Calcular rates y star ratings (mínimo 5 envíos)
       const rates = new Map<string, TemplateResponseRate>();
-      for (const [templateId, stats] of grouped) {
-        if (stats.sent < 5) continue;
-        const replyRate = (stats.replied / stats.sent) * 100;
+      for (const row of (data || []) as { template_id: string; total_sent: number; total_replied: number; reply_rate: string }[]) {
+        const replyRate = parseFloat(row.reply_rate) || 0;
         let starRating = 0;
         if (replyRate >= 20) starRating = 5;
         else if (replyRate >= 15) starRating = 4;
@@ -1943,9 +1930,9 @@ class WhatsAppTemplatesService {
         else if (replyRate >= 5) starRating = 2;
         else if (replyRate > 0) starRating = 1;
 
-        rates.set(templateId, {
-          totalSent: stats.sent,
-          totalReplied: stats.replied,
+        rates.set(row.template_id, {
+          totalSent: Number(row.total_sent),
+          totalReplied: Number(row.total_replied),
           replyRate: Math.round(replyRate * 10) / 10,
           starRating,
         });

@@ -90,7 +90,7 @@ function MainApp() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
   
   // Permisos efectivos (rol base + grupos asignados)
-  const { isAdmin } = useEffectivePermissions();
+  const { isAdmin, isMarketing } = useEffectivePermissions();
   
   // Hook para detectar inactividad y hacer logout automático después de 2 horas
   useInactivityTimeout();
@@ -513,7 +513,7 @@ function MainApp() {
 
       case 'campaigns':
         return (
-          isAdmin ? (
+          (isAdmin || isMarketing) ? (
             <CampaignsDashboardTabs />
           ) : (
             <div className="min-h-screen flex items-center justify-center">

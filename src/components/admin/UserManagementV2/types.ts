@@ -57,7 +57,8 @@ export type RoleName =
   | 'evaluator'
   | 'developer'
   | 'direccion'
-  | 'productor';
+  | 'productor'
+  | 'marketing';
 
 export interface Role {
   id: string;
@@ -263,6 +264,15 @@ export const ROLE_HIERARCHY: Role[] = [
     description: 'Producción de contenido',
     level: 3,
     icon: 'Video',
+    color: 'from-pink-500 to-rose-600'
+  },
+  {
+    id: 'marketing',
+    name: 'marketing',
+    display_name: 'Marketing',
+    description: 'Marketing y campañas',
+    level: 4,
+    icon: 'Megaphone',
     color: 'from-pink-500 to-rose-600'
   }
 ];

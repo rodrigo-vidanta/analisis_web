@@ -76,14 +76,15 @@ export type PermissionAction =
   | 'import'         // Importar
   | 'duplicate';     // Duplicar
 
-export type RoleBase = 
+export type RoleBase =
   | 'admin'
   | 'administrador_operativo'
   | 'coordinador'
   | 'ejecutivo'
   | 'evaluador'
   | 'developer'
-  | 'direccion';
+  | 'direccion'
+  | 'marketing';
 
 export interface ModuleAction {
   id: PermissionAction;
@@ -953,6 +954,70 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
         name: 'Descargar docs',
         description: 'Descargar archivos de documentación',
         defaultRoles: ['admin', 'developer']
+      }
+    ]
+  },
+
+  // ========== CAMPAÑAS ==========
+  {
+    id: 'campaigns',
+    name: 'Campañas',
+    description: 'Gestión de campañas de marketing y comunicación',
+    icon: 'Megaphone',
+    color: 'from-pink-500 to-rose-600',
+    actions: [
+      {
+        id: 'view',
+        name: 'Ver campañas',
+        description: 'Acceder al módulo de campañas',
+        defaultRoles: ['admin', 'marketing']
+      },
+      {
+        id: 'create',
+        name: 'Crear campaña',
+        description: 'Crear nuevas campañas',
+        defaultRoles: ['admin', 'marketing']
+      },
+      {
+        id: 'edit',
+        name: 'Editar campaña',
+        description: 'Modificar campañas existentes',
+        defaultRoles: ['admin', 'marketing']
+      },
+      {
+        id: 'delete',
+        name: 'Eliminar campaña',
+        description: 'Eliminar campañas',
+        defaultRoles: ['admin']
+      },
+      {
+        id: 'export',
+        name: 'Exportar datos',
+        description: 'Exportar datos de campañas',
+        defaultRoles: ['admin', 'marketing']
+      }
+    ]
+  },
+
+  // ========== CENTRO DE SOPORTE ==========
+  {
+    id: 'support',
+    name: 'Centro de Soporte',
+    description: 'Centro de soporte y atención',
+    icon: 'LifeBuoy',
+    color: 'from-teal-500 to-cyan-600',
+    actions: [
+      {
+        id: 'view',
+        name: 'Ver soporte',
+        description: 'Acceder al centro de soporte',
+        defaultRoles: ['admin', 'marketing']
+      },
+      {
+        id: 'create',
+        name: 'Crear ticket',
+        description: 'Crear tickets de soporte',
+        defaultRoles: ['admin', 'marketing']
       }
     ]
   },

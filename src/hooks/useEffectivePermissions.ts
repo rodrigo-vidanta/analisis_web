@@ -28,6 +28,7 @@ const ADMIN_GROUPS = ['system_admin', 'full_admin'];
 const ADMIN_OPERATIVO_GROUPS = ['system_admin_operativo'];
 const COORDINADOR_GROUPS = ['system_coordinador'];
 const SUPERVISOR_GROUPS = ['system_supervisor'];
+const MARKETING_GROUPS = ['marketing_copy'];
 
 interface EffectivePermissions {
   // Permisos efectivos (rol base + grupos)
@@ -38,7 +39,8 @@ interface EffectivePermissions {
   isEjecutivo: boolean;
   isEvaluador: boolean;
   isDeveloper: boolean;
-  
+  isMarketing: boolean;
+
   // Rol base del usuario (sin considerar grupos)
   baseRole: string | null;
   
@@ -161,7 +163,11 @@ export function useEffectivePermissions(): EffectivePermissions {
     const isEjecutivo = baseRole === 'ejecutivo' && !isAdmin && !isAdminOperativo && !isCoordinador && !isSupervisor;
     const isEvaluador = baseRole === 'evaluador' && !isAdmin && !isAdminOperativo;
     const isDeveloper = baseRole === 'developer';
-    
+
+    // Marketing: rol base O grupo marketing_copy
+    const hasMarketingGroup = hasAnyGroup(MARKETING_GROUPS);
+    const isMarketing = baseRole === 'marketing' || hasMarketingGroup;
+
     return {
       isAdmin,
       isAdminOperativo,
@@ -170,6 +176,7 @@ export function useEffectivePermissions(): EffectivePermissions {
       isEjecutivo,
       isEvaluador,
       isDeveloper,
+      isMarketing,
       baseRole
     };
   }, [user?.role_name, hasAnyGroup]);
