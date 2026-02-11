@@ -200,35 +200,21 @@ function getCurrentVersion(): string {
 // HANDOVER READING
 // ============================================
 
-function getLastDeployDate(): string {
-  // Fecha del ultimo commit de release
-  const result = execSafe('git log --all -100 --format="%aI %s"');
-  for (const line of result.split('\n')) {
-    if (/v\d+\.\d+\.\d+: B\d+\.\d+\.\d+N\d+\.\d+\.\d+/.test(line)) {
-      return line.split('T')[0]; // YYYY-MM-DD
-    }
-  }
-  // Fallback: 7 dias atras
-  const d = new Date();
-  d.setDate(d.getDate() - 7);
-  return d.toISOString().split('T')[0];
-}
-
 function getRecentHandovers(): HandoverInfo[] {
   const handoverDir = join(ROOT_DIR, '.cursor/handovers');
   if (!existsSync(handoverDir)) return [];
 
-  const lastDeployDate = getLastDeployDate();
+  const lastDeployHash = getLastDeployHash();
   const handovers: HandoverInfo[] = [];
 
   const files = readdirSync(handoverDir)
     .filter(f => f.endsWith('.md'))
     .filter(f => {
-      // Solo handovers mas nuevos que el ultimo deploy
-      // Formato: YYYY-MM-DD-descripcion.md
-      const dateMatch = f.match(/^(\d{4}-\d{2}-\d{2})/);
-      if (!dateMatch) return false;
-      return dateMatch[1] >= lastDeployDate;
+      // Verificar via git si el handover ya existia en el ultimo deploy
+      // Si existia, ya fue incluido → excluir
+      const relativePath = `.cursor/handovers/${f}`;
+      const existedInDeploy = execSafe(`git ls-tree ${lastDeployHash} -- ${relativePath}`);
+      return !existedInDeploy; // Solo incluir si NO existia en el ultimo deploy
     })
     // Excluir handovers de deploy anteriores
     .filter(f => !f.includes('-deploy-v'))
@@ -256,19 +242,68 @@ function parseHandover(filename: string, content: string): HandoverInfo | null {
   const dateMatch = filename.match(/^(\d{4}-\d{2}-\d{2})/);
   const date = dateMatch ? dateMatch[1] : '';
 
-  // Extraer Contexto (seccion ## Contexto)
+  // Extraer Contexto - soportar multiples formatos:
+  // 1. ## Contexto\n\nTexto
+  // 2. ## Contexto: Titulo inline
+  // 3. ## Resumen de Sesion\n\nTexto (fallback)
+  let context = '';
   const contextMatch = content.match(/## Contexto\n\n([^\n]+)/);
-  const context = contextMatch ? contextMatch[1].trim() : '';
+  if (contextMatch) {
+    context = contextMatch[1].trim();
+  } else {
+    const inlineContextMatch = content.match(/## Contexto:\s*(.+)/);
+    if (inlineContextMatch) {
+      context = inlineContextMatch[1].trim();
+    } else {
+      const resumenMatch = content.match(/## Resumen de Sesion\n\n([^\n]+)/);
+      if (resumenMatch) context = resumenMatch[1].trim();
+    }
+  }
 
   if (!context) return null; // Skip handovers sin contexto util
 
-  // Extraer Delta (filas de tabla | Bloque | Descripcion |)
+  // Extraer Delta - soportar multiples formatos
   const delta: string[] = [];
+
+  // Formato 1: Tabla Delta | N | Descripcion |
   const deltaSection = content.match(/## Delta\n\n[\s\S]*?\n((?:\|[^|]+\|[^|]+\|\n)+)/);
   if (deltaSection) {
     for (const line of deltaSection[1].split('\n')) {
       const rowMatch = line.match(/\|\s*\d+\s*\|\s*(.+?)\s*\|/);
       if (rowMatch) delta.push(rowMatch[1].trim());
+    }
+  }
+
+  // Formato 2: Sub-headers ### N. Titulo en secciones de problemas/cambios
+  if (delta.length === 0) {
+    const problemSections = content.match(/## (?:Problemas Diagnosticados|Problemas Encontrados)[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n---\n|$)/);
+    if (problemSections) {
+      const subHeaders = [...problemSections[1].matchAll(/^### \d+\.\s*(.+)/gm)];
+      for (const match of subHeaders) {
+        let item = match[1].trim().replace(/\s*\([^)]*\)$/, ''); // quitar parentesis finales
+        if (item.length > 0 && item.length <= 120) {
+          delta.push(`Fix: ${item}`);
+        }
+      }
+    }
+  }
+
+  // Formato 3: Sub-headers de cambios realizados
+  if (delta.length === 0) {
+    const changeSections = content.match(/## (?:Cambios Realizados|Cambios Principales|Changes)[^\n]*\n([\s\S]*?)(?=\n## [^#]|\n---\n|$)/);
+    if (changeSections) {
+      const subHeaders = [...changeSections[1].matchAll(/^### (.+)/gm)];
+      for (const match of subHeaders) {
+        const item = match[1].trim();
+        if (item.length > 0 && item.length <= 120 && !item.startsWith('Archivos')) {
+          delta.push(item);
+        }
+      }
+      // Tambien extraer #### headers de archivos modificados
+      const fileHeaders = [...changeSections[1].matchAll(/^#### `([^`]+)`[^\n]*/gm)];
+      if (fileHeaders.length > 0 && delta.length === 0) {
+        delta.push(`Cambios en ${fileHeaders.length} archivos`);
+      }
     }
   }
 
@@ -509,11 +544,82 @@ function generateReleaseNotes(commits: CommitInfo[], handovers: HandoverInfo[]):
     }
   }
 
+  // Fallback: Si no hay notas de commits ni handovers, generar desde archivos cambiados
+  const totalItems = Object.values(grouped).reduce((sum, items) => sum + items.length, 0);
+  if (totalItems === 0) {
+    // Priorizar cambios actuales (unstaged → staged → ultimo commit como fallback)
+    const changedFiles = execSafe('git diff --name-only') ||
+                         execSafe('git diff --name-only --cached') ||
+                         execSafe('git diff --name-only HEAD~1 2>/dev/null');
+    if (changedFiles) {
+      const files = changedFiles.split('\n').filter(f => f && !f.includes('CHANGELOG') && !f.includes('package.json') && !f.includes('appVersion'));
+      const notes = generateNotesFromFiles(files);
+      if (notes.length > 0) {
+        grouped['Mejoras'] = notes;
+      }
+    }
+  }
+
   // Orden de prioridad para mostrar
   const order = ['Features', 'Bug Fixes', 'Mejoras', 'Performance', 'Refactoring', 'Other'];
   return order
     .filter(type => grouped[type] && grouped[type].length > 0)
     .map(type => ({ type, items: grouped[type] }));
+}
+
+function generateNotesFromFiles(files: string[]): string[] {
+  const areas = new Map<string, Set<string>>();
+
+  for (const file of files) {
+    if (file.startsWith('src/services/')) {
+      const name = file.split('/').pop()?.replace(/\.tsx?$/, '') || '';
+      if (name) {
+        if (!areas.has('services')) areas.set('services', new Set());
+        areas.get('services')!.add(name);
+      }
+    } else if (file.startsWith('src/components/')) {
+      const parts = file.split('/');
+      const area = parts[2] || '';
+      if (area) {
+        if (!areas.has('components')) areas.set('components', new Set());
+        areas.get('components')!.add(area);
+      }
+    } else if (file.startsWith('supabase/functions/')) {
+      const fnName = file.split('/')[2] || '';
+      if (fnName) {
+        if (!areas.has('edge-functions')) areas.set('edge-functions', new Set());
+        areas.get('edge-functions')!.add(fnName);
+      }
+    } else if (file.startsWith('scripts/')) {
+      const scriptName = file.split('/').pop()?.replace(/\.[^.]+$/, '') || '';
+      if (scriptName) {
+        if (!areas.has('scripts')) areas.set('scripts', new Set());
+        areas.get('scripts')!.add(scriptName);
+      }
+    } else if (file.startsWith('src/hooks/')) {
+      const hookName = file.split('/').pop()?.replace(/\.tsx?$/, '') || '';
+      if (hookName) {
+        if (!areas.has('hooks')) areas.set('hooks', new Set());
+        areas.get('hooks')!.add(hookName);
+      }
+    } else if (file.startsWith('src/stores/')) {
+      const storeName = file.split('/').pop()?.replace(/\.tsx?$/, '') || '';
+      if (storeName) {
+        if (!areas.has('stores')) areas.set('stores', new Set());
+        areas.get('stores')!.add(storeName);
+      }
+    }
+  }
+
+  const notes: string[] = [];
+  if (areas.has('services')) notes.push(`Cambios en servicios: ${[...areas.get('services')!].join(', ')}`);
+  if (areas.has('components')) notes.push(`Cambios en componentes: ${[...areas.get('components')!].join(', ')}`);
+  if (areas.has('edge-functions')) notes.push(`Cambios en Edge Functions: ${[...areas.get('edge-functions')!].join(', ')}`);
+  if (areas.has('hooks')) notes.push(`Cambios en hooks: ${[...areas.get('hooks')!].join(', ')}`);
+  if (areas.has('stores')) notes.push(`Cambios en stores: ${[...areas.get('stores')!].join(', ')}`);
+  if (areas.has('scripts')) notes.push(`Cambios en scripts: ${[...areas.get('scripts')!].join(', ')}`);
+
+  return notes;
 }
 
 function updateChangelog(version: string, commits: CommitInfo[], message: string, handovers: HandoverInfo[]): void {

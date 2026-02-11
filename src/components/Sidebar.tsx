@@ -5,8 +5,6 @@ import { useAppStore } from '../stores/appStore';
 import { useUserProfile } from '../hooks/useUserProfile';
 import useAnalysisPermissions from '../hooks/useAnalysisPermissions';
 import { useSystemConfig } from '../hooks/useSystemConfig';
-import { useNotificationStore } from '../stores/notificationStore';
-import { useLiveActivityStore } from '../stores/liveActivityStore';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
 import { useNinjaAwarePermissions } from '../hooks/useNinjaAwarePermissions';
 import { permissionsService } from '../services/permissionsService';
@@ -455,69 +453,6 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, active, onClick, subme
   );
 };
 
-// Función para reproducir sonido de checkpoint completado (misma que LiveMonitor)
-const playCheckpointCompleteSound = () => {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    
-    // Asegurar que el contexto esté en estado "running"
-    // Si está suspendido, intentar reanudarlo
-    if (audioContext.state === 'suspended') {
-      audioContext.resume().catch(() => {
-        // Si falla, el sonido no se reproducirá pero no romperá la app
-        return;
-      });
-    }
-    
-    const playTone = (frequency: number, duration: number, delay: number = 0) => {
-      setTimeout(() => {
-        // Verificar que el contexto siga activo
-        if (audioContext.state === 'closed') {
-          return;
-        }
-        
-        // Si está suspendido, intentar reanudarlo
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
-        }
-        
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        const compressor = audioContext.createDynamicsCompressor();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(compressor);
-        compressor.connect(audioContext.destination);
-        
-        compressor.threshold.setValueAtTime(-10, audioContext.currentTime);
-        compressor.knee.setValueAtTime(20, audioContext.currentTime);
-        compressor.ratio.setValueAtTime(8, audioContext.currentTime);
-        compressor.attack.setValueAtTime(0.01, audioContext.currentTime);
-        compressor.release.setValueAtTime(0.1, audioContext.currentTime);
-        
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.8, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration);
-      }, delay);
-    };
-    
-    for (let i = 0; i < 4; i++) {
-      const baseDelay = i * 800;
-      playTone(800, 0.5, baseDelay);
-      playTone(1000, 0.3, baseDelay + 100);  // Armónico
-      playTone(600, 0.4, baseDelay + 200);   // Tono grave
-    }
-  } catch (error) {
-    // Silenciar errores de audio
-  }
-};
-
 const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const { user } = useAuth();
   const { profile } = useUserProfile();
@@ -563,10 +498,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
     };
     checkCoordinadorCalidad();
   }, [user?.id, isCoordinador]);
-  const { activeCallNotification, clearCallNotification } = useNotificationStore();
-  const [isRinging, setIsRinging] = useState(false);
-  const processedCallsRef = useRef<Set<string>>(new Set());
-  
   const faviconUrl = config.app_branding?.favicon_url;
   
   // Estado para logo seleccionado - usar logo sugerido por defecto
@@ -592,75 +523,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
   const handleLogoClick = () => {
     setAppMode('operative-dashboard');
   };
-
-  // Verificar si el Live Activity Widget está activo
-  const isLiveActivityWidgetEnabled = useLiveActivityStore(state => state.isWidgetEnabled);
-  
-  // Escuchar notificaciones de llamadas y activar animación
-  useEffect(() => {
-    if (!activeCallNotification || activeCallNotification.checkpoint !== 'checkpoint #5') {
-      setIsRinging(false);
-      return;
-    }
-    
-    // Si el Live Activity Widget está activo, NO reproducir sonido aquí
-    // El widget se encarga de la notificación de audio
-    if (isLiveActivityWidgetEnabled) {
-      // Solo activar animación visual del logo, sin sonido
-      setIsRinging(true);
-      
-      // Auto-detener después de 5 segundos
-      const deactivateTimer = setTimeout(() => {
-        setIsRinging(false);
-        clearCallNotification();
-      }, 5000);
-      
-      return () => clearTimeout(deactivateTimer);
-    }
-    
-    // Evitar procesar la misma llamada múltiples veces (una vez por callId único)
-    if (processedCallsRef.current.has(activeCallNotification.callId)) {
-      // Ya se procesó esta llamada, ignorar completamente
-      return;
-    }
-    
-    // Marcar esta llamada como procesada (solo una vez por callId)
-    processedCallsRef.current.add(activeCallNotification.callId);
-    
-    // Limpiar callIds antiguos después de 5 minutos para evitar acumulación de memoria
-    setTimeout(() => {
-      processedCallsRef.current.delete(activeCallNotification.callId);
-    }, 300000); // 5 minutos
-    
-    // Capturar el timestamp actual para verificar después
-    const currentTimestamp = activeCallNotification.timestamp;
-    
-    // Resetear primero para permitir reactivación
-    setIsRinging(false);
-    
-    // Pequeño delay para asegurar que el estado se resetea antes de activar
-    const activateTimer = setTimeout(() => {
-      // Verificar que la notificación sigue siendo la misma antes de activar
-      if (activeCallNotification?.timestamp === currentTimestamp) {
-        setIsRinging(true);
-        playCheckpointCompleteSound();
-      }
-    }, 50);
-    
-    // Auto-detener después de 5 segundos
-    const deactivateTimer = setTimeout(() => {
-      // Solo desactivar si esta sigue siendo la notificación activa
-      if (activeCallNotification?.timestamp === currentTimestamp) {
-        setIsRinging(false);
-        clearCallNotification();
-      }
-    }, 5000);
-    
-    return () => {
-      clearTimeout(activateTimer);
-      clearTimeout(deactivateTimer);
-    };
-  }, [activeCallNotification?.timestamp, activeCallNotification?.checkpoint, activeCallNotification?.callId, clearCallNotification, isLiveActivityWidgetEnabled]);
 
   const handleAnalysisChange = (mode: 'natalia' | 'pqnc') => {
     setAnalysisMode(mode);
@@ -870,7 +732,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   <img 
                     src={faviconUrl} 
                     alt="Logo" 
-                    className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
+                    className={`w-full h-full object-contain sidebar-logo`}
                     onError={(e) => {
                       // 🔒 SEGURIDAD: Simplemente ocultar la imagen, el SVG de fallback se renderiza condicionalmente
                       const target = e.target as HTMLImageElement;
@@ -885,7 +747,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 ) : null}
                 {/* SVG Fallback - siempre presente pero oculto si hay favicon */}
                 <svg 
-                  className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} 
+                  className={`w-5 h-5 text-blue-500 sidebar-logo`} 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"
@@ -918,7 +780,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                   <img 
                     src={faviconUrl} 
                     alt="Logo" 
-                    className={`w-full h-full object-contain sidebar-logo ${isRinging ? 'ringing' : ''}`}
+                    className={`w-full h-full object-contain sidebar-logo`}
                     onError={(e) => {
                       // 🔒 SEGURIDAD: Simplemente ocultar la imagen
                       const target = e.target as HTMLImageElement;
@@ -932,7 +794,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed, onToggle }) => {
                 ) : null}
                 {/* SVG Fallback - siempre presente pero oculto si hay favicon */}
                 <svg 
-                  className={`w-5 h-5 ${isRinging ? 'text-green-500' : 'text-blue-500'} sidebar-logo ${isRinging ? 'ringing' : ''}`} 
+                  className={`w-5 h-5 text-blue-500 sidebar-logo`} 
                   fill="none" 
                   stroke="currentColor" 
                   viewBox="0 0 24 24"

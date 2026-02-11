@@ -34,7 +34,6 @@ import { ProspectAvatar } from './ProspectAvatar';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
 import { Avatar } from '../shared/Avatar';
 import { useNotifications } from '../../hooks/useNotifications';
-import { useNotificationStore } from '../../stores/notificationStore';
 import { useLiveActivityStore } from '../../stores/liveActivityStore';
 import { coordinacionService } from '../../services/coordinacionService';
 import { permissionsService } from '../../services/permissionsService';
@@ -223,8 +222,7 @@ const setStoredGain = (key: string, value: number): void => {
 
 const LiveMonitorKanban: React.FC = () => {
   const { user } = useAuth();
-  const { triggerCallNotification } = useNotificationStore();
-  
+
   // Live Activity Widget store
   const { isWidgetEnabled, toggleWidget } = useLiveActivityStore();
   
@@ -233,16 +231,14 @@ const LiveMonitorKanban: React.FC = () => {
   
 
   const [activeCalls, setActiveCalls] = useState<KanbanCall[]>([]);
-  const [selectedTab, setSelectedTab] = useState<'active' | 'all'>('active');
+  // DESHABILITADO: Tab 'active' eliminada - el side-widget reemplaza esta funcionalidad
+  const [selectedTab, setSelectedTab] = useState<'active' | 'all'>('all');
   const [allCalls, setAllCalls] = useState<KanbanCall[]>([]);
   const [allCallsWithAnalysis, setAllCallsWithAnalysis] = useState<any[]>([]); // Llamadas combinadas con análisis IA
   const [selectedCall, setSelectedCall] = useState<KanbanCall | null>(null);
   const [viewedCalls, setViewedCalls] = useState<Set<string>>(new Set()); // Track de llamadas vistas en modal
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
-  
-  // Ref para mantener checkpoints anteriores entre renders (para detectar cambios)
-  const previousCheckpointsRef = React.useRef<Map<string, string>>(new Map());
   
   // Estados para sorting
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
@@ -1086,10 +1082,7 @@ const LiveMonitorKanban: React.FC = () => {
           setAllCallsWithAnalysis([]);
           setAllCalls([]);
           setLoading(false);
-          // Si está en la pestaña de historial, cambiar a activas
-          if (selectedTab === 'all') {
-            setSelectedTab('active');
-          }
+          // Tab "Llamadas Activas" fue eliminada - admin operativo verá historial vacío
           return;
         }
         
@@ -2944,12 +2937,6 @@ const LiveMonitorKanban: React.FC = () => {
 
   // Cargar llamadas desde la VISTA OPTIMIZADA
   // Funciones helper para separar llamadas por checkpoint (para DataGrid)
-  const getStage5Calls = (calls: KanbanCall[]): KanbanCall[] => {
-    return calls.filter(call => 
-      call.checkpoint_venta_actual?.toLowerCase().includes('checkpoint #5')
-    );
-  };
-
   const getStages1to4Calls = (calls: KanbanCall[]): KanbanCall[] => {
     const calls1to4 = calls.filter(call => {
       const checkpoint = call.checkpoint_venta_actual?.toLowerCase() || '';
@@ -2980,37 +2967,7 @@ const LiveMonitorKanban: React.FC = () => {
       // NUEVA IMPLEMENTACIÓN: Usar servicio optimizado con clasificación automática
       if (USE_OPTIMIZED_VIEW) {
         const classifiedCalls = await liveMonitorKanbanOptimized.getClassifiedCalls();
-        
-        // Detectar cambios de checkpoint antes de actualizar (solo en refresh)
-        if (isRefresh) {
-          const allCallsToCheck = [...classifiedCalls.active];
-          allCallsToCheck.forEach(call => {
-            if (call.checkpoint_venta_actual) {
-              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
-              const currentCheckpoint = call.checkpoint_venta_actual;
-              
-              // Detectar cambio a checkpoint #5
-              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
-                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
-                  triggerCallNotification(call.call_id, currentCheckpoint);
-                }
-              }
-              
-              // Actualizar referencia
-              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
-            }
-          });
-        } else {
-          // En carga inicial, solo inicializar checkpoints sin disparar sonido
-          const allCallsToCheck = [...classifiedCalls.active];
-          allCallsToCheck.forEach(call => {
-            if (call.checkpoint_venta_actual) {
-              previousCheckpointsRef.current.set(call.call_id, call.checkpoint_venta_actual);
-            }
-          });
-        }
-        
+
         // Actualizar estados directamente desde la clasificación automática
         setActiveCalls(classifiedCalls.active);
         
@@ -3200,29 +3157,9 @@ const LiveMonitorKanban: React.FC = () => {
         
         // Solo actualizar si hay cambios detectados
         if (hasChanges) {
-          // Detectar cambios de checkpoint antes de actualizar
-          const allCallsToCheck = [...active];
-          allCallsToCheck.forEach(call => {
-            if (call.checkpoint_venta_actual) {
-              const previousCheckpoint = previousCheckpointsRef.current.get(call.call_id);
-              const currentCheckpoint = call.checkpoint_venta_actual;
-              
-              // Detectar cambio a checkpoint #5
-              if (currentCheckpoint === 'checkpoint #5' || currentCheckpoint?.includes('checkpoint #5')) {
-                if (previousCheckpoint !== 'checkpoint #5' && !previousCheckpoint?.includes('checkpoint #5') && previousCheckpoint) {
-                  // Cambió a checkpoint #5 - solo notificación (el Sidebar reproducirá el sonido)
-                  triggerCallNotification(call.call_id, currentCheckpoint);
-                }
-              }
-              
-              // Actualizar referencia
-              previousCheckpointsRef.current.set(call.call_id, currentCheckpoint);
-            }
-          });
-          
           setActiveCalls(active);
         }
-        
+
         setActiveCalls(active);
       }
       
@@ -3243,6 +3180,13 @@ const LiveMonitorKanban: React.FC = () => {
     }
   };
 
+  // ============================================
+  // DESHABILITADO: Realtime + Polling para tab "Llamadas Activas"
+  // Razón: Tab eliminada - el side-widget (liveActivityStore) reemplaza esta funcionalidad
+  // Impacto CPU: Esto eliminaba ~34% del CPU de Supabase (2.9M queries a live_monitor_view)
+  // Para reactivar: descomentar este useEffect completo
+  // ============================================
+  /*
   useEffect(() => {
     const loadInitialData = async () => {
       try {
@@ -3250,12 +3194,12 @@ const LiveMonitorKanban: React.FC = () => {
           liveMonitorService.getActiveCalls(user?.id),
           liveMonitorService.getActiveAgents()
         ]);
-        
+
         setAgents(agentsData);
         if (agentsData.length > 0) {
           setNextAgent(agentsData[0]);
         }
-        
+
         await loadCalls();
       } catch (error) {
         setLoading(false);
@@ -3263,345 +3207,138 @@ const LiveMonitorKanban: React.FC = () => {
     };
 
     loadInitialData();
-    
-    // Realtime: Configuración diferente según si usamos vista optimizada o legacy
+
+    // Realtime + polling adaptativo — ver plan cryptic-beaming-pine.md
     let realtimeChannel: any = null;
-    
+    let lastRealtimeEventTime = 0;
+    let realtimeConnected = false;
+    const POLL_INTERVAL_REALTIME_OK = 30000;
+    const POLL_INTERVAL_REALTIME_FAIL = 10000;
+    const SKIP_POLL_IF_RECENT_MS = 10000;
+
     if (USE_OPTIMIZED_VIEW) {
-      // MODO OPTIMIZADO: Intentar suscripción Realtime, pero no es crítico si falla
-      // El polling cada 3 segundos se encargará de detectar cambios
-      
-      // Throttling mejorado y batching para la subscripción de Realtime
       let lastRealtimeUpdate = 0;
-      const REALTIME_THROTTLE_MS = 500; // Aumentado a 500ms para reducir frecuencia
+      const REALTIME_THROTTLE_MS = 500;
       let pendingUpdate: { classifiedCalls: any; payloadData: any } | null = null;
       let batchTimeout: number | null = null;
-      
+
       const processPendingUpdate = () => {
         if (!pendingUpdate) return;
-        
-        const { classifiedCalls, payloadData } = pendingUpdate;
+        const { classifiedCalls } = pendingUpdate;
         pendingUpdate = null;
         batchTimeout = null;
-        
-        // Usar requestIdleCallback para diferir trabajo pesado cuando el navegador esté libre
         if ('requestIdleCallback' in window) {
           requestIdleCallback(() => {
-            // Detectar cambios de checkpoint solo para el payload específico (más eficiente)
-        if (payloadData && payloadData.event === 'UPDATE') {
-          const newCall = payloadData.new as any;
-          const oldCall = payloadData.old as any;
-          
-          if (newCall) {
-            const newCheckpoint = newCall.checkpoint_venta_actual;
-            const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
-            
-                // Detectar cambio a checkpoint #5 (solo para este call específico)
-            if (newCheckpoint && 
-                (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
-                oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-              // Emitir notificación global para el sidebar (con animación de ringing y sonido)
-              triggerCallNotification(newCall.call_id, newCheckpoint);
-            }
-            
-            // Actualizar mapa de checkpoints anteriores
-            if (newCheckpoint) {
-              previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
-            }
-          }
-        }
-        
-            // Actualizar estados usando requestAnimationFrame para evitar bloqueos
             requestAnimationFrame(() => {
               setActiveCalls(classifiedCalls.active);
               setLastUpdateTime(new Date());
             });
           }, { timeout: 1000 });
         } else {
-          // Fallback: usar setTimeout con delay más largo
           setTimeout(() => {
-            if (payloadData && payloadData.event === 'UPDATE') {
-              const newCall = payloadData.new as any;
-              const oldCall = payloadData.old as any;
-              
-              if (newCall) {
-                const newCheckpoint = newCall.checkpoint_venta_actual;
-                const oldCheckpoint = oldCall?.checkpoint_venta_actual || previousCheckpointsRef.current.get(newCall.call_id);
-                
-                if (newCheckpoint && 
-                    (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) &&
-                    oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-                  triggerCallNotification(newCall.call_id, newCheckpoint);
-                }
-                
-                if (newCheckpoint) {
-                  previousCheckpointsRef.current.set(newCall.call_id, newCheckpoint);
-                }
-              }
-            }
-            
             requestAnimationFrame(() => {
-        setActiveCalls(classifiedCalls.active);
-        setLastUpdateTime(new Date());
-        });
+              setActiveCalls(classifiedCalls.active);
+              setLastUpdateTime(new Date());
+            });
           }, 100);
         }
       };
-      
+
       liveMonitorKanbanOptimized.subscribeToChanges((classifiedCalls, payloadData) => {
         const now = performance.now();
-        
-        // Acumular actualizaciones en batch
+        lastRealtimeEventTime = now;
         pendingUpdate = { classifiedCalls, payloadData };
-        
-        // Throttling: solo procesar si han pasado suficientes ms desde la última actualización
         if (now - lastRealtimeUpdate < REALTIME_THROTTLE_MS) {
-          // Cancelar timeout anterior y crear uno nuevo para batch
-          if (batchTimeout !== null) {
-            clearTimeout(batchTimeout);
-          }
+          if (batchTimeout !== null) clearTimeout(batchTimeout);
           batchTimeout = window.setTimeout(processPendingUpdate, REALTIME_THROTTLE_MS);
-          return; // Salir temprano, el batch se procesará después
+          return;
         }
-        
         lastRealtimeUpdate = now;
-        
-        // Procesar inmediatamente si no hay throttling
         processPendingUpdate();
       }).then((channel) => {
         realtimeChannel = channel;
-        if (channel && channel.state === 'joined') {
-          // Suscripción Realtime optimizada activa
-        } else {
-          // Realtime no disponible - usando polling cada 3 segundos (suficiente para detección)
-        }
-      }).catch((error) => {
-        // No es crítico - el polling se encargará
-        // Realtime no disponible - usando polling cada 3 segundos
+        realtimeConnected = channel && channel.state === 'joined';
+      }).catch(() => {
+        realtimeConnected = false;
       });
     } else {
-      // MODO LEGACY: Suscripción directa a la tabla
-      // Variables para throttling y batching (declaradas fuera del handler)
       let lastLegacyUpdate = 0;
       const LEGACY_THROTTLE_MS = 500;
       let pendingLegacyUpdate: { rec: any; oldRec: any } | null = null;
       let legacyBatchTimeout: number | null = null;
-      
+
       const processLegacyUpdate = () => {
         if (!pendingLegacyUpdate) return;
-        
         const { rec, oldRec } = pendingLegacyUpdate;
         pendingLegacyUpdate = null;
         legacyBatchTimeout = null;
-        
-        // Diferir procesamiento pesado usando requestIdleCallback
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
-        if (rec) {
-              // Detectar cambio de checkpoint (solo procesar si realmente cambió)
-          const newCheckpoint = rec.checkpoint_venta_actual;
-          const oldCheckpoint = oldRec?.checkpoint_venta_actual;
-          
-          if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
-            if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
-              if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
-                triggerCallNotification(rec.call_id, newCheckpoint);
-              }
+        const doUpdate = () => {
+          if (rec) {
+            requestAnimationFrame(() => {
+              const updateCallData = (calls: KanbanCall[]) => calls.map(call => {
+                if (call.call_id === rec.call_id) {
+                  let datosProcesoActualizados = rec.datos_proceso;
+                  if (typeof rec.datos_proceso === 'string') { try { datosProcesoActualizados = JSON.parse(rec.datos_proceso); } catch (e) { datosProcesoActualizados = call.datos_proceso; } }
+                  let datosLlamadaActualizados = rec.datos_llamada;
+                  if (typeof rec.datos_llamada === 'string') { try { datosLlamadaActualizados = JSON.parse(rec.datos_llamada); } catch (e) { datosLlamadaActualizados = call.datos_llamada; } }
+                  return { ...call, ...rec, datos_proceso: datosProcesoActualizados, datos_llamada: datosLlamadaActualizados };
+                }
+                return call;
+              });
+              setActiveCalls(updateCallData);
+            });
+          }
+          if (rec && oldRec && rec.call_status !== oldRec.call_status) {
+            if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
+              if ('requestIdleCallback' in window) { requestIdleCallback(() => { loadCalls(true, true).catch(() => {}); }, { timeout: 1000 }); }
+              else { setTimeout(() => loadCalls(true, true).catch(() => {}), 500); }
             }
           }
-          
-              // Actualización inteligente de datos usando requestAnimationFrame
-              requestAnimationFrame(() => {
-                const updateCallData = (calls: KanbanCall[]) => {
-                  return calls.map(call => {
-                    if (call.call_id === rec.call_id) {
-                      // Parsear datos solo si es necesario (evitar parsing innecesario)
-                      let datosProcesoActualizados = rec.datos_proceso;
-                      if (typeof rec.datos_proceso === 'string') {
-                        try {
-                          datosProcesoActualizados = JSON.parse(rec.datos_proceso);
-              } catch (e) {
-                          datosProcesoActualizados = call.datos_proceso;
-                        }
-                      }
-                      
-                      let datosLlamadaActualizados = rec.datos_llamada;
-                      if (typeof rec.datos_llamada === 'string') {
-                        try {
-                          datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
-                        } catch (e) {
-                          datosLlamadaActualizados = call.datos_llamada;
-                        }
-                      }
-                      
-                      return { 
-                        ...call, 
-                        ...rec,
-                        datos_proceso: datosProcesoActualizados,
-                        datos_llamada: datosLlamadaActualizados
-                      };
-                    }
-                    return call;
-                  });
-                };
-                
-                setActiveCalls(updateCallData);
-              });
-            }
-            
-            // Solo hacer loadCalls si hay cambio crítico de estado
-            if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-              if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
-                // Diferir loadCalls usando requestIdleCallback
-                if ('requestIdleCallback' in window) {
-                  requestIdleCallback(() => {
-                    loadCalls(true, true).catch(() => {});
-                  }, { timeout: 1000 });
-                } else {
-                  setTimeout(() => loadCalls(true, true).catch(() => {}), 500);
-                }
-              }
-            }
-          }, { timeout: 1000 });
-        } else {
-          // Fallback para navegadores sin requestIdleCallback
-              setTimeout(() => {
-            if (rec) {
-              const newCheckpoint = rec.checkpoint_venta_actual;
-              const oldCheckpoint = oldRec?.checkpoint_venta_actual;
-              
-              if (newCheckpoint && newCheckpoint !== oldCheckpoint) {
-                if (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) {
-                  if (!oldCheckpoint || oldCheckpoint !== 'checkpoint #5') {
-                    triggerCallNotification(rec.call_id, newCheckpoint);
-                  }
-                }
-              }
-              
-              requestAnimationFrame(() => {
-          const updateCallData = (calls: KanbanCall[]) => {
-            return calls.map(call => {
-              if (call.call_id === rec.call_id) {
-                let datosProcesoActualizados = rec.datos_proceso;
-                if (typeof rec.datos_proceso === 'string') {
-                  try {
-                    datosProcesoActualizados = JSON.parse(rec.datos_proceso);
-                  } catch (e) {
-                    datosProcesoActualizados = call.datos_proceso;
-                  }
-                }
-                
-                let datosLlamadaActualizados = rec.datos_llamada;
-                if (typeof rec.datos_llamada === 'string') {
-                  try {
-                    datosLlamadaActualizados = JSON.parse(rec.datos_llamada);
-                  } catch (e) {
-                    datosLlamadaActualizados = call.datos_llamada;
-                  }
-                }
-                
-                      return { 
-                  ...call, 
-                  ...rec,
-                  datos_proceso: datosProcesoActualizados,
-                  datos_llamada: datosLlamadaActualizados
-                };
-              }
-              return call;
-            });
-          };
-          
-          setActiveCalls(updateCallData);
-              });
-        }
-        
-        if (rec && oldRec && rec.call_status !== oldRec.call_status) {
-              if (oldRec.call_status === 'activa' && rec.call_status === 'finalizada') {
-                setTimeout(() => loadCalls(true, true).catch(() => {}), 500);
-              }
-            }
-          }, 100);
-        }
+        };
+        if ('requestIdleCallback' in window) { requestIdleCallback(doUpdate, { timeout: 1000 }); }
+        else { setTimeout(doUpdate, 100); }
       };
-      
+
       realtimeChannel = analysisSupabase
       .channel('live-monitor-calls')
-      // INSERT: nuevas llamadas deben aparecer inmediatamente
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, async (payload) => {
-        try {
-          // Diferir carga usando requestIdleCallback
-          if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-              loadCalls(true, true).catch(() => {}); // preserveRealtimeData=true para no sobrescribir
-            }, { timeout: 500 });
-          } else {
-            setTimeout(() => loadCalls(true, true).catch(() => {}), 200);
-          }
-          } catch (e) {
-            // Error refreshing calls on realtime
-          }
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'llamadas_ventas' }, async () => {
+        try { if ('requestIdleCallback' in window) { requestIdleCallback(() => { loadCalls(true, true).catch(() => {}); }, { timeout: 500 }); } else { setTimeout(() => loadCalls(true, true).catch(() => {}), 200); } } catch (e) {}
       })
-      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, (payload) => {
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'llamadas_ventas' }, (payload) => {
         const rec = payload.new as any;
         const oldRec = payload.old as any;
-        
         const now = performance.now();
-        
-        // Acumular actualizaciones en batch
         pendingLegacyUpdate = { rec, oldRec };
-        
-        // Throttling mejorado
-        if (now - lastLegacyUpdate < LEGACY_THROTTLE_MS) {
-          if (legacyBatchTimeout !== null) {
-            clearTimeout(legacyBatchTimeout);
-          }
-          legacyBatchTimeout = window.setTimeout(processLegacyUpdate, LEGACY_THROTTLE_MS);
-          return;
-        }
-        
+        if (now - lastLegacyUpdate < LEGACY_THROTTLE_MS) { if (legacyBatchTimeout !== null) clearTimeout(legacyBatchTimeout); legacyBatchTimeout = window.setTimeout(processLegacyUpdate, LEGACY_THROTTLE_MS); return; }
         lastLegacyUpdate = now;
         processLegacyUpdate();
       })
-      .subscribe((status) => {
-        // Suscripción Realtime activa (silencioso)
-      });
+      .subscribe();
     }
 
-    // Polling para detectar llamadas nuevas que no lleguen por Realtime
-    // Aumentado a 5 segundos para reducir carga y violaciones de rendimiento
-    // Esto asegura que incluso si Realtime falla, las llamadas aparecerán rápidamente
-    const interval = setInterval(() => {
-      // Solo hacer polling si no hay modal abierto y usar requestIdleCallback
-      if (!isModalOpenRef.current) {
-        if ('requestIdleCallback' in window) {
-          requestIdleCallback(() => {
-      loadCalls(true, true); // isRefresh=true, preserveRealtimeData=true
-          }, { timeout: 2000 });
-        } else {
-          setTimeout(() => loadCalls(true, true), 200);
-        }
-      }
-    }, 5000); // Aumentado a 5 segundos para reducir carga
-    
-    return () => {
-      clearInterval(interval);
-      if (realtimeChannel) {
-        try { 
-          if (typeof realtimeChannel.unsubscribe === 'function') {
-            realtimeChannel.unsubscribe(); 
-          }
-        } catch (e) {}
-      }
+    let pollTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    const schedulePoll = () => {
+      const interval = realtimeConnected ? POLL_INTERVAL_REALTIME_OK : POLL_INTERVAL_REALTIME_FAIL;
+      pollTimeoutId = setTimeout(() => {
+        if (isModalOpenRef.current) { schedulePoll(); return; }
+        const timeSinceLastEvent = performance.now() - lastRealtimeEventTime;
+        if (realtimeConnected && timeSinceLastEvent < SKIP_POLL_IF_RECENT_MS) { schedulePoll(); return; }
+        if ('requestIdleCallback' in window) { requestIdleCallback(() => { loadCalls(true, true); schedulePoll(); }, { timeout: 2000 }); }
+        else { setTimeout(() => { loadCalls(true, true); schedulePoll(); }, 200); }
+      }, interval);
     };
+    schedulePoll();
+
+    return () => {
+      if (pollTimeoutId) clearTimeout(pollTimeoutId);
+      if (realtimeChannel) { try { if (typeof realtimeChannel.unsubscribe === 'function') realtimeChannel.unsubscribe(); } catch (e) {} }
+    };
+  }, []);
+  */
+
+  // Set loading to false since we no longer load active calls
+  useEffect(() => {
+    setLoading(false);
   }, []);
 
   // Manejar apertura del modal de detalle
@@ -3697,16 +3434,6 @@ const LiveMonitorKanban: React.FC = () => {
     setSelectedCall(null);
     
     if (currentCall) {
-      // LÓGICA ESPECÍFICA: Si está en checkpoint #5, mover automáticamente a "Transferidas"
-      if (currentCall.checkpoint_venta_actual === 'checkpoint #5') {
-        // Marcar como vista para que se mueva a transferidas
-        setViewedCalls(prev => new Set([...prev, currentCall.call_id]));
-        
-        // Forzar reclasificación inmediata
-        setTimeout(() => loadCalls(true, true), 200);
-        return;
-      }
-      
       // Verificar estado actual de la llamada en BD antes de reclasificar (para otros casos)
       const checkAndReclassify = async () => {
         try {
@@ -3764,19 +3491,7 @@ const LiveMonitorKanban: React.FC = () => {
       }, (payload) => {
         const rec = payload.new as any;
         if (!rec) return;
-        
-        // Detectar cambio de checkpoint para reproducir sonido
-        const oldCheckpoint = selectedCall.checkpoint_venta_actual;
-        const newCheckpoint = rec.checkpoint_venta_actual;
-        
-        // Solo disparar si cambió DE otro checkpoint A checkpoint #5
-        if (oldCheckpoint !== newCheckpoint && 
-            (newCheckpoint === 'checkpoint #5' || newCheckpoint?.includes('checkpoint #5')) && 
-            oldCheckpoint !== 'checkpoint #5' && !oldCheckpoint?.includes('checkpoint #5')) {
-          // Emitir notificación global para el sidebar (con animación de ringing y sonido)
-          triggerCallNotification(rec.call_id, newCheckpoint);
-        }
-        
+
         // Actualizar conversación
         const newConversation = parseConversation(rec.conversacion_completa);
         updateConversation(newConversation);
@@ -3831,12 +3546,15 @@ const LiveMonitorKanban: React.FC = () => {
     };
   }, [selectedCall?.call_id, selectedCall?.call_status]);
 
-  // Efecto para reclasificar cuando cambie el conjunto de llamadas vistas
+  // DESHABILITADO: Reclasificación de llamadas activas al ver en modal
+  // Razón: Tab "Llamadas Activas" eliminada
+  /*
   useEffect(() => {
     if (viewedCalls.size > 0) {
-      setTimeout(() => loadCalls(true, true), 500); // preserveRealtimeData=true
+      setTimeout(() => loadCalls(true, true), 500);
     }
   }, [viewedCalls.size]);
+  */
 
   // Agrupar llamadas activas por checkpoint con ordenamiento
   const groupCallsByCheckpoint = (calls: KanbanCall[]) => {
@@ -4105,8 +3823,9 @@ const LiveMonitorKanban: React.FC = () => {
   // ELIMINADO: Early return con loading completo
   // Ahora el loading se maneja discretamente dentro de cada tab
 
-  const groupedActiveCalls = groupCallsByCheckpoint(activeCalls);
-  const horizontalRows = createHorizontalRows(groupedActiveCalls);
+  // DESHABILITADO: Agrupación para tab "Llamadas Activas" (eliminada)
+  // const groupedActiveCalls = groupCallsByCheckpoint(activeCalls);
+  // const horizontalRows = createHorizontalRows(groupedActiveCalls);
 
   const themeClasses = getThemeClasses();
 
@@ -4219,115 +3938,26 @@ const LiveMonitorKanban: React.FC = () => {
           </label>
         </div>
 
-        {/* Tabs */}
+        {/* Historial de Llamadas */}
         <div className="corp-card corp-glow w-full">
-          <div className="grid grid-cols-2 border-b border-gray-200 dark:border-gray-700">
-            <button
-              onClick={() => setSelectedTab('active')}
-              className={`px-6 py-4 text-sm font-medium transition-colors ${
-                selectedTab === 'active'
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-b-2 border-blue-500'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <div className="flex items-center justify-center space-x-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                <span>Llamadas Activas</span>
-                <span className="bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full">
-                  {activeCalls.length}
-                </span>
-              </div>
-            </button>
-            
-            {!isAdminOperativo && (
-              <button
-                onClick={() => setSelectedTab('all')}
-                className={`px-6 py-4 text-sm font-medium transition-colors ${
-                  selectedTab === 'all'
-                    ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 border-b-2 border-purple-500'
-                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                }`}
-              >
-                <div className="flex items-center justify-center space-x-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                  </svg>
-                  <span>Historial</span>
-                  <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
-                    {totalHistoryCount}
-                  </span>
-                </div>
-              </button>
-            )}
+          {/* Header con título y contador */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center space-x-2">
+              <svg className="w-4 h-4 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <span className="text-sm font-medium text-purple-600 dark:text-purple-400">Historial</span>
+              <span className="bg-purple-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {totalHistoryCount}
+              </span>
+            </div>
           </div>
 
-          {/* Contenido de tabs */}
+          {/* Contenido del historial */}
           <div className="p-3 sm:p-4 lg:p-6">
-            {selectedTab === 'active' && (
-              <div className="rounded-lg overflow-hidden" style={{ minHeight: 'calc(100vh - 280px)' }}>
-                {/* Headers de columnas */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0">
-                  {Object.entries(CHECKPOINTS).map(([checkpointKey, checkpoint]) => (
-                    <div key={checkpointKey} className={`${checkpoint.bgColor} p-3 border-b border-gray-200 dark:border-gray-700`}>
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold text-gray-900 dark:text-white text-xs leading-tight">
-                            {checkpoint.title}
-                          </h3>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 leading-tight">
-                            {checkpoint.description}
-                          </p>
-                        </div>
-                        <div className={`w-6 h-6 ${checkpoint.color} rounded-full flex items-center justify-center text-white text-xs font-bold ml-2 flex-shrink-0`}>
-                          {groupedActiveCalls[checkpointKey as CheckpointKey].length}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Filas horizontales con franjas grisáceas */}
-                <div className="space-y-0">
-                  {horizontalRows.map((row, rowIndex) => {
-                    // Determinar el checkpoint más alto en esta fila para el color de fondo
-                    const maxCheckpoint = Math.max(...row.filter(call => call).map(call => 
-                      parseInt(call!.checkpoint_venta_actual?.replace('checkpoint #', '') || '1')
-                    ));
-                    
-                    const rowBgColors = {
-                      1: 'bg-gray-50/20 dark:bg-gray-800/20',
-                      2: 'bg-gray-50/30 dark:bg-gray-800/30 animate-pulse',
-                      3: 'bg-gray-50/40 dark:bg-gray-800/40 animate-pulse',
-                      4: 'bg-gray-50/50 dark:bg-gray-800/50 animate-pulse',
-                      5: 'bg-gray-50/60 dark:bg-gray-800/60 animate-pulse'
-                    };
-                    
-                    return (
-                      <div 
-                        key={rowIndex} 
-                        className={`grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-0 min-h-[80px] ${rowBgColors[maxCheckpoint as keyof typeof rowBgColors] || rowBgColors[1]} transition-all duration-500`}
-                      >
-                        {row.map((call, colIndex) => (
-                          <div key={`${rowIndex}-${colIndex}`} className="p-2 border-r border-gray-100/50 dark:border-gray-700/30 last:border-r-0">
-                            {call ? renderCallCard(call) : (
-                              <div className="h-full flex items-center justify-center text-gray-300 dark:text-gray-600">
-                                {/* Celda vacía */}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {/* DESHABILITADO: Tab "Llamadas Activas" - reemplazada por side-widget */}
 
-
-
-            {selectedTab === 'all' && (
+            {(
               <div className="space-y-3 sm:space-y-4">
                 {/* Filtros Minimalistas - Siempre Visibles */}
                 <motion.div 

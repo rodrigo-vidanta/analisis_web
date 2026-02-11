@@ -164,6 +164,20 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         await get().loadActiveCalls();
         
         // Configurar suscripción realtime
+        // Debounce para loadActiveCalls - evitar múltiples refetch simultáneos
+        let loadActiveCallsTimeout: ReturnType<typeof setTimeout> | null = null;
+        const LOAD_DEBOUNCE_MS = 2000;
+        // Timers de remoción con grace period (evitan flicker)
+        const removalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+        const REMOVAL_GRACE_MS = 5000; // 5s para confirmar que la llamada realmente terminó
+
+        const debouncedLoadActiveCalls = () => {
+          if (loadActiveCallsTimeout) clearTimeout(loadActiveCallsTimeout);
+          loadActiveCallsTimeout = setTimeout(() => {
+            get().loadActiveCalls();
+          }, LOAD_DEBOUNCE_MS);
+        };
+
         const channel = analysisSupabase
           .channel('live-activity-widget-realtime')
           .on(
@@ -176,34 +190,63 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             (payload) => {
               const { eventType, new: newRecord, old: oldRecord } = payload;
               const state = get();
-              
+
               if (!state.isWidgetEnabled) return;
-              
+
               if (eventType === 'INSERT' || eventType === 'UPDATE') {
                 const callData = newRecord as any;
-                
-                // Solo procesar llamadas activas
-                if (callData.call_status === 'activa') {
-                  const existingCall = state.widgetCalls.find(c => c.call_id === callData.call_id);
-                  
-                  if (existingCall) {
-                    // Actualizar llamada existente
-                    get().updateCall(callData.call_id, {
-                      call_status: callData.call_status,
-                      duracion_segundos: callData.duracion_segundos,
-                      datos_proceso: callData.datos_proceso,
-                      datos_llamada: callData.datos_llamada
-                    });
-                  } else {
-                    // Nueva llamada - recargar para obtener datos completos del prospecto
-                    get().loadActiveCalls();
-                  }
-                } else if (callData.call_status !== 'activa') {
-                  // Llamada ya no está activa, remover del widget
-                  get().removeCall(callData.call_id);
+                const existingCall = state.widgetCalls.find(c => c.call_id === callData.call_id);
+
+                // Parsear JSON fields (Realtime puede enviarlos como strings)
+                const parsedUpdates: Record<string, unknown> = {
+                  call_status: callData.call_status,
+                  duracion_segundos: callData.duracion_segundos,
+                };
+                if (callData.datos_proceso) {
+                  try {
+                    parsedUpdates.datos_proceso = typeof callData.datos_proceso === 'string'
+                      ? JSON.parse(callData.datos_proceso) : callData.datos_proceso;
+                  } catch { parsedUpdates.datos_proceso = callData.datos_proceso; }
                 }
+                if (callData.datos_llamada) {
+                  try {
+                    parsedUpdates.datos_llamada = typeof callData.datos_llamada === 'string'
+                      ? JSON.parse(callData.datos_llamada) : callData.datos_llamada;
+                  } catch { parsedUpdates.datos_llamada = callData.datos_llamada; }
+                }
+
+                if (existingCall) {
+                  // Siempre actualizar incrementalmente (sin refetch completo)
+                  get().updateCall(callData.call_id, parsedUpdates);
+
+                  if (callData.call_status === 'activa') {
+                    // Llamada sigue activa - cancelar cualquier timer de remoción pendiente
+                    const existingTimer = removalTimers.get(callData.call_id);
+                    if (existingTimer) {
+                      clearTimeout(existingTimer);
+                      removalTimers.delete(callData.call_id);
+                    }
+                  } else {
+                    // Llamada ya no activa - remoción con grace period (evita flicker)
+                    if (!removalTimers.has(callData.call_id)) {
+                      const timer = setTimeout(() => {
+                        const currentState = get();
+                        const callStill = currentState.widgetCalls.find(c => c.call_id === callData.call_id);
+                        if (callStill && callStill.call_status !== 'activa') {
+                          get().removeCall(callData.call_id);
+                        }
+                        removalTimers.delete(callData.call_id);
+                      }, REMOVAL_GRACE_MS);
+                      removalTimers.set(callData.call_id, timer);
+                    }
+                  }
+                } else if (callData.call_status === 'activa') {
+                  // Nueva llamada activa - debounced reload para obtener datos del prospecto
+                  debouncedLoadActiveCalls();
+                }
+                // Si no existe y no es activa → ignorar
               }
-              
+
               if (eventType === 'DELETE' && oldRecord) {
                 get().removeCall((oldRecord as any).call_id);
               }
