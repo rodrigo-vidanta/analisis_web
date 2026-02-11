@@ -28,6 +28,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { realtimeHub } from '../../services/realtimeHub';
 import Chart from 'chart.js/auto';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
@@ -1225,28 +1226,18 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     prevQueryUserIdRef.current = queryUserId;
   }, [queryUserId, isNinjaMode]);
 
-  // ✅ REALTIME: Suscripción para detectar cambios en id_dynamics y etapa (PhoneDisplay)
+  // ✅ REALTIME: Suscripción via RealtimeHub para detectar cambios en id_dynamics y etapa (PhoneDisplay)
   useEffect(() => {
     if (!user?.id) return;
-    
-    const channelId = `prospectos-manager-realtime-${user.id}-${Date.now()}`;
-    const channel = analysisSupabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'prospectos'
-        },
-        (payload) => {
-          const updatedProspecto = payload.new as any;
-          const oldProspecto = payload.old as any;
-          
+
+    const unsub = realtimeHub.subscribe('prospectos', 'UPDATE', (payload) => {
+          const updatedProspecto = payload.new as Record<string, unknown>;
+          const oldProspecto = payload.old as Record<string, unknown>;
+
           // Detectar cambios en id_dynamics o etapa para actualizar PhoneDisplay en tiempo real
           const idDynamicsChanged = oldProspecto?.id_dynamics !== updatedProspecto.id_dynamics;
           const etapaChanged = oldProspecto?.etapa !== updatedProspecto.etapa;
-          
+
           if (idDynamicsChanged || etapaChanged) {
             setAllProspectos(prev => {
               const index = prev.findIndex(p => p.id === updatedProspecto.id);
@@ -1254,32 +1245,30 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 const updated = [...prev];
                 updated[index] = {
                   ...updated[index],
-                  id_dynamics: updatedProspecto.id_dynamics,
-                  etapa: updatedProspecto.etapa
+                  id_dynamics: updatedProspecto.id_dynamics as string,
+                  etapa: updatedProspecto.etapa as string
                 };
                 return updated;
               }
               return prev;
             });
-            
+
             // También actualizar el sidebar si está abierto con este prospecto
             setSelectedProspecto(prev => {
               if (prev && prev.id === updatedProspecto.id) {
                 return {
                   ...prev,
-                  id_dynamics: updatedProspecto.id_dynamics,
-                  etapa: updatedProspecto.etapa
+                  id_dynamics: updatedProspecto.id_dynamics as string,
+                  etapa: updatedProspecto.etapa as string
                 };
               }
               return prev;
             });
           }
-        }
-      )
-      .subscribe();
-    
+    });
+
     return () => {
-      channel.unsubscribe();
+      unsub();
     };
   }, [user?.id]);
 

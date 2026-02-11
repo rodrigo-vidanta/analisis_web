@@ -1,3 +1,12 @@
+## [v2.11.1] - 2026-02-11
+
+**B10.1.44N2.11.1** - Por que Fase 2
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-11-CPU-OPTIMIZATION-REALTIME-HUB**: Por que Fase 2
+
+---
+
 ## [v2.11.0] - 2026-02-11
 
 **B10.1.44N2.11.0** - 2

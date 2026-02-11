@@ -14,11 +14,12 @@
  */
 
 import { create } from 'zustand';
-import { analysisSupabase } from '../config/analysisSupabase';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { analysisSupabase } from '../config/analysisSupabase';
 import { liveMonitorKanbanOptimized } from '../services/liveMonitorKanbanOptimized';
 import { userUIPreferencesService } from '../services/userUIPreferencesService';
 import { permissionsService } from '../services/permissionsService';
+import { realtimeHub } from '../services/realtimeHub';
 import type { LiveCallData } from '../services/liveMonitorService';
 
 // Tipo para entrada de transcripción
@@ -163,7 +164,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         // Cargar llamadas activas
         await get().loadActiveCalls();
         
-        // Configurar suscripción realtime
+        // Configurar suscripción realtime via RealtimeHub (1 canal compartido)
         // Debounce para loadActiveCalls - evitar múltiples refetch simultáneos
         let loadActiveCallsTimeout: ReturnType<typeof setTimeout> | null = null;
         const LOAD_DEBOUNCE_MS = 2000;
@@ -178,23 +179,19 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
           }, LOAD_DEBOUNCE_MS);
         };
 
-        const channel = analysisSupabase
-          .channel('live-activity-widget-realtime')
-          .on(
-            'postgres_changes',
-            {
-              event: '*',
-              schema: 'public',
-              table: 'llamadas_ventas'
-            },
-            (payload) => {
-              const { eventType, new: newRecord, old: oldRecord } = payload;
+        const unsubscribe = realtimeHub.subscribe(
+          'llamadas_ventas',
+          '*',
+          (payload) => {
+              const eventType = payload.eventType;
+              const newRecord = payload.new;
+              const oldRecord = payload.old;
               const state = get();
 
               if (!state.isWidgetEnabled) return;
 
               if (eventType === 'INSERT' || eventType === 'UPDATE') {
-                const callData = newRecord as any;
+                const callData = newRecord as Record<string, unknown>;
                 const existingCall = state.widgetCalls.find(c => c.call_id === callData.call_id);
 
                 // Parsear JSON fields (Realtime puede enviarlos como strings)
@@ -205,39 +202,39 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
                 if (callData.datos_proceso) {
                   try {
                     parsedUpdates.datos_proceso = typeof callData.datos_proceso === 'string'
-                      ? JSON.parse(callData.datos_proceso) : callData.datos_proceso;
+                      ? JSON.parse(callData.datos_proceso as string) : callData.datos_proceso;
                   } catch { parsedUpdates.datos_proceso = callData.datos_proceso; }
                 }
                 if (callData.datos_llamada) {
                   try {
                     parsedUpdates.datos_llamada = typeof callData.datos_llamada === 'string'
-                      ? JSON.parse(callData.datos_llamada) : callData.datos_llamada;
+                      ? JSON.parse(callData.datos_llamada as string) : callData.datos_llamada;
                   } catch { parsedUpdates.datos_llamada = callData.datos_llamada; }
                 }
 
                 if (existingCall) {
                   // Siempre actualizar incrementalmente (sin refetch completo)
-                  get().updateCall(callData.call_id, parsedUpdates);
+                  get().updateCall(callData.call_id as string, parsedUpdates);
 
                   if (callData.call_status === 'activa') {
                     // Llamada sigue activa - cancelar cualquier timer de remoción pendiente
-                    const existingTimer = removalTimers.get(callData.call_id);
+                    const existingTimer = removalTimers.get(callData.call_id as string);
                     if (existingTimer) {
                       clearTimeout(existingTimer);
-                      removalTimers.delete(callData.call_id);
+                      removalTimers.delete(callData.call_id as string);
                     }
                   } else {
                     // Llamada ya no activa - remoción con grace period (evita flicker)
-                    if (!removalTimers.has(callData.call_id)) {
+                    if (!removalTimers.has(callData.call_id as string)) {
                       const timer = setTimeout(() => {
                         const currentState = get();
                         const callStill = currentState.widgetCalls.find(c => c.call_id === callData.call_id);
                         if (callStill && callStill.call_status !== 'activa') {
-                          get().removeCall(callData.call_id);
+                          get().removeCall(callData.call_id as string);
                         }
-                        removalTimers.delete(callData.call_id);
+                        removalTimers.delete(callData.call_id as string);
                       }, REMOVAL_GRACE_MS);
-                      removalTimers.set(callData.call_id, timer);
+                      removalTimers.set(callData.call_id as string, timer);
                     }
                   }
                 } else if (callData.call_status === 'activa') {
@@ -248,13 +245,13 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
               }
 
               if (eventType === 'DELETE' && oldRecord) {
-                get().removeCall((oldRecord as any).call_id);
+                get().removeCall((oldRecord as Record<string, unknown>).call_id as string);
               }
-            }
-          )
-          .subscribe();
-        
-        set({ realtimeChannel: channel });
+          }
+        );
+
+        // Guardar la función de unsuscribe como canal (para cleanup)
+        set({ realtimeChannel: { unsubscribe } });
       }
     } catch (error) {
       console.error('[LiveActivityStore] Error initializing:', error);

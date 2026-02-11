@@ -21,7 +21,6 @@
 // ============================================
 
 import { liveMonitorOptimizedService, type LiveMonitorViewData } from './liveMonitorOptimizedService';
-import { analysisSupabase } from '../config/analysisSupabase';
 import type { LiveCallData } from './liveMonitorService';
 
 // Interfaz para compatibilidad con el componente existente
@@ -315,104 +314,6 @@ class LiveMonitorKanbanOptimizedService {
         all: [],
         stats: { total: 0, reclasificadas: 0 }
       };
-    }
-  }
-  
-  /**
-   * Configurar suscripción realtime optimizada
-   * Si falla, retorna null y el componente usará solo polling
-   */
-  async subscribeToChanges(onCallsUpdate: (calls: any, payloadData?: any) => void) {
-    try {
-      // Intentar suscribirse a cambios en la tabla base (INSERT y UPDATE)
-      // Si hay sobrecarga de conexiones, simplemente retornar null y usar solo polling
-      const channel = analysisSupabase
-        .channel(`kanban_optimized_realtime_${Date.now()}`) // Canal único para evitar conflictos
-        // INSERT: nuevas llamadas deben aparecer inmediatamente
-        .on(
-          'postgres_changes',
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'llamadas_ventas' 
-          },
-          async (payload) => {
-            // Nueva llamada detectada - recargar inmediatamente
-            const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls, { event: 'INSERT', new: payload.new, old: payload.old });
-          }
-        )
-        // UPDATE: cambios de estado, checkpoint, etc.
-        .on(
-          'postgres_changes',
-          { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'llamadas_ventas' 
-          },
-          async (payload) => {
-            // Cambio detectado en llamadas_ventas - recargar para obtener clasificación actualizada
-            const newCall = payload.new as any;
-            const oldCall = payload.old as any;
-            const classifiedCalls = await this.getClassifiedCalls();
-            // Pasar datos del payload para detectar cambios de checkpoint
-            onCallsUpdate(classifiedCalls, { event: 'UPDATE', new: newCall, old: oldCall });
-          }
-        )
-        // DELETE: llamadas eliminadas
-        .on(
-          'postgres_changes',
-          { 
-            event: 'DELETE', 
-            schema: 'public', 
-            table: 'llamadas_ventas' 
-          },
-          async (payload) => {
-            // Llamada eliminada - recargar para actualizar listas
-            const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls, { event: 'DELETE', new: payload.new, old: payload.old });
-          }
-        )
-        // UPDATE en prospectos: puede afectar datos de la vista
-        .on(
-          'postgres_changes',
-          { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'prospectos' 
-          },
-          async (payload) => {
-            // Cambio en prospecto - recargar para actualizar datos del prospecto en la vista
-            const classifiedCalls = await this.getClassifiedCalls();
-            onCallsUpdate(classifiedCalls, { event: 'UPDATE', new: payload.new, old: payload.old });
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            // Suscripción Realtime optimizada activa
-          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
-            // Realtime no disponible (sobrecarga o error). Usando solo polling cada 3 segundos.
-            // No hacer nada - el polling se encargará de detectar cambios
-            return null;
-          } else {
-            // Estado de suscripción Realtime (no crítico)
-          }
-        });
-      
-      // Esperar un momento para verificar si la suscripción se establece correctamente
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Verificar el estado del canal
-      if (channel.state === 'closed' || channel.state === 'errored') {
-        // Canal Realtime cerrado o con error. Usando solo polling.
-        return null;
-      }
-      
-      return channel;
-    } catch (error) {
-      // Error configurando Realtime (usando solo polling) - no crítico
-      // No es crítico - el polling se encargará de detectar cambios
-      return null;
     }
   }
   

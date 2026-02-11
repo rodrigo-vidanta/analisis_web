@@ -5,10 +5,10 @@
  * Con suscripciones realtime para actualizaciones en tiempo real
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Calendar, Clock, Loader2, Trash2 } from 'lucide-react';
-import { analysisSupabase } from '../../../config/analysisSupabase';
+import { realtimeHub } from '../../../services/realtimeHub';
 import { ManualCallModal } from '../../shared/ManualCallModal';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { DeleteCallConfirmationModal } from '../../shared/DeleteCallConfirmationModal';
@@ -25,7 +25,6 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
   const { user } = useAuth();
   const [llamadas, setLlamadas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const channelRef = useRef<any>(null);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -100,108 +99,54 @@ export const LlamadasProgramadasWidget: React.FC<LlamadasProgramadasWidgetProps>
 
   useEffect(() => {
     loadLlamadas();
-    
-    // Recarga automática cada 30 segundos como fallback si realtime no funciona
+
+    // Recarga automática cada 30 segundos como fallback
     const reloadInterval = setInterval(() => {
       loadLlamadas();
     }, 30000);
-    
-    // Suscripción realtime - mostrar TODAS las llamadas programadas sin filtros de usuario
-    const channelName = `llamadas-programadas-dashboard-${Date.now()}`;
-    
-    const channel = analysisSupabase
-      .channel(channelName)
-      // Escuchar INSERT de nuevas llamadas programadas
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'llamadas_programadas'
-        },
-        async (payload) => {
-          const newCall = payload.new as any;
-          // INSERT recibido - procesar silenciosamente
-          
-          // Verificar si es del día actual y está programada
-          const hoy = new Date();
-          const fechaHoy = hoy.toISOString().split('T')[0];
-          
-          if (!newCall.fecha_programada) {
-            return;
-          }
-          
-          const callDate = new Date(newCall.fecha_programada);
-          const callDateString = callDate.toISOString().split('T')[0];
-          const isToday = callDateString === fechaHoy;
-          
-          // Si es una llamada programada para hoy, recargar para aplicar filtros de permisos
-          if (isToday && newCall.estatus === 'programada') {
-            loadLlamadas();
-          }
-        }
-      )
-      // Escuchar UPDATE de cambios de estatus
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'llamadas_programadas'
-        },
-        (payload) => {
-          const updatedCall = payload.new as any;
-          const oldCall = payload.old as any;
-          
-          // Verificar si es del día actual
-          const hoy = new Date();
-          const fechaHoy = hoy.toISOString().split('T')[0];
-          
-          if (!updatedCall.fecha_programada) return;
-          const callDate = new Date(updatedCall.fecha_programada);
-          const callDateString = callDate.toISOString().split('T')[0];
-          const isToday = callDateString === fechaHoy;
-          
-          // Si cambió el estatus o la fecha y es relevante para hoy, recargar para aplicar filtros de permisos
-          if (updatedCall.estatus !== oldCall.estatus || 
-              updatedCall.fecha_programada !== oldCall.fecha_programada) {
-            if (isToday && updatedCall.estatus === 'programada') {
-              loadLlamadas();
-            } else {
-              // Si ya no es programada o no es de hoy, removerla de la lista actual
-              setLlamadas(prev => prev.filter(c => c.id !== updatedCall.id));
-            }
-          }
-        }
-      )
-      // Escuchar DELETE
-      .on(
-        'postgres_changes',
-        {
-          event: 'DELETE',
-          schema: 'public',
-          table: 'llamadas_programadas'
-        },
-        (payload) => {
-          const deletedCall = payload.old as any;
-          // Remover de la lista si existe
-          setLlamadas(prev => prev.filter(c => c.id !== deletedCall.id));
-        }
-      )
-      .subscribe((status) => {
-        // Solo loggear errores
-        if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [Widget] Error en suscripción realtime de llamadas_programadas');
-        }
-      });
 
-    channelRef.current = channel;
+    // Suscripciones via RealtimeHub (1 canal compartido para llamadas_programadas)
+    const unsubInsert = realtimeHub.subscribe('llamadas_programadas', 'INSERT', (payload) => {
+      const newCall = payload.new as Record<string, unknown>;
+      const hoy = new Date();
+      const fechaHoy = hoy.toISOString().split('T')[0];
+      if (!newCall.fecha_programada) return;
+      const callDate = new Date(newCall.fecha_programada as string);
+      const callDateString = callDate.toISOString().split('T')[0];
+      if (callDateString === fechaHoy && newCall.estatus === 'programada') {
+        loadLlamadas();
+      }
+    });
+
+    const unsubUpdate = realtimeHub.subscribe('llamadas_programadas', 'UPDATE', (payload) => {
+      const updatedCall = payload.new as Record<string, unknown>;
+      const oldCall = payload.old as Record<string, unknown>;
+      const hoy = new Date();
+      const fechaHoy = hoy.toISOString().split('T')[0];
+      if (!updatedCall.fecha_programada) return;
+      const callDate = new Date(updatedCall.fecha_programada as string);
+      const callDateString = callDate.toISOString().split('T')[0];
+      const isToday = callDateString === fechaHoy;
+      if (updatedCall.estatus !== oldCall.estatus ||
+          updatedCall.fecha_programada !== oldCall.fecha_programada) {
+        if (isToday && updatedCall.estatus === 'programada') {
+          loadLlamadas();
+        } else {
+          setLlamadas(prev => prev.filter(c => c.id !== updatedCall.id));
+        }
+      }
+    });
+
+    const unsubDelete = realtimeHub.subscribe('llamadas_programadas', 'DELETE', (payload) => {
+      const deletedCall = payload.old as Record<string, unknown>;
+      setLlamadas(prev => prev.filter(c => c.id !== deletedCall.id));
+    });
 
     return () => {
       clearInterval(reloadInterval);
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-      }
+      unsubInsert();
+      unsubUpdate();
+      unsubDelete();
     };
   }, [loadLlamadas]);
 

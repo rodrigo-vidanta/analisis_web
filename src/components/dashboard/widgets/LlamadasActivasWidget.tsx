@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { Phone, ChevronRight, Loader2, TrendingUp, Users, MapPin, Sparkles, Heart, Plane } from 'lucide-react';
 import { liveMonitorService, type LiveCallData } from '../../../services/liveMonitorService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { realtimeHub } from '../../../services/realtimeHub';
 import { ActiveCallDetailModal } from './ActiveCallDetailModal';
 import { notificationSoundService } from '../../../services/notificationSoundService';
 import { systemNotificationService } from '../../../services/systemNotificationService';
@@ -43,7 +44,6 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
   const [loading, setLoading] = useState(true);
   const [selectedCall, setSelectedCall] = useState<LiveCallData | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const channelRef = useRef<any>(null);
   const processedCallsRef = useRef<Set<string>>(new Set());
   const isInitialLoadRef = useRef(true);
   
@@ -180,17 +180,8 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
 
     loadLlamadas();
     
-    // Suscripción realtime a llamadas_ventas (escuchar todos los cambios)
-    const channel = analysisSupabase
-      .channel(`llamadas-activas-dashboard-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'llamadas_ventas'
-        },
-        async (payload) => {
+    // Suscripción centralizada via RealtimeHub (1 canal compartido por tabla)
+    const unsubInsert = realtimeHub.subscribe('llamadas_ventas', 'INSERT', async (payload) => {
           const newCall = payload.new as any;
           
           // Validar permisos ANTES de notificar
@@ -221,16 +212,9 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
             
             loadLlamadas();
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'llamadas_ventas'
-        },
-        async (payload) => {
+    });
+
+    const unsubUpdate = realtimeHub.subscribe('llamadas_ventas', 'UPDATE', async (payload) => {
           const newCall = payload.new as any;
           const oldCall = payload.old as any;
           
@@ -394,16 +378,11 @@ export const LlamadasActivasWidget: React.FC<LlamadasActivasWidgetProps> = ({ us
               setLlamadas(prev => prev.filter(c => c.call_id !== newCall.call_id));
             }
           }
-        }
-      )
-      .subscribe();
-
-    channelRef.current = channel;
+    });
 
     return () => {
-      if (channelRef.current) {
-        channelRef.current.unsubscribe();
-      }
+      unsubInsert();
+      unsubUpdate();
     };
   }, [userId, loadLlamadas]);
 

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { analysisSupabase } from '../config/analysisSupabase';
 import { APP_VERSION } from '../config/appVersion';
+import { realtimeHub } from '../services/realtimeHub';
 
 /**
  * Versión actual de la aplicación
@@ -133,89 +134,32 @@ export const useVersionCheck = (options: UseVersionCheckOptions = {}): VersionCh
       setIsLoading(false);
       return;
     }
-    
+
     // Verificación inicial
     checkVersion();
 
-    // Configurar suscripción realtime a system_config
-    let channel: ReturnType<typeof analysisSupabase.channel> | null = null;
-    let pollingInterval: NodeJS.Timeout | null = null;
-    let realtimeSubscribed = false;
-
-    // Configurar polling como fallback (siempre activo, pero con intervalo más largo si realtime funciona)
-    const setupPolling = (interval: number = 30000) => {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
-      pollingInterval = setInterval(() => {
-        checkVersion();
-      }, interval);
-    };
-
-    // Iniciar polling inmediatamente (fallback seguro)
-    setupPolling(30000); // 30 segundos
-
-    try {
-      // Intentar suscripción realtime
-      channel = analysisSupabase
-        .channel(`version_check_${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'system_config',
-            filter: `config_key=eq.app_version`
-          },
-          () => {
-            checkVersion();
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'system_config',
-            filter: `config_key=eq.app_version`
-          },
-          () => {
-            checkVersion();
-          }
-        )
-        .subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            realtimeSubscribed = true;
-            // Reducir intervalo de polling a 60s si realtime funciona (solo como backup)
-            setupPolling(60000);
-          } else if (status === 'CHANNEL_ERROR' || status === 'CLOSED' || status === 'TIMED_OUT') {
-            realtimeSubscribed = false;
-            // Asegurar que polling esté activo
-            setupPolling(30000);
-          }
-        });
-
-      // Verificar estado después de 2 segundos
-      setTimeout(() => {
-        if (channel && !realtimeSubscribed) {
-          setupPolling(30000);
+    // Suscripción via RealtimeHub (1 canal compartido para system_config)
+    // Filtro JS: solo reaccionar a cambios en config_key = 'app_version'
+    const unsub = realtimeHub.subscribe(
+      'system_config',
+      ['INSERT', 'UPDATE'],
+      (payload) => {
+        const rec = payload.new as Record<string, unknown>;
+        if (rec?.config_key === 'app_version') {
+          checkVersion();
         }
-      }, 2000);
+      }
+    );
 
-    } catch (error) {
-      // Silenciar error
-      realtimeSubscribed = false;
-      setupPolling(30000);
-    }
+    // Polling de backup cada 60s (solo fallback si Realtime falla)
+    const pollingInterval = setInterval(() => {
+      checkVersion();
+    }, 60000);
 
     // Cleanup
     return () => {
-      if (channel) {
-        analysisSupabase.removeChannel(channel);
-      }
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-      }
+      unsub();
+      clearInterval(pollingInterval);
     };
   }, [checkVersion, enabled]);
 

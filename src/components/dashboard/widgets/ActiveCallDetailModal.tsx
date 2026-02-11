@@ -15,6 +15,7 @@ import {
   Headphones, Volume2, VolumeX, Waves
 } from 'lucide-react';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { realtimeHub } from '../../../services/realtimeHub';
 import { type LiveCallData } from '../../../services/liveMonitorService';
 import { Avatar } from '../../shared/Avatar';
 import { PhoneDisplay } from '../../shared/PhoneDisplay';
@@ -625,22 +626,16 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
     setCurrentCall(call);
     updateConversation(parseConversation(call.conversacion_completa));
 
-    // Suscribirse a cambios de la llamada específica
-    const channel = analysisSupabase
-      .channel(`dashboard-call-${call.call_id}`)
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'llamadas_ventas',
-        filter: `call_id=eq.${call.call_id}`
-      }, (payload) => {
-        const rec = payload.new as any;
-        if (!rec) return;
-        
+    // Suscripción centralizada via RealtimeHub (1 canal compartido por tabla)
+    // Filtro por call_id en JavaScript (antes era filtro Postgres)
+    const unsub = realtimeHub.subscribe('llamadas_ventas', 'UPDATE', (payload) => {
+        const rec = payload.new as Record<string, unknown>;
+        if (!rec || rec.call_id !== call.call_id) return; // Filtro JS por call_id
+
         // Actualizar conversación
         const newConversation = parseConversation(rec.conversacion_completa);
         updateConversation(newConversation);
-        
+
         // Parsear datos_proceso si es string
         let datosProcesoActualizados = rec.datos_proceso;
         if (typeof rec.datos_proceso === 'string') {
@@ -650,7 +645,7 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
             datosProcesoActualizados = currentCall.datos_proceso;
           }
         }
-        
+
         // Parsear datos_llamada para obtener resumen actualizado
         let datosLlamadaActualizados = rec.datos_llamada;
         if (typeof rec.datos_llamada === 'string') {
@@ -660,49 +655,40 @@ export const ActiveCallDetailModal: React.FC<ActiveCallDetailModalProps> = ({
             datosLlamadaActualizados = currentCall.datos_llamada;
           }
         }
-        
+
         // Extraer campos específicos de datos_proceso para actualización en tiempo real
-        // (igual que LiveMonitorKanban - líneas 1401-1409)
-        const composicionFamiliarNumero = datosProcesoActualizados?.numero_personas || 
-          rec.composicion_familiar_numero || 
+        const composicionFamiliarNumero = (datosProcesoActualizados as Record<string, unknown>)?.numero_personas ||
+          rec.composicion_familiar_numero ||
           currentCall.composicion_familiar_numero;
-        
-        const destinoPreferido = rec.destino_preferido || 
-          datosProcesoActualizados?.destino_preferencia || 
+
+        const destinoPreferido = rec.destino_preferido ||
+          (datosProcesoActualizados as Record<string, unknown>)?.destino_preferencia ||
           currentCall.destino_preferido;
-        
-        const tipoActividades = datosProcesoActualizados?.tipo_actividades || 
-          (currentCall as any).tipo_actividades;
-        
+
         // Actualizar datos de la llamada con preferencias extraídas
         setCurrentCall(prev => ({
           ...prev,
-          ...rec,
+          ...(rec as Record<string, unknown>),
           datos_proceso: datosProcesoActualizados,
           datos_llamada: datosLlamadaActualizados,
-          // Actualizar campos específicos de preferencias desde datos_proceso
           composicion_familiar_numero: composicionFamiliarNumero,
           destino_preferido: destinoPreferido,
-          // Mantener otros campos existentes si no vienen en la actualización
           tamano_grupo: rec.tamano_grupo || prev.tamano_grupo,
           ciudad_residencia: rec.ciudad_residencia || prev.ciudad_residencia,
           nivel_interes: rec.nivel_interes || prev.nivel_interes,
-          nivel_interes_detectado: (rec as any).nivel_interes_detectado || (prev as any).nivel_interes_detectado
+          nivel_interes_detectado: (rec as Record<string, unknown>).nivel_interes_detectado || (prev as Record<string, unknown>).nivel_interes_detectado
         }));
-        
+
         // Si la llamada ya no está activa, cerrar el modal
         if (rec.call_status !== 'activa') {
           onClose();
         }
-      })
-      .subscribe();
+    });
 
-    realtimeChannelRef.current = channel;
+    realtimeChannelRef.current = { unsubscribe: unsub } as unknown as typeof realtimeChannelRef.current;
 
     return () => {
-      try {
-        channel.unsubscribe();
-      } catch {}
+      unsub();
       realtimeChannelRef.current = null;
     };
   }, [call.call_id, call.call_status, isOpen]);

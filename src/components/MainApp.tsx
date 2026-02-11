@@ -555,7 +555,6 @@ function MainApp() {
   if (appMode === 'direccion') {
     return (
       <>
-        {/* <NotificationListener /> */}
         {renderContent()}
         {/* Panel Lateral - Llamadas en tiempo real */}
         <LiveCallActivityWidget />
@@ -569,7 +568,6 @@ function MainApp() {
       <div className={`${localDarkMode ? 'dark' : ''}`}
         data-module={appMode}
       >
-        {/* <NotificationListener /> */}
         <LinearLayout
           darkMode={localDarkMode}
           onToggleDarkMode={handleToggleDarkMode}
@@ -588,7 +586,6 @@ function MainApp() {
     <div className={`min-h-screen transition-colors duration-300 ${
       localDarkMode ? 'dark' : ''
     }`} data-module={appMode}>
-      {/* <NotificationListener /> */}
       <div className={`min-h-screen ${themeClasses.background} flex transition-all duration-300`}>
         
         {/* Sidebar with theme support */}

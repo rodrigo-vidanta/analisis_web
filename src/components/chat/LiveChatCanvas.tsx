@@ -103,6 +103,7 @@ import { WhatsAppLabelsModal } from './WhatsAppLabelsModal';
 import { whatsappLabelsService, type ConversationLabel } from '../../services/whatsappLabelsService';
 import { optimizedConversationsService, USE_OPTIMIZED_VIEW } from '../../services/optimizedConversationsService';
 import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../utils/prospectRestrictions';
+import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
 
 // Utilidades de log (silenciar en producción)
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
@@ -1314,18 +1315,12 @@ const LiveChatCanvas: React.FC = () => {
   // Estados para sincronización silenciosa
   const [lastSyncTime, setLastSyncTime] = useState<Date>(new Date());
   const [syncInProgress, setSyncInProgress] = useState(false);
-  const [realtimeChannel, setRealtimeChannel] = useState<any>(null);
-  const [convRealtimeChannel, setConvRealtimeChannel] = useState<any>(null);
-  const [uchatRealtimeChannel, setUchatRealtimeChannel] = useState<any>(null);
-  const [uchatMessagesRealtimeChannel, setUchatMessagesRealtimeChannel] = useState<any>(null);
-  const realtimeRetryRef = useRef<number>(0);
-  const convRetryRef = useRef<number>(0);
-  const uchatRetryRef = useRef<number>(0);
+  // RealtimeHub: unsubscribe functions stored in ref
+  const realtimeUnsubscribesRef = useRef<Array<() => void>>([]);
   const reconnectTimerRef = useRef<number | null>(null);
   const reconnectBackoffRef = useRef<number>(0);
   const isSettingUpRef = useRef<boolean>(false); // Flag para evitar múltiples setup simultáneos
   const isUnmountingRef = useRef<boolean>(false); // Flag para detectar unmount (hot reload)
-  const activeChannelRef = useRef<ReturnType<typeof analysisSupabase.channel> | null>(null); // 🆕 CANAL ACTIVO GLOBAL
   const processedMessagesRef = useRef<Set<string>>(new Set()); // 🆕 DEDUPLICACIÓN DE MENSAJES
 
   // Estados para control del bot
@@ -1995,29 +1990,16 @@ const LiveChatCanvas: React.FC = () => {
   }, []); // ⚡ Sin dependencia de conversations - usa ref
 
   const cleanupRealtimeChannels = useCallback(() => {
-    const channels = [
-      realtimeChannel,
-      convRealtimeChannel,
-      uchatRealtimeChannel,
-      uchatMessagesRealtimeChannel
-    ];
-    
-    channels.forEach(channel => {
-      if (channel) {
-        try {
-          channel.unsubscribe();
-        } catch (error) {
-          logDev('⚠️ Error limpiando canal:', error);
-        }
+    // Llamar cada función de unsubscribe almacenada en el ref
+    for (const unsub of realtimeUnsubscribesRef.current) {
+      try {
+        unsub();
+      } catch (error) {
+        logDev('Warning: Error limpiando suscripcion hub:', error);
       }
-    });
-    
-    setRealtimeChannel(null);
-    setConvRealtimeChannel(null);
-    setUchatRealtimeChannel(null);
-    setUchatMessagesRealtimeChannel(null);
-    activeChannelRef.current = null;
-  }, [realtimeChannel, convRealtimeChannel, uchatRealtimeChannel, uchatMessagesRealtimeChannel]);
+    }
+    realtimeUnsubscribesRef.current = [];
+  }, []);
 
   const scheduleReconnect = (source: string) => {
     // ✅ PROTECCIÓN: No reconectar si estamos desmontando (hot reload)
@@ -2059,67 +2041,35 @@ const LiveChatCanvas: React.FC = () => {
   };
 
   const setupRealtimeSubscription = () => {
-    // ✅ PROTECCIÓN: No configurar si estamos desmontando (hot reload)
+    // PROTECCION: No configurar si estamos desmontando (hot reload)
     if (isUnmountingRef.current) {
-      logDev('🚫 [REALTIME] Ignorando setup durante unmount (hot reload)');
+      logDev('[REALTIME] Ignorando setup durante unmount (hot reload)');
       return;
     }
-    
-    // ✅ PROTECCIÓN: Evitar múltiples setup simultáneos
+
+    // PROTECCION: Evitar multiples setup simultaneos
     if (isSettingUpRef.current) {
-      logDev('⏸️ [REALTIME] Ya hay una suscripción en proceso, ignorando...');
+      logDev('[REALTIME] Ya hay una suscripcion en proceso, ignorando...');
       return;
     }
-    
-    // ✅ PROTECCIÓN MEJORADA: Verificar ref global de canal activo
-    if (activeChannelRef.current) {
-      try {
-        const channelState = (activeChannelRef.current as any).state;
-        if (channelState === 'joined' || channelState === 'joining') {
-          logDev('✅ [REALTIME] Canal ya está activo, no crear duplicado');
-          return;
-        }
-      } catch (e) {
-        // Si no podemos verificar el estado, continuar con el cleanup
-      }
+
+    // PROTECCION: Si ya hay suscripciones activas, no duplicar
+    if (realtimeUnsubscribesRef.current.length > 0) {
+      logDev('[REALTIME] Suscripciones hub ya activas, no crear duplicado');
+      return;
     }
-    
+
     isSettingUpRef.current = true; // Marcar que estamos configurando
-    
-    // Limpiar cualquier suscripción anterior para evitar duplicados
-    if (realtimeChannel) {
-      try {
-        realtimeChannel.unsubscribe();
-      } catch (e) {
-        // Ignorar errores al desuscribir
-      }
-      setRealtimeChannel(null);
-      setConvRealtimeChannel(null);
-      setUchatRealtimeChannel(null);
-      setUchatMessagesRealtimeChannel(null);
-      // Desuscribir otros canales si existen
-      try {
-        convRealtimeChannel?.unsubscribe();
-        uchatRealtimeChannel?.unsubscribe();
-        uchatMessagesRealtimeChannel?.unsubscribe();
-      } catch (e) {
-        // Ignorar errores
-      }
-    }
-    
-    // Usar un canal único con timestamp para evitar conflictos
-    const channelId = `live-chat-mensajes-whatsapp-v4-${Date.now()}`;
-    
-    const newChannel = analysisSupabase
-      .channel(channelId)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT', 
-          schema: 'public', 
-          table: 'mensajes_whatsapp',
-        },
-        (payload) => {
+
+    // Limpiar cualquier suscripcion anterior
+    cleanupRealtimeChannels();
+
+    const unsubs: Array<() => void> = [];
+
+    // ========================================
+    // SUSCRIPCION 1: Mensajes WhatsApp (INSERT)
+    // ========================================
+    unsubs.push(realtimeHub.subscribe('mensajes_whatsapp', 'INSERT', (payload) => {
           // ⚡ OPTIMIZADO V5: Handler consolidado
           const newMessage = payload.new as any;
           const targetProspectoId = newMessage.prospecto_id;
@@ -2288,21 +2238,14 @@ const LiveChatCanvas: React.FC = () => {
               processMessageData({ payload, targetProspectoId, newMessagePayload: newMessage });
             }, 100);
           }
-        })
-      // ========================================
-      // 🔔 SUSCRIPCIÓN 2: Cambios en tabla PROSPECTOS
-      // ========================================
-      // Detectar cuando se actualiza el nombre, nombre_whatsapp, requiere_atencion_humana,
-      // O cuando se asigna ejecutivo_id/coordinacion_id (para realtime de nuevas asignaciones)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'prospectos',
-          // No usar filter: undefined, mejor especificar explícitamente
-        },
-        (payload) => {
+    }));
+
+    // ========================================
+    // SUSCRIPCION 2: Cambios en tabla PROSPECTOS (UPDATE)
+    // ========================================
+    // Detectar cuando se actualiza el nombre, nombre_whatsapp, requiere_atencion_humana,
+    // O cuando se asigna ejecutivo_id/coordinacion_id (para realtime de nuevas asignaciones)
+    unsubs.push(realtimeHub.subscribe('prospectos', 'UPDATE', (payload) => {
           // ⚡ OPTIMIZACIÓN: Diferir todo el trabajo para no bloquear el handler
           setTimeout(async () => {
             const updatedProspecto = payload.new as any;
@@ -2526,48 +2469,14 @@ const LiveChatCanvas: React.FC = () => {
               setTimeout(updateName, 0);
             }
           }, 0);
-        }
-      )
-      // ========================================
-      // 🔔 SUSCRIPCIÓN 3: Cambios en etiquetas (FIX BUG 4 - 2026-02-07)
-      // ========================================
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'whatsapp_conversation_labels',
-        },
-        (payload) => {
-          const record = (payload.new || payload.old) as Record<string, string | undefined>;
-          const prospectoId = record?.prospecto_id;
-          if (!prospectoId || !queryUserId) return;
+    }));
 
-          // Verificar que el prospecto esté en nuestra lista (permisos)
-          if (!prospectosDataRef.current.has(prospectoId)) return;
-
-          // Recargar labels de este prospecto
-          whatsappLabelsService.getProspectoLabels(prospectoId, queryUserId)
-            .then(labels => {
-              setProspectoLabels(prev => ({
-                ...prev,
-                [prospectoId]: labels
-              }));
-            })
-            .catch(() => { /* silenciar errores de labels */ });
-        }
-      )
-      // ========================================
-      // 🔔 SUSCRIPCIÓN 4: Cambios en llamadas programadas (estatus)
-      // ========================================
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'llamadas_programadas',
-        },
-        async (payload) => {
+    // ========================================
+    // SUSCRIPCION 3: Cambios en llamadas programadas (UPDATE)
+    // ========================================
+    // NOTA: whatsapp_conversation_labels fue REMOVIDA - tabla eliminada de Realtime publication
+    // (causaba errores de mismatch entre server y client bindings)
+    unsubs.push(realtimeHub.subscribe('llamadas_programadas', 'UPDATE', async (payload) => {
           const call = payload.new as Record<string, unknown>;
           const callId = call?.id as string;
           const prospectoId = call?.prospecto as string;
@@ -2640,65 +2549,17 @@ const LiveChatCanvas: React.FC = () => {
             return { ...prev, [conversationId]: updated };
           });
 
-          logDev(`📞 [REALTIME] Llamada ${callId} actualizada: ${call.estatus}`);
-        }
-      )
-      // ========================================
-      // 🔔 SUSCRIPCIÓN 5: Subscribe handler
-      // ========================================
-      .subscribe((status, err) => {
-        // ✅ Resetear flag cuando la suscripción se completa (éxito o error)
-        if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
-          isSettingUpRef.current = false;
-        }
-        
-        if (status === 'SUBSCRIBED') {
-          logDev('✅ [REALTIME V4] Suscripción activa: mensajes y prospectos');
-          // Resetear backoff cuando se suscribe correctamente
-          reconnectBackoffRef.current = 0;
-        } else if (status === 'CHANNEL_ERROR') {
-          const errorMsg = err?.message || String(err || 'unknown');
-          
-          // Mismatch = tabla no existe en publicación o nombre incorrecto
-          // NO ignorar: reconectar para intentar recuperar el canal
-          if (errorMsg.includes('mismatch between server and client bindings')) {
-            console.error('❌ [REALTIME V4] Mismatch en bindings - reconectando...');
-            scheduleReconnect('mismatch_error');
-            return;
-          }
-          
-          // Manejo mejorado de errores undefined o de conexión
-          if (err === undefined || errorMsg === 'undefined') {
-            logErrThrottled('realtime_undefined', '⚠️ [REALTIME V4] Error undefined - posible sobrecarga de conexiones');
-            
-            // Para errores undefined, esperar más tiempo antes del reconnect
-            if (reconnectBackoffRef.current < 2) {
-              reconnectBackoffRef.current = 2; // Saltar a 4 segundos mínimo
-            }
-          } else {
-            console.error('❌ [REALTIME V4] Error en el canal:', err);
-          }
-          
-          // Limitar reconexiones si hay muchas conversaciones activas
-          const maxConversations = 15;
-          if (conversations.length > maxConversations) {
-            logErrThrottled('realtime_overload', `⚠️ [REALTIME V4] Demasiadas conversaciones (${conversations.length}), ralentizando reconnect`);
-            // Aumentar delay para evitar sobrecarga
-            reconnectBackoffRef.current = Math.max(reconnectBackoffRef.current, 3);
-          }
-          
-          scheduleReconnect('channel_error');
-        } else if (status === 'TIMED_OUT') {
-          logDev('⏱️ [REALTIME V4] Timeout, reintentando...');
-          scheduleReconnect('timeout');
-        } else if (status === 'CLOSED') {
-          logDev('⚠️ [REALTIME V4] Canal cerrado, reintentando...');
-          scheduleReconnect('channel_closed');
-        }
-      });
+          logDev(`[REALTIME] Llamada ${callId} actualizada: ${call.estatus}`);
+    }));
 
-    setRealtimeChannel(newChannel);
-    activeChannelRef.current = newChannel;
+    // Almacenar todas las funciones de unsubscribe
+    realtimeUnsubscribesRef.current = unsubs;
+
+    // Hub gestiona el ciclo de vida de canales (reconexion, errores)
+    // Resetear flag y backoff
+    isSettingUpRef.current = false;
+    reconnectBackoffRef.current = 0;
+    logDev('[REALTIME HUB] 3 suscripciones activas: mensajes_whatsapp, prospectos, llamadas_programadas');
   };
 
   // Función de throttling para actualizaciones masivas
@@ -3731,35 +3592,27 @@ const LiveChatCanvas: React.FC = () => {
 
     loadBotPauseStatus();
 
-    // Suscripción Realtime a cambios en bot_pause_status
-    const channelName = `bot-pause-livechat-${user?.id || 'anon'}`;
-    const pauseChannel = supabaseSystemUI
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bot_pause_status' },
-        async () => {
-          try {
-            const newPauses = await botPauseService.getAllActivePauses();
-            const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
-            newPauses.forEach(pause => {
-              dbPauses[pause.uchat_id] = {
-                isPaused: pause.is_paused,
-                pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
-                pausedBy: pause.paused_by,
-                duration: pause.duration_minutes
-              };
-            });
-            setBotPauseStatus(dbPauses);
-          } catch (error) {
-            // Silenciar
-          }
-        }
-      )
-      .subscribe();
+    // Suscripción via RealtimeHub (1 canal compartido para bot_pause_status)
+    const unsubPause = realtimeHubSystemUI.subscribe('bot_pause_status', '*', async () => {
+      try {
+        const newPauses = await botPauseService.getAllActivePauses();
+        const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
+        newPauses.forEach(pause => {
+          dbPauses[pause.uchat_id] = {
+            isPaused: pause.is_paused,
+            pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
+            pausedBy: pause.paused_by,
+            duration: pause.duration_minutes
+          };
+        });
+        setBotPauseStatus(dbPauses);
+      } catch (error) {
+        // Silenciar
+      }
+    });
 
     return () => {
-      supabaseSystemUI.removeChannel(pauseChannel);
+      unsubPause();
     };
   }, []);
 

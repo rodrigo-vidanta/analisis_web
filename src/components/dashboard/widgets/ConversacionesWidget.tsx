@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import BotPauseButton from '../../chat/BotPauseButton';
 import { supabaseSystemUI } from '../../../config/supabaseSystemUI';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { realtimeHub, realtimeHubSystemUI } from '../../../services/realtimeHub';
 import { uchatService, type UChatConversation } from '../../../services/uchatService';
 import { permissionsService } from '../../../services/permissionsService';
 import { coordinacionService } from '../../../services/coordinacionService';
@@ -124,15 +125,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     return getAvatarGradient(name).initials;
   };
 
-  // Cargar estado de pausa del bot y suscripción realtime (igual que LiveChatCanvas)
+  // Cargar estado de pausa del bot y suscripción via RealtimeHub
   useEffect(() => {
-    let pauseChannel: any = null;
-    
     const loadBotPauseStatus = async () => {
       try {
         const activePausesFromDB = await botPauseService.getAllActivePauses();
-        const dbPauses: any = {};
-        
+        const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         activePausesFromDB.forEach(pause => {
           dbPauses[pause.uchat_id] = {
             isPaused: pause.is_paused,
@@ -141,8 +139,6 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             duration: pause.duration_minutes
           };
         });
-
-        // Crear un nuevo objeto para asegurar que React detecte el cambio
         setBotPauseStatus({ ...dbPauses });
       } catch (error) {
         // Silenciar errores
@@ -150,144 +146,73 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     };
 
     loadBotPauseStatus();
-    
-    // Suscripción realtime a cambios en bot_pause_status
-    // Usar un nombre de canal único pero estable
-    const channelName = `bot-pause-status-dashboard-${user?.id || 'anonymous'}`;
-    pauseChannel = supabaseSystemUI
-      .channel(channelName)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // INSERT, UPDATE, DELETE
-          schema: 'public',
-          table: 'bot_pause_status'
-        },
-        async (payload) => {
-          // Recargar estado completo desde BD cuando hay cambios
-          try {
-            const newPauses = await botPauseService.getAllActivePauses();
-            const dbPauses: any = {};
-            
-            newPauses.forEach(pause => {
-              dbPauses[pause.uchat_id] = {
-                isPaused: pause.is_paused,
-                pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
-                pausedBy: pause.paused_by,
-                duration: pause.duration_minutes
-              };
-            });
-            
-            // Actualizar estado solo si realmente cambió
-            setBotPauseStatus(prev => {
-              const prevKeys = Object.keys(prev).sort().join(',');
-              const newKeys = Object.keys(dbPauses).sort().join(',');
-              
-              if (prevKeys !== newKeys) {
-                return { ...dbPauses };
-              }
-              
-              // Comparar valores
-              let hasChanges = false;
-              for (const key of Object.keys(dbPauses)) {
-                const prevStatus = prev[key];
-                const newStatus = dbPauses[key];
-                if (!prevStatus || 
-                    prevStatus.isPaused !== newStatus.isPaused ||
-                    (prevStatus.pausedUntil?.getTime() !== newStatus.pausedUntil?.getTime())) {
-                  hasChanges = true;
-                  break;
-                }
-              }
-              
-              // También verificar si se eliminó alguna pausa
-              for (const key of Object.keys(prev)) {
-                if (!dbPauses[key]) {
-                  hasChanges = true;
-                  break;
-                }
-              }
-              
-              return hasChanges ? { ...dbPauses } : prev;
-            });
-          } catch (error) {
-            // Silenciar errores
+
+    // Suscripción via RealtimeHub (1 canal compartido para bot_pause_status)
+    const unsubPause = realtimeHubSystemUI.subscribe('bot_pause_status', '*', async () => {
+      try {
+        const newPauses = await botPauseService.getAllActivePauses();
+        const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
+        newPauses.forEach(pause => {
+          dbPauses[pause.uchat_id] = {
+            isPaused: pause.is_paused,
+            pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
+            pausedBy: pause.paused_by,
+            duration: pause.duration_minutes
+          };
+        });
+        setBotPauseStatus(prev => {
+          const prevKeys = Object.keys(prev).sort().join(',');
+          const newKeys = Object.keys(dbPauses).sort().join(',');
+          if (prevKeys !== newKeys) return { ...dbPauses };
+          let hasChanges = false;
+          for (const key of Object.keys(dbPauses)) {
+            const prevStatus = prev[key];
+            const newStatus = dbPauses[key];
+            if (!prevStatus ||
+                prevStatus.isPaused !== newStatus.isPaused ||
+                (prevStatus.pausedUntil?.getTime() !== newStatus.pausedUntil?.getTime())) {
+              hasChanges = true;
+              break;
+            }
           }
-        }
-      )
-      .subscribe();
-    
-    // Timer para actualizar contador cada segundo y recargar estado cada 5 segundos
-    // Esto funciona como fallback si realtime no funciona
+          for (const key of Object.keys(prev)) {
+            if (!dbPauses[key]) { hasChanges = true; break; }
+          }
+          return hasChanges ? { ...dbPauses } : prev;
+        });
+      } catch (error) {
+        // Silenciar errores
+      }
+    });
+
+    // Timer para limpiar pausas expiradas (cada segundo) + fallback reload cada 30s
     let reloadCounter = 0;
     const timer = setInterval(() => {
       const currentTime = new Date().getTime();
-      
-      // Cada 5 segundos, recargar estado completo desde BD (fallback para realtime)
+
+      // Fallback: recargar desde BD cada 30 segundos
       reloadCounter++;
-      if (reloadCounter >= 5) {
+      if (reloadCounter >= 30) {
         reloadCounter = 0;
-        botPauseService.getAllActivePauses().then(newPauses => {
-          const dbPauses: any = {};
-          newPauses.forEach(pause => {
-            dbPauses[pause.uchat_id] = {
-              isPaused: pause.is_paused,
-              pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
-              pausedBy: pause.paused_by,
-              duration: pause.duration_minutes
-            };
-          });
-          
-          setBotPauseStatus(prev => {
-            const prevKeys = Object.keys(prev).sort().join(',');
-            const newKeys = Object.keys(dbPauses).sort().join(',');
-            
-            if (prevKeys !== newKeys) {
-              return { ...dbPauses };
-            }
-            
-            let hasChanges = false;
-            for (const key of Object.keys(dbPauses)) {
-              const prevStatus = prev[key];
-              const newStatus = dbPauses[key];
-              if (!prevStatus || 
-                  prevStatus.isPaused !== newStatus.isPaused ||
-                  prevStatus.pausedUntil?.getTime() !== newStatus.pausedUntil?.getTime()) {
-                hasChanges = true;
-                break;
-              }
-            }
-            
-          if (hasChanges) {
-            return { ...dbPauses };
-          }
-            
-            return prev;
-          });
-        }).catch(() => {
-          // Silenciar errores de polling
-        });
+        loadBotPauseStatus();
       }
-      
+
       // Limpiar pausas expiradas cada segundo
       startTransition(() => {
         setBotPauseStatus(prev => {
           const updated = { ...prev };
           let hasChanges = false;
-          
           Object.entries(updated).forEach(([uchatId, status]) => {
             if (status.isPaused && status.pausedUntil) {
-              const pausedUntilTime = status.pausedUntil instanceof Date 
-                ? status.pausedUntil.getTime() 
+              const pausedUntilTime = status.pausedUntil instanceof Date
+                ? status.pausedUntil.getTime()
                 : new Date(status.pausedUntil).getTime();
-              
               if (currentTime > pausedUntilTime + 2000) {
                 delete updated[uchatId];
                 hasChanges = true;
               }
             }
           });
-          
           return hasChanges ? { ...updated } : prev;
         });
       });
@@ -295,13 +220,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
     return () => {
       clearInterval(timer);
-      if (pauseChannel) {
-        try {
-          pauseChannel.unsubscribe();
-        } catch (e) {
-          // Ignorar errores al desconectar
-        }
-      }
+      unsubPause();
     };
   }, [user?.id]);
   
@@ -355,15 +274,11 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             realtimeChannelRef.current.uchat.unsubscribe();
           } catch (e) {}
         }
-        if (realtimeChannelRef.current.whatsapp) {
-          try {
-            realtimeChannelRef.current.whatsapp.unsubscribe();
-          } catch (e) {}
+        if (realtimeChannelRef.current.unsubWhatsapp) {
+          realtimeChannelRef.current.unsubWhatsapp();
         }
-        if (realtimeChannelRef.current.prospectos) {
-          try {
-            realtimeChannelRef.current.prospectos.unsubscribe();
-          } catch (e) {}
+        if (realtimeChannelRef.current.unsubProspectos) {
+          realtimeChannelRef.current.unsubProspectos();
         }
       }
     };
@@ -663,10 +578,11 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           realtimeChannelRef.current.uchat.unsubscribe();
         } catch (e) {}
       }
-      if (realtimeChannelRef.current.whatsapp) {
-        try {
-          realtimeChannelRef.current.whatsapp.unsubscribe();
-        } catch (e) {}
+      if (realtimeChannelRef.current.unsubWhatsapp) {
+        realtimeChannelRef.current.unsubWhatsapp();
+      }
+      if (realtimeChannelRef.current.unsubProspectos) {
+        realtimeChannelRef.current.unsubProspectos();
       }
     }
 
@@ -913,16 +829,8 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
       .subscribe();
 
     // Canal para cambios en prospectos (requiere_atencion_humana, motivo_handoff, nombre)
-    const prospectosChannel = analysisSupabase
-      .channel(`prospectos-dashboard-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'prospectos'
-        },
-        async (payload) => {
+    // Migrado a RealtimeHub - canal compartido para tabla 'prospectos'
+    const unsubProspectos = realtimeHub.subscribe('prospectos', 'UPDATE', async (payload) => {
           const updatedProspecto = payload.new as any;
           const oldProspecto = payload.old as any;
           const prospectoId = updatedProspecto.id;
@@ -1071,21 +979,11 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               });
             });
           }
-        }
-      )
-      .subscribe();
+      });
 
     // Canal para mensajes_whatsapp (igual que LiveChatCanvas)
-    const whatsappChannel = analysisSupabase
-      .channel(`mensajes-whatsapp-dashboard-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensajes_whatsapp'
-        },
-        async (payload) => {
+    // Migrado a RealtimeHub - canal compartido para tabla 'mensajes_whatsapp'
+    const unsubWhatsapp = realtimeHub.subscribe('mensajes_whatsapp', 'INSERT', async (payload) => {
           const newMessage = payload.new as any;
           
           // Verificar permisos antes de procesar el mensaje (solo si no es admin)
@@ -1273,11 +1171,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
               }
             });
           });
-        }
-      )
-      .subscribe();
+      });
 
-    realtimeChannelRef.current = { uchat: uchatChannel, whatsapp: whatsappChannel, prospectos: prospectosChannel };
+    realtimeChannelRef.current = { uchat: uchatChannel, unsubWhatsapp, unsubProspectos };
   };
 
   const loadConversations = async () => {

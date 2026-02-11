@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'a8b6a40', date: '2026-02-11', author: 'Team', message: 'v2.11.1: B10.1.44N2.11.1 - Por que Fase 2', isRelease: true },
   { hash: '40ad51f', date: '2026-02-11', author: 'Team', message: 'v2.11.0: B10.1.44N2.11.0 - 2', isRelease: true },
   { hash: 'bbd6b31', date: '2026-02-11', author: 'Team', message: 'v2.10.2: B10.1.44N2.10.2 - Rediseño del modal de reactivación de conversación + Sesion con dos bloques: ...', isRelease: true },
   { hash: 'd79fcb8', date: '2026-02-09', author: 'Team', message: 'v2.10.1: B10.1.44N2.10.1 - 1 fix + 1 mejora + Rediseño del modal de reactivación de conversación + Sesio...', isRelease: true },
@@ -534,6 +535,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-013', date: '11/02/2026, 14:52', version: 'B10.1.44N2.11.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-604', date: '11/02/2026, 13:28', version: 'B10.1.44N2.11.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-143', date: '10/02/2026, 18:02', version: 'B10.1.44N2.10.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-364', date: '09/02/2026, 17:55', version: 'B10.1.44N2.10.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -713,8 +715,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.11.0', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.11.0', highlight: false },
+  { label: 'Version', value: 'v2.11.1', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.11.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '11 feb 2026', highlight: false },
 ];

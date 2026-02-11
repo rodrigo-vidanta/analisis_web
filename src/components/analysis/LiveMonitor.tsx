@@ -23,6 +23,7 @@ import { Device } from '@twilio/voice-sdk';
 import * as Tone from 'tone';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
+import { realtimeHub } from '../../services/realtimeHub';
 import { etapasService } from '../../services/etapasService';
 import { ParaphraseModal } from '../chat/ParaphraseModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -4518,15 +4519,8 @@ const LiveMonitor: React.FC = () => {
     // Cargar datos iniciales
     loadData();
 
-    // Configurar suscripción Realtime para detectar nuevas llamadas inmediatamente
-    const channel = analysisSupabase
-      .channel('live-monitor-realtime')
-      // INSERT: nuevas llamadas deben aparecer inmediatamente
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, async (payload) => {
+    // Suscripción centralizada via RealtimeHub (1 canal compartido por tabla)
+    const unsubInsert = realtimeHub.subscribe('llamadas_ventas', 'INSERT', async (payload) => {
         try {
           // Recargar datos para incluir la nueva llamada
           // ⚠️ MODO NINJA: Usar queryUserId para filtrar como el usuario suplantado
@@ -4542,13 +4536,10 @@ const LiveMonitor: React.FC = () => {
         } catch (e) {
           console.error('❌ [LiveMonitor] Error refrescando llamadas en Realtime:', e);
         }
-      })
-      // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'llamadas_ventas'
-      }, async (payload) => {
+    });
+
+    // UPDATE: cambios de checkpoint/estado - CRÍTICO para movimiento entre checkpoints
+    const unsubUpdate = realtimeHub.subscribe('llamadas_ventas', 'UPDATE', async (payload) => {
         const rec = payload.new as any;
         const oldRec = payload.old as any;
         
@@ -4610,24 +4601,15 @@ const LiveMonitor: React.FC = () => {
             }, 500);
           }
         }
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [LiveMonitor] Error en suscripción Realtime:', status);
-        }
-      });
+    });
 
     // Polling como fallback (intervalo más largo ya que Realtime maneja la mayoría de cambios)
     const interval = setInterval(loadData, 30000); // Cada 30 segundos
-    
+
     return () => {
       clearInterval(interval);
-      try {
-        channel.unsubscribe();
-      } catch (e) {
-        // Error al desuscribirse de Realtime (no crítico)
-      }
+      unsubInsert();
+      unsubUpdate();
     };
   }, [queryUserId]);
 

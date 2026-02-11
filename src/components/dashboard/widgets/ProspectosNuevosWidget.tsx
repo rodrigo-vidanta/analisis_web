@@ -10,6 +10,7 @@ import { prospectsService, type Prospect } from '../../../services/prospectsServ
 import { coordinacionService } from '../../../services/coordinacionService';
 import { permissionsService } from '../../../services/permissionsService';
 import { analysisSupabase } from '../../../config/analysisSupabase';
+import { realtimeHub } from '../../../services/realtimeHub';
 import { useAppStore } from '../../../stores/appStore';
 import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
 import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
@@ -128,17 +129,8 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
 
     loadProspectos();
     
-    // Suscripción realtime a prospectos
-    const channel = analysisSupabase
-      .channel(`prospectos-nuevos-dashboard-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'prospectos'
-        },
-        async (payload) => {
+    // Suscripción centralizada via RealtimeHub (1 canal compartido por tabla)
+    const unsubProspectosInsert = realtimeHub.subscribe('prospectos', 'INSERT', async (payload) => {
           const newProspect = payload.new as any;
           
           // ⚠️ CRÍTICO: Verificar permisos ANTES de mostrar notificación o añadir a la lista
@@ -208,16 +200,9 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
           } catch (error) {
             // Silenciar errores de permisos
           }
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'prospectos'
-        },
-        async (payload) => {
+    });
+
+    const unsubProspectosUpdate = realtimeHub.subscribe('prospectos', 'UPDATE', async (payload) => {
           const updatedProspect = payload.new as any;
           const oldProspect = payload.old as any;
           
@@ -458,21 +443,10 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
                 // Silenciar errores de permisos
               });
           }
-        }
-      )
-      .subscribe();
+    });
 
-    // Suscripción realtime a mensajes_whatsapp para actualizar fecha_ultimo_mensaje y reordenar
-    const mensajesChannel = analysisSupabase
-      .channel(`mensajes-prospectos-nuevos-dashboard-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mensajes_whatsapp'
-        },
-        async (payload) => {
+    // Suscripción a mensajes_whatsapp via RealtimeHub
+    const unsubMensajes = realtimeHub.subscribe('mensajes_whatsapp', 'INSERT', async (payload) => {
           const newMessage = payload.new as any;
           const prospectoId = newMessage.prospecto_id;
           
@@ -497,13 +471,12 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
             prospectosListRef.current = sorted;
             return sorted;
           });
-        }
-      )
-      .subscribe();
+    });
 
     return () => {
-      channel.unsubscribe();
-      mensajesChannel.unsubscribe();
+      unsubProspectosInsert();
+      unsubProspectosUpdate();
+      unsubMensajes();
     };
   }, [userId, enrichProspecto, getLastMessageDate, sortProspectosByLastMessage]);
 

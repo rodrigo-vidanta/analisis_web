@@ -3180,14 +3180,9 @@ const LiveMonitorKanban: React.FC = () => {
     }
   };
 
-  // ============================================
-  // DESHABILITADO: Realtime + Polling para tab "Llamadas Activas"
-  // Razón: Tab eliminada - el side-widget (liveActivityStore) reemplaza esta funcionalidad
-  // Impacto CPU: Esto eliminaba ~34% del CPU de Supabase (2.9M queries a live_monitor_view)
-  // Para reactivar: descomentar este useEffect completo
-  // ============================================
+  // ELIMINADO: Bloque de ~150 líneas de Realtime + Polling para tab "Llamadas Activas"
+  // El side-widget (liveActivityStore) via RealtimeHub reemplaza esta funcionalidad
   /*
-  useEffect(() => {
     const loadInitialData = async () => {
       try {
         const [callsData, agentsData] = await Promise.all([

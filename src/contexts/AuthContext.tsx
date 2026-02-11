@@ -16,6 +16,7 @@ import LightSpeedTunnel from '../components/LightSpeedTunnel';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useLiveActivityStore } from '../stores/liveActivityStore';
+import { realtimeHub, realtimeHubSystemUI } from '../services/realtimeHub';
 import { useHeartbeat } from '../hooks/useHeartbeat';
 import toast from 'react-hot-toast';
 
@@ -107,6 +108,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // 2. Limpiar el store de Live Activity Widget INMEDIATAMENTE
           // para evitar que siga haciendo requests después del logout
           useLiveActivityStore.getState().cleanup();
+
+          // 3. Limpiar todos los canales Realtime centralizados
+          realtimeHub.cleanup();
+          realtimeHubSystemUI.cleanup();
           
           // 3. Limpiar estado de autenticación
           setAuthState({
@@ -294,7 +299,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     
     // Limpiar el store de Live Activity Widget
     useLiveActivityStore.getState().cleanup();
-    
+
+    // Limpiar todos los canales Realtime centralizados
+    realtimeHub.cleanup();
+    realtimeHubSystemUI.cleanup();
+
     // Pequeño delay para que el toast se renderice antes de desmontar
     setTimeout(() => {
       setAuthState({
