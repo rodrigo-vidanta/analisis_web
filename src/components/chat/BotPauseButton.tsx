@@ -49,18 +49,21 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
     return `${secs}s`;
   };
 
-  // Actualizar tiempo mostrado cada segundo
+  // Actualizar tiempo mostrado cada segundo con contador real
   useEffect(() => {
     if (isPaused && timeRemaining !== null && timeRemaining > 0) {
-      setDisplayTime(formatCompactTime(timeRemaining));
-      
+      const startTime = Date.now();
+      const startRemaining = timeRemaining;
+
+      setDisplayTime(formatCompactTime(startRemaining));
+
       const interval = setInterval(() => {
-        setDisplayTime(prev => {
-          const currentSeconds = timeRemaining - Math.floor((Date.now() - Date.now()) / 1000);
-          return formatCompactTime(currentSeconds > 0 ? currentSeconds : 0);
-        });
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const current = Math.max(0, startRemaining - elapsed);
+        setDisplayTime(formatCompactTime(current));
+        if (current <= 0) clearInterval(interval);
       }, 1000);
-      
+
       return () => clearInterval(interval);
     } else {
       setDisplayTime('');

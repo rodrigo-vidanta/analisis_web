@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'bbd6b31', date: '2026-02-11', author: 'Team', message: 'v2.10.2: B10.1.44N2.10.2 - Rediseño del modal de reactivación de conversación + Sesion con dos bloques: ...', isRelease: true },
   { hash: 'd79fcb8', date: '2026-02-09', author: 'Team', message: 'v2.10.1: B10.1.44N2.10.1 - 1 fix + 1 mejora + Rediseño del modal de reactivación de conversación + Sesio...', isRelease: true },
   { hash: '771ad18', date: '2026-02-09', author: 'Team', message: 'v2.8.3: B10.1.44N2.8.3 - Sesion con dos bloques: (1) Setup completo de inte', isRelease: true },
   { hash: '77debbe', date: '2026-02-09', author: 'Team', message: 'v2.8.2: B10.1.44N2.8.2 - 2 fixes + 2 mejoras', isRelease: true },
@@ -532,6 +533,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-143', date: '10/02/2026, 18:02', version: 'B10.1.44N2.10.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-364', date: '09/02/2026, 17:55', version: 'B10.1.44N2.10.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-017', date: '09/02/2026, 13:17', version: 'B10.1.44N2.8.3', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-241', date: '09/02/2026, 11:54', version: 'B10.1.44N2.8.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -709,10 +711,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.10.1', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.10.1', highlight: false },
+  { label: 'Version', value: 'v2.10.2', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.10.2', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '9 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '10 feb 2026', highlight: false },
 ];
 
 // ============================================

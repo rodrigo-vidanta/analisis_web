@@ -1719,8 +1719,8 @@ const LiveChatCanvas: React.FC = () => {
         
         // Transformar de tabla a formato esperado
         const customerName = waConv.nombre_contacto || prospectoData?.nombre_completo || prospectoData?.nombre_whatsapp || waConv.numero_telefono || 'Sin nombre';
-        const uchatId = prospectoData?.id_uchat || waConv.id;
-        
+        const uchatId = prospectoData?.id_uchat || '';
+
         const adaptedConv: Conversation = {
           id: targetProspectoId,
           prospecto_id: targetProspectoId,
@@ -3709,13 +3709,11 @@ const LiveChatCanvas: React.FC = () => {
 
 
   useEffect(() => {
-    // Cargar estado de pausa desde base de datos y localStorage al iniciar
     const loadBotPauseStatus = async () => {
       try {
-        // 1. Cargar desde base de datos (prioridad)
         const activePausesFromDB = await botPauseService.getAllActivePauses();
-        const dbPauses: any = {};
-        
+        const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
+
         activePausesFromDB.forEach(pause => {
           dbPauses[pause.uchat_id] = {
             isPaused: pause.is_paused,
@@ -3725,81 +3723,44 @@ const LiveChatCanvas: React.FC = () => {
           };
         });
 
-        // 2. Cargar desde localStorage como respaldo
-        const savedPauseStatus = localStorage.getItem('bot-pause-status');
-        if (savedPauseStatus) {
-          try {
-            const parsed = JSON.parse(savedPauseStatus);
-            const currentTime = new Date();
-            
-            // Filtrar pausas que ya expiraron y combinar con BD
-            Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
-              // Solo usar localStorage si no existe en BD
-              if (!dbPauses[uchatId] && status.pausedUntil) {
-                const pausedUntilTime = new Date(status.pausedUntil).getTime();
-                const timeRemaining = pausedUntilTime - currentTime.getTime();
-                
-                if (timeRemaining > 0) {
-                  dbPauses[uchatId] = {
-                    ...status,
-                    pausedUntil: new Date(status.pausedUntil)
-                  };
-                }
-              }
-            });
-          } catch (error) {
-            console.error('❌ Error parseando localStorage:', error);
-          }
-        }
-
         setBotPauseStatus(dbPauses);
-        
-        // Sincronizar localStorage con BD
-        const storageData = Object.fromEntries(
-          Object.entries(dbPauses).map(([id, status]: [string, any]) => [
-            id, 
-            { 
-              ...status, 
-              pausedUntil: status.pausedUntil instanceof Date 
-                ? status.pausedUntil.toISOString() 
-                : status.pausedUntil 
-            }
-          ])
-        );
-        localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
       } catch (error) {
         console.error('❌ Error cargando estado de pausa:', error);
-        // Fallback a localStorage si falla BD
-        const savedPauseStatus = localStorage.getItem('bot-pause-status');
-        if (savedPauseStatus) {
-          try {
-            const parsed = JSON.parse(savedPauseStatus);
-            const currentTime = new Date();
-            const activePauses: any = {};
-            
-            Object.entries(parsed).forEach(([uchatId, status]: [string, any]) => {
-              if (status.pausedUntil) {
-                const pausedUntilTime = new Date(status.pausedUntil).getTime();
-                const timeRemaining = pausedUntilTime - currentTime.getTime();
-                
-                if (timeRemaining > 0) {
-                  activePauses[uchatId] = {
-                    ...status,
-                    pausedUntil: new Date(status.pausedUntil)
-                  };
-                }
-              }
-            });
-            
-            setBotPauseStatus(activePauses);
-          } catch (parseError) {
-            console.error('❌ Error parseando localStorage fallback:', parseError);
-          }
-        }
       }
     };
 
     loadBotPauseStatus();
+
+    // Suscripción Realtime a cambios en bot_pause_status
+    const channelName = `bot-pause-livechat-${user?.id || 'anon'}`;
+    const pauseChannel = supabaseSystemUI
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bot_pause_status' },
+        async () => {
+          try {
+            const newPauses = await botPauseService.getAllActivePauses();
+            const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
+            newPauses.forEach(pause => {
+              dbPauses[pause.uchat_id] = {
+                isPaused: pause.is_paused,
+                pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
+                pausedBy: pause.paused_by,
+                duration: pause.duration_minutes
+              };
+            });
+            setBotPauseStatus(dbPauses);
+          } catch (error) {
+            // Silenciar
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabaseSystemUI.removeChannel(pauseChannel);
+    };
   }, []);
 
   // ============================================
@@ -3887,25 +3848,10 @@ const LiveChatCanvas: React.FC = () => {
           }
         });
         
-        // ⚡ CRÍTICO: Solo retornar nuevo objeto si hubo cambios
         if (!hasChanges) {
-          return prev; // Sin cambios = sin re-render
+          return prev;
         }
-        
-        // Actualizar localStorage solo si hubo cambios
-        const storageData = Object.fromEntries(
-          Object.entries(updated).map(([id, status]) => [
-            id, 
-            { 
-              ...status, 
-              pausedUntil: status.pausedUntil instanceof Date 
-                ? status.pausedUntil.toISOString() 
-                : status.pausedUntil 
-            }
-          ])
-        );
-        localStorage.setItem('bot-pause-status', JSON.stringify(storageData));
-        
+
         return updated;
       });
     }, 5000); // ⚡ Reducido de 1s a 5s - suficiente para verificar expiración
@@ -6064,146 +6010,44 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
 
   const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
-    // ⚠️ VALIDACIÓN CRÍTICA: Verificar que uchatId existe
-    if (!uchatId || uchatId === 'undefined' || uchatId === 'null') {
+    if (!botPauseService.isValidUchatId(uchatId)) {
       console.error('❌ No se puede pausar bot: uchat_id no válido', { uchatId });
-      toast.error('No se puede pausar el bot para esta conversación.', {
-        duration: 4000,
-        icon: '⚠️'
-      });
       return false;
     }
-    
+
     try {
-      // ⚠️ LÓGICA DE RESPETO DE PAUSAS ACTIVAS
-      // Si force = false, verificar si ya existe una pausa activa antes de sobreescribir
+      // Si force = false, respetar pausas activas existentes
       if (!force) {
         const existingPause = await botPauseService.getPauseStatus(uchatId);
-        
         if (existingPause && existingPause.is_paused && existingPause.paused_until) {
           const pausedUntil = new Date(existingPause.paused_until);
-          const now = new Date();
-          
-          // Si la pausa aún no ha expirado, NO sobreescribir
-          if (pausedUntil > now) {
-            return true; // Retornar true porque el bot ya está pausado (objetivo cumplido)
+          if (pausedUntil > new Date()) {
+            return true;
           }
         }
       }
 
-      // Calcular TTL en segundos
-      // null = indefinido (1 mes = 30 días = 2,592,000 segundos)
-      const ttlSec = durationMinutes === null 
-        ? 30 * 24 * 60 * 60 // 1 mes en segundos
-        : Math.max(0, Math.floor(durationMinutes * 60));
-      
-      // Crear AbortController para timeout de 6 segundos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      try {
-        // Usar Edge Function en lugar de webhook directo
-        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
-        
-        // Obtener JWT del usuario autenticado
-        const authToken = await getAuthTokenOrThrow();
-        
-        const resp = await fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: ttlSec }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // Manejar respuesta según código HTTP
-        if (resp.status === 200) {
-          // Éxito - no hacer nada (como solicitado)
-        } else if (resp.status === 401) {
-          // Error de autenticación - logging detallado
-          const errorData = await resp.json().catch(() => ({ error: 'Error parsing response' }));
-          console.error('❌ [pauseBot] Error 401 - Autenticación fallida:', {
-            status: resp.status,
-            errorData,
-            tokenPrefix: authToken.substring(0, 20) + '...'
-          });
-          toast.error('Error de autenticación. Por favor, recarga la página e intenta nuevamente.', {
-            duration: 5000,
-            icon: '🔒'
-          });
-          return false;
-        } else if (resp.status === 400) {
-          // Error del servidor - mostrar mensaje al usuario
-          const errorText = await resp.text().catch(() => 'Error desconocido al pausar el bot');
-          console.error('❌ Error pause_bot webhook (400):', errorText);
-          toast.error('No se pudo pausar el bot. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '⏸️'
-          });
-          return false;
-        } else {
-          // Otro código de error
-          const errorText = await resp.text().catch(() => 'Error desconocido');
-          console.error(`❌ Error pause_bot webhook (${resp.status}):`, errorText);
-          toast.error('Error al pausar el bot. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '⏸️'
-          });
-          return false;
-        }
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        
-        // Manejar timeout o error de red
-        if (error.name === 'AbortError') {
-          console.error('❌ Timeout al pausar bot (6 segundos)');
-          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '⏱️'
-          });
-        } else {
-          console.error('❌ Error de red al pausar bot:', error);
-          toast.error('Error de conexión al pausar el bot. Por favor, verifica tu conexión.', {
-            duration: 4000,
-            icon: '🔌'
-          });
-        }
+      // Escribir directamente en BD (fuente única de verdad)
+      const result = await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
+      if (!result) {
+        toast.error('No se pudo pausar el bot.', { duration: 4000 });
         return false;
       }
 
-      // Calcular fecha de expiración
+      // Actualizar estado local para UI inmediata
       const pausedUntil = durationMinutes === null
-        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 1 mes
-        : new Date(Date.now() + ttlSec * 1000);
-      
-      // Guardar estado en base de datos
-      await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
-      
-      // Guardar estado en localStorage para persistencia local
-      const pauseData = {
-        isPaused: true,
-        pausedUntil,
-        pausedBy: 'agent',
-        duration: durationMinutes
-      };
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        : new Date(Date.now() + durationMinutes * 60 * 1000);
 
       setBotPauseStatus(prev => ({
         ...prev,
-        [uchatId]: pauseData
+        [uchatId]: {
+          isPaused: true,
+          pausedUntil,
+          pausedBy: 'agent',
+          duration: durationMinutes
+        }
       }));
-
-      // Persistir en localStorage
-      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
-      allPauseStatus[uchatId] = {
-        ...pauseData,
-        pausedUntil: pausedUntil.toISOString()
-      };
-      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
 
       return true;
     } catch (error) {
@@ -6214,114 +6058,25 @@ const LiveChatCanvas: React.FC = () => {
 
 
   const resumeBot = async (uchatId: string): Promise<boolean> => {
-    // ⚠️ VALIDACIÓN CRÍTICA: Verificar que uchatId existe
-    if (!uchatId || uchatId === 'undefined' || uchatId === 'null') {
+    if (!botPauseService.isValidUchatId(uchatId)) {
       console.error('❌ No se puede reactivar bot: uchat_id no válido', { uchatId });
-      toast.error('No se puede reactivar el bot para esta conversación.', {
-        duration: 4000,
-        icon: '⚠️'
-      });
       return false;
     }
-    
+
     try {
-      // Crear AbortController para timeout de 6 segundos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-      
-      try {
-        // Usar Edge Function en lugar de webhook directo
-        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/pause-bot-proxy`;
-        
-        // Obtener JWT del usuario autenticado
-        const authToken = await getAuthTokenOrThrow();
-        
-        const resp = await fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json', 
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify({ uchat_id: uchatId, ttl: 0 }),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        // Manejar respuesta según código HTTP
-        if (resp.status === 200) {
-          // Éxito - no hacer nada (como solicitado)
-        } else if (resp.status === 401) {
-          // Error de autenticación - logging detallado
-          const errorData = await resp.json().catch(() => ({ error: 'Error parsing response' }));
-          console.error('❌ [resumeBot] Error 401 - Autenticación fallida:', {
-            status: resp.status,
-            errorData,
-            tokenPrefix: authToken.substring(0, 20) + '...'
-          });
-          toast.error('Error de autenticación. Por favor, recarga la página e intenta nuevamente.', {
-            duration: 5000,
-            icon: '🔒'
-          });
-          return false;
-        } else if (resp.status === 400) {
-          // Error del servidor - mostrar mensaje al usuario
-          const errorText = await resp.text().catch(() => 'Error desconocido al reactivar el bot');
-          console.error('❌ Error pause_bot webhook (resume, 400):', errorText);
-          toast.error('No se pudo reactivar el bot. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '▶️'
-          });
-          return false;
-        } else {
-          // Otro código de error
-          const errorData = await resp.json().catch(() => null);
-          console.error(`❌ Error pause_bot webhook (resume, ${resp.status}):`, errorData);
-          toast.error('Error al reactivar el bot. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '▶️'
-          });
-          return false;
-        }
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        
-        // Manejar timeout o error de red
-        if (error.name === 'AbortError') {
-          console.error('❌ Timeout al reactivar bot (6 segundos)');
-          toast.error('El servidor no respondió a tiempo. Por favor, intenta nuevamente.', {
-            duration: 4000,
-            icon: '⏱️'
-          });
-        } else {
-          console.error('❌ Error de red al reactivar bot:', error);
-          toast.error('Error de conexión al reactivar el bot. Por favor, verifica tu conexión.', {
-            duration: 4000,
-            icon: '🔌'
-          });
-        }
+      // Eliminar de BD (fuente única de verdad)
+      const success = await botPauseService.resumeBot(uchatId);
+      if (!success) {
+        toast.error('No se pudo reactivar el bot.', { duration: 4000 });
         return false;
       }
 
-      // Eliminar estado de pausa de la base de datos
-      await botPauseService.resumeBot(uchatId);
-
+      // Actualizar estado local para UI inmediata
       setBotPauseStatus(prev => {
         const updated = { ...prev };
-        updated[uchatId] = {
-          isPaused: false,
-          pausedUntil: null,
-          pausedBy: '',
-          duration: null
-        };
+        delete updated[uchatId];
         return updated;
       });
-
-      // Actualizar localStorage
-      const allPauseStatus = JSON.parse(localStorage.getItem('bot-pause-status') || '{}');
-      delete allPauseStatus[uchatId];
-      localStorage.setItem('bot-pause-status', JSON.stringify(allPauseStatus));
 
       return true;
     } catch (error) {

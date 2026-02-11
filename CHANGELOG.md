@@ -1,3 +1,39 @@
+## [v2.10.2] - 2026-02-11
+
+**B10.1.44N2.10.2** - Rediseño del modal de reactivación de conversación + Sesion con dos bloques: (1) Crear logo de San Vale + Nuevo logo de temporada San Valentín para el sis + Sesion con dos bloques: (1) Setup completo de inte + El botón de Pausar Bot existe en dos ubicaciones
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-09-REACTIVATION-MODAL-TABS**: Rediseño del modal de reactivación de conversación WhatsApp (`ReactivateConversationModal`): agregar menú de 4 tabs por categoría de plantilla, filtro por etiquetas reutilizando `TemplateTagsSelector`, y ampliar ancho del modal.
+  - Tabs expandidos de 2 (`top`, `mis`) a 4 (`top`, `utilidades`, `marketing`, `mis`) con iconos y contadores
+  - Tab "Plantillas" (top) limitado a Top 10, excluye categoría UTILITY
+  - Tab "Utilidades" muestra solo `category === 'UTILITY'` + sección especial `seguimiento_contacto_utilidad`
+  - Tab "Marketing" muestra solo `category === 'MARKETING'`
+  - Filtro por etiquetas integrado usando `TemplateTagsSelector` (componente reutilizable existente)
+  - Modal ampliado de `max-w-6xl` a `max-w-7xl`
+- **HANDOVER-2026-02-09-VALENTINE-LOGO-DEPLOY-FIX**: Sesion con dos bloques: (1) Crear logo de San Valentin para el sistema de doodles, (2) Corregir bug en deploy-v2.ts que fallaba con comillas en commit messages y mejorar manejo de fallos parciales en el skill de deploy.
+  - Nuevo `ValentineLogo.tsx`: heartbeat sutil (scale 1→1.035→1, 3.2s), resplandor rosado pulsante (200x80px, blur 16px)
+  - Al clic: 18 corazones SVG traslucidos (90-240px) suben como globos con oscilacion horizontal y desvanecimiento
+  - Audio romantico 12.1s (Elevenlabs) al hacer clic
+  - Registrado en LogoCatalog como tipo `valentine`, sugerencia automatica en febrero
+  - Desactivada navegacion al home al clic en logo (Sidebar.tsx: removido `onClick={handleLogoClick}`)
+  - Fix `deploy-v2.ts` linea 600: commit message usaba comillas dobles que rompian con caracteres como `"San Valentín"`
+  - `generateAutoMessage` ahora sanitiza comillas y caracteres especiales de contextos de handovers
+  - Skill `/deploy` actualizado con protocolo de recuperacion de 7 pasos para fallos parciales del script
+  - Release notes actualizadas manualmente en BD (el script no las habia generado correctamente)
+- **HANDOVER-2026-02-09-VALENTINE-LOGO**: Nuevo logo de temporada "San Valentín" para el sistema de doodles (estilo Google Doodles) en la sección Administración > Preferencias > Logos Personalizados. 5to logo del catálogo.
+  - Nuevo componente `ValentineLogo` con heartbeat sutil en loop (scale 1→1.035→1, ciclo 3.2s)
+  - Resplandor rosado pulsante detrás del logo (radial-gradient, blur 16px, 200x80px centrado)
+  - Al hacer clic: 18 corazones traslúcidos SVG (90-240px) suben desde el fondo de pantalla como globos
+  - Corazones con movimiento oscilatorio horizontal, rotación leve y desvanecimiento progresivo al subir
+  - Audio romántico (12.1s, vol 0.5) reproducido al hacer clic
+  - Registrado en `LogoCatalog` como tipo `'valentine'` con sugerencia automática en febrero
+- **HANDOVER-2026-02-09-VAPI-TEMPLATE-DIAGNOSIS**: Sesion con dos bloques: (1) Setup completo de integracion VAPI voice AI, (2) Diagnostico de error 500 al enviar plantilla WhatsApp a prospecto importado manualmente.
+  - Setup VAPI: CLI, skill, agente, inventario completo, analisis de costos y llamadas
+  - Diagnostico: plantilla WhatsApp falla para prospectos sin `id_uchat`
+- **2026-02-11-fix-bot-pause-functionality**: El botón de "Pausar Bot" existe en dos ubicaciones:
+
+---
+
 ## [v2.10.1] - 2026-02-09
 
 **B10.1.44N2.10.1** - 1 fix + 1 mejora + Rediseño del modal de reactivación de conversación + Sesion con dos bloques: (1) Crear logo de San Vale + Nuevo logo de temporada San Valentín para el sis + Sesion con dos bloques: (1) Setup completo de inte

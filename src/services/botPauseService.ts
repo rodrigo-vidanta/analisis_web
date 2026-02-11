@@ -2,17 +2,16 @@
  * ============================================
  * SERVICIO DE GESTIÓN DE PAUSA DEL BOT
  * ============================================
- * 
- * Maneja el estado de pausa del bot en la base de datos
- * para persistencia entre sesiones de usuarios
- * 
- * 🔒 SEGURIDAD (Actualizado 2026-01-15):
- * - Usa cliente normal con anon_key (no service_role)
- * - RLS debe permitir operaciones de usuarios autenticados
- * - Si RLS bloquea, el bot sigue funcionando (degradación graceful)
+ *
+ * Maneja el estado de pausa del bot en la base de datos.
+ * BD es la ÚNICA fuente de verdad (no localStorage).
+ *
+ * VALIDACIÓN: Solo acepta uchat_id con formato f{digits}u{digits}
  */
 
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
+
+const UCHAT_ID_REGEX = /^f\d+u\d+$/;
 
 export interface BotPauseStatus {
   id?: string;
@@ -30,6 +29,14 @@ class BotPauseService {
   private client = supabaseSystemUI;
 
   /**
+   * Validar que el uchat_id tiene el formato correcto
+   */
+  isValidUchatId(uchatId: string | null | undefined): boolean {
+    if (!uchatId) return false;
+    return UCHAT_ID_REGEX.test(uchatId);
+  }
+
+  /**
    * Guardar o actualizar el estado de pausa del bot
    */
   async savePauseStatus(
@@ -42,9 +49,14 @@ class BotPauseService {
       return null;
     }
 
+    if (!this.isValidUchatId(uchatId)) {
+      console.warn('⚠️ BotPauseService: uchat_id inválido, ignorando:', uchatId);
+      return null;
+    }
+
     try {
       const now = new Date();
-      let pausedUntil: Date | null = null;
+      let pausedUntil: Date;
 
       if (durationMinutes === null) {
         pausedUntil = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -61,7 +73,7 @@ class BotPauseService {
         paused_at: now.toISOString()
       };
 
-      // Verificar si existe
+      // Verificar si ya existe registro para este uchat_id
       const { data: existing } = await this.client
         .from('bot_pause_status')
         .select('id')
@@ -69,7 +81,6 @@ class BotPauseService {
         .maybeSingle();
 
       if (existing) {
-        // Actualizar
         const { data, error } = await this.client
           .from('bot_pause_status')
           .update(pauseData)
@@ -84,7 +95,6 @@ class BotPauseService {
         return data as BotPauseStatus;
       }
 
-      // Crear nuevo
       const { data, error } = await this.client
         .from('bot_pause_status')
         .insert(pauseData)
@@ -106,7 +116,7 @@ class BotPauseService {
    * Obtener el estado de pausa del bot
    */
   async getPauseStatus(uchatId: string): Promise<BotPauseStatus | null> {
-    if (!this.client) {
+    if (!this.client || !this.isValidUchatId(uchatId)) {
       return null;
     }
 
@@ -121,14 +131,9 @@ class BotPauseService {
         return null;
       }
 
-      // Verificar si la pausa ya expiró
-      if (data.is_paused && data.paused_until) {
-        const pausedUntil = new Date(data.paused_until);
-        if (new Date() > pausedUntil) {
-          await this.resumeBot(uchatId);
-          return null;
-        }
-      }
+      // Si expiró o no está pausado, retornar null
+      if (!data.is_paused) return null;
+      if (data.paused_until && new Date() > new Date(data.paused_until)) return null;
 
       return data as BotPauseStatus;
     } catch (error) {
@@ -138,7 +143,7 @@ class BotPauseService {
   }
 
   /**
-   * Obtener todos los estados de pausa activos
+   * Obtener todos los estados de pausa activos (no expirados)
    */
   async getAllActivePauses(): Promise<BotPauseStatus[]> {
     if (!this.client) {
@@ -163,17 +168,20 @@ class BotPauseService {
   }
 
   /**
-   * Reactivar el bot (eliminar estado de pausa)
+   * Reactivar el bot (marcar como no pausado, conservar registro para auditoría)
    */
   async resumeBot(uchatId: string): Promise<boolean> {
-    if (!this.client) {
+    if (!this.client || !this.isValidUchatId(uchatId)) {
       return false;
     }
 
     try {
       const { error } = await this.client
         .from('bot_pause_status')
-        .delete()
+        .update({
+          is_paused: false,
+          paused_until: new Date().toISOString()
+        })
         .eq('uchat_id', uchatId);
 
       if (error) {
@@ -198,6 +206,31 @@ class BotPauseService {
     const pausedUntil = new Date(pauseStatus.paused_until);
     const now = new Date();
     return Math.max(0, Math.floor((pausedUntil.getTime() - now.getTime()) / 1000));
+  }
+
+  /**
+   * Limpiar registros expirados de la BD (mantenimiento)
+   */
+  async cleanupExpired(): Promise<number> {
+    if (!this.client) return 0;
+
+    try {
+      const now = new Date().toISOString();
+      const { data, error } = await this.client
+        .from('bot_pause_status')
+        .delete()
+        .eq('is_paused', true)
+        .lt('paused_until', now)
+        .select('id');
+
+      if (error) {
+        console.warn('⚠️ BotPauseService cleanup error:', error.message);
+        return 0;
+      }
+      return data?.length || 0;
+    } catch (error) {
+      return 0;
+    }
   }
 }
 
