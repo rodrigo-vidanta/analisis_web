@@ -109,6 +109,11 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, {
     modules: ['direccion'],
     subModules: [],
     liveMonitor: false
+  },
+  marketing: {
+    modules: ['campaigns', 'support'],
+    subModules: [],
+    liveMonitor: false
   }
 };
 

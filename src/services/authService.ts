@@ -570,12 +570,18 @@ class AuthService {
       case 'admin':
         return ['admin', 'administrador_operativo', 'coordinador'].includes(role);
       
+      case 'campaigns':
+        return ['admin', 'marketing'].includes(role);
+
+      case 'support':
+        return ['admin', 'marketing'].includes(role);
+
       case 'log-server':
         return role === 'admin';
-      
+
       case 'aws-manager':
         return ['admin', 'developer'].includes(role);
-      
+
       default:
         if (role === 'direccion') return false;
         if (role === 'admin') return true;

@@ -692,12 +692,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null => {
+  const getFirstAvailableModule = (): 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | 'campaigns' | null => {
     if (!authState.user) return null;
 
     // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
     if (authState.user.role_name === 'direccion') {
       return 'direccion';
+    }
+
+    // Marketing: solo Campañas y Soporte
+    if (authState.user.role_name === 'marketing') {
+      return 'campaigns';
     }
 
     // Dashboard Operativo como pantalla de inicio para ejecutivo, coordinador, admin operativo y admin
