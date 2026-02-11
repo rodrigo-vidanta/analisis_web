@@ -1,3 +1,12 @@
+## [v2.12.1] - 2026-02-11
+
+**B10.1.44N2.12.1** - 1 fix
+
+### Bug Fixes
+- restringir marketing a solo campaigns y support (`1b82b85`)
+
+---
+
 ## [v2.12.0] - 2026-02-11
 
 **B10.1.44N2.12.0** - 1 feature + Por qué la MV existe
