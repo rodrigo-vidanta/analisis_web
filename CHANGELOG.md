@@ -1,3 +1,15 @@
+## [v2.12.2] - 2026-02-11
+
+**B10.1.44N2.12.2** - 1 fix + Sesión anterior (CPU Optimization Fase 3)
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-11-TICKET-NOTIFICATIONS-ADMIN-PANEL**: Sesión anterior (CPU Optimization Fase 3)
+
+### Bug Fixes
+- fix avatar upload + tickets admin panel + marketing access (`864537b`)
+
+---
+
 ## [v2.12.1] - 2026-02-11
 
 **B10.1.44N2.12.1** - 1 fix
