@@ -1,3 +1,15 @@
+## [v2.14.0] - 2026-02-12
+
+**B10.1.44N2.14.0** - 1 mejora + Después de las Fases 1-3 (2026-02-11) que redujero
+
+### Sesiones de trabajo
+- **2026-02-12-cpu-optimization-phase4-query-filters**: Después de las Fases 1-3 (2026-02-11) que redujeron frecuencia de polling y deduplicaron canales Realtime, Supabase seguía reportando CPU >80%. Las queries a `live_monitor_view` seguían consumiendo **96.35%** del tiempo total de BD porque:
+
+### Performance
+- eliminate polling + redundant queries + dead code (`e760e12`)
+
+---
+
 ## [v2.13.0] - 2026-02-12
 
 **B10.1.44N2.13.0** - 1 mejora
