@@ -17,7 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { horariosService, type HorarioBase, type HorarioExcepcion, type HorarioBloqueo } from '../../services/horariosService';
 import { getApiToken } from '../../services/apiTokensService';
-import { getAuthTokenOrThrow } from '../../utils/authToken';
+import { authenticatedEdgeFetch } from '../../utils/authenticatedFetch';
 
 interface ScheduledCall {
   id: string;
@@ -433,20 +433,9 @@ export const ManualCallModal: React.FC<ManualCallModalProps> = ({
         payload.llamada_programada_id = existingCall.id;
       }
 
-      // Usar Edge Function en lugar de webhook directo
-      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/trigger-manual-proxy`;
-      
-      // Obtener JWT del usuario autenticado (desde supabaseSystemUI donde está la sesión)
-      const authToken = await getAuthTokenOrThrow();
-      
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(payload)
+      // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+      const response = await authenticatedEdgeFetch('trigger-manual-proxy', {
+        body: payload
       });
 
       if (!response.ok) {

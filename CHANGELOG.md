@@ -1,3 +1,13 @@
+## [v2.14.1] - 2026-02-12
+
+**B10.1.44N2.14.1** - El usuario reportó error 401 al programar una llam + En la sesión anterior (CPU Optimization Phase 4), 
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-12-AUTH-TOKEN-REFRESH-EDGE-FUNCTIONS**: El usuario reportó error 401 al programar una llamada desde `ManualCallModal`:
+- **2026-02-12-fix-realtime-transcription-update**: En la sesión anterior (CPU Optimization Phase 4), se eliminó el polling de 3 segundos del side-widget de llamadas activas (`LiveCallActivityWidget`). El widget pasó a ser 100% event-driven via Supabase Realtime.
+
+---
+
 ## [v2.14.0] - 2026-02-12
 
 **B10.1.44N2.14.0** - 1 mejora + Después de las Fases 1-3 (2026-02-11) que redujero

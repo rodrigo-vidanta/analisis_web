@@ -195,21 +195,27 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
                 const existingCall = state.widgetCalls.find(c => c.call_id === callData.call_id);
 
                 // Parsear JSON fields (Realtime puede enviarlos como strings)
+                // IMPORTANTE: Sin polling, este es el ÚNICO mecanismo de update.
+                // Incluir TODOS los campos que cambian durante una llamada activa.
                 const parsedUpdates: Record<string, unknown> = {
                   call_status: callData.call_status,
                   duracion_segundos: callData.duracion_segundos,
+                  checkpoint_venta_actual: callData.checkpoint_venta_actual,
+                  resumen_llamada: callData.resumen_llamada,
+                  razon_finalizacion: callData.razon_finalizacion,
+                  audio_ruta_bucket: callData.audio_ruta_bucket,
+                  nivel_interes: callData.nivel_interes,
+                  es_venta_exitosa: callData.es_venta_exitosa,
                 };
-                if (callData.datos_proceso) {
-                  try {
-                    parsedUpdates.datos_proceso = typeof callData.datos_proceso === 'string'
-                      ? JSON.parse(callData.datos_proceso as string) : callData.datos_proceso;
-                  } catch { parsedUpdates.datos_proceso = callData.datos_proceso; }
-                }
-                if (callData.datos_llamada) {
-                  try {
-                    parsedUpdates.datos_llamada = typeof callData.datos_llamada === 'string'
-                      ? JSON.parse(callData.datos_llamada as string) : callData.datos_llamada;
-                  } catch { parsedUpdates.datos_llamada = callData.datos_llamada; }
+                // Parsear campos JSON (Realtime puede enviarlos como strings)
+                const jsonFields = ['datos_proceso', 'datos_llamada', 'conversacion_completa'] as const;
+                for (const field of jsonFields) {
+                  if (callData[field] != null) {
+                    try {
+                      parsedUpdates[field] = typeof callData[field] === 'string'
+                        ? JSON.parse(callData[field] as string) : callData[field];
+                    } catch { parsedUpdates[field] = callData[field]; }
+                  }
                 }
 
                 if (existingCall) {

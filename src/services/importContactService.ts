@@ -13,7 +13,7 @@
 
 import { analysisSupabase } from '../config/analysisSupabase';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
-import { getAuthTokenOrThrow } from '../utils/authToken';
+import { authenticatedEdgeFetch } from '../utils/authenticatedFetch';
 
 // ============================================
 // INTERFACES
@@ -93,31 +93,13 @@ class ImportContactService {
    */
   async importContact(payload: ImportContactPayload): Promise<ImportContactResponse> {
     try {
-      // Obtener JWT token (enviado pero no validado por Edge Function por ahora)
-      const authToken = await getAuthTokenOrThrow().catch(() => '');
-
-      const url = `${this.EDGE_FUNCTION_URL}/functions/v1/import-contact-proxy`;
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload)
+      // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+      const response = await authenticatedEdgeFetch('import-contact-proxy', {
+        body: payload
       });
 
+      // authenticatedEdgeFetch ya manejó 401 (refresh + retry + force logout si falla)
       const statusCode = response.status;
-
-      // Manejar códigos de estado HTTP
-      if (statusCode === 401) {
-        return {
-          success: false,
-          message: 'Error de autenticación',
-          error: 'Token de autenticación inválido o expirado',
-          statusCode: 401
-        };
-      }
 
       if (!response.ok) {
         const errorText = await response.text();

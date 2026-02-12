@@ -87,7 +87,7 @@ import { getDisplayName } from '../../utils/conversationNameHelper';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
-import { getAuthTokenOrThrow } from '../../utils/authToken';
+import { authenticatedEdgeFetch } from '../../utils/authenticatedFetch';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { useAppStore } from '../../stores/appStore';
 import { etapasService } from '../../services/etapasService';
@@ -6087,8 +6087,6 @@ const LiveChatCanvas: React.FC = () => {
 
   const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
-      // Usar Edge Function en lugar de webhook directo
-      const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-message-proxy`;
       const payload: any = {
         message: message,
         uchat_id: uchatId,
@@ -6101,21 +6099,13 @@ const LiveChatCanvas: React.FC = () => {
         payload.id_sender = idSender;
       }
       
-      // Obtener JWT del usuario autenticado
-      const authToken = await getAuthTokenOrThrow();
-      
-      const response = await fetch(edgeFunctionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(payload)
+      // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+      const response = await authenticatedEdgeFetch('send-message-proxy', {
+        body: payload
       });
 
       if (response.status === 200 || response.status === 201) {
-        const data = await response.json();
+        await response.json();
         return true;
       } else {
         const errorText = await response.text();
@@ -6375,26 +6365,16 @@ const LiveChatCanvas: React.FC = () => {
         // Pausar el bot antes de enviar
         await pauseBot(uchatId, 1, false);
         
-        // Usar Edge Function en lugar de webhook directo
-        const edgeFunctionUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/send-audio-proxy`;
+        // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
         const payload = {
           audio_base64: audioBase64,
           uchat_id: uchatId,
           filename: `audio_${Date.now()}.ogg`,
           id_sender: user?.id
         };
-        
-        // Obtener JWT del usuario autenticado
-        const authToken = await getAuthTokenOrThrow();
-        
-        const response = await fetch(edgeFunctionUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(payload)
+
+        const response = await authenticatedEdgeFetch('send-audio-proxy', {
+          body: payload
         });
         
         if (response.status === 200) {

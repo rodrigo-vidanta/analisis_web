@@ -12,17 +12,17 @@
  * Actualizado: 16 Enero 2026 (agregado JWT authentication)
  */
 
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { getValidAccessToken, triggerSessionExpired } from '../utils/authenticatedFetch';
 
 // URL de la Edge Function (en PQNC_AI)
 const EDGE_FUNCTIONS_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 
 /**
- * Obtiene el JWT del usuario autenticado actual
+ * Obtiene el JWT del usuario autenticado con refresh proactivo
+ * Usa getValidAccessToken que refresca si <60s de expirar
  */
 async function getAuthToken(): Promise<string | null> {
-  const { data: { session } } = await supabaseSystemUI!.auth.getSession();
-  return session?.access_token || null;
+  return getValidAccessToken();
 }
 
 export type DatabaseName = 'PQNC_QA' | 'LOGMONITOR';
@@ -80,6 +80,9 @@ async function executeProxy<T = unknown>(request: ProxyRequest): Promise<ProxyRe
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Error de conexión' }));
+      if (response.status === 401) {
+        triggerSessionExpired('Sesión expirada en MultiDbProxy');
+      }
       return { data: null, error: errorData.error || `HTTP ${response.status}` };
     }
 

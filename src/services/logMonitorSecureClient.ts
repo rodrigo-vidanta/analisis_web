@@ -17,24 +17,20 @@
  */
 
 import { supabaseLogMonitorAdmin } from '../config/supabaseLogMonitor';
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { getValidAccessToken, triggerSessionExpired } from '../utils/authenticatedFetch';
 
 // URL de la Edge Function (en PQNC_AI)
 const EDGE_FUNCTIONS_URL = import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const EDGE_FUNCTIONS_ANON_KEY = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
 /**
- * Obtener el JWT del usuario autenticado
- * Necesario para que multi-db-proxy valide la autenticación
+ * Obtener el JWT del usuario autenticado con refresh proactivo
+ * Usa getValidAccessToken que refresca si <60s de expirar
  */
 async function getAuthToken(): Promise<string> {
   try {
-    if (supabaseSystemUI) {
-      const { data: { session } } = await supabaseSystemUI.auth.getSession();
-      if (session?.access_token) {
-        return session.access_token;
-      }
-    }
+    const token = await getValidAccessToken();
+    if (token) return token;
   } catch (error) {
     console.warn('⚠️ [LogMonitorSecureClient] Error obteniendo sesión:', error);
   }
@@ -336,6 +332,7 @@ class LogMonitorQueryBuilder<T = unknown> {
         const errorMessage = errorData.message || errorData.error || `HTTP ${response.status}`;
         // Mensaje más amigable para errores de autenticación
         if (response.status === 401) {
+          triggerSessionExpired('Sesión expirada en LogMonitorSecureClient');
           return {
             data: null,
             error: { message: 'Sesión expirada. Por favor, inicia sesión nuevamente.' },

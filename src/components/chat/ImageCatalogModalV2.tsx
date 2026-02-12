@@ -18,7 +18,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { getSignedGcsUrl } from '../../services/gcsUrlService';
-import { getAuthTokenOrThrow } from '../../utils/authToken';
+import { authenticatedEdgeFetch } from '../../utils/authenticatedFetch';
 
 // ============================================
 // INTERFACES
@@ -553,20 +553,9 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
 
         const payload = [payloadItem];
 
-        // Usar Edge Functions URL específica
-        const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
-        
-        // Obtener JWT del usuario autenticado
-        const authToken = await getAuthTokenOrThrow();
-        
-        // Enviar (el request_id ya viaja dentro del payload)
-        const response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(payload)
+        // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+        const response = await authenticatedEdgeFetch('send-img-proxy', {
+          body: payload
         });
 
         if (!response.ok) {

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { analysisSupabase } from '../../../config/analysisSupabase';
 import { useAuth } from '../../../contexts/AuthContext';
-import { getAuthTokenOrThrow } from '../../../utils/authToken';
+import { authenticatedEdgeFetch } from '../../../utils/authenticatedFetch';
 import toast from 'react-hot-toast';
 import { getImageUrlCached } from './imageCacheService';
 import {
@@ -355,16 +355,9 @@ export function useImageCatalog(
 
         const payload = [payloadItem];
 
-        const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL || import.meta.env.VITE_SYSTEM_UI_SUPABASE_URL}/functions/v1/send-img-proxy`;
-        const authToken = await getAuthTokenOrThrow();
-
-        const response = await fetch(proxyUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`
-          },
-          body: JSON.stringify(payload)
+        // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+        const response = await authenticatedEdgeFetch('send-img-proxy', {
+          body: payload
         });
 
         if (!response.ok) {
