@@ -1,3 +1,16 @@
+## [v2.12.3] - 2026-02-12
+
+**B10.1.44N2.12.3** - 1 fix + Al filtrar prospectos por ejecutivo en el módulo P + Continuación directa de 2026-02-11-ticket-notific
+
+### Sesiones de trabajo
+- **2026-02-11-fix-filtro-ejecutivos-limit-supabase**: Al filtrar prospectos por ejecutivo en el módulo Prospectos, **Osmara Partida** (coordinación BOOM) no aparecía en el dropdown. El problema afectaba a **48 de 70 ejecutivos** en total. El mismo bug existía en el módulo WhatsApp (LiveChatCanvas).
+- **HANDOVER-2026-02-12-FIX-TICKET-NOTIFICATIONS-BADGES-REALTIME**: Continuación directa de `2026-02-11-ticket-notifications-admin-panel.md`. El usuario reportó que:
+
+### Bug Fixes
+- fix ticket notifications realtime + badges + ejecutivo filter RPC (`f70e779`)
+
+---
+
 ## [v2.12.2] - 2026-02-11
 
 **B10.1.44N2.12.2** - 1 fix + Sesión anterior (CPU Optimization Fase 3)
