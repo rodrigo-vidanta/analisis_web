@@ -131,7 +131,7 @@ class LiveMonitorOptimizedService {
    * MEJORA 2026-01-20: Verificar conexión antes de queries
    * MEJORA 2026-02-05: Backoff exponencial + protección contra concurrencia
    */
-  async getOptimizedCalls(limit: number = 200): Promise<LiveMonitorViewData[]> {
+  async getOptimizedCalls(): Promise<LiveMonitorViewData[]> {
     // Verificar conexión antes de consultar
     if (!isNetworkOnline()) {
       return [];
@@ -159,19 +159,18 @@ class LiveMonitorOptimizedService {
       // FIX CPU 2026-02-11: Filtrar por fecha para que Postgres use idx_live_monitor_fecha
       // y solo ejecute clasificar_estado_llamada() en filas recientes (~45) en vez de TODAS (~1,974)
       // Sin filtro: 64ms+ full scan | Con filtro: 4.8ms index scan (13x más rápido)
-      const now = new Date();
-      const last1h = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
-      const last7days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      // Solo obtener llamadas activas (última 1h - las llamadas duran max ~3 min)
+      // El side-widget solo usa llamadas activas. Nuevas llamadas llegan por Realtime.
+      // El módulo Kanban que usaba llamadas no-activas ya no existe.
+      const last1h = new Date(new Date().getTime() - 60 * 60 * 1000).toISOString();
 
-      // 1. Obtener llamadas activas (última 1h - las llamadas duran max ~3 min)
-      // Buscar tanto por call_status_inteligente como call_status_bd para asegurar detección
       const { data: activeCalls, error: activeError } = await analysisSupabase
         .from('live_monitor_view')
         .select('*')
         .gte('fecha_llamada', last1h)
         .or('call_status_inteligente.eq.activa,call_status_bd.eq.activa')
         .order('fecha_llamada', { ascending: false });
-      
+
       if (activeError) {
         console.error('❌ Error cargando llamadas activas:', activeError);
         this._consecutiveErrors++;
@@ -179,32 +178,11 @@ class LiveMonitorOptimizedService {
         this._isLoading = false;
         return [];
       }
-      
-      // 2. Obtener llamadas recientes (no activas) para completar el límite
-      const remainingLimit = limit - (activeCalls?.length || 0);
-      let recentCalls: LiveMonitorViewData[] = [];
-      
-      if (remainingLimit > 0) {
-        const { data: recentData, error: recentError } = await analysisSupabase
-          .from('live_monitor_view')
-          .select('*')
-          .gte('fecha_llamada', last7days)
-          .neq('call_status_inteligente', 'activa')
-          .order('fecha_llamada', { ascending: false })
-          .limit(remainingLimit);
-        
-        if (recentError) {
-          console.error('❌ Error cargando llamadas recientes:', recentError);
-        } else {
-          recentCalls = recentData || [];
-        }
-      }
-      
+
       // ✅ Reset de errores en éxito
       this._consecutiveErrors = 0;
-      
-      // 3. Combinar: activas primero, luego recientes
-      const data = [...(activeCalls || []), ...recentCalls];
+
+      const data = activeCalls || [];
       
       // Logs de diagnóstico
       const estadosInteligentes: Record<string, number> = {};
@@ -287,51 +265,6 @@ class LiveMonitorOptimizedService {
     }
   }
   
-  /**
-   * Estadísticas rápidas desde la vista
-   */
-  async getQuickStats() {
-    try {
-      // FIX CPU 2026-02-11: Filtrar últimos 7 días para evitar full scan
-      const last7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-      const { data, error } = await analysisSupabase
-        .from('live_monitor_view')
-        .select(`
-          call_status_inteligente,
-          call_status_bd,
-          checkpoint_venta_actual,
-          minutos_transcurridos
-        `)
-        .gte('fecha_llamada', last7days);
-      
-      if (error) {
-        console.error('❌ Error obteniendo estadísticas:', error);
-        return null;
-      }
-      
-      const stats = {
-        total: data.length,
-        activas: data.filter(c => c.call_status_inteligente === 'activa').length,
-        perdidas: data.filter(c => c.call_status_inteligente === 'perdida').length,
-        transferidas: data.filter(c => c.call_status_inteligente === 'transferida').length,
-        finalizadas: data.filter(c => c.call_status_inteligente === 'finalizada').length,
-        reclasificadas: data.filter(c => c.call_status_bd !== c.call_status_inteligente).length,
-        checkpoints: {}
-      };
-      
-      // Contar por checkpoint
-      data.forEach(call => {
-        const checkpoint = call.checkpoint_venta_actual || 'sin_checkpoint';
-        stats.checkpoints[checkpoint] = (stats.checkpoints[checkpoint] || 0) + 1;
-      });
-      
-      // Estadísticas calculadas (silencioso)
-      return stats;
-    } catch (error) {
-      console.error('💥 Error obteniendo estadísticas:', error);
-      return null;
-    }
-  }
 }
 
 // Exportar instancia singleton

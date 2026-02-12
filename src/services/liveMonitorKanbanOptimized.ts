@@ -121,6 +121,10 @@ class LiveMonitorKanbanOptimizedService {
       minutos_transcurridos: optimizedCall.minutos_transcurridos,
       razon_finalizacion: optimizedCall.razon_finalizacion,
       
+      // IDs ya incluidos en la vista (evita queries extra en liveActivityStore)
+      ejecutivo_id: (optimizedCall as Record<string, unknown>).ejecutivo_id as string | undefined,
+      coordinacion_id: (optimizedCall as Record<string, unknown>).coordinacion_id as string | undefined,
+
       // Campos de compatibilidad
       temperatura_prospecto: undefined,
       es_venta_exitosa: optimizedCall.es_venta_exitosa,
@@ -317,16 +321,6 @@ class LiveMonitorKanbanOptimizedService {
     }
   }
   
-  /**
-   * Obtener estadísticas rápidas
-   */
-  async getQuickStats() {
-    const stats = await liveMonitorOptimizedService.getQuickStats();
-    return {
-      ...stats,
-      source: 'vista_optimizada'
-    };
-  }
 }
 
 // Exportar instancia singleton

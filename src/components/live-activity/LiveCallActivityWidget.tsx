@@ -81,21 +81,10 @@ export const LiveCallActivityWidget: React.FC = () => {
     };
   }, [user?.id, user?.role_name, canAccessLiveMonitor, initialize, cleanup]);
   
-  // Polling para actualizar llamadas cada 3 segundos
-  useEffect(() => {
-    if (!isWidgetEnabled || !user?.id) return;
-    
-    const { loadActiveCalls } = useLiveActivityStore.getState();
-    
-    const interval = setInterval(() => {
-      // Solo cargar si el usuario sigue autenticado
-      if (user?.id) {
-        loadActiveCalls();
-      }
-    }, 3000);
-    
-    return () => clearInterval(interval);
-  }, [isWidgetEnabled, user?.id]);
+  // Polling ELIMINADO - Realtime via RealtimeHub cubre todos los escenarios:
+  // - Nueva llamada: INSERT → debouncedLoadActiveCalls() (2s)
+  // - Update en progreso: UPDATE → updateCall() incremental (0 queries)
+  // - Llamada finaliza: UPDATE → grace period 5s → removeCall()
   
   // Auto-minimizar llamadas después de 10 segundos si el usuario no interactuó
   // Ref para trackear cuando aparecieron las llamadas
