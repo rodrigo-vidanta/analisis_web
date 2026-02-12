@@ -155,12 +155,20 @@ class LiveMonitorOptimizedService {
     try {
       // Cargar desde vista optimizada
       // Estrategia: Primero obtener llamadas activas, luego las más recientes
-      
-      // 1. Obtener todas las llamadas activas (sin límite)
+
+      // FIX CPU 2026-02-11: Filtrar por fecha para que Postgres use idx_live_monitor_fecha
+      // y solo ejecute clasificar_estado_llamada() en filas recientes (~45) en vez de TODAS (~1,974)
+      // Sin filtro: 64ms+ full scan | Con filtro: 4.8ms index scan (13x más rápido)
+      const now = new Date();
+      const last1h = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      const last7days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      // 1. Obtener llamadas activas (última 1h - las llamadas duran max ~3 min)
       // Buscar tanto por call_status_inteligente como call_status_bd para asegurar detección
       const { data: activeCalls, error: activeError } = await analysisSupabase
         .from('live_monitor_view')
         .select('*')
+        .gte('fecha_llamada', last1h)
         .or('call_status_inteligente.eq.activa,call_status_bd.eq.activa')
         .order('fecha_llamada', { ascending: false });
       
@@ -180,6 +188,7 @@ class LiveMonitorOptimizedService {
         const { data: recentData, error: recentError } = await analysisSupabase
           .from('live_monitor_view')
           .select('*')
+          .gte('fecha_llamada', last7days)
           .neq('call_status_inteligente', 'activa')
           .order('fecha_llamada', { ascending: false })
           .limit(remainingLimit);
@@ -283,6 +292,8 @@ class LiveMonitorOptimizedService {
    */
   async getQuickStats() {
     try {
+      // FIX CPU 2026-02-11: Filtrar últimos 7 días para evitar full scan
+      const last7days = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
       const { data, error } = await analysisSupabase
         .from('live_monitor_view')
         .select(`
@@ -290,7 +301,8 @@ class LiveMonitorOptimizedService {
           call_status_bd,
           checkpoint_venta_actual,
           minutos_transcurridos
-        `);
+        `)
+        .gte('fecha_llamada', last7days);
       
       if (error) {
         console.error('❌ Error obteniendo estadísticas:', error);
