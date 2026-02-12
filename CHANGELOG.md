@@ -1,3 +1,12 @@
+## [v2.13.0] - 2026-02-12
+
+**B10.1.44N2.13.0** - 1 mejora
+
+### Performance
+- add date filters to live_monitor_view queries to fix CPU (`e2e0459`)
+
+---
+
 ## [v2.12.3] - 2026-02-12
 
 **B10.1.44N2.12.3** - 1 fix + Al filtrar prospectos por ejecutivo en el módulo P + Continuación directa de 2026-02-11-ticket-notific
