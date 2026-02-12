@@ -19,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
+import { ticketService } from '../../services/ticketService';
 import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy } from 'lucide-react';
 
 // ============================================
@@ -218,7 +219,37 @@ const AdminDashboardTabs: React.FC = () => {
       };
     }
   }, [isAdmin, isAdminOperativo, user?.role_name, loadUnreadCount, handleNewMessage]);
-  
+
+  // Cargar conteo de notificaciones de tickets INDEPENDIENTE del AdminTicketsPanel
+  const ticketChannelRef = useRef<ReturnType<typeof ticketService.subscribeToAdminNotifications> | null>(null);
+
+  const loadTicketNotificationCount = useCallback(async () => {
+    if (!user?.id) return;
+    const { count } = await ticketService.getUnreadNotificationCount(user.id);
+    startTransition(() => {
+      setTicketNotificationCount(count);
+    });
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !(isAdmin || isAdminOperativo || isCoordinadorCalidad)) return;
+
+    // Carga inicial
+    loadTicketNotificationCount();
+
+    // Suscripción Realtime con canal único para admin dashboard (sufijo 'tabs' evita colisión con panel)
+    ticketChannelRef.current = ticketService.subscribeToAdminNotifications(user.id, () => {
+      loadTicketNotificationCount();
+    }, 'tabs');
+
+    return () => {
+      if (ticketChannelRef.current) {
+        ticketService.unsubscribeFromNotifications(ticketChannelRef.current);
+        ticketChannelRef.current = null;
+      }
+    };
+  }, [user?.id, isAdmin, isAdminOperativo, isCoordinadorCalidad, loadTicketNotificationCount]);
+
   const tabs = [
     // Tabs para admin completo
     ...(isAdmin ? [

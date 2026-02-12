@@ -1033,6 +1033,10 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
   // Estado para opciones de filtros (coordinaciones y ejecutivos)
   const [coordinacionesOptions, setCoordinacionesOptions] = useState<{id: string; nombre: string; codigo: string}[]>([]);
   const [ejecutivosOptions, setEjecutivosOptions] = useState<{id: string; full_name: string; coordinacion_id?: string}[]>([]);
+  const [ejecutivoSearchText, setEjecutivoSearchText] = useState('');
+  const [showEjecutivoDropdown, setShowEjecutivoDropdown] = useState(false);
+  const ejecutivoInputRef = useRef<HTMLInputElement>(null);
+  const ejecutivoDropdownRef = useRef<HTMLDivElement>(null);
   
   const [sort, setSort] = useState<SortState>({
     field: 'created_at',
@@ -1093,24 +1097,19 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           codigo: c.codigo || c.nombre
         })));
         
-        // ✅ FIX 2026-01-24: Solo mostrar usuarios que tengan prospectos asignados
-        // Primero obtener los ejecutivo_id únicos de la tabla prospectos
+        // ✅ FIX 2026-02-11: RPC para obtener ejecutivo_ids únicos (evita limit 1000 de PostgREST)
         const { data: prospectosEjecutivos, error: prospectosError } = await analysisSupabase
-          .from('prospectos')
-          .select('ejecutivo_id')
-          .not('ejecutivo_id', 'is', null);
-        
+          .rpc('get_distinct_ejecutivo_ids');
+
         if (prospectosError) {
           console.error('Error obteniendo ejecutivos de prospectos:', prospectosError);
           return;
         }
-        
-        // Obtener IDs únicos de ejecutivos que tienen prospectos
-        const ejecutivoIdsConProspectos = [...new Set(
-          (prospectosEjecutivos || [])
-            .map(p => p.ejecutivo_id)
-            .filter(Boolean)
-        )];
+
+        // IDs únicos de ejecutivos que tienen prospectos (ya viene DISTINCT del server)
+        const ejecutivoIdsConProspectos = (prospectosEjecutivos || [])
+          .map((p: { ejecutivo_id: string }) => p.ejecutivo_id)
+          .filter(Boolean);
         
         if (ejecutivoIdsConProspectos.length === 0) {
           setEjecutivosOptions([]);
@@ -1166,6 +1165,21 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
     
     loadFilterOptions();
   }, [user?.id, user?.role_name]);
+
+  // Click-outside handler para cerrar autocomplete de ejecutivo
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (ejecutivoDropdownRef.current && !ejecutivoDropdownRef.current.contains(event.target as Node)) {
+        setShowEjecutivoDropdown(false);
+        // Si no se seleccionó un ejecutivo, limpiar el texto
+        if (!filters.ejecutivo_id) {
+          setEjecutivoSearchText('');
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [filters.ejecutivo_id]);
 
   // Ref para prevenir cargas iniciales duplicadas (React Strict Mode)
   const hasInitialLoadRef = useRef(false);
@@ -2397,10 +2411,17 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           <select
             value={filters.coordinacion_id}
             onChange={(e) => {
+              const newCoord = e.target.value;
+              // Si cambia coordinación, verificar si el ejecutivo seleccionado pertenece a la nueva
+              const currentEjecutivo = ejecutivosOptions.find(ej => ej.id === filters.ejecutivo_id);
+              const keepEjecutivo = newCoord && currentEjecutivo?.coordinacion_id === newCoord;
+              if (!keepEjecutivo) {
+                setEjecutivoSearchText('');
+              }
               setFilters(prev => ({
                 ...prev,
-                coordinacion_id: e.target.value,
-                ejecutivo_id: e.target.value ? prev.ejecutivo_id : ''
+                coordinacion_id: newCoord,
+                ejecutivo_id: keepEjecutivo ? prev.ejecutivo_id : ''
               }));
             }}
             className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
@@ -2415,22 +2436,64 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
             ))}
           </select>
 
-          <select
-            value={filters.ejecutivo_id}
-            onChange={(e) => setFilters(prev => ({ ...prev, ejecutivo_id: e.target.value }))}
-            className={`h-8 px-2 rounded-lg text-xs outline-none cursor-pointer transition-all min-w-0 ${
-              filters.ejecutivo_id
-                ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
-                : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
-            }`}
-          >
-            <option value="">Ejecutivo</option>
-            {ejecutivosOptions
-              .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
-              .map(ejecutivo => (
-                <option key={ejecutivo.id} value={ejecutivo.id}>{ejecutivo.full_name}</option>
-              ))}
-          </select>
+          {/* Autocomplete de Ejecutivo */}
+          <div className="relative" ref={ejecutivoDropdownRef}>
+            <input
+              ref={ejecutivoInputRef}
+              type="text"
+              placeholder="Ejecutivo"
+              value={ejecutivoSearchText}
+              onChange={(e) => {
+                setEjecutivoSearchText(e.target.value);
+                setShowEjecutivoDropdown(true);
+                if (!e.target.value) {
+                  setFilters(prev => ({ ...prev, ejecutivo_id: '' }));
+                }
+              }}
+              onFocus={() => setShowEjecutivoDropdown(true)}
+              className={`h-8 px-2 rounded-lg text-xs outline-none transition-all min-w-0 w-40 ${
+                filters.ejecutivo_id
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-700'
+                  : 'bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 border border-transparent hover:bg-gray-150 dark:hover:bg-gray-600/50'
+              }`}
+            />
+            {filters.ejecutivo_id && (
+              <button
+                onClick={() => {
+                  setFilters(prev => ({ ...prev, ejecutivo_id: '' }));
+                  setEjecutivoSearchText('');
+                  setShowEjecutivoDropdown(false);
+                }}
+                className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+              >
+                ✕
+              </button>
+            )}
+            {showEjecutivoDropdown && (() => {
+              const filtered = ejecutivosOptions
+                .filter(e => !filters.coordinacion_id || e.coordinacion_id === filters.coordinacion_id)
+                .filter(e => !ejecutivoSearchText || e.full_name.toLowerCase().includes(ejecutivoSearchText.toLowerCase()));
+              return filtered.length > 0 ? (
+                <div className="absolute z-50 top-9 left-0 w-64 max-h-48 overflow-y-auto scrollbar-hide bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                  {filtered.map(ejecutivo => (
+                    <button
+                      key={ejecutivo.id}
+                      onClick={() => {
+                        setFilters(prev => ({ ...prev, ejecutivo_id: ejecutivo.id }));
+                        setEjecutivoSearchText(ejecutivo.full_name);
+                        setShowEjecutivoDropdown(false);
+                      }}
+                      className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
+                        filters.ejecutivo_id === ejecutivo.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {ejecutivo.full_name}
+                    </button>
+                  ))}
+                </div>
+              ) : null;
+            })()}
+          </div>
 
           <select
             value={filters.asignacion}
@@ -2452,7 +2515,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
           {/* Acciones */}
           {(filters.etapa_id || filters.coordinacion_id || filters.ejecutivo_id || filters.asignacion !== 'todos' || filters.search) && (
             <button
-              onClick={() => setFilters({ search: '', etapa_id: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' })}
+              onClick={() => { setFilters({ search: '', etapa_id: '', score: '', campana_origen: '', dateRange: '', coordinacion_id: '', ejecutivo_id: '', asignacion: 'todos' }); setEjecutivoSearchText(''); }}
               className="h-8 flex items-center gap-1 px-2 rounded-lg text-xs text-gray-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400 transition-colors flex-shrink-0"
               title="Limpiar todos los filtros"
             >

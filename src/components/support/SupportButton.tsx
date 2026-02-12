@@ -171,8 +171,7 @@ const SupportButton: React.FC<SupportButtonProps> = ({
 
   const loadNotificationCount = useCallback(async () => {
     if (!user?.id) return;
-    // Solo contar notificaciones de tickets que el usuario REPORTÓ
-    // Las notificaciones de tickets asignados se ven en el Centro de Administración
+    // Solo notificaciones de tickets que el usuario reportó (reporter)
     const { count } = await ticketService.getReporterUnreadNotificationCount(user.id);
     setNotificationCount(count);
   }, [user?.id]);
@@ -180,7 +179,7 @@ const SupportButton: React.FC<SupportButtonProps> = ({
   useEffect(() => {
     if (!user?.id) return;
     loadNotificationCount();
-    channelRef.current = ticketService.subscribeToNotifications(user.id, () => {
+    channelRef.current = ticketService.subscribeToReporterNotifications(user.id, () => {
       // Recargar conteo real desde BD (con filtro de reporter) en vez de incrementar ciegamente
       loadNotificationCount();
     });
@@ -213,7 +212,6 @@ const SupportButton: React.FC<SupportButtonProps> = ({
     setIsMenuOpen(false);
     setShowMyTicketsModal(true);
     if (user?.id && notificationCount > 0) {
-      // Solo limpiar notificaciones de tickets que el usuario reportó
       await ticketService.markAllReporterNotificationsAsRead(user.id);
       setNotificationCount(0);
     }

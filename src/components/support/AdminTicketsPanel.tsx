@@ -145,14 +145,28 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
     loadTickets();
   }, [loadTickets]);
 
-  // Suscribirse a notificaciones
+  // Ref para ticket seleccionado (evita stale closures en callback Realtime)
+  const selectedTicketRef = React.useRef<SupportTicket | null>(null);
+  React.useEffect(() => {
+    selectedTicketRef.current = selectedTicket;
+  }, [selectedTicket]);
+
+  // Suscribirse a notificaciones con canal único para admin panel
   useEffect(() => {
     if (!user?.id) return;
     loadNotificationCount();
-    channelRef.current = ticketService.subscribeToNotifications(user.id, () => {
+    channelRef.current = ticketService.subscribeToAdminNotifications(user.id, async (notification) => {
       loadNotificationCount();
       loadTickets();
-    });
+
+      // Auto-refresh: si la notificación es para el ticket seleccionado, recargar comentarios y re-marcar visto
+      const currentSelected = selectedTicketRef.current;
+      if (currentSelected && notification.ticket_id === currentSelected.id) {
+        const { comments: newComments } = await ticketService.getTicketComments(currentSelected.id);
+        setComments(newComments);
+        await ticketService.markTicketAsViewed(currentSelected.id, user.id);
+      }
+    }, 'panel');
     return () => {
       if (channelRef.current) ticketService.unsubscribeFromNotifications(channelRef.current);
     };
@@ -162,15 +176,15 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
   const loadTicketDetails = async (ticket: SupportTicket) => {
     setSelectedTicket(ticket);
     setActiveTab('details');
-    
-    // ✅ NUEVO: Marcar como visto
+
+    // Marcar como visto y marcar notificaciones como leídas
     if (user?.id) {
       await ticketService.markTicketAsViewed(ticket.id, user.id);
-      // Recargar para actualizar badges
-      loadTickets();
+      // Recargar para actualizar badges (awaited para UI consistente)
+      await loadTickets();
       loadNotificationCount();
     }
-    
+
     const [commentsResult, historyResult] = await Promise.all([
       ticketService.getTicketComments(ticket.id),
       ticketService.getTicketHistory(ticket.id)

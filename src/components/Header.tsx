@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
@@ -9,8 +9,7 @@ import UserProfileModal from './shared/UserProfileModal';
 import AdminMessagesModal from './admin/AdminMessagesModal';
 import { adminMessagesService } from '../services/adminMessagesService';
 import { permissionsService } from '../services/permissionsService';
-// Nota: ticketService y analysisSupabase ya no se usan en Header
-// Las notificaciones de tickets se manejan en SupportButton
+import { ticketService } from '../services/ticketService';
 import { Mail, Wrench } from 'lucide-react';
 import { NotificationControl } from './dashboard/NotificationControl';
 import { ThemeSelector, type ThemeMode } from './ThemeSelector';
@@ -392,8 +391,34 @@ const Header = ({
     }
   }, [isAdmin, isAdminOperativo, user?.role_name]);
 
-  // Nota: Las notificaciones de tickets se manejan exclusivamente en el SupportButton
-  // El botón Mail del header solo muestra mensajes admin (password reset, desbloqueo, etc.)
+  // Notificaciones de tickets para admins (badge en icono de sobre)
+  const [ticketNotificationCount, setTicketNotificationCount] = useState(0);
+  const ticketChannelRef = useRef<ReturnType<typeof ticketService.subscribeToAdminNotifications> | null>(null);
+
+  const loadTicketNotificationCount = useCallback(async () => {
+    if (!user?.id) return;
+    const { count } = await ticketService.getUnreadNotificationCount(user.id);
+    setTicketNotificationCount(count);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !(isAdmin || isAdminOperativo || isCoordinadorCalidad)) return;
+    loadTicketNotificationCount();
+
+    ticketChannelRef.current = ticketService.subscribeToAdminNotifications(user.id, () => {
+      loadTicketNotificationCount();
+    }, 'header');
+
+    return () => {
+      if (ticketChannelRef.current) {
+        ticketService.unsubscribeFromNotifications(ticketChannelRef.current);
+        ticketChannelRef.current = null;
+      }
+    };
+  }, [user?.id, isAdmin, isAdminOperativo, isCoordinadorCalidad, loadTicketNotificationCount]);
+
+  // Conteo combinado para el badge del sobre (mensajes admin + tickets)
+  const totalMailBadgeCount = unreadCount + ticketNotificationCount;
 
   // Renderizar header simplificado para layout con sidebar
   if (simplified) {
@@ -623,17 +648,24 @@ const Header = ({
                     )
                   )}
                   
-                  {/* Botón de buzón de mensajes (solo para admins) */}
-                  {(isAdmin || isAdminOperativo) && !isNinjaMode && (
+                  {/* Botón de buzón - Centro de Administración (admins, admin operativo, coordinador calidad) */}
+                  {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && !isNinjaMode && (
                     <button
-                      onClick={() => setShowMessagesModal(true)}
+                      onClick={() => {
+                        if (ticketNotificationCount > 0 && !(isAdmin || isAdminOperativo)) {
+                          // Coordinadores: navegar a admin para ver tickets
+                          onModeChange?.('admin');
+                        } else {
+                          setShowMessagesModal(true);
+                        }
+                      }}
                       className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                      title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+                      title={`Centro de Administración${totalMailBadgeCount > 0 ? ` (${totalMailBadgeCount} sin leer)` : ''}`}
                     >
                       <Mail className="w-5 h-5" />
-                      {unreadCount > 0 && (
+                      {totalMailBadgeCount > 0 && (
                         <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
-                          {unreadCount > 99 ? '99+' : unreadCount}
+                          {totalMailBadgeCount > 99 ? '99+' : totalMailBadgeCount}
                         </span>
                       )}
                     </button>
@@ -741,15 +773,16 @@ const Header = ({
         )}
 
         {/* Modal de Mensajes de Administración */}
-        {(isAdmin || isAdminOperativo) && user?.role_name && (
+        {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && user?.role_name && (
           <AdminMessagesModal
             isOpen={showMessagesModal}
             onClose={() => {
               setShowMessagesModal(false);
-              // Recargar contador de mensajes admin al cerrar
+              // Recargar contadores al cerrar
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
               }
+              loadTicketNotificationCount();
             }}
             recipientRole={user.role_name}
           />
@@ -959,17 +992,23 @@ const Header = ({
             {/* User section moderna */}
             {user && (
               <div className="flex items-center space-x-4 pl-4 border-l border-gray-200/50 dark:border-gray-700/50">
-                {/* Botón de buzón de mensajes (solo para admins) */}
-                {(isAdmin || isAdminOperativo) && (
+                {/* Botón de buzón - Centro de Administración (admins, admin operativo, coordinador calidad) */}
+                {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
                   <button
-                    onClick={() => setShowMessagesModal(true)}
+                    onClick={() => {
+                      if (ticketNotificationCount > 0 && !(isAdmin || isAdminOperativo)) {
+                        onModeChange?.('admin');
+                      } else {
+                        setShowMessagesModal(true);
+                      }
+                    }}
                     className="relative p-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
-                    title={`Mensajes de administración${unreadCount > 0 ? ` (${unreadCount} sin leer)` : ''}`}
+                    title={`Centro de Administración${totalMailBadgeCount > 0 ? ` (${totalMailBadgeCount} sin leer)` : ''}`}
                   >
                     <Mail className="w-5 h-5" />
-                    {unreadCount > 0 && (
+                    {totalMailBadgeCount > 0 && (
                       <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center animate-pulse shadow-lg border-2 border-white dark:border-gray-900">
-                        {unreadCount > 99 ? '99+' : unreadCount}
+                        {totalMailBadgeCount > 99 ? '99+' : totalMailBadgeCount}
                       </span>
                     )}
                   </button>
@@ -1084,15 +1123,16 @@ const Header = ({
         )}
 
         {/* Modal de Mensajes de Administración */}
-        {(isAdmin || isAdminOperativo) && user?.role_name && (
+        {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && user?.role_name && (
           <AdminMessagesModal
             isOpen={showMessagesModal}
             onClose={() => {
               setShowMessagesModal(false);
-              // Recargar contador de mensajes admin al cerrar
+              // Recargar contadores al cerrar
               if (user?.role_name) {
                 adminMessagesService.getUnreadCount(user.role_name).then(setUnreadCount);
               }
+              loadTicketNotificationCount();
             }}
             recipientRole={user.role_name}
           />

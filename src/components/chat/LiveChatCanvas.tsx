@@ -1269,10 +1269,11 @@ const LiveChatCanvas: React.FC = () => {
   const [showTeamLabels, setShowTeamLabels] = useState(false);
   const [loadingTeamLabels, setLoadingTeamLabels] = useState(false);
 
-  // Estados para filtro de ejecutivo
+  // Estados para filtro de ejecutivo (autocomplete)
   const [showEjecutivoFilter, setShowEjecutivoFilter] = useState(false);
   const [selectedEjecutivoId, setSelectedEjecutivoId] = useState<string | null>(null);
   const [ejecutivosForFilter, setEjecutivosForFilter] = useState<{id: string, nombre: string}[]>([]);
+  const [ejecutivoSearchText, setEjecutivoSearchText] = useState('');
   const ejecutivoDropdownRef = useRef<HTMLDivElement>(null);
 
   // Estado para sorting de conversaciones
@@ -1299,6 +1300,7 @@ const LiveChatCanvas: React.FC = () => {
     const handleClickOutside = (event: MouseEvent) => {
       if (ejecutivoDropdownRef.current && !ejecutivoDropdownRef.current.contains(event.target as Node)) {
         setShowEjecutivoFilter(false);
+        if (!selectedEjecutivoId) setEjecutivoSearchText('');
       }
     };
 
@@ -1306,7 +1308,7 @@ const LiveChatCanvas: React.FC = () => {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [showEjecutivoFilter]);
+  }, [showEjecutivoFilter, selectedEjecutivoId]);
 
   // Persistir sort order en localStorage
   useEffect(() => {
@@ -4689,42 +4691,29 @@ const LiveChatCanvas: React.FC = () => {
     if (!isAdmin && !isAdminOperativo && !isCoordinador && !isSupervisor) return;
 
     try {
+      // ✅ FIX 2026-02-11: RPC para obtener ejecutivo_ids únicos (evita limit 1000 de PostgREST)
+      const { data: rpcData } = await analysisSupabase.rpc('get_distinct_ejecutivo_ids');
+      const allEjecutivoIds = (rpcData || []).map((d: { ejecutivo_id: string }) => d.ejecutivo_id).filter(Boolean);
+
       if (isAdmin || isAdminOperativo) {
         // Admin: obtener todos los ejecutivos que tengan prospectos asignados
-        const { data } = await analysisSupabase
-          .from('prospectos')
-          .select('ejecutivo_id')
-          .not('ejecutivo_id', 'is', null);
+        const { data: profiles } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('id, full_name, email')
+          .in('id', allEjecutivoIds)
+          .eq('is_active', true)
+          .order('full_name');
 
-        if (data) {
-          const uniqueIds = [...new Set(data.map(d => d.ejecutivo_id).filter(Boolean))];
-          // Obtener nombres de estos ejecutivos
-          const { data: profiles } = await supabaseSystemUI
-            .from('user_profiles_v2')
-            .select('id, full_name, email')
-            .in('id', uniqueIds)
-            .eq('is_active', true)
-            .order('full_name');
-
-          setEjecutivosForFilter(
-            (profiles || []).map(p => ({ id: p.id, nombre: p.full_name || p.email }))
-          );
-        }
+        setEjecutivosForFilter(
+          (profiles || []).map(p => ({ id: p.id, nombre: p.full_name || p.email }))
+        );
       } else {
         // Coordinador/Supervisor: solo ejecutivos de su coordinación con prospectos
         const coordinaciones = await permissionsService.getCoordinacionesFilter(user.id);
         if (!coordinaciones || coordinaciones.length === 0) return;
 
         const members = await coordinacionService.getEjecutivosByCoordinacion(coordinaciones[0]);
-        // Filtrar solo los que tengan prospectos asignados
-        const memberIds = members.map(m => m.id);
-        const { data: prospectData } = await analysisSupabase
-          .from('prospectos')
-          .select('ejecutivo_id')
-          .in('ejecutivo_id', memberIds)
-          .not('ejecutivo_id', 'is', null);
-
-        const idsConProspectos = new Set((prospectData || []).map(d => d.ejecutivo_id));
+        const idsConProspectos = new Set(allEjecutivoIds);
         setEjecutivosForFilter(
           members
             .filter(m => idsConProspectos.has(m.id))
@@ -7555,66 +7544,89 @@ const LiveChatCanvas: React.FC = () => {
             </div>
             </div>{/* Cierre grid 2 columnas */}
 
-            {/* Filtro por ejecutivo (solo coordinadores, supervisores y admins) */}
+            {/* Filtro por ejecutivo con autocomplete (solo coordinadores, supervisores y admins) */}
             {(isAdmin || isAdminOperativo || isCoordinador || isSupervisor) && ejecutivosForFilter.length > 0 && (
               <div className="relative" ref={ejecutivoDropdownRef}>
-                <button
-                  onClick={() => setShowEjecutivoFilter(!showEjecutivoFilter)}
-                  className={`w-full flex items-center justify-between px-2 py-1.5 text-xs border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors ${
-                    selectedEjecutivoId ? 'border-indigo-500 dark:border-indigo-400' : ''
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
-                    <span className="text-xs text-gray-600 dark:text-gray-300 truncate">
-                      {selectedEjecutivoId
-                        ? ejecutivosForFilter.find(e => e.id === selectedEjecutivoId)?.nombre || 'Ejecutivo'
-                        : 'Todos los ejecutivos'
+                <div className="relative">
+                  <Users className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  <input
+                    type="text"
+                    placeholder="Buscar ejecutivo..."
+                    value={ejecutivoSearchText}
+                    onChange={(e) => {
+                      setEjecutivoSearchText(e.target.value);
+                      setShowEjecutivoFilter(true);
+                      if (!e.target.value) {
+                        setSelectedEjecutivoId(null);
                       }
-                    </span>
-                  </div>
-                  <ChevronRight className={`w-3.5 h-3.5 text-gray-400 dark:text-gray-500 transition-transform flex-shrink-0 ${showEjecutivoFilter ? 'rotate-90' : ''}`} />
-                </button>
+                    }}
+                    onFocus={() => setShowEjecutivoFilter(true)}
+                    className={`w-full pl-7 pr-6 py-1.5 text-xs border bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-md outline-none transition-colors ${
+                      selectedEjecutivoId
+                        ? 'border-indigo-500 dark:border-indigo-400'
+                        : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
+                    }`}
+                  />
+                  {selectedEjecutivoId && (
+                    <button
+                      onClick={() => {
+                        setSelectedEjecutivoId(null);
+                        setEjecutivoSearchText('');
+                        setShowEjecutivoFilter(false);
+                      }}
+                      className="absolute right-1.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
 
                 <AnimatePresence>
-                  {showEjecutivoFilter && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.2 }}
-                      className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto"
-                    >
-                      <div className="p-2 space-y-0.5">
-                        {/* Opción "Todos" */}
-                        <button
-                          onClick={() => { setSelectedEjecutivoId(null); setShowEjecutivoFilter(false); }}
-                          className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                            !selectedEjecutivoId
-                              ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
-                              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                          }`}
-                        >
-                          <Users className="w-3.5 h-3.5" />
-                          Todos los ejecutivos
-                        </button>
-                        {ejecutivosForFilter.map(ej => (
-                          <button
-                            key={ej.id}
-                            onClick={() => { setSelectedEjecutivoId(ej.id); setShowEjecutivoFilter(false); }}
-                            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
-                              selectedEjecutivoId === ej.id
-                                ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
-                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                            }`}
-                          >
-                            <User className="w-3.5 h-3.5" />
-                            {ej.nombre}
-                          </button>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
+                  {showEjecutivoFilter && (() => {
+                    const filtered = ejecutivosForFilter.filter(
+                      ej => !ejecutivoSearchText || ej.nombre.toLowerCase().includes(ejecutivoSearchText.toLowerCase())
+                    );
+                    return filtered.length > 0 ? (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 max-h-48 overflow-y-auto scrollbar-hide"
+                        style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+                      >
+                        <div className="p-1 space-y-0.5">
+                          {!ejecutivoSearchText && (
+                            <button
+                              onClick={() => { setSelectedEjecutivoId(null); setEjecutivoSearchText(''); setShowEjecutivoFilter(false); }}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                                !selectedEjecutivoId
+                                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              Todos los ejecutivos
+                            </button>
+                          )}
+                          {filtered.map(ej => (
+                            <button
+                              key={ej.id}
+                              onClick={() => { setSelectedEjecutivoId(ej.id); setEjecutivoSearchText(ej.nombre); setShowEjecutivoFilter(false); }}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-xs transition-colors ${
+                                selectedEjecutivoId === ej.id
+                                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 font-medium'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                              }`}
+                            >
+                              <User className="w-3.5 h-3.5" />
+                              {ej.nombre}
+                            </button>
+                          ))}
+                        </div>
+                      </motion.div>
+                    ) : null;
+                  })()}
                 </AnimatePresence>
               </div>
             )}

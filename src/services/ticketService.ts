@@ -949,10 +949,33 @@ class TicketService {
     }
   }
 
-  // Suscribirse a notificaciones en tiempo real
-  subscribeToNotifications(userId: string, callback: (notification: any) => void) {
+  // Suscribirse a notificaciones en tiempo real (canal para reporter/SupportButton)
+  subscribeToReporterNotifications(userId: string, callback: (notification: any) => void) {
     const channel = analysisSupabase
-      .channel(`notifications-${userId}`)
+      .channel(`ticket-notif-reporter-${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_ticket_notifications',
+          filter: `user_id=eq.${userId}`
+        },
+        (payload) => {
+          callback(payload.new);
+        }
+      )
+      .subscribe();
+
+    return channel;
+  }
+
+  // Suscribirse a notificaciones en tiempo real (canal para admin)
+  // channelSuffix diferencia múltiples suscripciones admin (ej: 'tabs', 'panel')
+  subscribeToAdminNotifications(userId: string, callback: (notification: any) => void, channelSuffix?: string) {
+    const suffix = channelSuffix ? `-${channelSuffix}` : '';
+    const channel = analysisSupabase
+      .channel(`ticket-notif-admin${suffix}-${userId}`)
       .on(
         'postgres_changes',
         {
@@ -1039,19 +1062,20 @@ class TicketService {
         const userView = (ticket.views as any)?.find((v: any) => v.user_id === userId);
         const userNotifications = ((ticket.notifications as any) || []).filter((n: any) => n.user_id === userId);
         const unreadCount = userNotifications.filter((n: any) => !n.is_read).length;
-        
+
         // Badge "Nuevo": No ha sido visto por este usuario
         const hasNewBadge = !userView;
-        
-        // Badge "Mensaje": Hay comentarios nuevos desde la última vez que se vio
-        const hasMessageBadge = userView && 
-                                ticket.last_comment_at && 
+
+        // Badge "Mensaje": Hay comentarios nuevos desde la última lectura
+        // Fallback: si last_comment_read_at es null, usar last_viewed_at como referencia
+        const hasMessageBadge = !!(userView &&
+                                ticket.last_comment_at &&
                                 ticket.last_comment_by !== userId &&
-                                new Date(ticket.last_comment_at) > new Date(userView.last_comment_read_at || 0);
-        
+                                new Date(ticket.last_comment_at) > new Date(userView.last_comment_read_at || userView.last_viewed_at));
+
         // Eliminar propiedades temporales
         const { views, notifications, ...ticketData } = ticket;
-        
+
         return {
           ...ticketData as SupportTicket,
           hasNewBadge,
