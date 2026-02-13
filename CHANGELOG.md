@@ -1,3 +1,12 @@
+## [v2.15.0] - 2026-02-13
+
+**B10.1.44N2.15.0** - 1 feature
+
+### Features
+- sistema de comunicados en tiempo real con overlay, targeting y tutorial interactivo (`aab97b1`)
+
+---
+
 ## [v2.14.2] - 2026-02-13
 
 **B10.1.44N2.14.2** - El workflow recibe mensajes escritos por ejecutivo
