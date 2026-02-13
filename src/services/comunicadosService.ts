@@ -306,6 +306,26 @@ class ComunicadosService {
   }
 
   /**
+   * Obtener IDs de comunicados ya leidos por un usuario.
+   * Se usa para popular readIds en el store y prevenir
+   * que Realtime re-agregue comunicados ya leidos.
+   */
+  async getReadIds(userId: string): Promise<string[]> {
+    try {
+      const { data, error } = await analysisSupabase
+        .from('comunicado_reads')
+        .select('comunicado_id')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return (data || []).map(r => r.comunicado_id);
+    } catch (error) {
+      console.error('Error obteniendo read IDs:', error);
+      return [];
+    }
+  }
+
+  /**
    * Eliminar comunicado
    */
   async deleteComunicado(id: string): Promise<boolean> {

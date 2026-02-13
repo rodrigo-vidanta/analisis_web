@@ -40,12 +40,17 @@ export const useComunicadosStore = create<ComunicadosState>((set, get) => ({
   loadPending: async (userId, coordinacionId, roleName) => {
     set({ isLoading: true });
     try {
-      const pending = await comunicadosService.getComunicadosPendientes(
-        userId,
-        coordinacionId,
-        roleName
-      );
-      set({ pendingComunicados: pending, isLoading: false });
+      // Fetch pendientes y read IDs en paralelo
+      const [pending, dbReadIds] = await Promise.all([
+        comunicadosService.getComunicadosPendientes(userId, coordinacionId, roleName),
+        comunicadosService.getReadIds(userId),
+      ]);
+
+      // Merge readIds de BD con los locales (no perder los marcados en esta sesion)
+      const mergedReadIds = new Set(get().readIds);
+      dbReadIds.forEach(id => mergedReadIds.add(id));
+
+      set({ pendingComunicados: pending, isLoading: false, readIds: mergedReadIds });
 
       // Auto-mostrar el primero si hay pendientes
       if (pending.length > 0) {

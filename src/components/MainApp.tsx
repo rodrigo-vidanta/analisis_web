@@ -108,15 +108,12 @@ function MainApp() {
   });
   
   // Comunicados en tiempo real - cargar pendientes + suscribir
-  const { loadPending: loadPendingComunicados, addComunicado, setSubscribed: setComunicadosSubscribed, clear: clearComunicados } = useComunicadosStore();
+  const { loadPending: loadPendingComunicados, addComunicado, setSubscribed: setComunicadosSubscribed } = useComunicadosStore();
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.id) {
-      clearComunicados();
-      return;
-    }
+    if (!isAuthenticated || !user?.id) return;
 
-    // Cargar comunicados pendientes
+    // Cargar comunicados pendientes (tambien popula readIds desde BD)
     loadPendingComunicados(user.id, user.coordinacion_id, user.role_name);
 
     // Suscribir a nuevos comunicados via Realtime
