@@ -15,12 +15,13 @@ import DocumentationModule from '../documentation/DocumentationModule';
 import AWSManager from '../aws/AWSManager';
 import DynamicsCRMManager from './DynamicsCRMManager';
 import AdminTicketsPanel from '../support/AdminTicketsPanel';
+import ComunicadosManager from './ComunicadosManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
 import { ticketService } from '../../services/ticketService';
-import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy } from 'lucide-react';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy, Megaphone } from 'lucide-react';
 
 // ============================================
 // FEATURE FLAG: NUEVO MÓDULO DE USUARIOS
@@ -41,7 +42,7 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets' | 'comunicados';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -346,6 +347,14 @@ const AdminDashboardTabs: React.FC = () => {
         badge: ticketNotificationCount
       }
     ] : []),
+    // Tab de Comunicados - solo admin
+    ...(isAdmin ? [
+      {
+        id: 'comunicados' as AdminTab,
+        name: 'Comunicados',
+        icon: <Megaphone className="w-5 h-5" />
+      }
+    ] : []),
     // Tabs para Administrador Operativo: usuarios, coordinaciones y horarios
     ...(isAdminOperativo ? [
       {
@@ -613,7 +622,7 @@ const AdminDashboardTabs: React.FC = () => {
           )}
 
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' || activeTab === 'tickets' ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' || activeTab === 'tickets' || activeTab === 'comunicados' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -708,6 +717,15 @@ const AdminDashboardTabs: React.FC = () => {
                 <AdminTicketsPanel
                   onNotificationCountChange={setTicketNotificationCount}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Comunicados - Solo admin */}
+          {activeTab === 'comunicados' && isAdmin && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-hidden">
+                <ComunicadosManager />
               </div>
             </div>
           )}

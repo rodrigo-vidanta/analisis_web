@@ -52,6 +52,10 @@ import { LiveCallActivityWidget } from './live-activity';
 // Control de versiones forzado
 import { useVersionCheck } from '../hooks/useVersionCheck';
 import ForceUpdateModal from './shared/ForceUpdateModal';
+// Comunicados en tiempo real
+import ComunicadoOverlay from './comunicados/ComunicadoOverlay';
+import { useComunicadosStore } from '../stores/comunicadosStore';
+import { comunicadosService } from '../services/comunicadosService';
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -103,6 +107,30 @@ function MainApp() {
     enabled: isAuthenticated // Solo activar después del login
   });
   
+  // Comunicados en tiempo real - cargar pendientes + suscribir
+  const { loadPending: loadPendingComunicados, addComunicado, setSubscribed: setComunicadosSubscribed, clear: clearComunicados } = useComunicadosStore();
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) {
+      clearComunicados();
+      return;
+    }
+
+    // Cargar comunicados pendientes
+    loadPendingComunicados(user.id, user.coordinacion_id, user.role_name);
+
+    // Suscribir a nuevos comunicados via Realtime
+    const unsubscribe = comunicadosService.subscribeToNewComunicados((comunicado) => {
+      addComunicado(comunicado, user.id, user.coordinacion_id, user.role_name);
+    });
+    setComunicadosSubscribed(true);
+
+    return () => {
+      unsubscribe();
+      setComunicadosSubscribed(false);
+    };
+  }, [isAuthenticated, user?.id]);
+
   // Actualizar el módulo activo en el servicio de logging cuando cambia
   useEffect(() => {
     errorLogService.setActiveModule(appMode);
@@ -558,6 +586,8 @@ function MainApp() {
         {renderContent()}
         {/* Panel Lateral - Llamadas en tiempo real */}
         <LiveCallActivityWidget />
+        {/* Comunicados overlay */}
+        <ComunicadoOverlay />
       </>
     );
   }
@@ -577,6 +607,8 @@ function MainApp() {
         </LinearLayout>
         {/* Panel Lateral - Llamadas en tiempo real */}
         <LiveCallActivityWidget />
+        {/* Comunicados overlay */}
+        <ComunicadoOverlay />
       </div>
     );
   }
@@ -633,7 +665,10 @@ function MainApp() {
       
       {/* Live Activity Widget - Global overlay */}
       <LiveCallActivityWidget />
-      
+
+      {/* Comunicados overlay */}
+      <ComunicadoOverlay />
+
       {/* Modal de actualización forzada - Máxima prioridad */}
       {!isVersionLoading && (
         <ForceUpdateModal
