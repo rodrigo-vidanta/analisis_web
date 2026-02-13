@@ -1,3 +1,12 @@
+## [v2.15.2] - 2026-02-13
+
+**B10.1.44N2.15.2** - 1 fix
+
+### Bug Fixes
+- populate readIds from DB on load to prevent reappearance after token refresh (`8e9bc70`)
+
+---
+
 ## [v2.15.1] - 2026-02-13
 
 **B10.1.44N2.15.1** - 1 fix

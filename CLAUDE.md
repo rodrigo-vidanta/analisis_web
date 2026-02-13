@@ -34,6 +34,10 @@ React 19 + TypeScript + Vite 7 + TailwindCSS 3.4 | Zustand 5 | Supabase (PQNC_AI
 
 PLANIFICAR → VERIFICAR (leer antes de modificar) → IMPLEMENTAR (max 3 archivos) → PROBAR → DOCUMENTAR
 
+## Skills Obligatorios
+
+- Cuando el usuario pida crear un **comunicado, aviso, anuncio o tutorial** para los usuarios de la plataforma → usar `/comunicado`
+
 ## Anti-Alucinacion
 
 ANTES de usar funcion/tabla/tipo: 1) Verificar existencia (Grep/Glob) 2) Leer implementacion 3) Verificar imports/tipos 4) Si no existe: informar, NO inventar
