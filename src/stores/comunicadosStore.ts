@@ -18,6 +18,7 @@ interface ComunicadosState {
   isOverlayVisible: boolean;
   isLoading: boolean;
   isSubscribed: boolean;
+  readIds: Set<string>;
 
   loadPending: (userId: string, coordinacionId?: string, roleName?: string) => Promise<void>;
   addComunicado: (comunicado: Comunicado, userId: string, coordinacionId?: string, roleName?: string) => void;
@@ -34,6 +35,7 @@ export const useComunicadosStore = create<ComunicadosState>((set, get) => ({
   isOverlayVisible: false,
   isLoading: false,
   isSubscribed: false,
+  readIds: new Set<string>(),
 
   loadPending: async (userId, coordinacionId, roleName) => {
     set({ isLoading: true });
@@ -58,7 +60,9 @@ export const useComunicadosStore = create<ComunicadosState>((set, get) => ({
   addComunicado: (comunicado, userId, coordinacionId, roleName) => {
     const state = get();
 
-    // Evitar duplicados
+    // Evitar duplicados y re-apariciones de comunicados ya leidos
+    // (Realtime dispara UPDATE cuando read_count cambia via RPC)
+    if (state.readIds.has(comunicado.id)) return;
     if (state.pendingComunicados.some(c => c.id === comunicado.id)) return;
     if (state.currentComunicado?.id === comunicado.id) return;
 
@@ -120,11 +124,17 @@ export const useComunicadosStore = create<ComunicadosState>((set, get) => ({
 
     const comunicadoId = currentComunicado.id;
 
+    // Registrar como leido ANTES de cualquier otra accion
+    // para que Realtime no lo re-agregue
+    const newReadIds = new Set(get().readIds);
+    newReadIds.add(comunicadoId);
+
     // Optimistic: remove from pending and hide
     set((s) => ({
       pendingComunicados: s.pendingComunicados.filter(c => c.id !== comunicadoId),
       currentComunicado: null,
       isOverlayVisible: false,
+      readIds: newReadIds,
     }));
 
     // Mark as read in DB
@@ -145,6 +155,7 @@ export const useComunicadosStore = create<ComunicadosState>((set, get) => ({
       isOverlayVisible: false,
       isLoading: false,
       isSubscribed: false,
+      readIds: new Set<string>(),
     });
   },
 
