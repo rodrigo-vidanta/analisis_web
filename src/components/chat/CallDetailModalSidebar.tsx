@@ -117,6 +117,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
   const [currentAudioTime, setCurrentAudioTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioVolume, setAudioVolume] = useState(1);
+  const [audioError, setAudioError] = useState(false);
   const [highlightedSegment, setHighlightedSegment] = useState<number | null>(null);
   const [selectedProspectoData, setSelectedProspectoData] = useState<any | null>(null);
   const [ejecutivosMap, setEjecutivosMap] = useState<Record<string, any>>({});
@@ -283,6 +284,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
       setIsAudioPlaying(false);
       setCurrentAudioTime(0);
       setAudioDuration(0);
+      setAudioError(false);
       setHighlightedSegment(null);
       lastSegmentRef.current = null;
       lastUpdateTimeRef.current = 0;
@@ -1173,6 +1175,25 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                           </h3>
                         </div>
                         {callDetail?.audio_ruta_bucket && (
+                          audioError ? (
+                            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                              <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs text-red-700 dark:text-red-300">No se pudo cargar el audio. Verifique su conexion a internet.</span>
+                              <button
+                                onClick={() => {
+                                  setAudioError(false);
+                                  if (audioRef.current) {
+                                    audioRef.current.load();
+                                  }
+                                }}
+                                className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline flex-shrink-0"
+                              >
+                                Reintentar
+                              </button>
+                            </div>
+                          ) : (
                           <div className="flex flex-col gap-3 w-full">
                             {/* Controles de reproducción */}
                             <div className="flex items-center gap-3">
@@ -1196,7 +1217,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                   <Play className="w-5 h-5 ml-0.5" />
                                 )}
                               </button>
-                              
+
                               {/* Barra de progreso */}
                               <div className="flex-1 flex flex-col gap-1">
                                 <input
@@ -1215,7 +1236,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                                   <span>{formatTime(audioDuration)}</span>
                                 </div>
                               </div>
-                              
+
                               {/* Control de volumen */}
                               <div className="flex items-center gap-2 flex-shrink-0">
                                 <input
@@ -1235,6 +1256,7 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                               </div>
                             </div>
                           </div>
+                          )
                         )}
                       </div>
                       <div 
@@ -1295,9 +1317,12 @@ export const CallDetailModalSidebar: React.FC<CallDetailModalSidebarProps> = ({
                               scrollTimeoutRef.current = null;
                             }
                           }}
+                          onError={() => {
+                            setAudioError(true);
+                            setIsAudioPlaying(false);
+                          }}
                           onPlay={() => setIsAudioPlaying(true)}
                           onPause={() => setIsAudioPlaying(false)}
-                          volume={audioVolume}
                         />
                       )}
                     </motion.div>

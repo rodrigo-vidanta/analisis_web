@@ -32,6 +32,7 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
   const [callDetail, setCallDetail] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [conversation, setConversation] = useState<any[]>([]);
+  const [audioError, setAudioError] = useState(false);
   const radarChartRef = useRef<Chart | null>(null);
 
   useEffect(() => {
@@ -344,14 +345,30 @@ export const CallDetailModal: React.FC<CallDetailModalProps> = ({ callId, isOpen
                           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                             Grabación de Audio
                           </h3>
-                          <audio 
-                            controls 
-                            className="w-full"
-                            preload="metadata"
-                          >
-                            <source src={callDetail.audio_ruta_bucket} type="audio/wav" />
-                            Tu navegador no soporta el elemento de audio.
-                          </audio>
+                          {audioError ? (
+                            <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                              <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="text-xs text-red-700 dark:text-red-300">No se pudo cargar el audio. Verifique su conexion a internet.</span>
+                              <button
+                                onClick={() => setAudioError(false)}
+                                className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline flex-shrink-0"
+                              >
+                                Reintentar
+                              </button>
+                            </div>
+                          ) : (
+                            <audio
+                              controls
+                              className="w-full"
+                              preload="metadata"
+                              onError={() => setAudioError(true)}
+                            >
+                              <source src={callDetail.audio_ruta_bucket} type="audio/wav" />
+                              Tu navegador no soporta el elemento de audio.
+                            </audio>
+                          )}
                         </div>
                       )}
                     </div>

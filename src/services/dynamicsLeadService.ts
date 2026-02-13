@@ -20,7 +20,7 @@
 
 import { credentialsService } from './credentialsService';
 import { analysisSupabase } from '../config/analysisSupabase';
-import { supabaseSystemUI } from '../config/supabaseSystemUI';
+import { getValidAccessToken, triggerSessionExpired } from '../utils/authenticatedFetch';
 
 // ============================================
 // CONFIGURACIÓN
@@ -185,12 +185,12 @@ class DynamicsLeadService {
         payload.phone = request.phone.replace(/\D/g, '').slice(-10);
       }
 
-      // Obtener JWT del usuario autenticado
-      // ⚠️ IMPORTANTE: Usar supabaseSystemUI porque ahí está la sesión de auth
-      const { data: { session } } = await supabaseSystemUI!.auth.getSession();
-      
-      if (!session?.access_token) {
+      // Obtener JWT con refresh proactivo (refresca si <60s de expirar)
+      const accessToken = await getValidAccessToken();
+
+      if (!accessToken) {
         console.error('❌ [DynamicsLead] No hay sesión activa');
+        triggerSessionExpired('No hay sesión activa en DynamicsLeadService');
         return {
           success: false,
           data: null,
@@ -198,12 +198,12 @@ class DynamicsLeadService {
           searchType,
         };
       }
-      
+
       const response = await fetch(edgeFunctionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify(payload),
         signal: controller.signal,
@@ -219,6 +219,7 @@ class DynamicsLeadService {
         let errorMessage = `Error ${response.status}: ${errorText || 'Error al consultar Dynamics'}`;
         
         if (response.status === 401) {
+          triggerSessionExpired('Sesión expirada en DynamicsLeadService');
           errorMessage = 'Sesión expirada. Por favor, recarga la página e inicia sesión nuevamente.';
         } else if (response.status === 500 && errorText.includes('DYNAMICS_TOKEN')) {
           errorMessage = 'Error: El token de Dynamics no está configurado en los secrets de Edge Functions. Contacta al administrador.';

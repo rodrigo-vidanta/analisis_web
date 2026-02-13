@@ -196,6 +196,25 @@ aws cloudfront create-invalidation --distribution-id E19ZID7TVR08JG --paths "/*"
 5. Costos: Verificar Cost Explorer antes de crear recursos nuevos
 6. Inventario: Actualizar `.claude/docs/aws-inventory.md` tras cada cambio
 
+## WAF - Registro de IPs Permitidas (ai.vidavacations.com)
+
+WAF Web ACL `frontend-ip-restriction` (CLOUDFRONT, default BLOCK).
+IP Set: `frontend-allowed-ips` (ID: `9ed33da4-fb8e-498e-baf7-ff0b672d7725`, region us-east-1).
+
+| # | IP | Etiqueta |
+|---|-----|----------|
+| 1 | `189.203.238.35` | Vidanta PQNC |
+| 2 | `187.210.107.179` | Vidanta PQNC 2 |
+| 3 | `189.178.124.238` | IP del usuario 1 |
+| 4 | `189.177.138.158` | IP del usuario 2 |
+| 5 | `187.190.202.130` | drosales |
+| 6 | `189.177.48.132` | oficinaIA |
+| 7 | `187.144.87.193` | casa rodrigo |
+| 8 | `189.177.141.218` | DGV Oficina |
+| 9 | `189.177.28.203` | Marketing |
+
+**REGLA**: Al listar IPs, SIEMPRE incluir la etiqueta. Al agregar/quitar/cambiar IPs, SIEMPRE actualizar esta tabla, el skill (`/aws`), y `docs/AWS_FRONTEND_IP_RESTRICTION.md`.
+
 ## Alertas Conocidas (Feb 2026)
 
 - 4 certificados ACM en estado FAILED (limpiar)

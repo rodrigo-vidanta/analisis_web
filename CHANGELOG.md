@@ -1,3 +1,12 @@
+## [v2.14.2] - 2026-02-13
+
+**B10.1.44N2.14.2** - El workflow recibe mensajes escritos por ejecutivo
+
+### Sesiones de trabajo
+- **2026-02-12-analisis-prompt-parafraseo-n8n**: El workflow recibe mensajes escritos por ejecutivos de Vida Vacations antes de enviarse por WhatsApp. Un LLM (Claude via Anthropic Chat Model) los corrige/mejora y devuelve dos opciones:
+
+---
+
 ## [v2.14.1] - 2026-02-12
 
 **B10.1.44N2.14.1** - El usuario reportó error 401 al programar una llam + En la sesión anterior (CPU Optimization Phase 4), 

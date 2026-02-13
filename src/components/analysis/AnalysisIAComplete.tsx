@@ -729,6 +729,7 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [audioError, setAudioError] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -740,14 +741,21 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
     const handleEnded = () => setIsPlaying(false);
     const handleLoadedMetadata = () => setDuration(audio.duration);
 
+    const handleError = () => {
+      setAudioError(true);
+      setIsPlaying(false);
+    };
+
     audio.addEventListener('timeupdate', updateTime);
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('error', handleError);
 
     return () => {
       audio.removeEventListener('timeupdate', updateTime);
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('error', handleError);
     };
   }, []);
 
@@ -826,7 +834,26 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
       <div className="p-4">
         <audio ref={audioRef} src={audioUrl} preload="metadata" />
 
-        {/* Controles principales minimalistas */}
+        {audioError ? (
+          <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+            <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="text-xs text-red-700 dark:text-red-300">No se pudo cargar el audio. Verifique su conexion a internet.</span>
+            <button
+              onClick={() => {
+                setAudioError(false);
+                if (audioRef.current) {
+                  audioRef.current.load();
+                }
+              }}
+              className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline flex-shrink-0"
+            >
+              Reintentar
+            </button>
+          </div>
+        ) : (
+        /* Controles principales minimalistas */
         <div className="space-y-3">
           {/* Barra de progreso principal */}
           <div className="space-y-2">
@@ -895,6 +922,7 @@ const AudioPlayerInline: React.FC<AudioPlayerInlineProps> = ({ audioUrl, custome
             </div>
           </div>
         </div>
+        )}
       </div>
     </motion.div>
   );
@@ -961,6 +989,7 @@ const AnalysisIAComplete: React.FC = () => {
   
   // Estados para reproductor de audio
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
+  const [audioErrorId, setAudioErrorId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   
   // Función helper para detener audio (memoizada para evitar recreaciones)
@@ -2341,15 +2370,15 @@ const AnalysisIAComplete: React.FC = () => {
                                     });
                                     
                                     audio.addEventListener('error', () => {
-                                      console.error('Error al reproducir audio');
                                       setPlayingAudioId(null);
+                                      setAudioErrorId(call.analysis_id);
                                       audioRef.current = null;
                                     });
-                                    
+
                                     // Reproducir
-                                    audio.play().catch(err => {
-                                      console.error('Error al reproducir audio:', err);
+                                    audio.play().catch(() => {
                                       setPlayingAudioId(null);
+                                      setAudioErrorId(call.analysis_id);
                                       audioRef.current = null;
                                     });
                                   }
@@ -2367,6 +2396,11 @@ const AnalysisIAComplete: React.FC = () => {
                                   <Play className="w-4 h-4" />
                                 )}
                               </button>
+                            )}
+                            {audioErrorId === call.analysis_id && (
+                              <span className="text-xs text-red-500" title="No se pudo cargar el audio. Verifique su conexion a internet.">
+                                Error audio
+                              </span>
                             )}
                             {/* Botón de lupa para ver detalles */}
                             <button

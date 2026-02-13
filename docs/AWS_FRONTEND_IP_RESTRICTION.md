@@ -1,7 +1,7 @@
 # 🔒 Restricción de IPs para Frontend CloudFront
 
 **Fecha de configuración:** 16 de Diciembre, 2025  
-**Última actualización:** 8 de Febrero, 2026 (Fix DefaultAction Block, cambio IP oficina, agregada DGV Oficina, renombrados labels)
+**Última actualización:** 12 de Febrero, 2026 (Cambio IP drosales 189.203.97.130→187.190.202.130, agregada Marketing, registro IP-etiqueta en skill/agent)
 **Estado:** ✅ Configurado y activo
 
 ---
@@ -18,10 +18,11 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 | 2 | `187.210.107.179` | Vidanta PQNC 2 |
 | 3 | `189.178.124.238` | IP del usuario 1 |
 | 4 | `189.177.138.158` | IP del usuario 2 |
-| 5 | `189.203.97.130` | drosales |
+| 5 | `187.190.202.130` | drosales |
 | 6 | `189.177.48.132` | oficinaIA |
 | 7 | `187.144.87.193` | casa rodrigo |
 | 8 | `189.177.141.218` | DGV Oficina |
+| 9 | `189.177.28.203` | Marketing |
 
 ---
 
@@ -31,7 +32,7 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 - **Nombre:** `frontend-allowed-ips`
 - **ARN:** `arn:aws:wafv2:us-east-1:307621978585:global/ipset/frontend-allowed-ips/9ed33da4-fb8e-498e-baf7-ff0b672d7725`
 - **Scope:** `CLOUDFRONT`
-- **IPs:** 8 direcciones IPv4 (/32)
+- **IPs:** 9 direcciones IPv4 (/32)
 
 ### Web ACL:
 - **Nombre:** `frontend-ip-restriction`

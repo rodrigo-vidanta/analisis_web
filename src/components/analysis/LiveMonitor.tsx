@@ -1474,6 +1474,7 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
   const [feedbackComment, setFeedbackComment] = useState('');
   const [showProspectoSidebar, setShowProspectoSidebar] = useState(false);
   const [selectedProspecto, setSelectedProspecto] = useState<any>(null);
+  const [audioError, setAudioError] = useState(false);
 
   // Función para abrir el sidebar del prospecto
   const handleProspectoClick = async () => {
@@ -1937,15 +1938,31 @@ const FinishedCallModal: React.FC<ProspectDetailModalProps> = ({
                     transition={{ delay: 0.35 }}
                     className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
                   >
-                <audio 
-                  controls 
+                {audioError ? (
+                  <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg px-3 py-2">
+                    <svg className="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-xs text-red-700 dark:text-red-300">No se pudo cargar el audio. Verifique su conexion a internet.</span>
+                    <button
+                      onClick={() => setAudioError(false)}
+                      className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline flex-shrink-0"
+                    >
+                      Reintentar
+                    </button>
+                  </div>
+                ) : (
+                <audio
+                  controls
                   controlsList="nodownload noremoteplayback"
                   className="w-full"
                   preload="metadata"
+                  onError={() => setAudioError(true)}
                 >
                   <source src={prospect.audio_ruta_bucket} type="audio/wav" />
                   Tu navegador no soporta audio HTML5.
                 </audio>
+                )}
                   </motion.div>
                 ) : (
                   <motion.div

@@ -125,6 +125,24 @@ aws cloudfront create-invalidation --distribution-id E19ZID7TVR08JG --paths "/*"
 Ejecutar todos los comandos de status + metricas de CloudWatch + costos + eventos RDS.
 Presentar en formato organizado con secciones y estado visual.
 
+## WAF - Registro de IPs Permitidas (ai.vidavacations.com)
+
+WAF `frontend-ip-restriction` | IP Set `frontend-allowed-ips` (ID: `9ed33da4-fb8e-498e-baf7-ff0b672d7725`, us-east-1, CLOUDFRONT)
+
+| # | IP | Etiqueta |
+|---|-----|----------|
+| 1 | `189.203.238.35` | Vidanta PQNC |
+| 2 | `187.210.107.179` | Vidanta PQNC 2 |
+| 3 | `189.178.124.238` | IP del usuario 1 |
+| 4 | `189.177.138.158` | IP del usuario 2 |
+| 5 | `187.190.202.130` | drosales |
+| 6 | `189.177.48.132` | oficinaIA |
+| 7 | `187.144.87.193` | casa rodrigo |
+| 8 | `189.177.141.218` | DGV Oficina |
+| 9 | `189.177.28.203` | Marketing |
+
+**REGLA**: Al listar IPs, SIEMPRE mostrar etiquetas. Al modificar IPs en WAF, SIEMPRE actualizar esta tabla, el agente (`aws-agent.md`), y `docs/AWS_FRONTEND_IP_RESTRICTION.md`.
+
 ## Reglas de Operacion
 
 1. **Leer inventario primero**: Antes de cualquier consulta, leer `.claude/docs/aws-inventory.md` para IDs
