@@ -1,3 +1,12 @@
+## [v2.15.1] - 2026-02-13
+
+**B10.1.44N2.15.1** - 1 fix
+
+### Bug Fixes
+- prevent Realtime loop when marking comunicado as read (`0336e8c`)
+
+---
+
 ## [v2.15.0] - 2026-02-13
 
 **B10.1.44N2.15.0** - 1 feature
