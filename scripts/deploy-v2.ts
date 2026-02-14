@@ -17,7 +17,7 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, statSync, mkdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -683,12 +683,32 @@ function updateChangelog(version: string, commits: CommitInfo[], message: string
 }
 
 function syncDocumentation(): void {
-  const commands = [
-    'cp CHANGELOG.md public/docs/ 2>/dev/null || true',
-    'cp VERSIONS.md public/docs/ 2>/dev/null || true',
-    'cp docs/*.md public/docs/ 2>/dev/null || true',
+  const docsDir = join(ROOT_DIR, 'public', 'docs');
+  mkdirSync(docsDir, { recursive: true });
+
+  const filesToCopy: Array<{ src: string; label: string }> = [
+    { src: join(ROOT_DIR, 'CHANGELOG.md'), label: 'CHANGELOG.md' },
+    { src: join(ROOT_DIR, 'VERSIONS.md'), label: 'VERSIONS.md' },
   ];
-  commands.forEach(cmd => execSafe(cmd));
+
+  // Add all docs/*.md files
+  const docsSource = join(ROOT_DIR, 'docs');
+  if (existsSync(docsSource)) {
+    readdirSync(docsSource)
+      .filter(f => f.endsWith('.md'))
+      .forEach(f => filesToCopy.push({ src: join(docsSource, f), label: `docs/${f}` }));
+  } else {
+    console.error(`[WARN] docs/ directory not found`);
+  }
+
+  for (const { src, label } of filesToCopy) {
+    if (existsSync(src)) {
+      const dest = join(docsDir, src.split('/').pop()!);
+      copyFileSync(src, dest);
+    } else {
+      console.error(`[WARN] ${label} not found, skipping`);
+    }
+  }
 }
 
 // ============================================

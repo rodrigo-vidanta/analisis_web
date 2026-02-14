@@ -1,481 +1,322 @@
-# Catálogo de Edge Functions - PQNC QA AI Platform
+# Catalogo de Edge Functions - PQNC QA AI Platform
 
-**Fecha de Creación:** 14 de Enero 2026  
-**Última Actualización:** 14 de Enero 2026  
-**Versión:** 1.0.0
+**Fecha:** 2026-02-13 | **Version:** 2.0.0 | **Total:** 25 funciones activas
 
 ---
 
-## 📋 Índice
+## Resumen
 
-1. [Resumen Ejecutivo](#resumen-ejecutivo)
-2. [Arquitectura](#arquitectura)
-3. [Catálogo de Funciones](#catálogo-de-funciones)
-4. [Variables de Entorno Requeridas](#variables-de-entorno-requeridas)
-5. [Guía de Deployment](#guía-de-deployment)
-6. [Troubleshooting](#troubleshooting)
+Edge Functions serverless en Supabase Edge Runtime (Deno). Propositos principales:
+1. **Evitar CORS** - Frontend no puede llamar webhooks externos directamente
+2. **Ocultar tokens** - API keys en variables de entorno del servidor
+3. **Logging** - Todas las llamadas en Supabase Logs
+4. **Seguridad** - JWT validation, session tokens, whitelists de tablas
 
----
-
-## Resumen Ejecutivo
-
-Las Edge Functions son funciones serverless que se ejecutan en Supabase Edge Runtime (Deno). Se utilizan principalmente como **proxies seguros** para:
-
-1. **Evitar CORS** - El frontend no puede llamar directamente a webhooks externos
-2. **Ocultar tokens** - Las API keys se almacenan en variables de entorno del servidor
-3. **Logging centralizado** - Todas las llamadas quedan registradas en Supabase Logs
-
-### Estado Actual (Actualizado 2026-01-14)
-
-| Proyecto | Funciones Desplegadas | Estado |
-|----------|----------------------|--------|
-| **pqnc_ai** (glsmifhkoaifvaegsozd) | 16 | ✅ **PRODUCCIÓN ACTIVA** |
-| **system_ui** (zbylezfyagwrxoecioup) | 3 | 📦 Backup (legacy) |
-
-**⚠️ IMPORTANTE:** El frontend ahora usa las Edge Functions de **pqnc_ai**.
+**Proyecto:** PQNC_AI (`glsmifhkoaifvaegsozd`)
 
 ---
 
-## Arquitectura
+## Llamada desde Frontend
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              FRONTEND                                   │
-│                        (React + Vite)                                   │
-└──────────────────────────────┬──────────────────────────────────────────┘
-                               │
-                               │ HTTPS Request
-                               ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SUPABASE EDGE RUNTIME                           │
-│                      (Deno - Edge Functions)                            │
-├─────────────────────────────────────────────────────────────────────────┤
-│                                                                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐         │
-│  │ send-message    │  │ pause-bot       │  │ anthropic       │         │
-│  │ -proxy          │  │ -proxy          │  │ -proxy          │         │
-│  └────────┬────────┘  └────────┬────────┘  └────────┬────────┘         │
-│           │                    │                    │                   │
-│           │ + Auth Token       │ + Auth Token       │ + API Key         │
-│           ▼                    ▼                    ▼                   │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                     SERVICIOS EXTERNOS                          │   │
-│  ├─────────────────┬───────────────────┬───────────────────────────┤   │
-│  │ N8N Railway     │ N8N Railway       │ Anthropic API            │   │
-│  │ /webhook/...    │ /webhook/...      │ api.anthropic.com        │   │
-│  └─────────────────┴───────────────────┴───────────────────────────┘   │
-│                                                                         │
-└─────────────────────────────────────────────────────────────────────────┘
+```typescript
+// Patron obligatorio para Edge Functions
+import { authenticatedEdgeFetch } from '@/utils/authenticatedFetch';
+
+const response = await authenticatedEdgeFetch('function-name', {
+  method: 'POST',
+  body: { param1: 'value' }
+});
 ```
 
+`authenticatedEdgeFetch` maneja: token refresh proactivo, retry en 401, force logout en fallo persistente.
+
 ---
 
-## Catálogo de Funciones
+## Catalogo Completo (25 funciones)
 
-### 1. Funciones de WhatsApp/Comunicación
+### 1. Auth y Usuarios
 
-#### `send-message-proxy`
+| Funcion | Proposito | Auth | Lineas |
+|---------|-----------|------|--------|
+| **auth-admin-proxy** | CRUD usuarios via Supabase Auth nativo | JWT + service_role | ~839 |
+| **cleanup-inactive-sessions** | Limpiar sesiones inactivas (cron) | Ninguna (cron) | ~111 |
 
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Enviar mensajes de WhatsApp a prospectos |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/send-message` |
-| **Variable de Entorno** | `SEND_MESSAGE_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🔴 ALTA |
+#### auth-admin-proxy
 
-**Payload de Entrada:**
-```json
-{
-  "message": "Texto del mensaje",
-  "uchat_id": "uuid-de-conversacion",
-  "id_sender": "uuid-del-usuario"
-}
+Operaciones: `updateLastLogin`, `getUserById`, `updateUserField`, `verifyPassword`, `changePassword`, `createUser`, `updateUserMetadata`, `updateUserEmail`, `deleteUser`, `assignUserToGroup`, `removeUserFromGroup`, `getUserGroups`, `getExecutivesWithBackup`, `updateIsOperativo`, `resetFailedAttempts`
+
+**Regla:** `updateIsOperativo` requiere `id_dynamics` presente.
+
+#### cleanup-inactive-sessions
+
+- Diseno: cron job via pg_cron (cada 1 minuto)
+- Llama RPC `cleanup_inactive_sessions`
+- Limpia sesiones expiradas o inactivas > 2 minutos
+
+---
+
+### 2. IA y LLM
+
+| Funcion | Proposito | Auth | Lineas | Servicio Externo |
+|---------|-----------|------|--------|-----------------|
+| **anthropic-proxy** | Proxy a Claude API | No JWT (API key only) | ~206 | Anthropic API |
+| **paraphrase-proxy** | Parafraseo de mensajes via N8N | JWT | ~94 | N8N webhook |
+
+#### anthropic-proxy
+
+- Secret: `ANTHROPIC_API_KEY`
+- Detecta problemas de billing (401/402) y retorna flag `isTokenIssue`
+- Body: `{ model, messages, ...anthropicParams }`
+
+#### paraphrase-proxy
+
+- Endpoint N8N: `/webhook/mensaje-agente`
+- Secrets: `LIVECHAT_AUTH`, `N8N_MENSAJE_AGENTE_URL`
+
+---
+
+### 3. WhatsApp y Mensajeria
+
+| Funcion | Proposito | Auth | Lineas | Endpoint N8N |
+|---------|-----------|------|--------|-------------|
+| **send-message-proxy** | Enviar mensajes WhatsApp | JWT | ~147 | `/webhook/send-message` |
+| **send-img-proxy** | Enviar imagenes WhatsApp | JWT | ~121 | `/webhook/send-img` |
+| **send-audio-proxy** | Enviar audio WhatsApp | No JWT | ~93 | `/webhook/send-audio` |
+| **pause-bot-proxy** | Pausar/reanudar bot | JWT | ~155 | `/webhook/pause_bot` |
+| **broadcast-proxy** | Envio masivo WhatsApp | JWT | ~145 | `/webhook/broadcast` |
+| **whatsapp-templates-proxy** | CRUD plantillas WhatsApp | JWT | ~167 | `/webhook/whatsapp-templates` |
+
+#### send-message-proxy
+
+- Body: `{ message, uchat_id, type?, ttl?, id_sender? }`
+- Secret: `LIVECHAT_AUTH` (header: `2025_livechat_auth`)
+
+#### send-img-proxy
+
+- Body: `[{ imagenes: [{ archivo }], caption?, request_id }]`
+- Incluye request ID tracking para debugging
+- Secret: `LIVECHAT_AUTH`, `N8N_SEND_IMG_URL`
+
+#### send-audio-proxy
+
+- Body: `{ audio_base64, uchat_id, filename?, id_sender? }`
+- Migrado a Deno.serve() nativo (Feb 2026)
+
+#### pause-bot-proxy
+
+- Body: `{ uchat_id, ttl?, duration_minutes? }`
+- TTL=0 reanuda el bot
+
+#### broadcast-proxy
+
+- Body: Configuracion completa de campana
+- Secret: `LIVECHAT_AUTH` (fallback a tabla `api_auth_tokens`)
+
+#### whatsapp-templates-proxy
+
+- Soporta GET, POST, PUT, DELETE (siempre usa POST a N8N)
+- Timeout: 90s
+- Secret: `WHATSAPP_TEMPLATES_AUTH`
+
+---
+
+### 4. Microsoft Dynamics CRM
+
+| Funcion | Proposito | Auth | Lineas | Endpoint N8N |
+|---------|-----------|------|--------|-------------|
+| **dynamics-lead-proxy** | Query leads de Dynamics | JWT | ~161 | `/webhook/lead-info` |
+| **dynamics-reasignar-proxy** | Reasignar prospectos | JWT | ~160 | `/webhook/reasignar-prospecto` |
+| **import-contact-proxy** | Importar contacto de CRM | No JWT | ~89 | `/webhook/import-contact-crm` |
+
+#### dynamics-lead-proxy
+
+- Timeout: 90s
+- Headers: `Authorization: Bearer` + `x-dynamics-token`
+- Secret: `DYNAMICS_TOKEN`
+
+#### dynamics-reasignar-proxy
+
+- Timeout: 120s (CRM ops lentas)
+- Misma auth que dynamics-lead-proxy
+
+#### import-contact-proxy
+
+- Body: `{ lead_dynamics: { Coordinacion, CoordinacionID, ... } }`
+- Detecta respuesta vacia de N8N (coordinacion no encontrada) -> 422
+
+---
+
+### 5. VAPI y Llamadas
+
+| Funcion | Proposito | Auth | Lineas | Endpoint N8N |
+|---------|-----------|------|--------|-------------|
+| **trigger-manual-proxy** | Programar/editar/eliminar llamadas | JWT | ~194 | `/webhook/trigger-manual` |
+| **tools-proxy** | Ejecutar acciones en llamada | No JWT | ~130 | `/webhook/tools` |
+| **transfer-request-proxy** | Solicitar transferencia | No JWT | ~103 | `/webhook/transfer_request` |
+| **timeline-proxy** | Procesar timeline con LLM | JWT | ~144 | `/webhook/timeline` |
+
+#### trigger-manual-proxy
+
+- Actions: INSERT, UPDATE, DELETE
+- Body: `{ action, prospecto_id, user_id, justificacion, scheduled_timestamp, schedule_type, customer_phone, customer_name, ... }`
+- Secret: `MANUAL_CALL_AUTH` (header: `Auth`)
+
+#### tools-proxy
+
+- Body: `{ action, call_id }`
+- Tolera respuestas vacias/non-JSON de N8N
+
+#### timeline-proxy
+
+- Timeout: 90s (procesamiento LLM)
+- Migrado a Deno.serve() nativo
+
+---
+
+### 6. Media y Storage
+
+| Funcion | Proposito | Auth | Lineas | Servicio Externo |
+|---------|-----------|------|--------|-----------------|
+| **generar-url-optimizada** | URLs firmadas para GCS | JWT (role check) | ~195 | Railway GCS service |
+
+- Body: `{ filename, bucket, expirationMinutes? }`
+- Secret: `GCS_API_TOKEN` o `MEDIA_URL_AUTH`
+- Solo usuarios authenticated (no anon)
+
+---
+
+### 7. Acceso a Base de Datos
+
+| Funcion | Proposito | Auth | Lineas |
+|---------|-----------|------|--------|
+| **multi-db-proxy** | Queries multi-DB (PQNC_QA, LOGMONITOR) | JWT (role check) | ~326 |
+| **secure-query** | Queries PQNC_AI con session token | Session token | ~260 |
+| **mcp-secure-proxy** | Operaciones MCP desde IDE | Session token | ~514 |
+
+#### multi-db-proxy
+
+- Databases: `PQNC_QA` (hmmfuhqgvsehkizlfzga), `LOGMONITOR` (dffuwdzybhypxfzrmdcz)
+- Operaciones: select, insert, update, delete
+- Tablas whitelistadas por database
+- Secrets: `PQNC_QA_SERVICE_KEY`, `LOGMONITOR_SERVICE_KEY`
+
+#### secure-query
+
+- Auth: `x-session-token` header
+- Origins permitidos: ai.vidavacations.com, localhost, N8N Railway
+- Tablas: prospectos, llamadas_ventas, conversaciones_whatsapp, mensajes_whatsapp, user_profiles_v2, auth_sessions, coordinaciones, auth_roles
+
+#### mcp-secure-proxy
+
+- Operaciones read: `query_table`, `get_schema`, `get_table_info`, `execute_read_sql`
+- Operaciones write: `insert_data`, `update_data`, `backup_table` (admin only)
+- Prohibido: `delete_data` (no-admin), `drop_table`, `truncate_table`
+- Audit logging a `mcp_audit_log`
+- Max 1000 rows por query
+
+---
+
+### 8. Utilidades
+
+| Funcion | Proposito | Auth | Lineas | Endpoint N8N |
+|---------|-----------|------|--------|-------------|
+| **agent-creator-proxy** | Crear agentes IA via N8N | No JWT | ~60 | `/webhook/agent_creator` |
+| **error-log-proxy** | Logs de errores frontend | No JWT | ~79 | `/webhook/error-log` |
+| **pull-uchat-errors** | Pull errores WhatsApp de UChat | Cron/manual | ~200 | UChat API directa |
+
+#### agent-creator-proxy
+
+- Proxy simple a N8N workflow de creacion de agentes
+
+#### error-log-proxy
+
+- Retorna 200 incluso en fallo (logging no debe bloquear)
+- Secrets: `ERROR_LOG_AUTH`, `N8N_ERROR_LOG_URL`
+
+#### pull-uchat-errors
+
+- Escanea 4,213 subscribers por campo Error_Message (`f190385v8089539`)
+- Dedup por user+error+dia en tabla `whatsapp_delivery_errors`
+- N8N Workflow: "Pull UChat Errors -> Supabase [PROD]" cada 30 min
+- Secret: `UCHAT_API_KEY`
+
+---
+
+## Patrones Comunes
+
+### Headers de Autenticacion
+
+| Patron | Header | Funciones |
+|--------|--------|-----------|
+| JWT | `Authorization: Bearer <jwt>` | La mayoria |
+| Session | `x-session-token: <token>` | secure-query, mcp-secure-proxy |
+| N8N livechat | `2025_livechat_auth: <token>` | send-message, send-img, pause-bot, broadcast |
+| Dynamics | `x-dynamics-token: <token>` | dynamics-lead, dynamics-reasignar |
+| Manual call | `Auth: <token>` | trigger-manual |
+
+### CORS
+
+Todas las funciones incluyen:
+```
+Access-Control-Allow-Origin: *
+Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type
+Access-Control-Allow-Methods: POST, OPTIONS
 ```
 
-**Usado en:** `LiveChatCanvas.tsx`, `WhatsAppModule.tsx`
+### Migracion Deno.serve()
+
+Funciones migradas de `serve()` import a `Deno.serve()` nativo (Feb 2026) para evitar timeout de bundles:
+- dynamics-lead-proxy, dynamics-reasignar-proxy, timeline-proxy, whatsapp-templates-proxy, send-audio-proxy
 
 ---
 
-#### `send-img-proxy`
+## Backups
 
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Enviar imágenes/media por WhatsApp |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/send-img` |
-| **Variable de Entorno** | Header fijo: `livechat_auth: 2025_livechat_auth` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🔴 ALTA |
-
-**Payload de Entrada:**
-```json
-[{
-  "imagenes": [{ "archivo": "url-de-imagen" }],
-  "caption": "Descripción opcional",
-  "request_id": "id-de-tracking"
-}]
-```
-
-**Usado en:** `ImageCatalogModal.tsx`, `LiveChatCanvas.tsx`
+17 directorios `z_backup_*` en `supabase/functions/` con versiones archivadas. No desplegados.
 
 ---
 
-#### `pause-bot-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Pausar/reanudar bot de WhatsApp en conversación |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/pause_bot` |
-| **Variable de Entorno** | `PAUSE_BOT_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Payload de Entrada:**
-```json
-{
-  "uchat_id": "uuid-de-conversacion",
-  "duration_minutes": 30,
-  "paused_by": "user" | "bot"
-}
-```
-
-**Usado en:** `LiveChatCanvas.tsx`
-
----
-
-### 2. Funciones de WhatsApp Templates
-
-#### `whatsapp-templates-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Gestión de plantillas WhatsApp (CRUD) |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates` |
-| **Variable de Entorno** | `WHATSAPP_TEMPLATES_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `WhatsAppTemplatesManager.tsx`
-
----
-
-#### `whatsapp-templates-send-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Envío de plantillas WhatsApp a prospectos |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/whatsapp-templates-send` |
-| **Variable de Entorno** | `WHATSAPP_TEMPLATES_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🔴 ALTA |
-
-**Usado en:** `WhatsAppTemplatesManager.tsx`, `CampaignsModule.tsx`
-
----
-
-### 3. Funciones de IA/Análisis
-
-#### `anthropic-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Proxy para llamadas a Claude (Anthropic API) |
-| **Endpoint Externo** | `https://api.anthropic.com/v1/messages` |
-| **Variable de Entorno** | `ANTHROPIC_API_KEY` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🔴 ALTA |
-
-**Payload de Entrada:**
-```json
-{
-  "model": "claude-3-sonnet-20240229",
-  "max_tokens": 1024,
-  "messages": [{ "role": "user", "content": "..." }]
-}
-```
-
-**Usado en:** `AnalysisIAComplete.tsx`, `ParaphraseService.ts`
-
----
-
-#### `error-analisis-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Análisis de errores de llamadas con IA |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/error-analisis` |
-| **Variable de Entorno** | `ERROR_ANALISIS_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `CallErrorAnalysis.tsx`
-
----
-
-### 4. Funciones de CRM/Dynamics
-
-#### `dynamics-lead-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Obtener información de lead desde Dynamics CRM |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/lead-info` |
-| **Variable de Entorno** | `DYNAMICS_TOKEN` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `DynamicsCRMManager.tsx`
-
----
-
-#### `dynamics-reasignar-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Reasignar prospecto en Dynamics CRM |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/reasignar-prospecto` |
-| **Variable de Entorno** | `DYNAMICS_TOKEN` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `DynamicsReasignacionService.ts`
-
----
-
-### 5. Funciones Auxiliares
-
-#### `transfer-request-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Solicitar transferencia de llamada |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/transfer-request` |
-| **Variable de Entorno** | `TRANSFER_REQUEST_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `LiveMonitor.tsx`
-
----
-
-#### `tools-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Ejecutar herramientas personalizadas |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/tools` |
-| **Variable de Entorno** | `TOOLS_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟢 BAJA |
-
----
-
-#### `timeline-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Registrar eventos en timeline de prospecto |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/timeline` |
-| **Variable de Entorno** | `TIMELINE_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟢 BAJA |
-
-**Usado en:** `TimelineModule.tsx`
-
----
-
-#### `broadcast-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Envío masivo de mensajes WhatsApp |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/broadcast` |
-| **Variable de Entorno** | `BROADCAST_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟡 MEDIA |
-
-**Usado en:** `CampaignsModule.tsx`
-
----
-
-#### `n8n-proxy`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Proxy genérico para cualquier webhook N8N |
-| **Endpoint N8N** | Dinámico (se envía en el payload) |
-| **Variable de Entorno** | `N8N_PROXY_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟢 BAJA |
-
----
-
-#### `generar-url-optimizada`
-
-| Propiedad | Valor |
-|-----------|-------|
-| **Propósito** | Generar URLs optimizadas para imágenes |
-| **Endpoint N8N** | `https://primary-dev-d75a.up.railway.app/webhook/generar-url` |
-| **Variable de Entorno** | `GENERAR_URL_AUTH` |
-| **Método HTTP** | POST |
-| **Criticidad** | 🟢 BAJA |
-
----
-
-## Variables de Entorno Requeridas
-
-Estas variables deben configurarse en el proyecto Supabase donde se desplieguen las funciones:
+## Deployment
 
 ```bash
-# ============================================
-# WhatsApp/Comunicación
-# ============================================
-SEND_MESSAGE_AUTH=<valor>          # Módulo: "Enviar Mensaje WhatsApp"
-PAUSE_BOT_AUTH=<valor>             # Módulo: "Pausar Bot"
+# Deploy individual
+npx supabase functions deploy {nombre} --project-ref glsmifhkoaifvaegsozd
 
-# ============================================
-# WhatsApp Templates
-# ============================================
-WHATSAPP_TEMPLATES_AUTH=<valor>    # Módulo: "Plantillas WhatsApp"
-BROADCAST_AUTH=<valor>             # Módulo: "Broadcast WhatsApp"
+# Deploy todas
+npx supabase functions deploy
 
-# ============================================
-# IA/Análisis
-# ============================================
-ANTHROPIC_API_KEY=<api-key>        # API Key de Anthropic (console.anthropic.com)
+# Configurar secrets
+npx supabase secrets set KEY=value --project-ref glsmifhkoaifvaegsozd
 
-# ============================================
-# CRM/Dynamics
-# ============================================
-DYNAMICS_TOKEN=<valor>             # Módulo: "Dynamics" → TOKEN
-
-# ============================================
-# Llamadas
-# ============================================
-MANUAL_CALL_AUTH=<valor>           # Módulo: "Llamadas Manuales"
-
-# ============================================
-# Media
-# ============================================
-MEDIA_URL_AUTH=<valor>             # Módulo: "URL Media"
-```
-
-### Tokens Almacenados en BD (api_auth_tokens)
-
-| Módulo en BD | Token Key | Uso en Edge Function |
-|--------------|-----------|---------------------|
-| Enviar Mensaje WhatsApp | `send_message_auth` | `SEND_MESSAGE_AUTH` |
-| Pausar Bot | `pause_bot_auth` | `PAUSE_BOT_AUTH` |
-| Plantillas WhatsApp | `whatsapp_templates_auth` | `WHATSAPP_TEMPLATES_AUTH` |
-| Broadcast WhatsApp | `broadcast_auth` | `BROADCAST_AUTH` |
-| Dynamics | `TOKEN` | `DYNAMICS_TOKEN` |
-| Llamadas Manuales | `manual_call_auth` | `MANUAL_CALL_AUTH` |
-| URL Media | `media_url_auth` | `MEDIA_URL_AUTH` |
-
-### Consultar Tokens
-
-```sql
--- Ver todos los tokens activos
-SELECT module_name, token_key, description 
-FROM api_auth_tokens 
-WHERE is_active = true 
-ORDER BY module_name;
-
--- Obtener valor específico (requiere service_role)
-SELECT token_value 
-FROM api_auth_tokens 
-WHERE module_name = 'Enviar Mensaje WhatsApp' 
-AND token_key = 'send_message_auth';
+# Ver logs
+npx supabase functions logs {nombre} --tail
 ```
 
 ---
 
-## Guía de Deployment
+## Variables de Entorno (Secrets)
 
-### Prerequisitos
-
-1. Supabase CLI instalado: `npm install -g supabase`
-2. Login en Supabase: `supabase login`
-3. Link al proyecto: `supabase link --project-ref glsmifhkoaifvaegsozd`
-
-### Deployment de una función
-
-```bash
-# Navegar al directorio del proyecto
-cd /path/to/pqnc-qa-ai-platform
-
-# Desplegar función específica
-supabase functions deploy send-message-proxy
-
-# Configurar variable de entorno
-supabase secrets set SEND_MESSAGE_AUTH=<valor>
-
-# Verificar deployment
-supabase functions list
-```
-
-### Deployment masivo
-
-```bash
-# Desplegar todas las funciones
-supabase functions deploy
-
-# Verificar todas
-supabase functions list
-```
+| Secret | Usado por |
+|--------|-----------|
+| `ANTHROPIC_API_KEY` | anthropic-proxy |
+| `LIVECHAT_AUTH` | send-message, send-img, send-audio, pause-bot, broadcast, tools, transfer-request, import-contact, error-log |
+| `DYNAMICS_TOKEN` | dynamics-lead, dynamics-reasignar |
+| `WHATSAPP_TEMPLATES_AUTH` | whatsapp-templates-proxy |
+| `MANUAL_CALL_AUTH` | trigger-manual-proxy |
+| `GCS_API_TOKEN` / `MEDIA_URL_AUTH` | generar-url-optimizada |
+| `PQNC_QA_SERVICE_KEY` | multi-db-proxy |
+| `LOGMONITOR_SERVICE_KEY` | multi-db-proxy |
+| `UCHAT_API_KEY` | pull-uchat-errors |
+| `ERROR_LOG_AUTH` | error-log-proxy |
+| `N8N_SEND_IMG_URL` | send-img-proxy |
+| `N8N_MENSAJE_AGENTE_URL` | paraphrase-proxy |
+| `N8N_ERROR_LOG_URL` | error-log-proxy |
 
 ---
 
-## Troubleshooting
+## Historial
 
-### Error: "CORS blocked"
-
-**Causa:** La función no está retornando headers CORS correctos.
-
-**Solución:** Verificar que `corsHeaders` incluye el origen correcto y que se maneja `OPTIONS`.
-
-### Error: "AUTH no configurado"
-
-**Causa:** Variable de entorno no configurada en Supabase.
-
-**Solución:** 
-```bash
-supabase secrets set <VARIABLE_NAME>=<valor>
-```
-
-### Error: "Webhook Error: 401"
-
-**Causa:** Token de autenticación inválido o expirado.
-
-**Solución:** 
-1. Verificar token en `api_auth_tokens`
-2. Regenerar token en N8N si es necesario
-3. Actualizar en Supabase secrets
-
-### Ver logs de funciones
-
-```bash
-# Logs en tiempo real
-supabase functions logs <nombre-funcion> --tail
-
-# Logs históricos
-supabase functions logs <nombre-funcion>
-```
-
----
-
-## Referencias
-
-- **Supabase Edge Functions Docs:** https://supabase.com/docs/guides/functions
-- **Deno Runtime:** https://deno.land/manual
-- **N8N Webhooks:** `docs/INVENTARIO_WEBHOOKS_N8N.md`
-- **API Auth Tokens:** `docs/API_AUTH_TOKENS.md`
-
----
-
-## Historial de Cambios
-
-| Fecha | Versión | Cambios |
+| Fecha | Version | Cambios |
 |-------|---------|---------|
-| 2026-01-14 | 1.0.0 | Creación inicial del catálogo |
-
+| 2026-01-14 | 1.0.0 | Creacion inicial (16 funciones) |
+| 2026-02-13 | 2.0.0 | Reescrito completo: 25 funciones verificadas contra codigo |

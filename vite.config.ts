@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 import { readFileSync } from 'fs'
 
 // Leer la versión del package.json
@@ -8,7 +9,16 @@ const version = packageJson.version
 
 // CONFIGURACIÓN OPTIMIZADA PARA RAILWAY DEPLOYMENT
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    viteStaticCopy({
+      targets: [
+        { src: 'docs/*.md', dest: 'docs' },
+        { src: 'CHANGELOG.md', dest: 'docs' },
+        { src: 'VERSIONS.md', dest: 'docs' },
+      ]
+    }),
+  ],
   
   // Variables de entorno
   define: {

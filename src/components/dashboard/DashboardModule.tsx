@@ -132,8 +132,8 @@ interface CRMCategoryData {
   paquetes: { numero: string; monto: number; fecha: string; coordinacion: string }[]; // Detalle
 }
 
-// Tipo de clasificación de venta
-type SaleType = 'venta_ia' | 'venta_asistida' | 'no_contar' | 'sin_datos';
+// Tipo de clasificación de venta (nueva lógica de atribución)
+type SaleType = 'ASISTIDA_IA' | 'ASISTIDA_WHATSAPP' | 'SIN_ASISTENCIA';
 
 // Interfaz para detalle individual de venta
 interface SaleDetail {
@@ -146,14 +146,17 @@ interface SaleDetail {
   ejecutivo: string;
   cliente?: string;
   prospectoId?: string;
-  saleType?: SaleType;
+  saleType: SaleType;
+  origen?: string;
+  iaAntes?: number;
+  prospectoAntes?: number;
+  vendedorAntes?: number;
 }
 
 interface SalesClassification {
-  ventaIA: number;
-  ventaAsistida: number;
-  noContar: number;
-  sinDatos: number;
+  asistidaIA: number;
+  asistidaWhatsApp: number;
+  sinAsistencia: number;
   totalContabilizable: number;
   montoContabilizable: number;
 }
@@ -164,7 +167,7 @@ interface CRMSalesData {
   enProceso: CRMCategoryData;
   otros: CRMCategoryData;
   total: CRMCategoryData;
-  byCoordinacion: Record<string, { count: number; certificados: number; monto: number; ventaIA: number; ventaAsistida: number }>;
+  byCoordinacion: Record<string, { count: number; certificados: number; monto: number; asistidaIA: number; asistidaWhatsApp: number }>;
   byPeriod: { period: string; count: number; monto: number }[];
   allSalesDetails: SaleDetail[]; // Todos los detalles para el modal
   classification?: SalesClassification;
@@ -2296,7 +2299,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
 
-  const contabilizableSales = (data.allSalesDetails || []).filter(s => s.saleType === 'venta_ia' || s.saleType === 'venta_asistida');
+  const contabilizableSales = (data.allSalesDetails || []).filter(s => s.saleType === 'ASISTIDA_IA' || s.saleType === 'ASISTIDA_WHATSAPP');
   const thisMonthSales = contabilizableSales.filter(s => new Date(s.fecha) >= thisMonthStart);
   const lastMonthSales = contabilizableSales.filter(s => {
     const d = new Date(s.fecha);
@@ -2317,7 +2320,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
       subLabel: 'Monto contabilizable',
       subValue: formatMoney(montoContabilizable),
       extraLabel: 'Clasificación',
-      extraValue: cls ? `IA: ${cls.ventaIA} · Asistida: ${cls.ventaAsistida}` : '-',
+      extraValue: cls ? `IA: ${cls.asistidaIA} · WA: ${cls.asistidaWhatsApp}` : '-',
       icon: <Award className="w-5 h-5" />,
       gradient: 'from-purple-500 to-indigo-600',
       bgGradient: 'from-purple-50 to-indigo-50 dark:from-purple-900/30 dark:to-indigo-800/20',
@@ -2329,8 +2332,8 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
       mainUnit: '',
       subLabel: 'Por certificado',
       subValue: `${totalClientes} clientes`,
-      extraLabel: 'Falsos positivos',
-      extraValue: cls ? `${cls.noContar + cls.sinDatos} descartados de ${totalCertificados}` : '-',
+      extraLabel: 'Sin asistencia',
+      extraValue: cls ? `${cls.sinAsistencia} sin interacción digital` : '-',
       icon: <TrendingUp className="w-5 h-5" />,
       gradient: 'from-emerald-500 to-teal-600',
       bgGradient: 'from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-800/20',
@@ -2378,8 +2381,8 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     .map(([coord, d]) => ({
       name: coord,
       certificados: d.certificados,
-      ventaIA: d.ventaIA || 0,
-      ventaAsistida: d.ventaAsistida || 0,
+      ventaIA: d.asistidaIA || 0,
+      ventaAsistida: d.asistidaWhatsApp || 0,
       monto: d.monto
     }))
     .sort((a, b) => b.certificados - a.certificados)
@@ -2390,7 +2393,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
     if (!selectedCoord || !data.allSalesDetails) return [];
     return data.allSalesDetails.filter(sale =>
       sale.coordinacion === selectedCoord &&
-      (sale.saleType === 'venta_ia' || sale.saleType === 'venta_asistida')
+      (sale.saleType === 'ASISTIDA_IA' || sale.saleType === 'ASISTIDA_WHATSAPP')
     );
   }, [selectedCoord, data.allSalesDetails]);
 
@@ -2546,15 +2549,13 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              sale.saleType === 'venta_ia'
+                              sale.saleType === 'ASISTIDA_IA'
                                 ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
-                                : sale.saleType === 'venta_asistida'
+                                : sale.saleType === 'ASISTIDA_WHATSAPP'
                                 ? 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400'
-                                : sale.saleType === 'no_contar'
-                                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
                                 : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
                             }`}>
-                              {sale.saleType === 'venta_ia' ? 'IA' : sale.saleType === 'venta_asistida' ? 'Asistida' : sale.saleType === 'no_contar' ? 'No contar' : 'Sin datos'}
+                              {sale.saleType === 'ASISTIDA_IA' ? 'Venta IA' : sale.saleType === 'ASISTIDA_WHATSAPP' ? 'Asistida WA' : 'Sin asistencia'}
                             </span>
                           </td>
                           <td className="py-3 px-4 text-right">
@@ -2694,11 +2695,11 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
             <div className="flex items-center gap-3 mt-2 pt-1.5 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center gap-1">
                 <div className="w-2.5 h-2.5 rounded-sm bg-violet-500" />
-                <span className="text-[10px] text-gray-500">IA</span>
+                <span className="text-[10px] text-gray-500">Venta IA</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-2.5 h-2.5 rounded-sm bg-cyan-500" />
-                <span className="text-[10px] text-gray-500">Asistida</span>
+                <span className="text-[10px] text-gray-500">Asistida WA</span>
               </div>
             </div>
           </div>
@@ -2794,7 +2795,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                     <Tooltip
                       formatter={(value: number, name: string) => [
                         value,
-                        name === 'ventaIA' ? 'Venta IA' : 'Asistida'
+                        name === 'ventaIA' ? 'Venta IA' : 'Asistida WA'
                       ]}
                       cursor={{ fill: 'rgba(139, 92, 246, 0.08)' }}
                     />
@@ -2846,12 +2847,12 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                   <p className="text-purple-200 text-sm">Contabilizables</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-violet-200">{cls?.ventaIA || 0}</p>
+                  <p className="text-3xl font-bold text-violet-200">{cls?.asistidaIA || 0}</p>
                   <p className="text-purple-200 text-sm">Ventas IA</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-3xl font-bold text-cyan-200">{cls?.ventaAsistida || 0}</p>
-                  <p className="text-purple-200 text-sm">Asistidas</p>
+                  <p className="text-3xl font-bold text-cyan-200">{cls?.asistidaWhatsApp || 0}</p>
+                  <p className="text-purple-200 text-sm">Asistidas WA</p>
                 </div>
                 <div className="text-center">
                   <p className="text-3xl font-bold">{formatMoney(montoContabilizable)}</p>
@@ -3784,303 +3785,166 @@ const DashboardModule: React.FC = () => {
   // }, [filters, isGlobalView, coordinaciones, getSelectedCoordinacionIds, getStartDate]);
   // ============================================
 
-  // Cargar ventas CRM - CORREGIDO: Usando tabla crm_data con transactions
+  // Cargar ventas CRM - v2: Usa RPC get_ventas_atribucion (lógica de atribución en SQL)
   const loadCRMData = useCallback(async () => {
     try {
-      // Fecha de inicio: 27 de noviembre de 2025 (lanzamiento del canal)
-      const CRM_START_DATE = '2025-11-27T00:00:00Z';
-      
-      // Consultar crm_data donde transactions no sea null ni vacío
-      const { data: crmRecords, error } = await analysisSupabase
-        .from('crm_data')
-        .select('status_crm, transactions, coordinacion, created_at, propietario, nombre, prospecto_id')
-        .not('transactions', 'is', null)
-        .gte('created_at', CRM_START_DATE)
-        .range(0, 9999);
+      const { data: rows, error } = await analysisSupabase
+        .rpc('get_ventas_atribucion', { fecha_inicio: '2025-11-27' });
 
       if (error) throw error;
+      if (!rows || rows.length === 0) {
+        setCrmSalesData(null);
+        return;
+      }
 
       const createEmptyCategory = (): CRMCategoryData => ({
-        count: 0,
-        certificados: 0,
-        monto: 0,
-        reservaciones: 0,
-        paquetes: []
+        count: 0, certificados: 0, monto: 0, reservaciones: 0, paquetes: []
       });
 
       let activosPQNC = createEmptyCategory();
       let inactivosPQNC = createEmptyCategory();
       let enProceso = createEmptyCategory();
       let otros = createEmptyCategory();
-      const byCoordinacion: Record<string, { count: number; certificados: number; monto: number; ventaIA: number; ventaAsistida: number }> = {};
+      const byCoordinacion: Record<string, { count: number; certificados: number; monto: number; asistidaIA: number; asistidaWhatsApp: number }> = {};
       const periodData: Record<string, { count: number; monto: number }> = {};
       const allSalesDetails: SaleDetail[] = [];
-      
-      // Helper para agrupar según el periodo seleccionado
+
+      // Helpers para periodo
       const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
       const monthNamesFull = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-      
+
       const getPeriodKey = (date: Date): string => {
         switch (filters.period) {
           case '24hours':
             return `${date.getHours().toString().padStart(2, '0')}:00`;
           case 'week':
             return `${dayNames[date.getDay()]} ${date.getDate()}`;
-          case 'month':
+          case 'month': {
             const weekNum = Math.ceil(date.getDate() / 7);
             return `Sem ${weekNum}`;
+          }
           case '6months':
           case 'year':
           default:
             return `${monthNamesFull[date.getMonth()]} ${date.getFullYear().toString().slice(2)}`;
         }
       };
-      
+
       const sortPeriodKeys = (keys: string[]): string[] => {
         switch (filters.period) {
           case '24hours':
             return keys.sort((a, b) => parseInt(a) - parseInt(b));
           case 'week':
-            return keys.sort((a, b) => {
-              const dayA = parseInt(a.split(' ')[1]);
-              const dayB = parseInt(b.split(' ')[1]);
-              return dayA - dayB;
-            });
+            return keys.sort((a, b) => parseInt(a.split(' ')[1]) - parseInt(b.split(' ')[1]));
           case 'month':
             return keys.sort((a, b) => parseInt(a.replace('Sem ', '')) - parseInt(b.replace('Sem ', '')));
           default:
             return keys.sort((a, b) => {
               const [monthA, yearA] = a.split(' ');
               const [monthB, yearB] = b.split(' ');
-              const idxA = monthNamesFull.indexOf(monthA);
-              const idxB = monthNamesFull.indexOf(monthB);
-              const dateA = new Date(2000 + parseInt(yearA), idxA);
-              const dateB = new Date(2000 + parseInt(yearB), idxB);
+              const dateA = new Date(2000 + parseInt(yearA), monthNamesFull.indexOf(monthA));
+              const dateB = new Date(2000 + parseInt(yearB), monthNamesFull.indexOf(monthB));
               return dateA.getTime() - dateB.getTime();
             });
         }
       };
 
-      // Normalizar nombre de coordinación
-      const normalizeCoordinacion = (coord: string): string => {
-        if (coord === 'COB ACA') return 'COB Acapulco';
-        return coord;
-      };
+      // Iterar filas del RPC (1 fila = 1 comprador con su clasificación)
+      (rows as { prospecto_id: string; nombre: string; origen: string; num_certificados: number; monto_total: number; primera_compra: string; coordinacion: string; propietario: string; status_crm: string; ia_antes: number; prospecto_antes: number; vendedor_antes: number; categoria: string }[]).forEach(row => {
+        const saleType = row.categoria as SaleType;
+        const esContabilizable = saleType === 'ASISTIDA_IA' || saleType === 'ASISTIDA_WHATSAPP';
+        const monto = Number(row.monto_total) || 0;
+        const certs = Number(row.num_certificados) || 0;
+        const coord = row.coordinacion || 'Sin coordinación';
+        const fecha = row.primera_compra || '';
 
-      // Obtener clasificación de ventas por conversación
-      const prospectoIds = (crmRecords || [])
-        .map(r => r.prospecto_id)
-        .filter((id): id is string => !!id);
-
-      let convStatsMap: Record<string, { first_sender_role: string; ai_count: number; vendedor_count: number; prospecto_count: number; plantilla_count: number; coordinacion_nombre: string | null }> = {};
-      const coordFallbackMap: Record<string, string> = {};
-
-      if (prospectoIds.length > 0) {
-        const { data: convStats } = await analysisSupabase
-          .rpc('get_sales_conversation_stats', { p_prospecto_ids: prospectoIds });
-
-        if (convStats) {
-          (convStats as { prospecto_id: string; first_sender_role: string; ai_count: number; vendedor_count: number; prospecto_count: number; plantilla_count: number; coordinacion_nombre: string | null }[]).forEach(stat => {
-            convStatsMap[stat.prospecto_id] = stat;
-            if (stat.coordinacion_nombre) {
-              coordFallbackMap[stat.prospecto_id] = stat.coordinacion_nombre;
-            }
-          });
-        }
-      }
-
-      // Función para clasificar tipo de venta
-      const classifySale = (prospectoId?: string): SaleType => {
-        if (!prospectoId) return 'sin_datos';
-        const stats = convStatsMap[prospectoId];
-        if (!stats) return 'sin_datos';
-
-        if (stats.first_sender_role === 'Prospecto' && stats.ai_count >= 3) return 'venta_ia';
-        if (stats.first_sender_role === 'Prospecto' && stats.ai_count >= 1) return 'venta_asistida';
-        if (stats.plantilla_count > 0 && stats.prospecto_count > 0 && stats.vendedor_count > 0) return 'venta_asistida';
-        if (stats.plantilla_count > 0 && (stats.prospecto_count === 0 || stats.vendedor_count === 0) && stats.ai_count === 0) return 'no_contar';
-        return 'venta_asistida';
-      };
-
-      (crmRecords || []).forEach(record => {
-        // Parsear transactions - estructura: [{ paquetes_vacacionales: [...], reservaciones: [...], total_paquetes, total_reservaciones }]
-        let transactions: { paquetes_vacacionales?: { FechaCreacion?: string; MontoTotal?: string | number; NumeroPaquete?: string }[]; reservaciones?: unknown[] }[] = [];
-        try {
-          if (typeof record.transactions === 'string') {
-            const parsed = JSON.parse(record.transactions);
-            transactions = Array.isArray(parsed) ? parsed : [parsed];
-          } else if (Array.isArray(record.transactions)) {
-            transactions = record.transactions;
-          } else if (record.transactions && typeof record.transactions === 'object') {
-            transactions = [record.transactions];
-          }
-        } catch (e) {
-          return; // Skip si no se puede parsear
-        }
-
-        // Verificar que tiene transacciones válidas con paquetes
-        if (!transactions || transactions.length === 0) return;
-        
-        // Verificar si hay paquetes vacacionales
-        let totalCertificados = 0;
-        let totalMonto = 0;
-        let totalReservaciones = 0;
-        const paquetesDetalle: { numero: string; monto: number; fecha: string; coordinacion: string }[] = [];
-
-        // Clasificación de venta para este prospecto
-        const saleType = classifySale(record.prospecto_id || undefined);
-
-        transactions.forEach((tx) => {
-          // Contar paquetes vacacionales - solo desde 27 nov 2025
-          const paquetes = tx?.paquetes_vacacionales || [];
-          if (Array.isArray(paquetes)) {
-            paquetes.forEach((paq) => {
-              const fechaCreacion = paq?.FechaCreacion || '';
-              // Filtrar: solo paquetes creados desde 27 nov 2025
-              if (fechaCreacion && new Date(fechaCreacion) >= new Date(CRM_START_DATE)) {
-                const monto = parseFloat(String(paq?.MontoTotal || 0));
-                const coordName = normalizeCoordinacion(record.coordinacion || coordFallbackMap[record.prospecto_id] || 'Sin coordinación');
-                totalCertificados++;
-                totalMonto += monto;
-                paquetesDetalle.push({
-                  numero: paq?.NumeroPaquete || 'N/A',
-                  monto: monto,
-                  fecha: fechaCreacion,
-                  coordinacion: coordName
-                });
-                // Agregar a detalles para el modal
-                allSalesDetails.push({
-                  id: `${paq?.NumeroPaquete || 'N/A'}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  numeroPaquete: paq?.NumeroPaquete || 'N/A',
-                  monto: monto,
-                  fecha: fechaCreacion,
-                  coordinacion: coordName,
-                  statusCRM: record.status_crm || 'N/A',
-                  ejecutivo: record.propietario || 'Sin asignar',
-                  cliente: record.nombre || undefined,
-                  prospectoId: record.prospecto_id || undefined,
-                  saleType
-                });
-              }
-            });
-          }
-
-          // Contar reservaciones
-          const reservas = tx?.reservaciones || [];
-          if (Array.isArray(reservas)) {
-            totalReservaciones += reservas.length;
-          }
+        // Crear detalle de venta
+        allSalesDetails.push({
+          id: `${row.prospecto_id}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          numeroPaquete: `${certs} cert.`,
+          monto,
+          fecha,
+          coordinacion: coord,
+          statusCRM: row.status_crm || 'N/A',
+          ejecutivo: row.propietario || 'Sin asignar',
+          cliente: row.nombre || undefined,
+          prospectoId: row.prospecto_id || undefined,
+          saleType,
+          origen: row.origen,
+          iaAntes: row.ia_antes,
+          prospectoAntes: row.prospecto_antes,
+          vendedorAntes: row.vendedor_antes,
         });
 
-        // Skip si no hay certificados vendidos
-        if (totalCertificados === 0) return;
-
-        // Solo acumular en totales/gráficas si es venta contabilizable
-        const esContabilizable = saleType === 'venta_ia' || saleType === 'venta_asistida';
-
         if (esContabilizable) {
-          // Datos para acumular
-          const dataToAdd = {
-            count: 1,
-            certificados: totalCertificados,
-            monto: totalMonto,
-            reservaciones: totalReservaciones,
-            paquetes: paquetesDetalle
-          };
-
           // Clasificar por status_crm
-          const statusCrm = (record.status_crm || '').toLowerCase().trim();
+          const statusCrm = (row.status_crm || '').toLowerCase().trim();
+          const dataToAdd = { count: 1, certificados: certs, monto, reservaciones: 0, paquetes: [{ numero: `${certs} cert.`, monto, fecha, coordinacion: coord }] };
 
           if (statusCrm.includes('activo') && statusCrm.includes('pqnc')) {
-            activosPQNC.count += dataToAdd.count;
-            activosPQNC.certificados += dataToAdd.certificados;
-            activosPQNC.monto += dataToAdd.monto;
-            activosPQNC.reservaciones += dataToAdd.reservaciones;
-            activosPQNC.paquetes.push(...dataToAdd.paquetes);
+            activosPQNC.count += dataToAdd.count; activosPQNC.certificados += dataToAdd.certificados;
+            activosPQNC.monto += dataToAdd.monto; activosPQNC.paquetes.push(...dataToAdd.paquetes);
           } else if (statusCrm.includes('inactivo') && statusCrm.includes('pqnc')) {
-            inactivosPQNC.count += dataToAdd.count;
-            inactivosPQNC.certificados += dataToAdd.certificados;
-            inactivosPQNC.monto += dataToAdd.monto;
-            inactivosPQNC.reservaciones += dataToAdd.reservaciones;
-            inactivosPQNC.paquetes.push(...dataToAdd.paquetes);
+            inactivosPQNC.count += dataToAdd.count; inactivosPQNC.certificados += dataToAdd.certificados;
+            inactivosPQNC.monto += dataToAdd.monto; inactivosPQNC.paquetes.push(...dataToAdd.paquetes);
           } else if (statusCrm.includes('proceso') || statusCrm.includes('en proceso')) {
-            enProceso.count += dataToAdd.count;
-            enProceso.certificados += dataToAdd.certificados;
-            enProceso.monto += dataToAdd.monto;
-            enProceso.reservaciones += dataToAdd.reservaciones;
-            enProceso.paquetes.push(...dataToAdd.paquetes);
+            enProceso.count += dataToAdd.count; enProceso.certificados += dataToAdd.certificados;
+            enProceso.monto += dataToAdd.monto; enProceso.paquetes.push(...dataToAdd.paquetes);
           } else {
-            otros.count += dataToAdd.count;
-            otros.certificados += dataToAdd.certificados;
-            otros.monto += dataToAdd.monto;
-            otros.reservaciones += dataToAdd.reservaciones;
-            otros.paquetes.push(...dataToAdd.paquetes);
+            otros.count += dataToAdd.count; otros.certificados += dataToAdd.certificados;
+            otros.monto += dataToAdd.monto; otros.paquetes.push(...dataToAdd.paquetes);
           }
 
-          // Agrupar por coordinación (normalizado) - solo contabilizables
-          const coord = normalizeCoordinacion(record.coordinacion || coordFallbackMap[record.prospecto_id] || 'Sin coordinación');
+          // Agrupar por coordinación
           if (!byCoordinacion[coord]) {
-            byCoordinacion[coord] = { count: 0, certificados: 0, monto: 0, ventaIA: 0, ventaAsistida: 0 };
+            byCoordinacion[coord] = { count: 0, certificados: 0, monto: 0, asistidaIA: 0, asistidaWhatsApp: 0 };
           }
           byCoordinacion[coord].count++;
-          byCoordinacion[coord].certificados += totalCertificados;
-          byCoordinacion[coord].monto += totalMonto;
-          if (saleType === 'venta_ia') {
-            byCoordinacion[coord].ventaIA += totalCertificados;
+          byCoordinacion[coord].certificados += certs;
+          byCoordinacion[coord].monto += monto;
+          if (saleType === 'ASISTIDA_IA') {
+            byCoordinacion[coord].asistidaIA += certs;
           } else {
-            byCoordinacion[coord].ventaAsistida += totalCertificados;
+            byCoordinacion[coord].asistidaWhatsApp += certs;
           }
 
-          // Agrupar por periodo dinámico - solo contabilizables
-          paquetesDetalle.forEach(paq => {
-            if (paq.fecha) {
-              const date = new Date(paq.fecha);
-              const periodKey = getPeriodKey(date);
-              if (!periodData[periodKey]) {
-                periodData[periodKey] = { count: 0, monto: 0 };
-              }
-              periodData[periodKey].count++;
-              periodData[periodKey].monto += paq.monto;
-            }
-          });
+          // Agrupar por periodo
+          if (fecha) {
+            const date = new Date(fecha);
+            const periodKey = getPeriodKey(date);
+            if (!periodData[periodKey]) periodData[periodKey] = { count: 0, monto: 0 };
+            periodData[periodKey].count += certs;
+            periodData[periodKey].monto += monto;
+          }
         }
       });
 
       // Convertir periodData a array ordenado
       const sortedKeys = sortPeriodKeys(Object.keys(periodData));
-      const byPeriod = sortedKeys.map(key => ({
-        period: key,
-        count: periodData[key].count,
-        monto: periodData[key].monto
-      }));
+      const byPeriod = sortedKeys.map(key => ({ period: key, count: periodData[key].count, monto: periodData[key].monto }));
 
-      // Calcular clasificación de ventas
-      const ventaIA = allSalesDetails.filter(s => s.saleType === 'venta_ia').length;
-      const ventaAsistida = allSalesDetails.filter(s => s.saleType === 'venta_asistida').length;
-      const noContar = allSalesDetails.filter(s => s.saleType === 'no_contar').length;
-      const sinDatos = allSalesDetails.filter(s => s.saleType === 'sin_datos').length;
-      const contabilizables = allSalesDetails.filter(s => s.saleType === 'venta_ia' || s.saleType === 'venta_asistida');
+      // Calcular clasificación
+      const asistidaIA = allSalesDetails.filter(s => s.saleType === 'ASISTIDA_IA').length;
+      const asistidaWhatsApp = allSalesDetails.filter(s => s.saleType === 'ASISTIDA_WHATSAPP').length;
+      const sinAsistencia = allSalesDetails.filter(s => s.saleType === 'SIN_ASISTENCIA').length;
+      const contabilizables = allSalesDetails.filter(s => s.saleType === 'ASISTIDA_IA' || s.saleType === 'ASISTIDA_WHATSAPP');
 
       setCrmSalesData({
-        activosPQNC,
-        inactivosPQNC,
-        enProceso,
-        otros,
+        activosPQNC, inactivosPQNC, enProceso, otros,
         total: {
           count: activosPQNC.count + inactivosPQNC.count + enProceso.count + otros.count,
           certificados: activosPQNC.certificados + inactivosPQNC.certificados + enProceso.certificados + otros.certificados,
           monto: activosPQNC.monto + inactivosPQNC.monto + enProceso.monto + otros.monto,
-          reservaciones: activosPQNC.reservaciones + inactivosPQNC.reservaciones + enProceso.reservaciones + otros.reservaciones,
+          reservaciones: 0,
           paquetes: [...activosPQNC.paquetes, ...inactivosPQNC.paquetes, ...enProceso.paquetes, ...otros.paquetes]
         },
         byCoordinacion,
         byPeriod,
         allSalesDetails: allSalesDetails.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime()),
         classification: {
-          ventaIA,
-          ventaAsistida,
-          noContar,
-          sinDatos,
+          asistidaIA,
+          asistidaWhatsApp,
+          sinAsistencia,
           totalContabilizable: contabilizables.length,
           montoContabilizable: contabilizables.reduce((sum, s) => sum + s.monto, 0)
         }

@@ -47,6 +47,9 @@ supabase/.temp/
 .supabase/
 .security/
 
+# Docs generados (derivados de docs/ via vite-plugin-static-copy)
+public/docs/
+
 # Claude Code - Archivos locales
 .claude/settings.json
 .claude/agents/

@@ -1,14 +1,14 @@
 # Handover: Sistema de Comunicados en Tiempo Real
 
 **Fecha:** 2026-02-13
-**Version:** v2.15.0 → v2.15.1 (hotfix Realtime loop)
+**Version:** v2.15.0 → v2.15.2
 **Estado:** En produccion, primer comunicado activo
 
 ---
 
 ## Que se hizo
 
-Se implemento un sistema completo de comunicados en tiempo real que permite al admin enviar avisos, tutoriales y anuncios a los usuarios de la plataforma. Los comunicados aparecen como overlay fullscreen y requieren confirmacion de lectura.
+Se implemento un sistema completo de comunicados en tiempo real que permite al admin enviar avisos, tutoriales y anuncios a los usuarios de la plataforma. Los comunicados aparecen como overlay fullscreen y requieren confirmacion de lectura individual por usuario.
 
 ### Componentes creados
 
@@ -16,8 +16,8 @@ Se implemento un sistema completo de comunicados en tiempo real que permite al a
 |---------|-----------|
 | `sql/comunicados-schema.sql` | Schema SQL de referencia |
 | `src/types/comunicados.ts` | Tipos, enums, presets, colores, registry interactivos |
-| `src/services/comunicadosService.ts` | CRUD, targeting por coordinacion/roles/usuarios, Realtime subscription |
-| `src/stores/comunicadosStore.ts` | Zustand store: pending, current, overlay visibility, readIds |
+| `src/services/comunicadosService.ts` | CRUD, targeting, Realtime subscription, `getReadIds()` |
+| `src/stores/comunicadosStore.ts` | Zustand store: pending, current, overlay, readIds persistentes |
 | `src/components/comunicados/ComunicadoOverlay.tsx` | Overlay z-[60] con registry de componentes lazy |
 | `src/components/comunicados/ComunicadoCard.tsx` | Card presentacional (icon, badge, body, bullets, markdown basico) |
 | `src/components/comunicados/tutorials/UtilityTemplateTutorial.tsx` | Tutorial animado 4 pasos sobre plantilla utility |
@@ -30,7 +30,7 @@ Se implemento un sistema completo de comunicados en tiempo real que permite al a
 |---------|--------|
 | `src/components/admin/AdminDashboardTabs.tsx` | Tab "Comunicados" (solo admin) con Megaphone icon |
 | `src/components/MainApp.tsx` | useEffect para cargar pendientes + Realtime, overlay en 3 layouts |
-| `CLAUDE.md` | Regla: usar `/comunicado` cuando pidan avisos/comunicados |
+| `CLAUDE.md` | Regla: usar `/comunicado` cuando pidan avisos/comunicados/tutoriales |
 
 ---
 
@@ -75,9 +75,9 @@ Supabase Realtime dispara evento a todos los clientes conectados
     ↓
 MainApp.tsx: callback de subscribeToNewComunicados
     ↓
-comunicadosStore.addComunicado: check targeting local + check readIds
+comunicadosStore.addComunicado: check readIds (BD + local) → check targeting
     ↓
-Si aplica al usuario: agrega a pendingComunicados → showNext
+Si aplica al usuario y no lo ha leido: agrega a pendingComunicados → showNext
     ↓
 ComunicadoOverlay se muestra (z-[60])
     ↓
@@ -93,22 +93,30 @@ showNext (siguiente comunicado) o cierra overlay
 
 ---
 
-## Bug fix: Loop de Realtime (v2.15.1)
+## Bugs corregidos
 
-**Problema:** Al marcar como leido, la RPC hace `UPDATE comunicados SET read_count = ...`, lo que dispara Realtime. El callback re-agregaba el comunicado porque ya habia sido removido de pending.
+### v2.15.1 - Loop de Realtime al marcar como leido
 
-**Solucion:** Se agrego `readIds: Set<string>` al store. Cuando el usuario marca como leido, el ID se registra en el Set ANTES de llamar al servicio. `addComunicado` verifica contra readIds y lo ignora.
+**Problema:** La RPC `mark_comunicado_read` hace `UPDATE comunicados SET read_count = ...`, lo que dispara Realtime. `addComunicado` re-agregaba el comunicado porque ya habia sido removido de pending.
+
+**Solucion:** Se agrego `readIds: Set<string>` al store. Al marcar como leido, el ID se registra en el Set ANTES de llamar al servicio. `addComunicado` verifica contra readIds y lo ignora.
+
+### v2.15.2 - Comunicados reaparecen tras token refresh
+
+**Problema:** Cuando el token JWT se refrescaba, `isAuthenticated` parpadeaba a `false`, ejecutando `clearComunicados()` que vaciaba `readIds`. Luego `loadPending` filtraba correctamente desde BD, pero el nuevo Realtime subscription recibia UPDATE events (de otros usuarios leyendo) y `addComunicado` los re-agregaba porque `readIds` estaba vacio.
+
+**Solucion (2 cambios):**
+1. **`loadPending` ahora popula `readIds` desde BD** - Hace `Promise.all` de `getComunicadosPendientes` + `getReadIds(userId)`. Los IDs de BD se mergean con los locales. Asi Realtime siempre tiene la lista completa de leidos.
+2. **No se limpia `readIds` en parpadeos de auth** - Se elimino `clearComunicados()` del branch `!isAuthenticated` en MainApp. Ahora simplemente hace early return. Los readIds persisten durante toda la sesion.
 
 ---
 
-## Comunicado activo
+## Comunicados activos
 
-- **ID:** `1d51cb66-4da4-4e08-ade4-b27b61e39eea`
-- **Titulo:** Nueva plantilla: Seguimiento de Contacto
-- **Tipo:** tutorial interactivo (4 pasos animados)
-- **component_key:** `utility-template-tutorial`
-- **Target:** todos los usuarios
-- **Prioridad:** 10
+| ID | Titulo | Tipo | Target |
+|----|--------|------|--------|
+| `1d51cb66-...` | Nueva plantilla: Seguimiento de Contacto | tutorial interactivo | todos |
+| `67a1bc89-...` | (creado desde panel admin) | - | - |
 
 ---
 
@@ -131,9 +139,11 @@ Admin user ID para created_by: `e8ced62c-3fd0-4328-b61a-a59ebea2e877`
 
 ## Notas para futuras sesiones
 
-- Los comunicados simples NO requieren deploy (solo SQL)
-- Los interactivos SI requieren deploy (nuevo componente + registro en overlay)
+- Los comunicados simples NO requieren deploy (solo SQL INSERT)
+- Los interactivos SI requieren deploy (nuevo componente React + registro en overlay)
 - El panel admin esta en AdminDashboardTabs → tab "Comunicados" (solo admin)
 - Para agregar nuevos tutoriales interactivos: crear en `tutorials/`, registrar en `ComunicadoOverlay.tsx` INTERACTIVE_REGISTRY y en `comunicados.ts` INTERACTIVE_COMUNICADOS
 - El overlay esta en z-[60], debajo de ForceUpdateModal (z-[70])
 - Targeting se filtra en service layer (no en SQL) porque usa coordinacion_id y role_name del user
+- `readIds` se popula desde BD en cada `loadPending` y se mergea con los locales - NUNCA se limpia excepto en logout
+- Cada vez que un usuario lee un comunicado, `read_count` se actualiza via RPC, lo que dispara Realtime - pero `readIds` lo bloquea

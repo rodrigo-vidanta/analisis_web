@@ -778,13 +778,18 @@ const DocumentationModule: React.FC = () => {
         return res.text();
       })
       .then(text => {
+        // Detectar si CloudFront devolvio el SPA fallback (HTML) en vez de markdown
+        const trimmed = text.trimStart();
+        if (trimmed.startsWith('<!doctype') || trimmed.startsWith('<!DOCTYPE') || trimmed.startsWith('<html')) {
+          throw new Error('Received HTML instead of markdown');
+        }
         // Filtrar emojis del contenido
         const cleanText = removeEmojis(text);
         setDocContent(cleanText);
         setLoading(false);
       })
       .catch(() => {
-        setDocContent('# Error\n\nNo se pudo cargar el documento. Verifica que el archivo existe en `/public/docs/`.');
+        setDocContent('# Error\n\nNo se pudo cargar el documento. El archivo markdown no esta disponible en el servidor.\n\nEsto puede ocurrir si los archivos de documentacion no fueron incluidos en el ultimo deploy.');
         setLoading(false);
       });
   }, [selectedDoc]);
