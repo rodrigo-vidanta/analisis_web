@@ -63,7 +63,7 @@ export const QuickImportModal: React.FC<QuickImportModalProps> = ({
   onSuccess
 }) => {
   const { user } = useAuth();
-  const { isAdmin, isCoordinadorCalidad, isOperativo } = useEffectivePermissions();
+  const { isAdmin, isAdminOperativo, isSupervisor, isCoordinador } = useEffectivePermissions();
   
   // Estado del formulario
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -87,18 +87,18 @@ export const QuickImportModal: React.FC<QuickImportModalProps> = ({
    * Verifica si el usuario tiene permiso para ver/acceder este prospecto
    */
   const canAccessProspect = (prospect: ExistingProspect): boolean => {
-    // Administradores, coordinadores de calidad y operativos pueden ver todos
-    if (isAdmin || isCoordinadorCalidad || isOperativo) {
+    // Roles con acceso total: admin, admin operativo, coordinador calidad, operativo
+    if (isAdmin || isAdminOperativo || user?.is_coordinador_calidad || user?.is_operativo) {
       return true;
     }
 
-    // Coordinadores: deben coincidir las coordinaciones
-    if (user?.is_coordinador && user?.coordinacion_id) {
+    // Supervisores y coordinadores: deben coincidir las coordinaciones
+    if ((isSupervisor || isCoordinador) && user?.coordinacion_id) {
       return prospect.coordinacion_id === user.coordinacion_id;
     }
 
     // Ejecutivos: debe coincidir el ejecutivo_id
-    if (user?.is_ejecutivo && prospect.ejecutivo_id) {
+    if (user?.role_name === 'ejecutivo' && prospect.ejecutivo_id) {
       return prospect.ejecutivo_id === user.id;
     }
 

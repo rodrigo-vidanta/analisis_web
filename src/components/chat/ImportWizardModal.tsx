@@ -253,7 +253,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   onSuccess
 }) => {
   const { user } = useAuth();
-  const { isAdmin, isCoordinadorCalidad, isOperativo } = useEffectivePermissions();
+  const { isAdmin, isAdminOperativo, isSupervisor, isCoordinador, isEjecutivo } = useEffectivePermissions();
   
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('search');
@@ -592,14 +592,15 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // ============================================
 
   const validateDynamicsLeadPermissions = (lead: DynamicsLeadInfo): PermissionValidation => {
-    if (isAdmin || isCoordinadorCalidad || isOperativo) {
+    // Roles con acceso total: admin, admin operativo, coordinador calidad, operativo
+    if (isAdmin || isAdminOperativo || user?.is_coordinador_calidad || user?.is_operativo) {
       return { canImport: true, reason: null };
     }
 
-    const isCoordinador = user?.is_coordinador || user?.role_name === 'coordinador' || user?.role_name === 'supervisor';
-    const isEjecutivo = user?.is_ejecutivo || user?.role_name === 'ejecutivo';
+    // Supervisores, coordinadores y ejecutivos: validar coordinación
+    const canImportByRole = isSupervisor || isCoordinador || isEjecutivo;
 
-    if (isCoordinador || isEjecutivo) {
+    if (canImportByRole) {
       if (!user?.coordinacion_id) {
         return { canImport: false, reason: 'No tienes coordinación asignada' };
       }
@@ -607,7 +608,31 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         return { canImport: false, reason: 'Prospecto sin coordinación en Dynamics' };
       }
 
-      const userCoordName = coordinacionesMap.get(user.coordinacion_id) || user.coordinacion_id;
+      const userCoordName = coordinacionesMap.get(user.coordinacion_id);
+
+      // Si coordinacionesMap no cargó (error de red), intentar reverse lookup por ID
+      if (!userCoordName) {
+        // Buscar si alguna coordinación del map coincide con el lead
+        const leadCoordId = [...coordinacionesMap.entries()].find(
+          ([, name]) => normalizeCoordinacion(name) === normalizeCoordinacion(lead.Coordinacion)
+        )?.[0];
+
+        if (leadCoordId) {
+          // Comparar IDs directamente
+          if (user.coordinacion_id === leadCoordId) return { canImport: true, reason: null };
+          const leadCoordName = coordinacionesMap.get(leadCoordId) || lead.Coordinacion;
+          return { canImport: false, reason: `Pertenece a ${leadCoordName}, no a tu coordinación` };
+        }
+
+        // coordinacionesMap completamente vacío (error de red) - no bloquear
+        if (coordinacionesMap.size === 0) {
+          console.warn('coordinacionesMap vacío, permitiendo importación como fallback');
+          return { canImport: true, reason: null };
+        }
+
+        return { canImport: false, reason: `No se pudo verificar tu coordinación` };
+      }
+
       const userNorm = normalizeCoordinacion(userCoordName);
       const leadNorm = normalizeCoordinacion(lead.Coordinacion);
 
