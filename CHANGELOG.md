@@ -1,3 +1,12 @@
+## [v2.16.1] - 2026-02-14
+
+**B10.1.44N2.16.1** - 1 fix
+
+### Bug Fixes
+- supervisor APEX no podia importar prospectos de su misma coordinacion (`cd70871`)
+
+---
+
 ## [v2.16.0] - 2026-02-14
 
 **B10.1.44N2.16.0** - 1 feature + ### Sesion anterior (misma fecha)
