@@ -1,3 +1,15 @@
+## [v2.16.0] - 2026-02-14
+
+**B10.1.44N2.16.0** - 1 feature + ### Sesion anterior (misma fecha)
+
+### Sesiones de trabajo
+- **HANDOVER-2026-02-13-DOCUMENTACION-AUDIT-ACTUALIZACION-COMPLETA**: ### Sesion anterior (misma fecha)
+
+### Features
+- migrate sales widget to new attribution logic with RPC get_ventas_atribucion (`d8f78e7`)
+
+---
+
 ## [v2.15.2] - 2026-02-13
 
 **B10.1.44N2.15.2** - 1 fix

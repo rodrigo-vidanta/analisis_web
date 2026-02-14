@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'bcfd8a4', date: '2026-02-14', author: 'Team', message: 'v2.16.0: B10.1.44N2.16.0 - 1 feature + ### Sesion anterior (misma fecha)', isRelease: true },
   { hash: 'abcb3f4', date: '2026-02-13', author: 'Team', message: 'v2.15.2: B10.1.44N2.15.2 - 1 fix', isRelease: true },
   { hash: 'd2fcaa6', date: '2026-02-13', author: 'Team', message: 'v2.15.1: B10.1.44N2.15.1 - 1 fix', isRelease: true },
   { hash: '16fdf56', date: '2026-02-13', author: 'Team', message: 'v2.15.0: B10.1.44N2.15.0 - 1 feature', isRelease: true },
@@ -546,6 +547,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-899', date: '14/02/2026, 00:39', version: 'B10.1.44N2.16.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-065', date: '13/02/2026, 15:49', version: 'B10.1.44N2.15.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-095', date: '13/02/2026, 14:40', version: 'B10.1.44N2.15.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-815', date: '13/02/2026, 14:27', version: 'B10.1.44N2.15.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -737,10 +739,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.15.2', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.15.2', highlight: false },
+  { label: 'Version', value: 'v2.16.0', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.16.0', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '13 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '14 feb 2026', highlight: false },
 ];
 
 // ============================================
