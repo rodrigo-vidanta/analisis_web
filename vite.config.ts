@@ -32,33 +32,15 @@ export default defineConfig({
     sourcemap: false, // Deshabilitado para menor tamaño
     minify: 'esbuild',
     
-    // Optimización de chunks - separar vendors pesados para carga paralela
+    // Optimización de chunks - solo separar vendors SIN dependencia de React
     rollupOptions: {
       output: {
         manualChunks(id) {
           if (id.includes('node_modules')) {
-            // Core React - siempre necesario
-            if (id.includes('react-dom') || id.includes('/react/')) return 'vendor-react';
-            // Supabase - se carga al autenticarse
-            if (id.includes('@supabase')) return 'vendor-supabase';
-            // Charting - solo dashboards
-            if (id.includes('chart.js') || id.includes('recharts') || id.includes('plotly')) return 'vendor-charts';
-            // Animaciones
-            if (id.includes('framer-motion')) return 'vendor-motion';
-            // Markdown
-            if (id.includes('react-markdown') || id.includes('remark') || id.includes('rehype') || id.includes('unified') || id.includes('micromark') || id.includes('mdast') || id.includes('hast')) return 'vendor-markdown';
-            // AWS SDK - solo admin
+            // AWS SDK - pesado, sin React, solo admin
             if (id.includes('@aws-sdk') || id.includes('@smithy')) return 'vendor-aws';
-            // Audio
-            if (id.includes('lamejs') || id.includes('tone')) return 'vendor-audio';
-            // ReactFlow - solo diagramas
-            if (id.includes('reactflow') || id.includes('@xyflow')) return 'vendor-reactflow';
-            // Monaco editor
-            if (id.includes('monaco')) return 'vendor-monaco';
-            // 3D
-            if (id.includes('three') || id.includes('@react-three')) return 'vendor-3d';
-            // Zustand + pequeñas utils
-            if (id.includes('zustand')) return 'vendor-state';
+            // Supabase client - sin React
+            if (id.includes('@supabase')) return 'vendor-supabase';
           }
         }
       }
