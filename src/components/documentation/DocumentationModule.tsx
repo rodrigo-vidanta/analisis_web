@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '2b95e4b', date: '2026-02-18', author: 'Team', message: 'v2.17.1: B10.1.44N2.17.1 - fix crash forwardRef en vendor-audio chunk 2', isRelease: true },
   { hash: '5f9e963', date: '2026-02-18', author: 'Team', message: 'v2.17.0: B10.1.44N2.17.0 - 2', isRelease: true },
   { hash: 'cae6ee1', date: '2026-02-14', author: 'Team', message: 'v2.16.1: B10.1.44N2.16.1 - 1 fix', isRelease: true },
   { hash: 'bcfd8a4', date: '2026-02-14', author: 'Team', message: 'v2.16.0: B10.1.44N2.16.0 - 1 feature + ### Sesion anterior (misma fecha)', isRelease: true },
@@ -549,6 +550,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-779', date: '18/02/2026, 16:31', version: 'B10.1.44N2.17.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-865', date: '18/02/2026, 16:26', version: 'B10.1.44N2.17.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-652', date: '14/02/2026, 14:22', version: 'B10.1.44N2.16.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-899', date: '14/02/2026, 00:39', version: 'B10.1.44N2.16.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -743,8 +745,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.17.0', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.17.0', highlight: false },
+  { label: 'Version', value: 'v2.17.1', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.17.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '18 feb 2026', highlight: false },
 ];

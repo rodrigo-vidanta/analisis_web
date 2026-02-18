@@ -1,3 +1,12 @@
+## [v2.17.1] - 2026-02-18
+
+**B10.1.44N2.17.1** - fix crash forwardRef en vendor-audio chunk 2
+
+### Bug Fixes
+- simplify manualChunks to prevent React forwardRef crash (`49bd8ba`)
+
+---
+
 ## [v2.17.0] - 2026-02-18
 
 **B10.1.44N2.17.0** - 2
