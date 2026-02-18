@@ -241,7 +241,7 @@ export const NewYearLogo: React.FC<NewYearLogoProps> = ({ onClick, isCollapsed =
         {/* Logo de Año Nuevo */}
         <div className="relative">
           <img 
-            src="/assets/logo_pqnc-newyear.png" 
+            src="/assets/logo_pqnc-newyear.webp" 
             alt="PQNC" 
             className="w-auto object-contain"
             style={{ height: '46px' }}

@@ -1,61 +1,46 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import Header from './Header';
 import Footer from './Footer';
 import Sidebar from './Sidebar';
-import ProjectSelector from './ProjectSelector';
 import LoginScreen from './LoginScreen';
-import IndividualAgentWizard from './IndividualAgentWizard';
-import AnalysisDashboard from './analysis/AnalysisDashboard';
-import LiveMonitorKanban from './analysis/LiveMonitorKanban';
-import AdminDashboardTabs from './admin/AdminDashboardTabs';
 import { useAuth, ProtectedRoute } from '../contexts/AuthContext';
 import { useAppStore } from '../stores/appStore';
 import { errorLogService } from '../services/errorLogService';
 import { useTheme } from '../hooks/useTheme';
 import { useEffectivePermissions } from '../hooks/useEffectivePermissions';
-// Componentes Linear
-import LinearLayout from './linear/LinearLayout';
-import LinearLiveMonitor from './linear/LinearLiveMonitor';
-// AI Models Manager
-import AIModelsManager from './ai-models/AIModelsManager';
-
-// Live Chat
-import LiveChatModule from './chat/LiveChatModule';
-
-// Prospectos Manager
-import ProspectosManager from './prospectos/ProspectosManager';
-
-// Scheduled Calls Manager
-import ScheduledCallsManager from './scheduled-calls/ScheduledCallsManager';
-
-// Operative Dashboard
-import { OperativeDashboard } from './dashboard/OperativeDashboard';
-
-// Dashboard Ejecutivo (Analytics)
-import DashboardModule from './dashboard/DashboardModule';
-
-// Campaigns Manager
-import CampaignsDashboardTabs from './campaigns/CampaignsDashboardTabs';
-
-// Analysis IA Complete
-import AnalysisIAComplete from './analysis/AnalysisIAComplete';
-// Change Password Modal
-import ChangePasswordModal from './auth/ChangePasswordModal';
-// Timeline Dirección
-import Timeline from './direccion/Timeline';
-// Hook de inactividad
+// Hooks (ligeros, cargan siempre)
 import { useInactivityTimeout } from '../hooks/useInactivityTimeout';
-// Hook de monitoreo de expiración de token
 import { useTokenExpiryMonitor } from '../hooks/useTokenExpiryMonitor';
-// Panel Lateral (llamadas activas en tiempo real)
-import { LiveCallActivityWidget } from './live-activity';
-// Control de versiones forzado
 import { useVersionCheck } from '../hooks/useVersionCheck';
-import ForceUpdateModal from './shared/ForceUpdateModal';
-// Comunicados en tiempo real
-import ComunicadoOverlay from './comunicados/ComunicadoOverlay';
 import { useComunicadosStore } from '../stores/comunicadosStore';
 import { comunicadosService } from '../services/comunicadosService';
+
+// === Lazy-loaded modules (solo cargan cuando se necesitan) ===
+const AnalysisDashboard = lazy(() => import('./analysis/AnalysisDashboard'));
+const LiveMonitorKanban = lazy(() => import('./analysis/LiveMonitorKanban'));
+const AdminDashboardTabs = lazy(() => import('./admin/AdminDashboardTabs'));
+const LinearLayout = lazy(() => import('./linear/LinearLayout'));
+const LinearLiveMonitor = lazy(() => import('./linear/LinearLiveMonitor'));
+const AIModelsManager = lazy(() => import('./ai-models/AIModelsManager'));
+const LiveChatModule = lazy(() => import('./chat/LiveChatModule'));
+const ProspectosManager = lazy(() => import('./prospectos/ProspectosManager'));
+const ScheduledCallsManager = lazy(() => import('./scheduled-calls/ScheduledCallsManager'));
+const OperativeDashboard = lazy(() => import('./dashboard/OperativeDashboard').then(m => ({ default: m.OperativeDashboard })));
+const DashboardModule = lazy(() => import('./dashboard/DashboardModule'));
+const CampaignsDashboardTabs = lazy(() => import('./campaigns/CampaignsDashboardTabs'));
+const AnalysisIAComplete = lazy(() => import('./analysis/AnalysisIAComplete'));
+const ChangePasswordModal = lazy(() => import('./auth/ChangePasswordModal'));
+const Timeline = lazy(() => import('./direccion/Timeline'));
+const ForceUpdateModal = lazy(() => import('./shared/ForceUpdateModal'));
+const ComunicadoOverlay = lazy(() => import('./comunicados/ComunicadoOverlay'));
+const LiveCallActivityWidget = lazy(() => import('./live-activity').then(m => ({ default: m.LiveCallActivityWidget })));
+
+// Fallback spinner para Suspense
+const ModuleLoader = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+  </div>
+);
 
 function MainApp() {
   // Verificación de seguridad para AuthContext
@@ -580,11 +565,13 @@ function MainApp() {
   if (appMode === 'direccion') {
     return (
       <>
-        {renderContent()}
-        {/* Panel Lateral - Llamadas en tiempo real */}
-        <LiveCallActivityWidget />
-        {/* Comunicados overlay */}
-        <ComunicadoOverlay />
+        <Suspense fallback={<ModuleLoader />}>
+          {renderContent()}
+        </Suspense>
+        <Suspense fallback={null}>
+          <LiveCallActivityWidget />
+          <ComunicadoOverlay />
+        </Suspense>
       </>
     );
   }
@@ -595,17 +582,19 @@ function MainApp() {
       <div className={`${localDarkMode ? 'dark' : ''}`}
         data-module={appMode}
       >
-        <LinearLayout
-          darkMode={localDarkMode}
-          onToggleDarkMode={handleToggleDarkMode}
-          currentMode={appMode}
-        >
-          {renderContent()}
-        </LinearLayout>
-        {/* Panel Lateral - Llamadas en tiempo real */}
-        <LiveCallActivityWidget />
-        {/* Comunicados overlay */}
-        <ComunicadoOverlay />
+        <Suspense fallback={<ModuleLoader />}>
+          <LinearLayout
+            darkMode={localDarkMode}
+            onToggleDarkMode={handleToggleDarkMode}
+            currentMode={appMode}
+          >
+            {renderContent()}
+          </LinearLayout>
+        </Suspense>
+        <Suspense fallback={null}>
+          <LiveCallActivityWidget />
+          <ComunicadoOverlay />
+        </Suspense>
       </div>
     );
   }
@@ -647,7 +636,9 @@ function MainApp() {
           {/* Área de contenido con espacio para footer fijo */}
           <main className="relative flex-1 pb-16 overflow-hidden">
             <div className={isLinearTheme ? 'linear-theme-content' : ''}>
-              {renderContent()}
+              <Suspense fallback={<ModuleLoader />}>
+                {renderContent()}
+              </Suspense>
             </div>
           </main>
         </div>
@@ -661,10 +652,10 @@ function MainApp() {
       </div>
       
       {/* Live Activity Widget - Global overlay */}
-      <LiveCallActivityWidget />
-
-      {/* Comunicados overlay */}
-      <ComunicadoOverlay />
+      <Suspense fallback={null}>
+        <LiveCallActivityWidget />
+        <ComunicadoOverlay />
+      </Suspense>
 
       {/* Modal de actualización forzada - Máxima prioridad */}
       {!isVersionLoading && (

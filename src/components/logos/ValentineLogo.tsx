@@ -199,7 +199,7 @@ export const ValentineLogo: React.FC<ValentineLogoProps> = ({ onClick, isCollaps
           }}
         />
         <motion.img
-          src="/assets/logo_pqnc-valentine.png"
+          src="/assets/logo_pqnc-valentine.webp"
           alt="PQNC"
           className="relative w-auto object-contain"
           style={{ height: '46px' }}

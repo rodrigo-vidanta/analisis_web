@@ -291,7 +291,7 @@ export const ReyesLogo: React.FC<ReyesLogoProps> = ({ onClick, isCollapsed = fal
       <div className="relative">
         {/* Logo de Reyes Magos */}
         <img 
-          src="/assets/logo_pqnc-reyes.png" 
+          src="/assets/logo_pqnc-reyes.webp" 
           alt="PQNC" 
           className="w-auto object-contain"
           style={{ height: '46px' }}

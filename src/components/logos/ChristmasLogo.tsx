@@ -131,7 +131,7 @@ export const ChristmasLogo: React.FC<ChristmasLogoProps> = ({ onClick, isCollaps
       title="¡Feliz Navidad! 🎄"
     >
       <img 
-        src="/assets/pqnc-christmas-text-final.png" 
+        src="/assets/pqnc-christmas-text-final.webp" 
         alt="PQNC" 
         className="w-auto object-contain"
         style={{ height: '46px' }}

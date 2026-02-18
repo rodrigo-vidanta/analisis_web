@@ -15,7 +15,7 @@ interface CitasLoginScreenProps {
   onLoginSuccess: (user: { email: string; name: string }) => void;
 }
 
-const BACKGROUND_IMAGE_URL = '/assets/citas-background-beach.png';
+const BACKGROUND_IMAGE_URL = '/assets/citas-background-beach.webp';
 const LOGIN_SUCCESS_AUDIO_URL = '/assets/citas-login-success.mp3';
 
 const CitasLoginScreen: React.FC<CitasLoginScreenProps> = ({ onLoginSuccess }) => {

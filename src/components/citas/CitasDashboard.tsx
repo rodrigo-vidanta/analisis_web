@@ -30,10 +30,10 @@ type MenuSection = 'inicio' | 'mis-citas' | 'destinos' | 'preferencias' | 'ayuda
 
 // URLs de assets - usando rutas absolutas desde public
 const ASSETS = {
-  workspaceLight: '/assets/citas-workspace-light.png',
-  workspaceDark: '/assets/citas-workspace-dark.png',
-  sidebarLight: '/assets/citas-sidebar-light.png',
-  sidebarDark: '/assets/citas-sidebar-dark.png',
+  workspaceLight: '/assets/citas-workspace-light.webp',
+  workspaceDark: '/assets/citas-workspace-dark.webp',
+  sidebarLight: '/assets/citas-sidebar-light.webp',
+  sidebarDark: '/assets/citas-sidebar-dark.webp',
 };
 
 const CitasDashboard: React.FC<CitasDashboardProps> = ({ onLogout, userEmail, userName }) => {
