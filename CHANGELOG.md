@@ -1,3 +1,12 @@
+## [v2.17.0] - 2026-02-18
+
+**B10.1.44N2.17.0** - 2
+
+### Performance
+- lazy-load all route modules + WebP images + optimized chunking (`80ab571`)
+
+---
+
 ## [v2.16.1] - 2026-02-14
 
 **B10.1.44N2.16.1** - 1 fix
