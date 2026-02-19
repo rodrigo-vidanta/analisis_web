@@ -1,3 +1,16 @@
+## [v2.17.2] - 2026-02-19
+
+**B10.1.44N2.17.2** - 1 fix + Facturación de enero 2026: **443 + Meta/WhatsApp tiene un sistema de salud de ecosis
+
+### Sesiones de trabajo
+- **2026-02-18-aws-cleanup-performance-optimization**: Facturación de enero 2026: **$443.72/mes**. El 97% era infraestructura de N8N que ya había migrado a Railway pero nunca se apagó en AWS. RDS tenía deletion protection activa. ElastiCache no tiene opción "stop" (solo delete). RDS "stopped" se reinicia automáticamente cada 7 días.
+- **2026-02-19-bloqueo-meta-status-system**: Meta/WhatsApp tiene un sistema de "salud de ecosistema" que bloquea mensajes de marketing cuando un usuario ya recibió demasiada publicidad. Estos bloqueos NO son errores de entrega ni problemas nuestros - son decisiones de Meta para proteger a los usuarios.
+
+### Bug Fixes
+- disable import & reactivate features + fix triggered_by_user tracking (`30ec438`)
+
+---
+
 ## [v2.17.1] - 2026-02-18
 
 **B10.1.44N2.17.1** - fix crash forwardRef en vendor-audio chunk 2
