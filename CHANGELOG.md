@@ -1,3 +1,12 @@
+## [v2.17.4] - 2026-02-19
+
+**B10.1.44N2.17.4** - 1 fix
+
+### Bug Fixes
+- use mp3 file instead of data URI for autoplay unlock (CSP violation) (`2e7e83f`)
+
+---
+
 ## [v2.17.3] - 2026-02-19
 
 **B10.1.44N2.17.3** - 2
