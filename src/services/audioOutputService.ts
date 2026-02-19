@@ -157,11 +157,11 @@ class AudioOutputService {
 
     const unlock = () => {
       if (this.audioUnlocked) return;
-      const audio = new Audio();
+      const audio = new Audio('/sounds/notification.mp3');
       audio.volume = 0;
-      audio.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
       audio.play().then(() => {
         audio.pause();
+        audio.currentTime = 0;
         this.audioUnlocked = true;
         document.removeEventListener('click', unlock);
         document.removeEventListener('keydown', unlock);

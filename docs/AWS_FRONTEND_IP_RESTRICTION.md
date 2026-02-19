@@ -1,7 +1,7 @@
 # 🔒 Restricción de IPs para Frontend CloudFront
 
 **Fecha de configuración:** 16 de Diciembre, 2025  
-**Última actualización:** 12 de Febrero, 2026 (Cambio IP drosales 189.203.97.130→187.190.202.130, agregada Marketing, registro IP-etiqueta en skill/agent)
+**Última actualización:** 19 de Febrero, 2026 (Cambio IP oficinaIA 189.177.48.132→189.177.43.162)
 **Estado:** ✅ Configurado y activo
 
 ---
@@ -19,7 +19,7 @@ Se ha configurado AWS WAF para restringir el acceso al frontend CloudFront solo 
 | 3 | `189.178.124.238` | IP del usuario 1 |
 | 4 | `189.177.138.158` | IP del usuario 2 |
 | 5 | `187.190.202.130` | drosales |
-| 6 | `189.177.48.132` | oficinaIA |
+| 6 | `189.177.43.162` | oficinaIA |
 | 7 | `187.144.87.193` | casa rodrigo |
 | 8 | `189.177.141.218` | DGV Oficina |
 | 9 | `189.177.28.203` | Marketing |
