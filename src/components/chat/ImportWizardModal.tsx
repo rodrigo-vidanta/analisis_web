@@ -68,6 +68,7 @@ import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '
 import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 /**
  * ============================================
@@ -677,7 +678,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       if (!entry.leadData) return;
 
       const payload: ImportContactPayload = {
-        ejecutivo_nombre: user.full_name || user.email || 'Desconocido',
+        ejecutivo_nombre: formatExecutiveDisplayName(user.full_name) || user.email || 'Desconocido',
         ejecutivo_id: user.id,
         coordinacion_id: user.coordinacion_id || '',
         fecha_solicitud: new Date().toISOString(),

@@ -29,6 +29,7 @@ import {
 import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { uchatService, type UChatConversation } from '../../services/uchatService';
 import { Avatar } from '../shared/Avatar';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 interface Agent {
   id: string;
@@ -185,7 +186,7 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
         assignmentReason || 'Asignación manual desde dashboard'
       );
 
-      onAssign(selectedAgent.id, selectedAgent.full_name);
+      onAssign(selectedAgent.id, formatExecutiveDisplayName(selectedAgent.full_name));
       onClose();
     } catch (error) {
       console.error('Error asignando conversación:', error);
@@ -306,7 +307,7 @@ const AgentAssignmentModal: React.FC<AgentAssignmentModalProps> = ({
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
                             <h3 className="font-semibold text-gray-900 truncate">
-                              {agent.full_name}
+                              {formatExecutiveDisplayName(agent.full_name)}
                             </h3>
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${availability.color}`}>
                               {availability.label}

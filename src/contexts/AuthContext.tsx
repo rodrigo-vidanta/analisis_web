@@ -483,17 +483,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función para logout sin asignar backup (ejecutivo consciente de que sus prospectos no serán visibles)
   const handleLogoutWithoutBackup = async (): Promise<void> => {
     setShowBackupModal(false);
-    
-    // Hacer logout con un marcador especial que indica "sin backup explícito"
-    // El authService.logout se encargará de marcar is_operativo = false
+
+    // Hacer logout sin backup
     await authService.logout(undefined);
-    
+
+    // Invalidar cachés de permisos
+    permissionsService.invalidateAllCache();
+
+    // Limpiar canales Realtime y stores
+    useLiveActivityStore.getState().cleanup();
+    realtimeHub.cleanup();
+    realtimeHubSystemUI.cleanup();
+
     // Limpiar estado
     setAuthState({
       isAuthenticated: false,
       isLoading: false,
       user: null,
-      permissions: []
+      permissions: [],
+      error: null
     });
   };
 

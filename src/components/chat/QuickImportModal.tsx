@@ -23,6 +23,7 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 interface QuickImportModalProps {
   isOpen: boolean;
@@ -218,7 +219,7 @@ export const QuickImportModal: React.FC<QuickImportModalProps> = ({
 
     try {
       const payload: ImportContactPayload = {
-        ejecutivo_nombre: user.full_name || user.email || 'Desconocido',
+        ejecutivo_nombre: formatExecutiveDisplayName(user.full_name) || user.email || 'Desconocido',
         ejecutivo_id: user.id,
         coordinacion_id: user.coordinacion_id || '',
         fecha_solicitud: new Date().toISOString(),

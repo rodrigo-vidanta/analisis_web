@@ -26,6 +26,7 @@ import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { classifyCallStatus, type CallStatusGranular } from './callStatusClassifier';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 // Tipos para llamadas de ventas (tabla principal)
 export interface SalesCall {
@@ -538,7 +539,7 @@ class LiveMonitorService {
           ...call,
           coordinacion_codigo: coordinacionInfo?.codigo,
           coordinacion_nombre: coordinacionInfo?.nombre,
-          ejecutivo_nombre: ejecutivoInfo?.full_name,
+          ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
           ejecutivo_email: ejecutivoInfo?.email,
         };
       });

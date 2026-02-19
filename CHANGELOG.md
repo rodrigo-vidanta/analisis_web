@@ -1,3 +1,9 @@
+## [v2.17.3] - 2026-02-19
+
+**B10.1.44N2.17.3** - 2
+
+---
+
 ## [v2.17.2] - 2026-02-19
 
 **B10.1.44N2.17.2** - 1 fix + Facturación de enero 2026: **443 + Meta/WhatsApp tiene un sistema de salud de ecosis

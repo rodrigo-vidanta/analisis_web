@@ -18,6 +18,7 @@ import { assignmentService } from '../../services/assignmentService';
 import { permissionsService } from '../../services/permissionsService';
 import { Users, Plus, Edit, Trash2, UserCheck, UserX, BarChart3, Mail, Phone, Building2 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 // NOTA: El hash de contraseña se debe generar en el backend o usar una función RPC
 // Por ahora, se usará un placeholder que debe ser reemplazado por el hash real
 
@@ -318,7 +319,7 @@ const EjecutivosManager: React.FC = () => {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{ejecutivo.full_name}</h3>
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{formatExecutiveDisplayName(ejecutivo.full_name)}</h3>
                   </div>
                   <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
                     <Mail className="w-4 h-4" />
@@ -824,7 +825,7 @@ const EjecutivoStatsModal: React.FC<EjecutivoStatsModalProps> = ({ ejecutivo, is
       >
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-800">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-            Estadísticas - {ejecutivo.full_name}
+            Estadísticas - {formatExecutiveDisplayName(ejecutivo.full_name)}
           </h3>
         </div>
         <div className="p-6">

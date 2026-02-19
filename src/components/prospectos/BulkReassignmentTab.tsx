@@ -33,6 +33,7 @@ import { permissionsService } from '../../services/permissionsService';
 import { PhoneText } from '../shared/PhoneDisplay';
 import { Avatar } from '../shared/Avatar';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 // ============================================
 // INTERFACES
@@ -1381,7 +1382,7 @@ export const BulkReassignmentTab: React.FC = () => {
               >
                 <option value="">Todos los ejecutivos</option>
                 {filteredEjecutivos.map(e => (
-                  <option key={e.id} value={e.id}>{e.full_name}</option>
+                  <option key={e.id} value={e.id}>{formatExecutiveDisplayName(e.full_name)}</option>
                 ))}
               </select>
 
@@ -1801,7 +1802,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     .filter(e => e.is_coordinator === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
-                        {e.full_name} (Coord.)
+                        {formatExecutiveDisplayName(e.full_name)} (Coord.)
                       </option>
                     ))}
                   
@@ -1813,7 +1814,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     .filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
-                        {e.full_name} (Sup.)
+                        {formatExecutiveDisplayName(e.full_name)} (Sup.)
                       </option>
                     ))}
                   
@@ -1825,7 +1826,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     .filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
-                        {e.full_name}
+                        {formatExecutiveDisplayName(e.full_name)}
                       </option>
                     ))}
                   
@@ -1837,7 +1838,7 @@ export const BulkReassignmentTab: React.FC = () => {
                     .filter(e => !e.is_coordinator && e.is_active !== true)
                     .map(e => (
                       <option key={e.id} value={e.id} disabled className="text-gray-400">
-                        {e.full_name} (Inactivo)
+                        {formatExecutiveDisplayName(e.full_name)} (Inactivo)
                       </option>
                     ))}
                 </select>

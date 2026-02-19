@@ -69,6 +69,7 @@ import { DeleteTemplateConfirmationModal } from '../../shared/DeleteTemplateConf
 import TemplateSuggestionsTab from './TemplateSuggestionsTab';
 import { TemplateTagsSelector } from './TemplateTagsSelector';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
+import { formatExecutiveDisplayName } from '../../../utils/nameFormatter';
 
 /**
  * ============================================
@@ -1060,7 +1061,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
       } as WhatsAppTemplate;
 
       // Obtener nombre del ejecutivo del contexto de autenticación
-      const ejecutivoNombre = user?.full_name || 'Ejecutivo Ejemplo';
+      const ejecutivoNombre = formatExecutiveDisplayName(user?.full_name) || 'Ejecutivo Ejemplo';
 
       const preview = await whatsappTemplatesService.generateExample(template, undefined, ejecutivoNombre);
       setPreviewText(preview);

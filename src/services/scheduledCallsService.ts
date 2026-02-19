@@ -8,6 +8,7 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { permissionsService } from './permissionsService';
 import { coordinacionService } from './coordinacionService';
 import { getApiToken } from './apiTokensService';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 export interface ScheduledCall {
   id: string;
@@ -523,7 +524,7 @@ class ScheduledCallsService {
             console.warn('Error obteniendo ejecutivos:', ejecutivosError);
           } else if (ejecutivosData) {
             ejecutivosMap = new Map(
-              ejecutivosData.map((e: any) => [e.id, e.full_name])
+              ejecutivosData.map((e: any) => [e.id, formatExecutiveDisplayName(e.full_name)])
             );
           }
         } catch (e) {

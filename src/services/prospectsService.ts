@@ -5,6 +5,7 @@ import { secureFrom } from './secureQueryService';
 
 const supabaseClient = analysisSupabase;
 import { coordinacionService } from './coordinacionService';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 /**
  * ============================================
@@ -366,7 +367,7 @@ class ProspectsService {
         try {
           ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
           if (ejecutivoInfo) {
-            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre;
+            ejecutivoNombre = formatExecutiveDisplayName(ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre);
           }
         } catch (error) {
           console.warn('Error obteniendo ejecutivo:', error);

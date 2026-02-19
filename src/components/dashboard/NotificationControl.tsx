@@ -5,16 +5,21 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Volume2, MessageSquare, Phone, Bell, BellOff, Calendar, UserPlus } from 'lucide-react';
+import { Volume2, MessageSquare, Phone, Bell, BellOff, Calendar, UserPlus, Monitor } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { notificationSoundService } from '../../services/notificationSoundService';
 import { systemNotificationService } from '../../services/systemNotificationService';
+import { audioOutputService } from '../../services/audioOutputService';
+import type { AudioOutputDevice } from '../../services/audioOutputService';
 
 export const NotificationControl: React.FC = () => {
   const [soundPreferences, setSoundPreferences] = useState(notificationSoundService.getPreferences());
   const [systemPreferences, setSystemPreferences] = useState(systemNotificationService.getPreferences());
   const [showMenu, setShowMenu] = useState(false);
   const [permissionStatus, setPermissionStatus] = useState<NotificationPermission>('default');
+  const [multiDeviceEnabled, setMultiDeviceEnabled] = useState(audioOutputService.isMultiDeviceEnabled());
+  const [deviceCount, setDeviceCount] = useState(audioOutputService.getDeviceCount());
+  const [multiDeviceSupported] = useState(audioOutputService.isSupported());
 
   useEffect(() => {
     // Actualizar preferencias cuando cambien (optimizado: cada 2 segundos en vez de 100ms)
@@ -28,6 +33,17 @@ export const NotificationControl: React.FC = () => {
     setPermissionStatus(systemNotificationService.getPermissionStatus());
 
     return () => clearInterval(interval);
+  }, []);
+
+  // Escuchar cambios en dispositivos de audio (hot-plug)
+  useEffect(() => {
+    const unsubscribe = audioOutputService.onDeviceChange((devices: AudioOutputDevice[]) => {
+      setDeviceCount(devices.length);
+    });
+    audioOutputService.refreshDevices().then(() => {
+      setDeviceCount(audioOutputService.getDeviceCount());
+    });
+    return unsubscribe;
   }, []);
 
   // Solicitar permisos automáticamente si no están concedidos
@@ -103,19 +119,26 @@ export const NotificationControl: React.FC = () => {
   };
 
   const handleTestSound = async (type: 'message' | 'call') => {
-    // Reproducir sonido de prueba directamente desde el archivo
+    const soundFile = type === 'call'
+      ? '/sounds/notification-call.mp3'
+      : '/sounds/notification-message.mp3';
+
     try {
-      const soundFile = type === 'call' 
-        ? '/sounds/notification-call.mp3'
-        : '/sounds/notification-message.mp3';
-      
-      const audio = new Audio(soundFile);
-      audio.volume = soundPreferences.volume;
-      await audio.play();
-    } catch (error) {
-      // Si falla, usar el servicio como fallback
+      await audioOutputService.playOnAllDevices(soundFile, soundPreferences.volume);
+    } catch {
       await notificationSoundService.playNotification(type);
     }
+  };
+
+  const handleToggleMultiDevice = async () => {
+    const newEnabled = !multiDeviceEnabled;
+    if (newEnabled) {
+      const granted = await audioOutputService.requestDeviceAccess();
+      if (!granted) return;
+      setDeviceCount(audioOutputService.getDeviceCount());
+    }
+    audioOutputService.setMultiDeviceEnabled(newEnabled);
+    setMultiDeviceEnabled(newEnabled);
   };
 
   const handleTestSystemNotification = (type: 'message' | 'call' | 'scheduled_call' | 'new_prospect') => {
@@ -292,6 +315,47 @@ export const NotificationControl: React.FC = () => {
                     </button>
                   </div>
                 </div>
+
+                {/* Multi-device output toggle */}
+                {multiDeviceSupported && (
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700/50">
+                    <div className="flex items-center gap-2">
+                      <Monitor className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <div className="flex flex-col">
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Todos los dispositivos
+                        </span>
+                        <span className="text-xs text-gray-400 dark:text-gray-500">
+                          Bocinas y audifonos
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {multiDeviceEnabled && deviceCount > 0 && (
+                        <span className="px-1.5 py-0.5 text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded">
+                          {deviceCount}
+                        </span>
+                      )}
+                      <button
+                        onClick={handleToggleMultiDevice}
+                        disabled={!soundPreferences.enabled}
+                        className={`relative w-10 h-5 rounded-full transition-colors ${
+                          multiDeviceEnabled && soundPreferences.enabled
+                            ? 'bg-blue-600'
+                            : 'bg-gray-300 dark:bg-gray-600'
+                        } ${!soundPreferences.enabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform ${
+                            multiDeviceEnabled && soundPreferences.enabled
+                              ? 'translate-x-5'
+                              : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Separador */}
                 <div className="border-t border-gray-200 dark:border-gray-700 pt-4">

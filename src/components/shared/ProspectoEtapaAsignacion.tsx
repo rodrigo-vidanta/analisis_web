@@ -21,6 +21,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Star, Users, User, AlertTriangle } from 'lucide-react';
 import { EtapaBadge } from './EtapaBadge';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 export interface ProspectoAsignacionData {
   etapa?: string | null;
@@ -49,16 +50,6 @@ export interface ProspectoEtapaAsignacionProps {
   showScore?: boolean;
 }
 
-/**
- * Formatea el nombre del ejecutivo para mostrar solo primer nombre y primer apellido
- */
-const formatEjecutivoNombre = (nombre: string | null | undefined): string => {
-  if (!nombre) return '';
-  const partes = nombre.trim().split(/\s+/);
-  const primerNombre = partes[0] || '';
-  const primerApellido = partes[1] || '';
-  return primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
-};
 
 export const ProspectoEtapaAsignacion: React.FC<ProspectoEtapaAsignacionProps> = ({
   prospecto,
@@ -69,7 +60,7 @@ export const ProspectoEtapaAsignacion: React.FC<ProspectoEtapaAsignacionProps> =
   showScore = true
 }) => {
   const hasAsignacion = prospecto.coordinacion_codigo || prospecto.ejecutivo_nombre || prospecto.asesor_asignado;
-  const ejecutivoDisplay = formatEjecutivoNombre(prospecto.ejecutivo_nombre || prospecto.asesor_asignado);
+  const ejecutivoDisplay = formatExecutiveDisplayName(prospecto.ejecutivo_nombre || prospecto.asesor_asignado);
 
   if (variant === 'inline') {
     return (

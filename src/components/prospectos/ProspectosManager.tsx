@@ -48,6 +48,7 @@ import { EtapaBadge } from '../shared/EtapaBadge';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ScheduledCallsSection } from '../shared/ScheduledCallsSection';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 import { Avatar } from '../shared/Avatar';
 import { CallDetailModalSidebar } from '../chat/CallDetailModalSidebar';
 import { getCoordinacionColor } from '../../utils/coordinacionColors';
@@ -1387,7 +1388,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
               ...p,
               coordinacion_codigo: coordinacion?.codigo || null,
               coordinacion_nombre: coordinacion?.nombre || null,
-              ejecutivo_nombre: ejecutivo?.full_name || null,
+              ejecutivo_nombre: formatExecutiveDisplayName(ejecutivo?.full_name) || null,
               ejecutivo_email: ejecutivo?.email || null,
             };
           });
@@ -1439,7 +1440,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
       // Priorizar asesor_asignado si existe, de lo contrario usar ejecutivoInfo
       const ejecutivoNombre = prospecto.asesor_asignado && prospecto.asesor_asignado.trim() !== ''
         ? prospecto.asesor_asignado.trim()
-        : ejecutivoInfo?.full_name || null;
+        : formatExecutiveDisplayName(ejecutivoInfo?.full_name) || null;
 
       return {
         ...prospecto,
@@ -2483,14 +2484,14 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       key={ejecutivo.id}
                       onClick={() => {
                         setFilters(prev => ({ ...prev, ejecutivo_id: ejecutivo.id }));
-                        setEjecutivoSearchText(ejecutivo.full_name);
+                        setEjecutivoSearchText(formatExecutiveDisplayName(ejecutivo.full_name));
                         setShowEjecutivoDropdown(false);
                       }}
                       className={`w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                         filters.ejecutivo_id === ejecutivo.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300' : 'text-gray-700 dark:text-gray-300'
                       }`}
                     >
-                      {ejecutivo.full_name}
+                      {formatExecutiveDisplayName(ejecutivo.full_name)}
                     </button>
                   ))}
                 </div>
@@ -2973,21 +2974,15 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                       <td className="px-3 md:px-4 lg:px-6 py-3 md:py-4">
                         {(() => {
                           const ejecutivoNombre = prospecto.ejecutivo_nombre || prospecto.asesor_asignado;
-                          
+
                           if (!ejecutivoNombre) {
                             return <span className="text-xs text-gray-400 dark:text-gray-500">Sin asignar</span>;
                           }
-                          
-                          // Extraer primer nombre y primer apellido
-                          const partes = ejecutivoNombre.trim().split(/\s+/);
-                          const primerNombre = partes[0] || '';
-                          const primerApellido = partes[1] || '';
-                          const nombreMostrar = primerApellido ? `${primerNombre} ${primerApellido}` : primerNombre;
-                          
+
                           return (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
                               <User className="w-3 h-3 mr-1" />
-                              {nombreMostrar}
+                              {formatExecutiveDisplayName(ejecutivoNombre)}
                             </span>
                           );
                         })()}

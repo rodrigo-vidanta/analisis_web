@@ -28,6 +28,7 @@ import { ProspectoSidebar } from '../../prospectos/ProspectosManager';
 import { CallDetailModalSidebar } from '../../chat/CallDetailModalSidebar';
 import { createPortal } from 'react-dom';
 import { notificationSoundService } from '../../../services/notificationSoundService';
+import { formatExecutiveDisplayName } from '../../../utils/nameFormatter';
 import { systemNotificationService } from '../../../services/systemNotificationService';
 import { botPauseService } from '../../../services/botPauseService';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
@@ -792,7 +793,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                             coordinacion_codigo: coordinacionInfo?.codigo,
                             coordinacion_nombre: coordinacionInfo?.nombre,
                             ejecutivo_id: ejecutivoId,
-                            ejecutivo_nombre: ejecutivoInfo?.full_name,
+                            ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
                             ejecutivo_email: ejecutivoInfo?.email
                           }
                         };
@@ -1141,7 +1142,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                         coordinacion_codigo: coordinacionInfo?.codigo,
                         coordinacion_nombre: coordinacionInfo?.nombre,
                         ejecutivo_id: ejecutivoId,
-                        ejecutivo_nombre: ejecutivoInfo?.full_name,
+                        ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
                         ejecutivo_email: ejecutivoInfo?.email
                       }
                     };
@@ -1455,7 +1456,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             coordinacion_codigo: coordinacionInfo?.codigo,
             coordinacion_nombre: coordinacionInfo?.nombre,
             ejecutivo_id: ejecutivoId,
-            ejecutivo_nombre: ejecutivoInfo?.full_name,
+            ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
             ejecutivo_email: ejecutivoInfo?.email
           }
         };
@@ -1492,7 +1493,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             coordinacion_codigo: coordinacionInfo?.codigo,
             coordinacion_nombre: coordinacionInfo?.nombre,
             ejecutivo_id: ejecutivoId,
-            ejecutivo_nombre: ejecutivoInfo?.full_name,
+            ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
             ejecutivo_email: ejecutivoInfo?.email
           }
         };

@@ -20,7 +20,9 @@ import { liveMonitorKanbanOptimized } from '../services/liveMonitorKanbanOptimiz
 import { userUIPreferencesService } from '../services/userUIPreferencesService';
 import { permissionsService } from '../services/permissionsService';
 import { realtimeHub } from '../services/realtimeHub';
+import { audioOutputService } from '../services/audioOutputService';
 import type { LiveCallData } from '../services/liveMonitorService';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 // Tipo para entrada de transcripción
 export interface TranscriptEntry {
@@ -105,30 +107,10 @@ interface LiveActivityState {
   loadActiveCalls: () => Promise<void>;
 }
 
-// Audio de notificación (reusar del notification store)
-let notificationAudio: HTMLAudioElement | null = null;
-
-const initAudio = () => {
-  if (!notificationAudio && typeof window !== 'undefined') {
-    notificationAudio = new Audio('/sounds/notification.mp3');
-    notificationAudio.volume = 0.7;
-    notificationAudio.preload = 'auto';
-  }
-};
-
 const playNotificationSound = () => {
-  try {
-    initAudio();
-    if (notificationAudio) {
-      notificationAudio.currentTime = 0;
-      notificationAudio.volume = 0.7;
-      notificationAudio.play().catch(() => {
-        // Audio bloqueado por política del navegador
-      });
-    }
-  } catch (error) {
-    // Ignorar errores de audio
-  }
+  audioOutputService.playOnAllDevices('/sounds/notification.mp3', 0.7).catch(() => {
+    // Audio bloqueado por politica del navegador
+  });
 };
 
 export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
@@ -492,7 +474,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             const ejecutivosMap = new Map<string, string>();
             ejecutivosData.forEach(e => {
               if (e.id && e.full_name) {
-                ejecutivosMap.set(e.id, e.full_name);
+                ejecutivosMap.set(e.id, formatExecutiveDisplayName(e.full_name));
               }
             });
 

@@ -19,6 +19,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { ProspectValidationModal } from './ProspectValidationModal';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 interface AssignmentContextMenuProps {
   prospectId: string;
@@ -728,7 +729,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                 const ejecutivoAsignado = ejecutivos.find(e => e.id === currentEjecutivoId);
                 return ejecutivoAsignado ? (
                   <p className="text-xs text-gray-600 dark:text-gray-400 ml-6">
-                    Actualmente asignado a: <span className="font-medium text-purple-600 dark:text-purple-400">{ejecutivoAsignado.full_name}</span>
+                    Actualmente asignado a: <span className="font-medium text-purple-600 dark:text-purple-400">{formatExecutiveDisplayName(ejecutivoAsignado.full_name)}</span>
                   </p>
                 ) : (
                   <p className="text-xs text-gray-600 dark:text-gray-400 ml-6">
@@ -880,7 +881,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                           {isCurrentUser ? (
                             <p className="font-semibold truncate">Asignarme este prospecto</p>
                           ) : (
-                            <p className="font-medium truncate">{ejecutivo.full_name}</p>
+                            <p className="font-medium truncate">{formatExecutiveDisplayName(ejecutivo.full_name)}</p>
                           )}
                           {(ejecutivo as any).is_coordinator && !isCurrentUser && (
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
@@ -905,7 +906,7 @@ export const AssignmentContextMenu: React.FC<AssignmentContextMenuProps> = ({
                         )}
                         {isCurrentUser && (
                           <p className="text-xs text-blue-600 dark:text-blue-400 truncate mt-1">
-                            {ejecutivo.full_name} • {ejecutivo.email}
+                            {formatExecutiveDisplayName(ejecutivo.full_name)} • {ejecutivo.email}
                           </p>
                         )}
                       </div>

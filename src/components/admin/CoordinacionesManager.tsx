@@ -22,6 +22,7 @@ import {
   X, Loader2, Search, Filter, XCircle 
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 interface CoordinacionWithStats extends Coordinacion {
   ejecutivos_count?: number;
@@ -1080,7 +1081,7 @@ const CoordinacionesManager: React.FC = () => {
                       >
                         <div>
                           <div className="font-medium text-gray-900 dark:text-white">
-                            {ejecutivo.full_name}
+                            {formatExecutiveDisplayName(ejecutivo.full_name)}
                           </div>
                           <div className="text-sm text-gray-500 dark:text-gray-400">
                             {ejecutivo.email}
@@ -1190,7 +1191,7 @@ const CoordinacionesManager: React.FC = () => {
                           <div className="space-y-1">
                             {ejecutivos.map((ejecutivo) => (
                               <div key={ejecutivo.id} className="text-sm text-gray-600 dark:text-gray-400">
-                                • {ejecutivo.full_name} ({ejecutivo.email})
+                                • {formatExecutiveDisplayName(ejecutivo.full_name)} ({ejecutivo.email})
                               </div>
                             ))}
                           </div>
@@ -1208,7 +1209,7 @@ const CoordinacionesManager: React.FC = () => {
                           <div className="space-y-1">
                             {coordinadores.map((coordinador) => (
                               <div key={coordinador.id} className="text-sm text-gray-600 dark:text-gray-400">
-                                • {coordinador.full_name} ({coordinador.email})
+                                • {formatExecutiveDisplayName(coordinador.full_name)} ({coordinador.email})
                               </div>
                             ))}
                           </div>

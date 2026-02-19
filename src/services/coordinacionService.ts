@@ -424,6 +424,7 @@ class CoordinacionService {
           email_verified: user.email_verified,
           last_login: user.last_login,
           created_at: user.created_at,
+          role_name: user.role_name,
         };
       });
     } catch (error) {

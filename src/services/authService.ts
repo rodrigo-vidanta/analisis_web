@@ -246,8 +246,8 @@ class AuthService {
         this.currentUser.is_operativo = true;
       }
 
-      // 7. Manejar lógica especial para ejecutivos (eliminar backup)
-      if (this.currentUser && this.currentUser.role_name === 'ejecutivo') {
+      // 7. Manejar lógica especial para ejecutivos/supervisores (eliminar backup al relogin)
+      if (this.currentUser && (this.currentUser.role_name === 'ejecutivo' || this.currentUser.role_name === 'supervisor')) {
         await this.handleExecutiveLogin(data.user.id);
       }
 

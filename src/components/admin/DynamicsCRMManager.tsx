@@ -54,6 +54,7 @@ import { dynamicsLeadService, type DynamicsLeadInfo, type LeadComparisonResult, 
 import { dynamicsReasignacionService } from '../../services/dynamicsReasignacionService';
 import { permissionsService } from '../../services/permissionsService';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 // ============================================
 // INTERFACES
@@ -316,7 +317,7 @@ const DynamicsCRMManager: React.FC = () => {
           if (prospecto.ejecutivo_id) {
             const ejec = await coordinacionService.getEjecutivoById(prospecto.ejecutivo_id);
             if (ejec) {
-              ejecutivo_nombre = ejec.full_name;
+              ejecutivo_nombre = formatExecutiveDisplayName(ejec.full_name);
               // IMPORTANTE: Obtener el id_dynamics del ejecutivo para comparar con OwnerID de Dynamics
               ejecutivo_id_dynamics = ejec.id_dynamics || '';
             }
@@ -410,7 +411,7 @@ const DynamicsCRMManager: React.FC = () => {
         // ID de Dynamics del ejecutivo (desde system_ui)
         ejecutivo_id_dynamics: ejecutivoData?.id_dynamics || null,
         // Nombre del ejecutivo para mostrar visualmente
-        ejecutivo_nombre: ejecutivoData?.full_name || prospecto.ejecutivo_nombre || 'Sin asignar',
+        ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoData?.full_name) || prospecto.ejecutivo_nombre || 'Sin asignar',
         // Nombre de coordinación
         coordinacion_nombre: ejecutivoData?.coordinacion_nombre || prospecto.coordinacion_nombre || '',
       };

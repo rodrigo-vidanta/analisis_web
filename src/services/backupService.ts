@@ -22,6 +22,7 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { authAdminProxyService } from './authAdminProxyService';
 import { coordinacionService } from './coordinacionService';
 import { permissionsService } from './permissionsService';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 export interface BackupInfo {
   ejecutivo_id: string;
@@ -340,39 +341,40 @@ class BackupService {
 
   /**
    * Obtiene información del backup asignado a un ejecutivo
+   * Usa 2 queries separadas (embedded resource no funciona en VIEWs sin FK)
    */
   async getBackupInfo(ejecutivoId: string): Promise<BackupInfo | null> {
     try {
-      const { data, error } = await supabaseSystemUI
+      // Query 1: datos del ejecutivo
+      const { data: ejecutivoData, error: ejecutivoError } = await supabaseSystemUI
         .from('user_profiles_v2')
-        .select(`
-          id,
-          backup_id,
-          telefono_original,
-          phone,
-          has_backup,
-          backup:backup_id (
-            id,
-            email,
-            full_name,
-            phone
-          )
-        `)
+        .select('id, backup_id, telefono_original, phone, has_backup')
         .eq('id', ejecutivoId)
         .single();
 
-      if (error || !data) {
+      if (ejecutivoError || !ejecutivoData) {
         return null;
       }
 
-      const backup = Array.isArray(data.backup) ? data.backup[0] : data.backup;
+      // Si no tiene backup asignado, retornar sin buscar backup
+      let telefonoBackup = '';
+      if (ejecutivoData.backup_id && ejecutivoData.has_backup) {
+        // Query 2: datos del backup
+        const { data: backupData } = await supabaseSystemUI
+          .from('user_profiles_v2')
+          .select('phone')
+          .eq('id', ejecutivoData.backup_id)
+          .maybeSingle();
+
+        telefonoBackup = backupData?.phone || '';
+      }
 
       return {
-        ejecutivo_id: data.id,
-        backup_id: data.backup_id || '',
-        telefono_original: data.telefono_original || '',
-        telefono_backup: backup?.phone || '',
-        has_backup: data.has_backup || false
+        ejecutivo_id: ejecutivoData.id,
+        backup_id: ejecutivoData.backup_id || '',
+        telefono_original: ejecutivoData.telefono_original || '',
+        telefono_backup: telefonoBackup,
+        has_backup: ejecutivoData.has_backup || false
       };
     } catch (error) {
       console.error('Error obteniendo información de backup:', error);
@@ -414,18 +416,20 @@ class BackupService {
       // Obtener ejecutivos de la coordinación
       const ejecutivos = await coordinacionService.getEjecutivosByCoordinacion(coordinacionId);
       
-      // Filtrar ejecutivos activos y operativos (excluir el que hace logout)
-      const ejecutivosActivosOperativos = ejecutivos.filter(ejecutivo => 
+      // Filtrar solo ejecutivos activos y operativos (excluir el que hace logout)
+      // getEjecutivosByCoordinacion retorna ejecutivos, coordinadores y supervisores
+      const ejecutivosActivosOperativos = ejecutivos.filter(ejecutivo =>
         ejecutivo.id !== excludeEjecutivoId &&
         ejecutivo.is_active &&
-        ejecutivo.is_operativo !== false
+        ejecutivo.is_operativo !== false &&
+        ejecutivo.role_name === 'ejecutivo'
       );
-      
+
       // PRIORIDAD 1: Ejecutivos operativos con teléfono
       const ejecutivosConTelefono = ejecutivosActivosOperativos
         .filter(ejecutivo => {
           const hasPhone = ejecutivo.phone && ejecutivo.phone.trim() !== '';
-          
+
           if (!hasPhone) {
             // Registrar como no disponible
             unavailableUsers.push({
@@ -435,7 +439,7 @@ class BackupService {
             });
             return false;
           }
-          
+
           return true;
         })
         .map(ejecutivo => ({
@@ -650,6 +654,7 @@ class BackupService {
 
   /**
    * Implementación interna de getBackupEjecutivoInfo (sin deduplicación)
+   * Busca: ¿Qué ejecutivo me tiene a MÍ como su backup?
    */
   private async _getBackupEjecutivoInfoImpl(currentUserId: string): Promise<{
     ejecutivo_id: string;
@@ -657,66 +662,22 @@ class BackupService {
     ejecutivo_email: string;
   } | null> {
     try {
-      // ⚡ OPTIMIZACIÓN: Verificar caché primero (evita loop infinito)
-      const cacheKey = currentUserId;
-      const cached = permissionsService.backupCache.get(cacheKey);
-      const now = Date.now();
-      const CACHE_TTL = 30 * 1000; // 30 segundos (mismo que permissionsService)
-      
-      let backupData: { backup_id: string | null; has_backup: boolean } | null = null;
-      
-      if (cached && (now - cached.timestamp) < CACHE_TTL) {
-        // Usar datos cacheados (0 consultas a BD)
-        backupData = cached.data;
-      } else {
-        // Consultar BD solo si no está en caché o expiró
-        const { data, error } = await supabaseSystemUI
-          .from('user_profiles_v2')
-          .select('backup_id, has_backup')
-          .eq('id', currentUserId)
-          .single();
+      // Buscar ejecutivo que tiene a currentUserId como backup
+      const { data, error } = await supabaseSystemUI
+        .from('user_profiles_v2')
+        .select('id, full_name, email')
+        .eq('backup_id', currentUserId)
+        .eq('has_backup', true)
+        .maybeSingle();
 
-        if (error || !data) {
-          backupData = null;
-        } else {
-          backupData = data;
-        }
-        
-        // Guardar en caché para próximas consultas
-        permissionsService.backupCache.set(cacheKey, { data: backupData, timestamp: now });
-      }
-
-      if (!backupData || !backupData.backup_id || !backupData.has_backup) {
+      if (error || !data) {
         return null;
       }
 
-      // Obtener información del ejecutivo del cual es backup (con cache)
-      const ejecutivoCacheKey = `ejecutivo_info_${backupData.backup_id}`;
-      const ejecutivoCached = permissionsService.backupCache.get(ejecutivoCacheKey);
-      let ejecutivoData;
-
-      if (ejecutivoCached && (now - ejecutivoCached.timestamp) < CACHE_TTL) {
-        ejecutivoData = ejecutivoCached.data;
-      } else {
-        const { data, error } = await supabaseSystemUI
-          .from('user_profiles_v2')
-          .select('id, full_name, email')
-          .eq('id', backupData.backup_id)
-          .single();
-
-        if (error || !data) {
-          return null;
-        }
-
-        ejecutivoData = data;
-        // Cachear info del ejecutivo
-        permissionsService.backupCache.set(ejecutivoCacheKey, { data: ejecutivoData, timestamp: now });
-      }
-
       return {
-        ejecutivo_id: ejecutivoData.id,
-        ejecutivo_nombre: ejecutivoData.full_name || ejecutivoData.email,
-        ejecutivo_email: ejecutivoData.email
+        ejecutivo_id: data.id,
+        ejecutivo_nombre: formatExecutiveDisplayName(data.full_name) || data.email,
+        ejecutivo_email: data.email
       };
     } catch (error) {
       console.error('Error obteniendo información de backup:', error);

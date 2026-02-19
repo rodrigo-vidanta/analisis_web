@@ -33,7 +33,7 @@ import {
   RefreshCw, AlertCircle, CheckCircle2,
   DollarSign, UserCheck, UserX, Hourglass, PhoneCall,
   ArrowRightLeft, BarChart3, Activity, Layers, Award,
-  X, Package
+  X, Package, Copy, Check
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
@@ -145,6 +145,7 @@ interface SaleDetail {
   statusCRM: string;
   ejecutivo: string;
   cliente?: string;
+  telefono?: string;
   prospectoId?: string;
   saleType: SaleType;
   origen?: string;
@@ -2266,6 +2267,9 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
   const [selectedCoord, setSelectedCoord] = useState<string | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   
+  // Estado para copiar teléfono
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
   // Estado para modal de vista previa de conversación
   const [conversationPreview, setConversationPreview] = useState<{
     isOpen: boolean;
@@ -2427,7 +2431,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700"
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-5xl max-h-[85vh] overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700"
           >
             {/* Header del modal */}
             <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20">
@@ -2471,6 +2475,9 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
                           Cliente
+                        </th>
+                        <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
+                          Teléfono
                         </th>
                         <th className="text-left py-3 px-4 font-semibold text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/50">
                           Fecha
@@ -2533,12 +2540,34 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
                               </span>
                             )}
                           </td>
+                          <td className="py-3 px-4">
+                            {sale.telefono ? (
+                              <button
+                                onClick={() => {
+                                  navigator.clipboard.writeText(sale.telefono!);
+                                  setCopiedPhone(sale.id);
+                                  setTimeout(() => setCopiedPhone(null), 2000);
+                                }}
+                                className="inline-flex items-center gap-1 text-xs font-mono text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer group"
+                                title="Clic para copiar"
+                              >
+                                <span>{sale.telefono}</span>
+                                {copiedPhone === sale.id ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                )}
+                              </button>
+                            ) : (
+                              <span className="text-gray-400 text-xs">-</span>
+                            )}
+                          </td>
                           <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-xs">
                             {formatDate(sale.fecha)}
                           </td>
                           <td className="py-3 px-4">
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                              sale.statusCRM.toLowerCase().includes('activo') 
+                              sale.statusCRM.toLowerCase().includes('activo')
                                 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
                                 : sale.statusCRM.toLowerCase().includes('inactivo')
                                 ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
@@ -2882,7 +2911,7 @@ const CRMSalesWidget: React.FC<CRMSalesWidgetProps> = ({
         isLoading={isLoading}
         renderContent={renderWidgetContent}
       />
-      <DetailModal />
+      {DetailModal()}
       
       {/* Modal de vista previa de conversación */}
       <ConversationPreviewModal
@@ -3850,7 +3879,7 @@ const DashboardModule: React.FC = () => {
       };
 
       // Iterar filas del RPC (1 fila = 1 comprador con su clasificación)
-      (rows as { prospecto_id: string; nombre: string; origen: string; num_certificados: number; monto_total: number; primera_compra: string; coordinacion: string; propietario: string; status_crm: string; ia_antes: number; prospecto_antes: number; vendedor_antes: number; categoria: string }[]).forEach(row => {
+      (rows as { prospecto_id: string; nombre: string; origen: string; num_certificados: number; monto_total: number; primera_compra: string; coordinacion: string; propietario: string; status_crm: string; ia_antes: number; prospecto_antes: number; vendedor_antes: number; categoria: string; telefono: string }[]).forEach(row => {
         const saleType = row.categoria as SaleType;
         const esContabilizable = saleType === 'ASISTIDA_IA' || saleType === 'ASISTIDA_WHATSAPP';
         const monto = Number(row.monto_total) || 0;
@@ -3868,6 +3897,7 @@ const DashboardModule: React.FC = () => {
           statusCRM: row.status_crm || 'N/A',
           ejecutivo: row.propietario || 'Sin asignar',
           cliente: row.nombre || undefined,
+          telefono: row.telefono || undefined,
           prospectoId: row.prospecto_id || undefined,
           saleType,
           origen: row.origen,

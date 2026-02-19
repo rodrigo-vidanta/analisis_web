@@ -43,6 +43,7 @@ import { ProspectoSidebar } from '../prospectos/ProspectosManager';
 import { createPortal } from 'react-dom';
 import { convertUTCToMexicoTime } from '../../utils/timezoneHelper';
 import { getAuthHeaders } from '../../utils/authHelpers';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 /**
  * ============================================
@@ -4581,9 +4582,9 @@ const LiveMonitorKanban: React.FC = () => {
                                       return (
                                         <div className="flex flex-col gap-1 min-w-0">
                                           {ejecutivo && (
-                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}>
+                                            <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={formatExecutiveDisplayName(ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre) || 'N/A'}>
                                               <User className="w-3 h-3 flex-shrink-0" />
-                                              <span className="truncate">{ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}</span>
+                                              <span className="truncate">{formatExecutiveDisplayName(ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre) || 'N/A'}</span>
                             </span>
                                           )}
                                           {coordinacion && (
@@ -4603,9 +4604,9 @@ const LiveMonitorKanban: React.FC = () => {
                                       // Coordinador: mostrar ejecutivo asignado como tag
                                       const ejecutivo = ejecutivoId ? ejecutivosMap[ejecutivoId] : null;
                                       return ejecutivo ? (
-                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}>
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400 max-w-full" title={formatExecutiveDisplayName(ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre) || 'N/A'}>
                                           <User className="w-3 h-3 flex-shrink-0" />
-                                          <span className="truncate">{ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || 'N/A'}</span>
+                                          <span className="truncate">{formatExecutiveDisplayName(ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre) || 'N/A'}</span>
                                         </span>
                                       ) : (
                                         <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">

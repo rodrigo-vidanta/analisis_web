@@ -20,6 +20,7 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { analysisSupabase } from '../config/analysisSupabase';
 import { coordinacionService, type ProspectAssignment } from './coordinacionService';
 import { dynamicsReasignacionService } from './dynamicsReasignacionService';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 // ============================================
 // INTERFACES Y TIPOS
@@ -559,7 +560,7 @@ class AssignmentService {
       try {
         const ejecutivo = await coordinacionService.getEjecutivoById(ejecutivoId);
         if (ejecutivo) {
-          ejecutivoNombre = ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre || null;
+          ejecutivoNombre = formatExecutiveDisplayName(ejecutivo.full_name || ejecutivo.nombre_completo || ejecutivo.nombre) || null;
         }
       } catch (err) {
         console.warn('[AssignmentService] Error obteniendo nombre ejecutivo (continuando sin nombre):', err);

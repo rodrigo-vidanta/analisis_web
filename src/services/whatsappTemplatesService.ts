@@ -11,6 +11,7 @@ import type {
   ProspectoEtapa,
 } from '../types/whatsappTemplates';
 import { SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../types/whatsappTemplates';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 /**
  * ============================================
@@ -1078,8 +1079,8 @@ class WhatsAppTemplatesService {
         }
         return '{{hora_por_usuario}}';
       case 'ejecutivo_nombre':
-        // Mostrar nombre completo del ejecutivo (ej: "Vanessa Gonzalez")
-        return ejecutivoNombre || '[Ejecutivo]';
+        // Mostrar nombre formateado: "Nombre(s) Apellido1 Inicial2."
+        return formatExecutiveDisplayName(ejecutivoNombre) || '[Ejecutivo]';
       default:
         return customValue || '';
     }

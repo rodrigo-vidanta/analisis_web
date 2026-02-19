@@ -1,7 +1,10 @@
 /**
  * Servicio para manejar sonidos de notificación
  * Soporta diferentes tipos de notificaciones y control de volumen/silencio
+ * Usa audioOutputService para reproducir en multiples dispositivos de salida
  */
+
+import { audioOutputService } from './audioOutputService';
 
 type NotificationType = 'message' | 'call';
 
@@ -30,7 +33,8 @@ class NotificationSoundService {
 
   private initAudioContext() {
     try {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      this.audioContext = new AudioCtx();
     } catch (error) {
       console.warn('AudioContext no disponible:', error);
     }
@@ -58,27 +62,16 @@ class NotificationSoundService {
 
   /**
    * Reproduce sonido de notificación desde archivo de audio según el tipo
-   * Intenta cargar archivo personalizado, si no existe usa sonido generado
+   * Usa audioOutputService para multi-dispositivo. Si falla, usa sonido generado.
    */
   private async playNotificationSound(type: NotificationType): Promise<void> {
-    // Determinar qué archivo usar según el tipo
-    const soundFile = type === 'call' 
+    const soundFile = type === 'call'
       ? '/sounds/notification-call.mp3'
       : '/sounds/notification-message.mp3';
-    
+
     try {
-      const audio = new Audio(soundFile);
-      audio.volume = this.preferences.volume;
-      audio.preload = 'auto';
-      
-      // Intentar reproducir
-      const playPromise = audio.play();
-      if (playPromise !== undefined) {
-        await playPromise;
-        return; // Si se reproduce exitosamente, salir
-      }
-    } catch (error) {
-      // Si falla, usar sonido generado como fallback
+      await audioOutputService.playOnAllDevices(soundFile, this.preferences.volume);
+    } catch {
       this.playGeneratedSound();
     }
   }

@@ -102,6 +102,7 @@ import { getApiToken } from '../../services/apiTokensService';
 import { WhatsAppLabelsModal } from './WhatsAppLabelsModal';
 import { whatsappLabelsService, type ConversationLabel } from '../../services/whatsappLabelsService';
 import { optimizedConversationsService, USE_OPTIMIZED_VIEW } from '../../services/optimizedConversationsService';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../utils/prospectRestrictions';
 import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
@@ -4127,7 +4128,7 @@ const LiveChatCanvas: React.FC = () => {
 
         // También verificar si hay assigned_agent_id en la conversación de uchat
         const assignedAgentId = conv.assigned_agent_id;
-        let agentName = ejecutivoInfo?.full_name;
+        let agentName = formatExecutiveDisplayName(ejecutivoInfo?.full_name);
 
         // Si no hay ejecutivo en prospectos pero hay assigned_agent_id, guardar el ID para cargarlo después
         // (se cargará cuando se seleccione la conversación o cuando se renderice el mensaje)
@@ -4256,7 +4257,7 @@ const LiveChatCanvas: React.FC = () => {
               coordinacion_codigo: coordinacionInfo?.codigo,
               coordinacion_nombre: coordinacionInfo?.nombre,
               ejecutivo_id: ejecutivoInfo?.id,
-              ejecutivo_nombre: ejecutivoInfo?.full_name,
+              ejecutivo_nombre: formatExecutiveDisplayName(ejecutivoInfo?.full_name),
               ejecutivo_email: ejecutivoInfo?.email
             }
           };

@@ -21,6 +21,7 @@ import { BackupBadgeWrapper } from '../../shared/BackupBadgeWrapper';
 import { PhoneText } from '../../shared/PhoneDisplay';
 import { useAuth } from '../../../contexts/AuthContext';
 import { EtapaBadge } from '../../shared/EtapaBadge';
+import { formatExecutiveDisplayName } from '../../../utils/nameFormatter';
 
 interface ProspectosNuevosWidgetProps {
   userId?: string;
@@ -96,7 +97,7 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     // Priorizar asesor_asignado si existe
     const ejecutivoNombre = prospecto.asesor_asignado && prospecto.asesor_asignado.trim() !== ''
       ? prospecto.asesor_asignado.trim()
-      : ejecutivoInfo?.full_name || ejecutivoInfo?.nombre_completo || ejecutivoInfo?.nombre || null;
+      : formatExecutiveDisplayName(ejecutivoInfo?.full_name || ejecutivoInfo?.nombre_completo || ejecutivoInfo?.nombre) || null;
 
     return {
       ...prospecto,

@@ -15,6 +15,7 @@ import { PhoneDisplay } from '../shared/PhoneDisplay';
 import toast from 'react-hot-toast';
 import { classifyCallStatus, CALL_STATUS_CONFIG, type CallStatusGranular } from '../../services/callStatusClassifier';
 import { useAuth } from '../../contexts/AuthContext';
+import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 
 interface CallHistory {
   call_id: string;
@@ -150,7 +151,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
         try {
           ejecutivoInfo = await coordinacionService.getEjecutivoById(data.ejecutivo_id);
           if (ejecutivoInfo) {
-            ejecutivoNombre = ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre || null;
+            ejecutivoNombre = formatExecutiveDisplayName(ejecutivoInfo.full_name || ejecutivoInfo.nombre_completo || ejecutivoInfo.nombre) || null;
           }
         } catch (error) {
           // Error silenciado
@@ -162,7 +163,7 @@ export const ProspectoSidebar: React.FC<ProspectoSidebarProps> = React.memo(({ p
         nombre_completo: data.nombre_completo || `${data.nombre || ''} ${data.apellido_paterno || ''} ${data.apellido_materno || ''}`.trim(),
         coordinacion_codigo: coordinacionInfo?.codigo,
         coordinacion_nombre: coordinacionInfo?.nombre,
-        ejecutivo_nombre: ejecutivoNombre || ejecutivoInfo?.full_name || null,
+        ejecutivo_nombre: ejecutivoNombre || formatExecutiveDisplayName(ejecutivoInfo?.full_name) || null,
         ejecutivo_email: ejecutivoInfo?.email
       });
       isLoadingRef.current = false;

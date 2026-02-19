@@ -24,6 +24,7 @@ import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { coordinacionService } from './coordinacionService';
 import { credentialsService } from './credentialsService';
 import toast from 'react-hot-toast';
+import { formatExecutiveDisplayName } from '../utils/nameFormatter';
 
 // ============================================
 // CONFIGURACIÓN
@@ -195,7 +196,7 @@ class DynamicsReasignacionService {
       ejecutivo_anterior_id: prospecto?.ejecutivo_id || null,
       coordinacion_anterior_id: prospecto?.coordinacion_id || null,
       reasignado_por_id: reasignadoPorId,
-      reasignado_por_nombre: reasignadoPor?.full_name || undefined,
+      reasignado_por_nombre: formatExecutiveDisplayName(reasignadoPor?.full_name) || undefined,
       reasignado_por_email: reasignadoPor?.email || undefined,
       reasignado_por_rol: reasignadoPor?.role_name || undefined,
       motivo: motivo,
@@ -205,7 +206,7 @@ class DynamicsReasignacionService {
       whatsapp_prospecto: prospecto?.whatsapp || null,
       email_prospecto: prospecto?.email || null,
       // Datos del nuevo ejecutivo
-      nuevo_ejecutivo_nombre: nuevoEjecutivo?.full_name || nuevoEjecutivo?.nombre_completo || null,
+      nuevo_ejecutivo_nombre: formatExecutiveDisplayName(nuevoEjecutivo?.full_name || nuevoEjecutivo?.nombre_completo) || null,
       nuevo_ejecutivo_email: nuevoEjecutivo?.email || null,
       nueva_coordinacion_nombre: nuevaCoordinacion?.nombre || null,
       nueva_coordinacion_codigo: nuevaCoordinacion?.codigo || null

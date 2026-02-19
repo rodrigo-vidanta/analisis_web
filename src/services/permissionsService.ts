@@ -169,6 +169,9 @@ class PermissionsService {
     this.ejecutivoCache.clear();
     this.calidadCache.clear();
     this.accessProspectCache.clear();
+    // Limpiar cachés de backup
+    this.backupCache.clear();
+    this.backupOfCache.clear();
     // Limpiar también las promises in-flight
     this.inflightPermissions.clear();
     this.inflightCalidad.clear();
