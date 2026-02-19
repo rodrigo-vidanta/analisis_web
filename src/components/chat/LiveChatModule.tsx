@@ -184,7 +184,8 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       {/* Navigation SLIM - Sin título, solo icono y tabs */}
       <div className="border-b border-neutral-100 dark:border-neutral-700 px-6 py-2.5 bg-white dark:bg-neutral-800 sticky top-0 z-20">
         <div className="flex items-center space-x-4">
-          {/* Icono del módulo WhatsApp con botón de + para nueva conversación */}
+          {/* TEMP_DISABLED: Importación manual deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
+          {false && (
           <motion.button
             onClick={() => setShowQuickImportModal(true)}
             className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200 group relative shadow-lg shadow-emerald-500/30"
@@ -202,7 +203,7 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
             }}
           >
             <MessageSquarePlus className="w-6 h-6 text-white" />
-            
+
             {/* Efecto de onda */}
             <motion.span
               className="absolute inset-0 rounded-xl bg-emerald-400/30"
@@ -217,6 +218,11 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
               }}
             />
           </motion.button>
+          )}
+          {/* Icono estático mientras importación está deshabilitada */}
+          <div className="w-11 h-11 bg-gradient-to-br from-emerald-500 to-green-600 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg shadow-emerald-500/30">
+            <MessageSquarePlus className="w-6 h-6 text-white" />
+          </div>
           
           {/* Tabs homologadas */}
           <Tabs 

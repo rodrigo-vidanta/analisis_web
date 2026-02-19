@@ -197,6 +197,20 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
         throw new Error(errorMessage);
       }
 
+      // Actualizar triggered_by_user en el registro creado por N8N
+      if (user?.id && prospectoId && selectedTemplate) {
+        try {
+          await analysisSupabase
+            .from('whatsapp_template_sends')
+            .update({ triggered_by_user: user.id })
+            .eq('prospecto_id', prospectoId)
+            .eq('template_id', selectedTemplate.id)
+            .is('triggered_by_user', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+        } catch { /* silent */ }
+      }
+
       // Extraer conversacion_id de la respuesta
       const conversacionId = result?.data?.conversacion_id || result?.conversacion_id;
       console.log('✅ [SendTemplate] Conversación ID:', conversacionId);

@@ -81,7 +81,7 @@ import ParaphraseLogService from '../../services/paraphraseLogService';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { useNinjaAwarePermissions } from '../../hooks/useNinjaAwarePermissions';
-import { AlertTriangle, ShieldAlert } from 'lucide-react';
+import { AlertTriangle, ShieldAlert, Info } from 'lucide-react';
 import { useState as useReactState } from 'react';
 import { getDisplayName } from '../../utils/conversationNameHelper';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -194,6 +194,7 @@ interface Message {
   content?: string;
   is_read: boolean;
   created_at: string;
+  status?: 'enviado' | 'bloqueado_whatsapp' | 'bloqueo_meta' | 'bloqueado_guardrail' | 'sin_respuesta';
   // Campos específicos para llamadas
   call_data?: {
     id: string;
@@ -2170,6 +2171,7 @@ const LiveChatCanvas: React.FC = () => {
             is_read: newMessage.leido ?? false,
             created_at: newMessage.fecha_hora,
             adjuntos: newMessage.adjuntos,
+            status: newMessage.status || 'enviado',
           } as any;
 
           // ⚡ Actualizar estado directamente
@@ -2241,6 +2243,35 @@ const LiveChatCanvas: React.FC = () => {
               processMessageData({ payload, targetProspectoId, newMessagePayload: newMessage });
             }, 100);
           }
+    }));
+
+    // ========================================
+    // SUSCRIPCION 1.5: Status de mensajes WhatsApp (UPDATE)
+    // ========================================
+    // Detectar cuando un mensaje cambia a bloqueado_whatsapp/bloqueo_meta/bloqueado_guardrail
+    unsubs.push(realtimeHub.subscribe('mensajes_whatsapp', 'UPDATE', (payload) => {
+      const updated = payload.new as any;
+      const old = payload.old as any;
+
+      // Solo procesar cambios de status relevantes
+      if (!updated?.id || updated.status === old?.status) return;
+      const blockedStatuses = ['bloqueado_whatsapp', 'bloqueo_meta', 'bloqueado_guardrail'];
+      if (!blockedStatuses.includes(updated.status)) return;
+
+      const targetProspectoId = updated.prospecto_id;
+      if (!targetProspectoId) return;
+
+      setMessagesByConversation(prev => {
+        const messages = prev[targetProspectoId];
+        if (!messages) return prev;
+
+        const idx = messages.findIndex(m => m.id === updated.id);
+        if (idx === -1) return prev;
+
+        const updatedMessages = [...messages];
+        updatedMessages[idx] = { ...updatedMessages[idx], status: updated.status };
+        return { ...prev, [targetProspectoId]: updatedMessages };
+      });
     }));
 
     // ========================================
@@ -5140,7 +5171,7 @@ const LiveChatCanvas: React.FC = () => {
         .from('whatsapp_template_sends')
         .select('mensaje_id, triggered_by_user')
         .eq('prospecto_id', prospectoId)
-        .eq('status', 'SENT')
+        .in('status', ['SENT', 'FAILED'])
         : Promise.resolve({ data: null, error: null });
 
       let callsResult: { data: any[] | null; error: any } = { data: null, error: null };
@@ -5247,7 +5278,8 @@ const LiveChatCanvas: React.FC = () => {
             content: msg.mensaje,
             is_read: msg.leido ?? true,
             created_at: msg.fecha_hora,
-            adjuntos: msg.adjuntos, // ✅ Incluir adjuntos multimedia
+            adjuntos: msg.adjuntos,
+            status: msg.status || 'enviado',
           } as any;
         });
       }
@@ -8714,6 +8746,18 @@ const LiveChatCanvas: React.FC = () => {
                                             {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
                                           </span>
                                         )}
+                                        {message.status === 'bloqueado_whatsapp' && (
+                                          <span className="flex items-center gap-1 text-orange-300" title="Mensaje no entregado por WhatsApp">
+                                            <AlertTriangle className="w-3 h-3" />
+                                            <span className="text-[10px]">No entregado</span>
+                                          </span>
+                                        )}
+                                        {message.status === 'bloqueo_meta' && (
+                                          <span className="flex items-center gap-1 text-blue-300" title="Meta limitó este envío para proteger al usuario de exceso de marketing">
+                                            <Info className="w-3 h-3" />
+                                            <span className="text-[10px]">Limitado por Meta</span>
+                                          </span>
+                                        )}
                                         <span>
                                           {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
@@ -8744,16 +8788,24 @@ const LiveChatCanvas: React.FC = () => {
 
                           {/* Avatar - Bot/Agente/Plantilla a la derecha */}
                           {!isCustomer && (
-                            <div 
-                              className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
-                                message.sender_type === 'template'
+                            <div
+                              className={`relative w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                                message.status === 'bloqueado_whatsapp'
+                                  ? 'bg-gradient-to-br from-orange-400 to-orange-600'
+                                  : message.status === 'bloqueo_meta'
+                                  ? 'bg-gradient-to-br from-slate-400 to-blue-500'
+                                  : message.sender_type === 'template'
                                   ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
                                   : isBot
                                   ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
                                   : 'bg-gradient-to-br from-violet-500 to-purple-600'
                               }`}
                               title={(() => {
-                                if (message.sender_type === 'template') {
+                                if (message.status === 'bloqueado_whatsapp') {
+                                  return 'Mensaje no entregado por WhatsApp';
+                                } else if (message.status === 'bloqueo_meta') {
+                                  return 'Meta limitó este envío para proteger al usuario de exceso de marketing';
+                                } else if (message.sender_type === 'template') {
                                   return 'Mensaje de Plantilla';
                                 } else if (isBot) {
                                   return 'Bot Vidanta';
@@ -8762,7 +8814,11 @@ const LiveChatCanvas: React.FC = () => {
                                 }
                               })()}
                             >
-                              {message.sender_type === 'template' ? (
+                              {message.status === 'bloqueado_whatsapp' ? (
+                                <AlertTriangle className="w-4 h-4 text-white" />
+                              ) : message.status === 'bloqueo_meta' ? (
+                                <Info className="w-4 h-4 text-white" />
+                              ) : message.sender_type === 'template' ? (
                                 <FileText className="w-4 h-4 text-white" />
                               ) : isBot ? (
                                 <Bot className="w-4 h-4 text-white" />
@@ -8872,6 +8928,8 @@ const LiveChatCanvas: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por problemas de pago META - eliminar {false &&} para re-habilitar */}
+                {false && (
                 <motion.button
                   whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}
                   whileTap={{ scale: loadingReactivate ? 1 : 0.98 }}
@@ -8887,7 +8945,7 @@ const LiveChatCanvas: React.FC = () => {
                           .select('*')
                           .eq('id', prospectId)
                           .single();
-                        
+
                         if (error) throw error;
                         setProspectoForReactivate(prospectoData);
                         setShowReactivateModal(true);
@@ -8902,7 +8960,7 @@ const LiveChatCanvas: React.FC = () => {
                     }
                   }}
                   className={`px-4 py-2 text-white text-sm font-medium rounded-xl transition-all duration-200 shadow-lg flex items-center space-x-2 ${
-                    loadingReactivate 
+                    loadingReactivate
                       ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 bg-[length:200%_100%] animate-gradient-x cursor-wait'
                       : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-blue-500/25'
                   }`}
@@ -8940,6 +8998,11 @@ const LiveChatCanvas: React.FC = () => {
                     </>
                   )}
                 </motion.button>
+                )}
+                {/* Mensaje temporal mientras plantillas están deshabilitadas */}
+                <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-1">
+                  Envío de plantillas temporalmente suspendido por mantenimiento del proveedor.
+                </p>
               </div>
             ) : isUserBlocked ? (
               // USUARIO BLOQUEADO - Mostrar alerta de moderación

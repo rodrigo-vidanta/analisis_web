@@ -909,6 +909,17 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         
         if (response.ok && result.success !== false) {
           sentCount++;
+          // Actualizar triggered_by_user en el registro creado por N8N
+          try {
+            await analysisSupabase
+              .from('whatsapp_template_sends')
+              .update({ triggered_by_user: user.id })
+              .eq('prospecto_id', prospect.id)
+              .eq('template_id', selectedTemplate.id)
+              .is('triggered_by_user', null)
+              .order('created_at', { ascending: false })
+              .limit(1);
+          } catch { /* silent */ }
         } else {
           errorCount++;
         }

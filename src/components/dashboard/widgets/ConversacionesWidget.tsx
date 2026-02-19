@@ -1759,7 +1759,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
           .from('whatsapp_template_sends')
           .select('mensaje_id, triggered_by_user')
           .eq('prospecto_id', conversation.prospect_id)
-          .eq('status', 'SENT');
+          .in('status', ['SENT', 'FAILED']);
 
         const [messagesResult, templateSendsResult] = await Promise.all([messagesPromise, templateSendsPromise]);
 
