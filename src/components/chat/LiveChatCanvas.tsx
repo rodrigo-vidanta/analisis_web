@@ -1701,19 +1701,22 @@ const LiveChatCanvas: React.FC = () => {
         if (error || !waConv) return;
         
         // Obtener datos adicionales del prospecto desde cache o BD
+        // FIX: Verificar que el cache tenga nombre_completo, no solo que exista.
+        // El handler de prospectos UPDATE puede haber creado una entrada parcial (sin nombre).
         let prospectoData = prospectosDataRef.current.get(targetProspectoId);
-        
-        if (!prospectoData) {
-          // Si no está en cache, cargar desde BD
+
+        if (!prospectoData || !prospectoData.nombre_completo) {
+          // Si no está en cache O tiene datos parciales (sin nombre), cargar desde BD
           const { data: prospecto } = await analysisSupabase
             .from('prospectos')
             .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics')
             .eq('id', targetProspectoId)
             .maybeSingle();
-          
+
           if (prospecto) {
-            prospectoData = prospecto;
-            prospectosDataRef.current.set(targetProspectoId, prospecto);
+            // Fusionar datos del cache existente con los de BD (BD tiene prioridad para nombre)
+            prospectoData = { ...prospectoData, ...prospecto };
+            prospectosDataRef.current.set(targetProspectoId, prospectoData);
           }
         }
         
@@ -2105,7 +2108,8 @@ const LiveChatCanvas: React.FC = () => {
             // Si no tenemos datos del prospecto en cache, significa que es un prospecto
             // que no fue cargado en la lista inicial (no le corresponde ver)
             // EXCEPCIÓN: Si es una conversación que ya está en la lista, permitir
-            const existingConversation = conversations.find(c => 
+            // FIX: Usar conversationsRef.current en vez de `conversations` (stale closure)
+            const existingConversation = conversationsRef.current.find(c =>
               c.id === targetProspectoId || c.prospecto_id === targetProspectoId
             );
             
@@ -2288,15 +2292,26 @@ const LiveChatCanvas: React.FC = () => {
             const prospectoId = updatedProspecto.id;
             
             // ✅ DETECTAR CAMBIOS DE ASIGNACIÓN (ejecutivo_id o coordinacion_id)
-            const ejecutivoChanged = oldProspecto?.ejecutivo_id !== updatedProspecto.ejecutivo_id;
-            const coordinacionChanged = oldProspecto?.coordinacion_id !== updatedProspecto.coordinacion_id;
+            // FIX: Con REPLICA IDENTITY DEFAULT, payload.old solo tiene el PK (id).
+            // Comparar contra el cache local en vez de payload.old para evitar falsos positivos.
+            const cachedProspecto = prospectosDataRef.current.get(prospectoId);
+            const ejecutivoChanged = cachedProspecto
+              ? cachedProspecto.ejecutivo_id !== updatedProspecto.ejecutivo_id
+              : !!updatedProspecto.ejecutivo_id; // Sin cache = tratar como asignación potencial si tiene ejecutivo
+            const coordinacionChanged = cachedProspecto
+              ? cachedProspecto.coordinacion_id !== updatedProspecto.coordinacion_id
+              : !!updatedProspecto.coordinacion_id; // Sin cache = tratar como asignación potencial si tiene coordinación
             
             if (ejecutivoChanged || coordinacionChanged) {
               // El prospecto cambió de asignación - verificar si ahora el usuario tiene acceso
               const wasInCache = prospectosDataRef.current.has(prospectoId);
               
-              // Actualizar el cache con los nuevos datos (incluyendo id_dynamics y etapa para PhoneDisplay)
+              // Actualizar el cache PRESERVANDO campos existentes + agregando nuevos del payload
+              // FIX: Antes solo guardaba campos operacionales, perdiendo nombre_completo/whatsapp
+              // que la carga inicial sí poblaba. Ahora se fusionan datos existentes con nuevos.
+              const existingCacheData = prospectosDataRef.current.get(prospectoId);
               prospectosDataRef.current.set(prospectoId, {
+                ...existingCacheData, // Preservar datos existentes (nombre, whatsapp, email, etc.)
                 id: prospectoId,
                 ejecutivo_id: updatedProspecto.ejecutivo_id,
                 coordinacion_id: updatedProspecto.coordinacion_id,
@@ -2304,7 +2319,11 @@ const LiveChatCanvas: React.FC = () => {
                 motivo_handoff: updatedProspecto.motivo_handoff || null,
                 id_dynamics: updatedProspecto.id_dynamics || null,
                 etapa: updatedProspecto.etapa || null,
-                etapa_id: updatedProspecto.etapa_id || null // ✅ AGREGADO
+                etapa_id: updatedProspecto.etapa_id || null,
+                // Incluir campos de nombre/contacto del payload Realtime (payload.new tiene row completa)
+                nombre_completo: updatedProspecto.nombre_completo || existingCacheData?.nombre_completo || null,
+                nombre_whatsapp: updatedProspecto.nombre_whatsapp || existingCacheData?.nombre_whatsapp || null,
+                whatsapp: updatedProspecto.whatsapp || existingCacheData?.whatsapp || null,
               });
               
               // Verificar permisos del usuario para este prospecto actualizado
@@ -2329,7 +2348,10 @@ const LiveChatCanvas: React.FC = () => {
                 }
               }
               
-              const isInConversationsList = conversations.some(c => 
+              // FIX: Usar conversationsRef.current en vez de `conversations` (stale closure).
+              // `conversations` captura el valor del render donde se creó setupRealtimeSubscription,
+              // que suele ser [] (array vacío). conversationsRef.current siempre tiene el valor actual.
+              const isInConversationsList = conversationsRef.current.some(c =>
                 c.prospecto_id === prospectoId || c.id === prospectoId
               );
               
@@ -2400,10 +2422,20 @@ const LiveChatCanvas: React.FC = () => {
             }
             
             // ✅ ACTUALIZAR: requiere_atencion_humana, motivo_handoff, id_dynamics, etapa en el ref local
-            const requiereAtencionChanged = oldProspecto?.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana;
-            const motivoHandoffChanged = oldProspecto?.motivo_handoff !== updatedProspecto.motivo_handoff;
-            const idDynamicsChanged = oldProspecto?.id_dynamics !== updatedProspecto.id_dynamics;
-            const etapaChanged = oldProspecto?.etapa !== updatedProspecto.etapa;
+            // FIX: Comparar contra cache local (no oldProspecto que solo tiene PK con REPLICA IDENTITY DEFAULT)
+            const currentCached = prospectosDataRef.current.get(prospectoId);
+            const requiereAtencionChanged = currentCached
+              ? currentCached.requiere_atencion_humana !== updatedProspecto.requiere_atencion_humana
+              : true; // Si no hay cache, asumir cambio para inicializar
+            const motivoHandoffChanged = currentCached
+              ? currentCached.motivo_handoff !== updatedProspecto.motivo_handoff
+              : true;
+            const idDynamicsChanged = currentCached
+              ? currentCached.id_dynamics !== updatedProspecto.id_dynamics
+              : true;
+            const etapaChanged = currentCached
+              ? currentCached.etapa !== updatedProspecto.etapa
+              : true;
             
             // ✅ REALTIME id_dynamics y etapa: Actualizar siempre que cambien para PhoneDisplay
             if (idDynamicsChanged || etapaChanged) {
@@ -8929,8 +8961,6 @@ const LiveChatCanvas: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por problemas de pago META - eliminar {false &&} para re-habilitar */}
-                {false && (
                 <motion.button
                   whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}
                   whileTap={{ scale: loadingReactivate ? 1 : 0.98 }}
@@ -8999,11 +9029,6 @@ const LiveChatCanvas: React.FC = () => {
                     </>
                   )}
                 </motion.button>
-                )}
-                {/* Mensaje temporal mientras plantillas están deshabilitadas */}
-                <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-1">
-                  Envío de plantillas temporalmente suspendido por mantenimiento del proveedor.
-                </p>
               </div>
             ) : isUserBlocked ? (
               // USUARIO BLOQUEADO - Mostrar alerta de moderación

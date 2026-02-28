@@ -2329,8 +2329,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 <span>Reasignación Masiva</span>
               </div>
             </button>
-            {/* TEMP_DISABLED: Tab importación deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
-            {false && (
             <button
               onClick={() => setActiveTab('import')}
               className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
@@ -2344,7 +2342,6 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 <span>Importación</span>
               </div>
             </button>
-            )}
           </div>
         </div>
       )}
