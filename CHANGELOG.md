@@ -1,3 +1,12 @@
+## [v2.17.5] - 2026-02-28
+
+**B10.1.44N2.17.5** - 1 fix
+
+### Bug Fixes
+- fix 4 root causes of 'Sin nombre' bug in WhatsApp Realtime handlers (`e197fa9`)
+
+---
+
 ## [v2.17.4] - 2026-02-19
 
 **B10.1.44N2.17.4** - 1 fix

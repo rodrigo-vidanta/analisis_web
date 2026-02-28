@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '2c7c104', date: '2026-02-28', author: 'Team', message: 'v2.17.5: B10.1.44N2.17.5 - 1 fix', isRelease: true },
   { hash: '62e86eb', date: '2026-02-19', author: 'Team', message: 'v2.17.4: B10.1.44N2.17.4 - 1 fix', isRelease: true },
   { hash: '7ed75c4', date: '2026-02-19', author: 'Team', message: 'v2.17.3: B10.1.44N2.17.3 - 2', isRelease: true },
   { hash: '6f46bee', date: '2026-02-19', author: 'Team', message: 'v2.17.2: B10.1.44N2.17.2 - 1 fix + Facturación de enero 2026: **443 + Meta/WhatsApp tiene un sistema de ...', isRelease: true },
@@ -553,6 +554,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-521', date: '28/02/2026, 14:33', version: 'B10.1.44N2.17.5', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-739', date: '19/02/2026, 14:47', version: 'B10.1.44N2.17.4', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-361', date: '19/02/2026, 14:26', version: 'B10.1.44N2.17.3', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-766', date: '19/02/2026, 11:50', version: 'B10.1.44N2.17.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -751,10 +753,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.17.4', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.17.4', highlight: false },
+  { label: 'Version', value: 'v2.17.5', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.17.5', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '19 feb 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '28 feb 2026', highlight: false },
 ];
 
 // ============================================
