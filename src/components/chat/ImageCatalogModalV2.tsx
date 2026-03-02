@@ -42,7 +42,7 @@ interface ImageCatalogModalV2Props {
   onSendImage: (imageData: SendImageData) => void;
   selectedConversation: any;
   onImageSent?: (imageUrl: string, caption: string) => void;
-  onPauseBot?: (uchatId: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>;
+  onPauseBot?: (id: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>;
 }
 
 interface SendImageData {
@@ -224,7 +224,8 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   // Datos del prospecto
   const [prospectoData, setProspectoData] = useState<{
     whatsapp: string;
-    id_uchat: string;
+    id_uchat?: string;
+    whatsapp_provider: string;
   } | null>(null);
 
   // Refs para evitar loops
@@ -316,12 +317,16 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('whatsapp, id_uchat')
+        .select('whatsapp, id_uchat, whatsapp_provider')
         .eq('id', selectedConversation.prospecto_id)
         .single();
 
       if (!error && data) {
-        setProspectoData({ whatsapp: data.whatsapp, id_uchat: data.id_uchat });
+        setProspectoData({
+          whatsapp: data.whatsapp,
+          id_uchat: data.id_uchat || undefined,
+          whatsapp_provider: data.whatsapp_provider || 'uchat'
+        });
       }
     } catch (error) {
       console.error('Error loading prospecto data:', error);
@@ -454,8 +459,13 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   const handleSendImages = useCallback(async () => {
     if (selectedImages.length === 0) return;
 
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      toast.error('Faltan datos del prospecto');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+    if (!prospectoData?.whatsapp) {
+      toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+      return;
+    }
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -484,8 +494,13 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
       return;
     }
 
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      toast.error('Faltan datos del prospecto');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+    if (!prospectoData?.whatsapp) {
+      toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+      return;
+    }
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -534,10 +549,10 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
         }
 
         // Construir payload con ID único
-        const payloadItem: Record<string, any> = {
-          request_id: imageRequestId, // ID único para tracking
+        const payloadItem: Record<string, string | { archivo: string; destino: string; resort: string }[]> = {
+          request_id: imageRequestId,
           whatsapp: prospectoData.whatsapp,
-          uchat_id: prospectoData.id_uchat,
+          provider: prospectoData.whatsapp_provider,
           id_sender: loggedUserId,
           imagenes: [{
             archivo: currentItem.nombre_archivo,
@@ -545,6 +560,11 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
             resort: currentItem.resorts?.[0] || ''
           }]
         };
+
+        // Solo agregar uchat_id para proveedor uChat
+        if (!isTwilio && prospectoData.id_uchat) {
+          payloadItem.uchat_id = prospectoData.id_uchat;
+        }
 
         // Solo agregar caption si corresponde
         if (captionForThisImage) {
@@ -577,10 +597,15 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
         }
       }
 
-      // Pausar bot
-      if (onPauseBot && prospectoData.id_uchat) {
+      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      if (onPauseBot) {
         try {
-          await onPauseBot(prospectoData.id_uchat, 1, false);
+          const pauseId = isTwilio
+            ? selectedConversation?.prospecto_id
+            : prospectoData.id_uchat;
+          if (pauseId) {
+            await onPauseBot(pauseId, 1, false);
+          }
         } catch (error) {
           console.error('Error pausando bot:', error);
         }

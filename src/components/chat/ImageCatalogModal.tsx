@@ -30,7 +30,7 @@ interface ImageCatalogModalProps {
   onSendImage: (imageData: SendImageData) => void;
   selectedConversation: any; // La conversación completa con prospecto_id
   onImageSent?: (imageUrl: string, caption: string) => void; // Callback para UI optimista
-  onPauseBot?: (uchatId: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>; // Función para pausar el bot (null = indefinido, force = false para respetar pausas activas)
+  onPauseBot?: (id: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>; // Función para pausar el bot (null = indefinido, force = false para respetar pausas activas)
 }
 
 interface SendImageData {
@@ -77,7 +77,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
   // Datos del prospecto (obtenidos de la BD)
   const [prospectoData, setProspectoData] = useState<{
     whatsapp: string;
-    id_uchat: string;
+    id_uchat?: string;
+    whatsapp_provider: string;
   } | null>(null);
 
   // Cargar cache local y datos del prospecto
@@ -106,23 +107,24 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('whatsapp, id_uchat')
+        .select('whatsapp, id_uchat, whatsapp_provider')
         .eq('id', selectedConversation.prospecto_id)
         .single();
 
       if (error) {
-        console.error('❌ Error al obtener datos del prospecto:', error);
+        console.error('Error al obtener datos del prospecto:', error);
         return;
       }
 
       if (!data) {
-        console.error('❌ No se encontró el prospecto');
+        console.error('No se encontró el prospecto');
         return;
       }
 
       setProspectoData({
         whatsapp: data.whatsapp,
-        id_uchat: data.id_uchat
+        id_uchat: data.id_uchat || undefined,
+        whatsapp_provider: data.whatsapp_provider || 'uchat'
       });
     } catch (error) {
       console.error('❌ Error loading prospecto data:', error);
@@ -342,13 +344,13 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
       return;
     }
 
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      console.error('❌ Faltan datos para enviar:', {
-        sendModalImage: !!sendModalImage,
-        prospectoData,
-        selectedConversation
-      });
-      alert('Error: No se puede enviar la imagen. Falta información del prospecto (whatsapp o id_uchat).');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+    if (!prospectoData?.whatsapp) {
+      alert('Error: No se puede enviar la imagen. Falta número WhatsApp del prospecto.');
+      return;
+    }
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      alert('Error: No se puede enviar la imagen. Falta ID de UChat del prospecto.');
       return;
     }
 
@@ -366,60 +368,72 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
   // Función real para enviar la imagen (después del parafraseo)
   const sendImageWithCaption = async (imageItem: ContentItem, finalCaption: string) => {
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      console.error('❌ Faltan datos para enviar');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+    if (!prospectoData?.whatsapp) {
+      console.error('Faltan datos para enviar');
+      return;
+    }
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      console.error('Faltan datos para enviar (uChat)');
       return;
     }
 
-    // ⚠️ PROTECCIÓN CONTRA DUPLICADOS: Verificar si ya se está enviando
     if (isSendingRef.current || sending) {
-      console.warn('⚠️ Imagen bloqueada: ya hay un envío en proceso');
+      console.warn('Imagen bloqueada: ya hay un envío en proceso');
       return;
     }
 
     isSendingRef.current = true;
     setSending(true);
     try {
-      // Generar URL de la imagen para preview optimista
       const imageUrl = await getImageUrl(imageItem);
-      
-      // Notificar al padre para UI optimista
+
       if (onImageSent) {
         onImageSent(imageUrl, finalCaption);
       }
 
-      const payload = [{
+      const payloadItem: Record<string, unknown> = {
         whatsapp: prospectoData.whatsapp,
-        uchat_id: prospectoData.id_uchat,
-        caption: finalCaption || undefined, // Agregar caption si existe
-        id_sender: user?.id || undefined, // Agregar id_sender del usuario que envía
+        provider: prospectoData.whatsapp_provider,
+        caption: finalCaption || undefined,
+        id_sender: user?.id || undefined,
         imagenes: [{
           archivo: imageItem.nombre_archivo,
           destino: imageItem.destinos?.[0] || '',
           resort: imageItem.resorts?.[0] || ''
         }]
-      }];
+      };
 
-      // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+      // Solo agregar uchat_id para proveedor uChat
+      if (!isTwilio && prospectoData.id_uchat) {
+        payloadItem.uchat_id = prospectoData.id_uchat;
+      }
+
+      const payload = [payloadItem];
+
       const response = await authenticatedEdgeFetch('send-img-proxy', {
         body: payload
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error del servidor:', errorText);
-        throw new Error(`Error ${response.status}: ${errorText}`);
+        const errorData = await response.json().catch(() => null);
+        const errorMsg = errorData?.error || `Error ${response.status}`;
+        throw new Error(errorMsg);
       }
 
-      const result = await response.json();
+      await response.json();
 
-      // PAUSAR EL BOT POR 1 MINUTO después de enviar adjunto exitosamente
-      // force = false para respetar pausas existentes (indefinidas, etc.)
-      if (onPauseBot && prospectoData.id_uchat) {
+      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      if (onPauseBot) {
         try {
-          await onPauseBot(prospectoData.id_uchat, 1, false);
+          const pauseId = isTwilio
+            ? selectedConversation?.prospecto_id
+            : prospectoData.id_uchat;
+          if (pauseId) {
+            await onPauseBot(pauseId, 1, false);
+          }
         } catch (error) {
-          console.error('❌ Error pausando bot después de enviar adjunto:', error);
+          console.error('Error pausando bot después de enviar adjunto:', error);
         }
       }
 

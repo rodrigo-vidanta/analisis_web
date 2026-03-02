@@ -45,6 +45,7 @@ import {
   Trash2,
   Filter,
   Check,
+  CheckCheck,
   Bot,
   FileText,
   Sparkles,
@@ -162,12 +163,14 @@ const debounce = <T extends (...args: any[]) => any>(
 interface Conversation {
   id: string;
   prospecto_id: string;
-  conversation_id?: string; // ✅ ID real de UChat (ej: f190385u343660219) - viene de uchat_conversations
+  conversation_id?: string; // ID real de UChat (ej: f190385u343660219) - null para Twilio
   numero_telefono?: string;
   nombre_contacto?: string;
   customer_name?: string;
   customer_phone?: string;
-  id_uchat?: string; // ✅ ID de UChat para enviar imágenes (alternativo, viene de prospectos)
+  id_uchat?: string; // ID de UChat (alternativo, viene de prospectos) - null para Twilio
+  whatsapp_provider?: string; // 'uchat' | 'twilio'
+  whatsapp?: string; // Número WhatsApp del prospecto
   status?: string;
   estado?: string;
   mensajes_no_leidos?: number;
@@ -181,7 +184,7 @@ interface Conversation {
   summary?: string;
   resultado?: string;
   tipo: string;
-  metadata?: any;
+  metadata?: Record<string, unknown>;
 }
 
 interface Message {
@@ -196,6 +199,7 @@ interface Message {
   is_read: boolean;
   created_at: string;
   status?: 'enviado' | 'bloqueado_whatsapp' | 'bloqueo_meta' | 'bloqueado_guardrail' | 'sin_respuesta';
+  status_delivery?: 'queued' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed' | null;
   // Campos específicos para llamadas
   call_data?: {
     id: string;
@@ -2177,6 +2181,7 @@ const LiveChatCanvas: React.FC = () => {
             created_at: newMessage.fecha_hora,
             adjuntos: newMessage.adjuntos,
             status: newMessage.status || 'enviado',
+            status_delivery: newMessage.status_delivery || null,
           } as any;
 
           // ⚡ Actualizar estado directamente
@@ -2251,17 +2256,20 @@ const LiveChatCanvas: React.FC = () => {
     }));
 
     // ========================================
-    // SUSCRIPCION 1.5: Status de mensajes WhatsApp (UPDATE)
+    // SUSCRIPCION 1.5: Status + Delivery Status de mensajes WhatsApp (UPDATE)
     // ========================================
-    // Detectar cuando un mensaje cambia a bloqueado_whatsapp/bloqueo_meta/bloqueado_guardrail
+    // Detectar: 1) cambios a bloqueado_whatsapp/bloqueo_meta/bloqueado_guardrail
+    //           2) progresión de status_delivery (queued→sent→delivered→read)
     unsubs.push(realtimeHub.subscribe('mensajes_whatsapp', 'UPDATE', (payload) => {
       const updated = payload.new as any;
-      const old = payload.old as any;
+      if (!updated?.id) return;
 
-      // Solo procesar cambios de status relevantes
-      if (!updated?.id || updated.status === old?.status) return;
       const blockedStatuses = ['bloqueado_whatsapp', 'bloqueo_meta', 'bloqueado_guardrail'];
-      if (!blockedStatuses.includes(updated.status)) return;
+      const hasBlockedStatus = blockedStatuses.includes(updated.status);
+      const hasDeliveryStatus = !!updated.status_delivery;
+
+      // Ignorar updates que no afectan status ni delivery
+      if (!hasBlockedStatus && !hasDeliveryStatus) return;
 
       const targetProspectoId = updated.prospecto_id;
       if (!targetProspectoId) return;
@@ -2273,8 +2281,27 @@ const LiveChatCanvas: React.FC = () => {
         const idx = messages.findIndex(m => m.id === updated.id);
         if (idx === -1) return prev;
 
+        const existing = messages[idx];
+
+        // Rank-based guard: evitar downgrades (REPLICA IDENTITY DEFAULT = old solo tiene PK)
+        const deliveryRank: Record<string, number> = {
+          'queued': 1, 'sent': 2, 'delivered': 3, 'read': 4,
+          'failed': 99, 'undelivered': 99
+        };
+        const currentRank = existing.status_delivery ? (deliveryRank[existing.status_delivery] ?? 0) : 0;
+        const newRank = updated.status_delivery ? (deliveryRank[updated.status_delivery] ?? 0) : 0;
+
+        const statusChanged = hasBlockedStatus && existing.status !== updated.status;
+        const deliveryProgressed = newRank > currentRank;
+
+        if (!statusChanged && !deliveryProgressed) return prev;
+
         const updatedMessages = [...messages];
-        updatedMessages[idx] = { ...updatedMessages[idx], status: updated.status };
+        updatedMessages[idx] = {
+          ...existing,
+          ...(statusChanged ? { status: updated.status } : {}),
+          ...(deliveryProgressed ? { status_delivery: updated.status_delivery } : {}),
+        };
         return { ...prev, [targetProspectoId]: updatedMessages };
       });
     }));
@@ -3643,12 +3670,19 @@ const LiveChatCanvas: React.FC = () => {
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
 
         activePausesFromDB.forEach(pause => {
-          dbPauses[pause.uchat_id] = {
+          const pauseData = {
             isPaused: pause.is_paused,
             pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
             pausedBy: pause.paused_by,
             duration: pause.duration_minutes
           };
+          // Indexación dual: por uchat_id y por prospecto_id
+          if (pause.uchat_id) {
+            dbPauses[pause.uchat_id] = pauseData;
+          }
+          if (pause.prospecto_id) {
+            dbPauses[pause.prospecto_id] = pauseData;
+          }
         });
 
         setBotPauseStatus(dbPauses);
@@ -3665,12 +3699,18 @@ const LiveChatCanvas: React.FC = () => {
         const newPauses = await botPauseService.getAllActivePauses();
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         newPauses.forEach(pause => {
-          dbPauses[pause.uchat_id] = {
+          const pauseData = {
             isPaused: pause.is_paused,
             pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
             pausedBy: pause.paused_by,
             duration: pause.duration_minutes
           };
+          if (pause.uchat_id) {
+            dbPauses[pause.uchat_id] = pauseData;
+          }
+          if (pause.prospecto_id) {
+            dbPauses[pause.prospecto_id] = pauseData;
+          }
         });
         setBotPauseStatus(dbPauses);
       } catch (error) {
@@ -5313,6 +5353,7 @@ const LiveChatCanvas: React.FC = () => {
             created_at: msg.fecha_hora,
             adjuntos: msg.adjuntos,
             status: msg.status || 'enviado',
+            status_delivery: msg.status_delivery || null,
           } as any;
         });
       }
@@ -5917,16 +5958,22 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE CONTROL DEL BOT
   // ============================================
 
-  const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
-    if (!botPauseService.isValidUchatId(uchatId)) {
-      console.error('❌ No se puede pausar bot: uchat_id no válido', { uchatId });
+  const pauseBot = async (id: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
+    // Detectar tipo de ID: UUID (prospecto_id para Twilio) o uchat format (f{d}u{d})
+    const isProspectoId = botPauseService.isValidProspectoId(id);
+    const isUchatId = botPauseService.isValidUchatId(id);
+
+    if (!isProspectoId && !isUchatId) {
+      console.error('❌ No se puede pausar bot: ID no válido', { id });
       return false;
     }
 
     try {
       // Si force = false, respetar pausas activas existentes
       if (!force) {
-        const existingPause = await botPauseService.getPauseStatus(uchatId);
+        const existingPause = isProspectoId
+          ? await botPauseService.getPauseByProspectoId(id)
+          : await botPauseService.getPauseStatus(id);
         if (existingPause && existingPause.is_paused && existingPause.paused_until) {
           const pausedUntil = new Date(existingPause.paused_until);
           if (pausedUntil > new Date()) {
@@ -5936,7 +5983,9 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       // Escribir directamente en BD (fuente única de verdad)
-      const result = await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
+      const result = isProspectoId
+        ? await botPauseService.savePauseByProspectoId(id, durationMinutes, 'agent')
+        : await botPauseService.savePauseStatus(id, durationMinutes, 'agent');
       if (!result) {
         toast.error('No se pudo pausar el bot.', { duration: 4000 });
         return false;
@@ -5949,7 +5998,7 @@ const LiveChatCanvas: React.FC = () => {
 
       setBotPauseStatus(prev => ({
         ...prev,
-        [uchatId]: {
+        [id]: {
           isPaused: true,
           pausedUntil,
           pausedBy: 'agent',
@@ -5965,15 +6014,20 @@ const LiveChatCanvas: React.FC = () => {
   };
 
 
-  const resumeBot = async (uchatId: string): Promise<boolean> => {
-    if (!botPauseService.isValidUchatId(uchatId)) {
-      console.error('❌ No se puede reactivar bot: uchat_id no válido', { uchatId });
+  const resumeBot = async (id: string): Promise<boolean> => {
+    const isProspectoId = botPauseService.isValidProspectoId(id);
+    const isUchatId = botPauseService.isValidUchatId(id);
+
+    if (!isProspectoId && !isUchatId) {
+      console.error('❌ No se puede reactivar bot: ID no válido', { id });
       return false;
     }
 
     try {
       // Eliminar de BD (fuente única de verdad)
-      const success = await botPauseService.resumeBot(uchatId);
+      const success = isProspectoId
+        ? await botPauseService.resumeBotByProspectoId(id)
+        : await botPauseService.resumeBot(id);
       if (!success) {
         toast.error('No se pudo reactivar el bot.', { duration: 4000 });
         return false;
@@ -5982,7 +6036,7 @@ const LiveChatCanvas: React.FC = () => {
       // Actualizar estado local para UI inmediata
       setBotPauseStatus(prev => {
         const updated = { ...prev };
-        delete updated[uchatId];
+        delete updated[id];
         return updated;
       });
 
@@ -6152,19 +6206,18 @@ const LiveChatCanvas: React.FC = () => {
 
   const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
     try {
-      const payload: any = {
+      const payload: Record<string, unknown> = {
         message: message,
         uchat_id: uchatId,
         type: 'text',
-        ttl: 180
+        ttl: 180,
+        provider: 'uchat'
       };
-      
-      // Agregar id_sender si está disponible
+
       if (idSender) {
         payload.id_sender = idSender;
       }
-      
-      // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
+
       const response = await authenticatedEdgeFetch('send-message-proxy', {
         body: payload
       });
@@ -6174,11 +6227,48 @@ const LiveChatCanvas: React.FC = () => {
         return true;
       } else {
         const errorText = await response.text();
-        console.error('❌ Error del webhook:', errorText);
+        console.error('Error del webhook uChat:', errorText);
         return false;
       }
     } catch (error) {
-      console.error('❌ Error enviando a UChat webhook:', error);
+      console.error('Error enviando a UChat webhook:', error);
+      return false;
+    }
+  };
+
+  const sendMessageToTwilio = async (message: string, whatsapp: string, idSender?: string): Promise<boolean> => {
+    try {
+      const payload: Record<string, unknown> = {
+        mensaje: message,
+        whatsapp: whatsapp,
+        provider: 'twilio'
+      };
+
+      if (idSender) {
+        payload.id_sender = idSender;
+      }
+
+      const response = await authenticatedEdgeFetch('send-message-proxy', {
+        body: payload
+      });
+
+      if (response.status === 200 || response.status === 201) {
+        const result = await response.json();
+        if (result.success === false) {
+          console.error('Error Twilio:', result.error, result.error_code);
+          toast.error(`Error al enviar: ${result.error || 'Error desconocido'}`);
+          return false;
+        }
+        return true;
+      } else {
+        const errorData = await response.json().catch(() => null);
+        const errorMsg = errorData?.error || `Error ${response.status}`;
+        console.error('Error del webhook Twilio:', errorMsg);
+        toast.error(`Error al enviar: ${errorMsg}`);
+        return false;
+      }
+    } catch (error) {
+      console.error('Error enviando a Twilio webhook:', error);
       return false;
     }
   };
@@ -6415,28 +6505,52 @@ const LiveChatCanvas: React.FC = () => {
         const audioBase64 = await base64Promise;
         toast.dismiss(conversionToast);
         
-        // Obtener uchatId de múltiples fuentes posibles
-        const uchatId = selectedConversation.conversation_id || 
-                       selectedConversation.metadata?.id_uchat || 
+        // Determinar proveedor y obtener IDs relevantes
+        const audioProvider = selectedConversation.whatsapp_provider
+          || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string
+          || 'uchat';
+        const isTwilioAudio = audioProvider === 'twilio';
+        const uchatId = selectedConversation.conversation_id ||
+                       selectedConversation.metadata?.id_uchat ||
                        selectedConversation.id_uchat;
-        
-        if (!uchatId) {
-          console.error('❌ No se encontró id_uchat para esta conversación');
-          toast.error('Error: No se pudo identificar el chat');
-          setSendingAudio(false);
-          return;
+        const audioWhatsapp = selectedConversation.whatsapp
+          || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp as string;
+
+        if (isTwilioAudio) {
+          if (!audioWhatsapp) {
+            toast.error('No se puede enviar audio: falta número WhatsApp del prospecto');
+            setSendingAudio(false);
+            return;
+          }
+        } else {
+          if (!uchatId) {
+            toast.error('No se puede enviar audio: falta ID de UChat del prospecto');
+            setSendingAudio(false);
+            return;
+          }
         }
-        
-        // Pausar el bot antes de enviar
-        await pauseBot(uchatId, 1, false);
-        
+
+        // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+        const audioPauseId = isTwilioAudio
+          ? selectedConversation.prospecto_id
+          : uchatId;
+        if (audioPauseId) {
+          await pauseBot(audioPauseId, 1, false);
+        }
+
         // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
-        const payload = {
+        const payload: Record<string, unknown> = {
           audio_base64: audioBase64,
-          uchat_id: uchatId,
           filename: `audio_${Date.now()}.ogg`,
           id_sender: user?.id
         };
+        // Agregar campos según proveedor
+        if (isTwilioAudio) {
+          payload.whatsapp = audioWhatsapp;
+          payload.provider = 'twilio';
+        } else {
+          payload.uchat_id = uchatId;
+        }
 
         const response = await authenticatedEdgeFetch('send-audio-proxy', {
           body: payload
@@ -6567,17 +6681,37 @@ const LiveChatCanvas: React.FC = () => {
     const tempId = `temp_${Date.now()}`;
     const conversationId = selectedConversation.id;
     const messageContent = messageText;
-    // Obtener uchatId de múltiples fuentes posibles
-    // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
-    // El fallback a selectedConversation.id enviaba UUIDs incorrectos al webhook
-    const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
+    const prospectoId = selectedConversation.prospecto_id || selectedConversation.id;
 
-    // Validar que tenemos el uchat_id necesario
-    if (!uchatId) {
-      console.error('❌ No se encontró id_uchat para esta conversación');
-      isSendingRef.current = false;
-      setSending(false);
-      return;
+    // Determinar proveedor
+    const provider = (selectedConversation.whatsapp_provider as string)
+      || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string
+      || 'uchat';
+    const isTwilio = provider === 'twilio';
+
+    // Obtener identificadores según proveedor
+    const uchatId = selectedConversation.conversation_id
+      || (selectedConversation.metadata as Record<string, unknown>)?.id_uchat as string
+      || selectedConversation.id_uchat;
+    const whatsapp = (selectedConversation.metadata as Record<string, unknown>)?.whatsapp as string
+      || selectedConversation.whatsapp
+      || (selectedConversation as Record<string, unknown>).whatsapp_raw as string;
+
+    // Validar según proveedor
+    if (isTwilio) {
+      if (!whatsapp) {
+        toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+        isSendingRef.current = false;
+        setSending(false);
+        return;
+      }
+    } else {
+      if (!uchatId) {
+        toast.error('No se puede enviar: falta ID de UChat del prospecto');
+        isSendingRef.current = false;
+        setSending(false);
+        return;
+      }
     }
 
     const optimisticMessage: Message = {
@@ -6593,14 +6727,13 @@ const LiveChatCanvas: React.FC = () => {
       created_at: new Date().toISOString(),
     };
 
-    // 1. Añadir mensaje optimista a la UI (cache temporal)
+    // 1. Añadir mensaje optimista a la UI
     setMessagesByConversation(prev => ({
       ...prev,
       [conversationId]: [...(prev[conversationId] || []), optimisticMessage],
     }));
 
     setNewMessage('');
-    // Resetear altura del textarea después de enviar
     setTimeout(() => {
       if (textareaRef.current) {
         textareaRef.current.style.height = '44px';
@@ -6609,31 +6742,34 @@ const LiveChatCanvas: React.FC = () => {
     scrollToBottom('smooth');
 
     try {
-      // 2. PRIMERO: Pausar el bot por 1 minuto (solo si no hay pausa activa)
-      // force = false para respetar pausas existentes (indefinidas, etc.)
-      await pauseBot(uchatId, 1, false);
-      
-      // 3. SEGUNDO: Enviar mensaje al webhook de UChat
-      // n8n lo procesará y lo guardará en la base de datos
-      const success = await sendMessageToUChat(messageContent, uchatId, user?.id);
-      
-      if (!success) {
-        throw new Error('El webhook de UChat no respondió correctamente');
+      // 2. Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      if (isTwilio) {
+        await pauseBot(prospectoId, 1, false);
+      } else {
+        await pauseBot(uchatId!, 1, false);
       }
-      
+
+      // 3. Enviar mensaje según proveedor
+      const success = isTwilio
+        ? await sendMessageToTwilio(messageContent, whatsapp!, user?.id)
+        : await sendMessageToUChat(messageContent, uchatId!, user?.id);
+
+      if (!success) {
+        throw new Error(isTwilio
+          ? 'Error al enviar mensaje via Twilio'
+          : 'El webhook de UChat no respondió correctamente');
+      }
 
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error);
-      
-      // Si falla, marcar el mensaje optimista como fallido en la UI
+      console.error('Error enviando mensaje:', error);
+
       setMessagesByConversation(prev => {
         const updatedMessages = (prev[conversationId] || []).map(msg =>
           msg.id === tempId ? { ...msg, sender_name: '❌ Error al enviar' } : msg
         );
         return { ...prev, [conversationId]: updatedMessages };
       });
-      
-      // Si falló, eliminar del registro de mensajes enviados para permitir reintento
+
       lastSentMessagesRef.current.delete(messageKey);
     } finally {
       isSendingRef.current = false;
@@ -6801,6 +6937,37 @@ const LiveChatCanvas: React.FC = () => {
         month: 'short',
         timeZone: 'America/Mexico_City'
       });
+    }
+  };
+
+  // Helper: Checks de delivery estilo WhatsApp (✓ ✓✓ 🔵✓✓)
+  const renderDeliveryChecks = (message: Message, variant: 'bubble' | 'plain' = 'bubble'): React.ReactNode => {
+    if (message.sender_type === 'customer' || message.sender_type === 'call') return null;
+    if (message.status === 'bloqueado_whatsapp' || message.status === 'bloqueo_meta') return null;
+    if (!message.status_delivery) return null;
+
+    const grey = variant === 'bubble' ? 'text-white/60' : 'text-gray-400 dark:text-gray-500';
+    const blue = variant === 'bubble' ? 'text-blue-300' : 'text-blue-500 dark:text-blue-400';
+
+    switch (message.status_delivery) {
+      case 'queued':
+        return <Clock className={`w-3.5 h-3.5 ml-1 ${grey}`} />;
+      case 'sent':
+        return <Check className={`w-3.5 h-3.5 ml-1 ${grey}`} />;
+      case 'delivered':
+        return <CheckCheck className={`w-4 h-4 ml-1 ${grey}`} />;
+      case 'read':
+        return <CheckCheck className={`w-4 h-4 ml-1 ${blue}`} />;
+      case 'failed':
+      case 'undelivered':
+        return (
+          <span className="flex items-center gap-1 ml-1 text-orange-300">
+            <AlertTriangle className="w-3.5 h-3.5" />
+            <span className="text-[10px]">No entregado</span>
+          </span>
+        );
+      default:
+        return null;
     }
   };
 
@@ -7702,7 +7869,9 @@ const LiveChatCanvas: React.FC = () => {
             const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
             // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
             const uchatId = conversation.conversation_id || conversation.metadata?.id_uchat || conversation.id_uchat;
-            const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+            // Buscar pausa por uchat_id o prospecto_id (indexación dual)
+            const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
+              || (conversation.prospecto_id ? botPauseStatus[conversation.prospecto_id] : null);
             
             return (
               <ConversationItem
@@ -8109,29 +8278,35 @@ const LiveChatCanvas: React.FC = () => {
                   })()}
                   
                   {(() => {
-                    // Obtener uchatId de manera consistente
-                    // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
+                    // Determinar el ID correcto según proveedor
+                    const whatsappProvider = selectedConversation.whatsapp_provider
+                      || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider
+                      || 'uchat';
+                    const isTwilioConv = whatsappProvider === 'twilio';
+
+                    // Para Twilio: usar prospecto_id, para uChat: usar uchat_id
                     const uchatId = selectedConversation.conversation_id || selectedConversation.metadata?.id_uchat || selectedConversation.id_uchat;
-                    
-                    // ⚠️ PROTECCIÓN: Solo mostrar botón si existe uchatId
-                    if (!uchatId) {
-                      console.warn('⚠️ No se puede pausar bot: uchat_id no disponible para prospecto', selectedConversation.id);
+                    const prospectoId = selectedConversation.prospecto_id;
+                    const pauseId = isTwilioConv ? prospectoId : uchatId;
+
+                    // ⚠️ PROTECCIÓN: Solo mostrar botón si existe un ID válido
+                    if (!pauseId) {
                       return null;
                     }
-                    
+
                     // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
                     const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
                     const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
                     const canPause = canPauseBot(prospectoData?.etapa_id, prospectoData?.etapa, user?.role_name);
                     if (!canPause) return null;
-                    
-                    const status = botPauseStatus[uchatId];
-                    const timeRemaining = getBotPauseTimeRemaining(uchatId);
+
+                    const status = botPauseStatus[pauseId];
+                    const timeRemaining = getBotPauseTimeRemaining(pauseId);
                     const isPaused = status?.isPaused && (timeRemaining === null || timeRemaining > 0);
-                    
+
                     return (
                       <BotPauseButton
-                        uchatId={uchatId}
+                        pauseId={pauseId}
                         isPaused={isPaused}
                         timeRemaining={timeRemaining}
                         onPause={pauseBot}
@@ -8658,12 +8833,13 @@ const LiveChatCanvas: React.FC = () => {
                                         </div>
                                         
                                         {/* Timestamp */}
-                                        <div className="text-[10px] mt-2 text-white/70 text-right">
-                                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        <div className="text-[10px] mt-2 text-white/70 text-right flex items-center justify-end gap-0.5">
+                                          <span>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                          {renderDeliveryChecks(message)}
                                         </div>
                                       </div>
                                     </div>
-                                    
+
                                     {/* Texto en globo separado (si existe) */}
                                     {hasContent && message.content && (
                                       <div className="relative">
@@ -8680,8 +8856,9 @@ const LiveChatCanvas: React.FC = () => {
                                           </div>
 
                                           {/* Timestamp */}
-                                          <div className="text-[10px] mt-1 text-white/70 text-right">
-                                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                          <div className="text-[10px] mt-1 text-white/70 text-right flex items-center justify-end gap-0.5">
+                                            <span>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            {renderDeliveryChecks(message)}
                                           </div>
                                         </div>
                                       </div>
@@ -8794,6 +8971,7 @@ const LiveChatCanvas: React.FC = () => {
                                         <span>
                                           {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
+                                        {!message.id.startsWith('temp_') && renderDeliveryChecks(message)}
                                       </div>
                                     </div>
                                   </div>
@@ -8810,8 +8988,9 @@ const LiveChatCanvas: React.FC = () => {
                                       />
                                     )}
                                     {/* Timestamp pequeño debajo */}
-                                    <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 ${isCustomer ? 'text-left' : 'text-right'}`}>
-                                      {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center ${isCustomer ? 'justify-start' : 'justify-end'} gap-0.5`}>
+                                      <span>{new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                      {!isCustomer && renderDeliveryChecks(message, 'plain')}
                                     </div>
                                   </div>
                                 );
@@ -8913,13 +9092,16 @@ const LiveChatCanvas: React.FC = () => {
                           // ⚠️ PROTECCIÓN: Verificar sending antes de ejecutar
                           if (sending) return;
                           
-                          // Enviar directamente sin pasar por el filtro del LLM
-                          // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
-                          const uchatId = selectedConversation?.conversation_id || selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat;
-                          if (uchatId) {
-                            // Pausar el bot por 1 minuto antes de enviar quick reply (solo si no hay pausa activa)
-                            // force = false para respetar pausas existentes (indefinidas, etc.)
-                            await pauseBot(uchatId, 1, false);
+                          // Pausar bot antes de enviar quick reply
+                          const qrProvider = selectedConversation?.whatsapp_provider
+                            || (selectedConversation?.metadata as Record<string, unknown>)?.whatsapp_provider
+                            || 'uchat';
+                          const qrUchatId = selectedConversation?.conversation_id || selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat;
+                          const qrPauseId = qrProvider === 'twilio'
+                            ? selectedConversation?.prospecto_id
+                            : qrUchatId;
+                          if (qrPauseId) {
+                            await pauseBot(qrPauseId, 1, false);
                           }
                           await sendMessageWithText(reply.text);
                         }}
@@ -8961,6 +9143,8 @@ const LiveChatCanvas: React.FC = () => {
                     </p>
                   </div>
                 </div>
+                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por problemas de pago META - eliminar {false &&} para re-habilitar */}
+                {false && (
                 <motion.button
                   whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}
                   whileTap={{ scale: loadingReactivate ? 1 : 0.98 }}
@@ -9029,6 +9213,11 @@ const LiveChatCanvas: React.FC = () => {
                     </>
                   )}
                 </motion.button>
+                )}
+                {/* Mensaje temporal mientras plantillas están deshabilitadas */}
+                <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-1">
+                  Envío de plantillas temporalmente suspendido por mantenimiento del proveedor.
+                </p>
               </div>
             ) : isUserBlocked ? (
               // USUARIO BLOQUEADO - Mostrar alerta de moderación

@@ -33,6 +33,7 @@ export interface DashboardConversation {
   motivo_handoff: string | null;
   id_dynamics: string | null;
   id_uchat: string | null;
+  whatsapp_provider: string;
   fecha_creacion: string;
   email: string | null;
   titulo: string | null;
@@ -126,12 +127,19 @@ class OptimizedConversationsService {
     }>();
 
     activePauses.forEach((pause) => {
-      botPauseMap.set(pause.uchat_id, {
+      const pauseData = {
         isPaused: pause.is_paused,
         pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
         pausedBy: pause.paused_by,
         duration: pause.duration_minutes,
-      });
+      };
+      // Indexar por uchat_id (uChat) y por prospecto_id (Twilio) para lookup dual
+      if (pause.uchat_id) {
+        botPauseMap.set(pause.uchat_id, pauseData);
+      }
+      if (pause.prospecto_id) {
+        botPauseMap.set(pause.prospecto_id, pauseData);
+      }
     });
 
     return {
@@ -191,7 +199,8 @@ class OptimizedConversationsService {
     return {
       id: conv.prospecto_id,
       prospecto_id: conv.prospecto_id,
-      conversation_id: conv.id_uchat, // ID de UChat para API
+      conversation_id: conv.id_uchat, // ID de UChat para API (null para Twilio)
+      whatsapp_provider: conv.whatsapp_provider || 'uchat',
       customer_name: conv.nombre_contacto || conv.nombre_whatsapp || conv.numero_telefono || 'Sin nombre',
       customer_phone: conv.numero_telefono,
       numero_telefono: conv.numero_telefono,
@@ -205,6 +214,8 @@ class OptimizedConversationsService {
       metadata: {
         prospect_id: conv.prospecto_id,
         id_uchat: conv.id_uchat,
+        whatsapp_provider: conv.whatsapp_provider || 'uchat',
+        whatsapp: conv.whatsapp_raw,
         id_dynamics: conv.id_dynamics,
         etapa: conv.etapa,
         etapa_id: conv.etapa_id, // ✅ AGREGADO: FK a tabla etapas
@@ -234,10 +245,11 @@ class OptimizedConversationsService {
         titulo: conv.titulo,
         email: conv.email,
         whatsapp: conv.whatsapp_raw,
+        whatsapp_provider: conv.whatsapp_provider || 'uchat',
         requiere_atencion_humana: conv.requiere_atencion_humana,
         motivo_handoff: conv.motivo_handoff,
         etapa: conv.etapa,
-        etapa_id: conv.etapa_id, // ✅ AGREGADO: FK a tabla etapas
+        etapa_id: conv.etapa_id,
       });
     });
 

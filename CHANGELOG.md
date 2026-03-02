@@ -1,3 +1,12 @@
+## [v2.17.6] - 2026-03-02
+
+**B10.1.44N2.17.6** - El backend migró el envío de mensajes WhatsApp de 
+
+### Sesiones de trabajo
+- **2026-03-02-multiproveedor-uchat-twilio-frontend**: El backend migró el envío de mensajes WhatsApp de uChat a Twilio. El frontend ahora soporta **ambos proveedores simultáneamente** (multiproveedor). La BD ya tenía preparado:
+
+---
+
 ## [v2.17.5] - 2026-02-28
 
 **B10.1.44N2.17.5** - 1 fix

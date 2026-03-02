@@ -84,7 +84,7 @@ export function useImageCatalog(
   selectedConversation: { id: string; prospecto_id?: string; [key: string]: unknown } | null,
   onClose: () => void,
   onImageSent?: (imageUrl: string, caption: string) => void,
-  onPauseBot?: (uchatId: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>
+  onPauseBot?: (id: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>
 ): UseImageCatalogReturn {
   const { user } = useAuth();
 
@@ -147,12 +147,16 @@ export function useImageCatalog(
     try {
       const { data, error } = await analysisSupabase
         .from('prospectos')
-        .select('whatsapp, id_uchat')
+        .select('whatsapp, id_uchat, whatsapp_provider')
         .eq('id', selectedConversation.prospecto_id)
         .single();
 
       if (!error && data) {
-        setProspectoData({ whatsapp: data.whatsapp, id_uchat: data.id_uchat });
+        setProspectoData({
+          whatsapp: data.whatsapp,
+          id_uchat: data.id_uchat || undefined,
+          whatsapp_provider: data.whatsapp_provider || 'uchat'
+        });
       }
     } catch (error) {
       console.error('Error loading prospecto data:', error);
@@ -306,8 +310,15 @@ export function useImageCatalog(
       return;
     }
 
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      toast.error('Faltan datos del prospecto');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+
+    if (!prospectoData?.whatsapp) {
+      toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+      return;
+    }
+
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -344,8 +355,8 @@ export function useImageCatalog(
         const payloadItem: Record<string, string | { archivo: string; destino: string; resort: string }[]> = {
           request_id: imageRequestId,
           whatsapp: prospectoData.whatsapp,
-          uchat_id: prospectoData.id_uchat,
           id_sender: loggedUserId,
+          provider: prospectoData.whatsapp_provider,
           imagenes: [{
             archivo: currentItem.nombre_archivo,
             destino: currentItem.destinos?.[0] || '',
@@ -353,31 +364,41 @@ export function useImageCatalog(
           }]
         };
 
+        // Solo agregar uchat_id para proveedor uChat
+        if (!isTwilio && prospectoData.id_uchat) {
+          payloadItem.uchat_id = prospectoData.id_uchat;
+        }
+
         const payload = [payloadItem];
 
-        // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
         const response = await authenticatedEdgeFetch('send-img-proxy', {
           body: payload
         });
 
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Error enviando imagen ${i + 1}:`, errorText);
-          throw new Error(`Error al enviar imagen ${i + 1}`);
+          const errorData = await response.json().catch(() => null);
+          const errorMsg = errorData?.error || `Error ${response.status}`;
+          console.error(`Error enviando imagen ${i + 1}:`, errorMsg);
+          throw new Error(`Error al enviar imagen ${i + 1}: ${errorMsg}`);
         }
 
         await response.json();
 
-        // 8 segundos entre imagenes (race condition uChat/N8N)
+        // 8 segundos entre imagenes
         if (!isLast) {
           await new Promise(resolve => setTimeout(resolve, 8000));
         }
       }
 
-      // Pausar bot
-      if (onPauseBot && prospectoData.id_uchat) {
+      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      if (onPauseBot) {
         try {
-          await onPauseBot(prospectoData.id_uchat, 1, false);
+          const pauseId = isTwilio
+            ? selectedConversation?.prospecto_id
+            : prospectoData.id_uchat;
+          if (pauseId) {
+            await onPauseBot(pauseId, 1, false);
+          }
         } catch (error) {
           console.error('Error pausando bot:', error);
         }
@@ -391,12 +412,17 @@ export function useImageCatalog(
       isSendingRef.current = false;
       imagesToSendRef.current = [];
     }
-  }, [user?.id, prospectoData, onClose, onImageSent, onPauseBot]);
+  }, [user?.id, prospectoData, selectedConversation?.prospecto_id, onClose, onImageSent, onPauseBot]);
 
   const handleSendImages = useCallback(() => {
     if (selectedImages.length === 0) return;
-    if (!prospectoData?.whatsapp || !prospectoData?.id_uchat) {
-      toast.error('Faltan datos del prospecto');
+    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
+    if (!prospectoData?.whatsapp) {
+      toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+      return;
+    }
+    if (!isTwilio && !prospectoData?.id_uchat) {
+      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
     imagesToSendRef.current = [...selectedImages];

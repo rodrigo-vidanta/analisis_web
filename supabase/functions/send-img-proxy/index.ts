@@ -63,12 +63,35 @@ serve(async (req) => {
       );
     }
 
-    // Webhook de Railway (URL desde secret)
-    const WEBHOOK_URL = Deno.env.get('N8N_SEND_IMG_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/send-img';
+    // Detectar proveedor del payload (puede estar en payload[0].provider)
+    const provider = payload?.[0]?.provider || 'uchat';
     const livechatAuth = Deno.env.get('LIVECHAT_AUTH') || '2025_livechat_auth';
-    
+
+    let webhookUrl: string;
+
+    if (provider === 'twilio') {
+      // ── Twilio: enviar via endpoint dedicado ──
+      const whatsapp = payload?.[0]?.whatsapp;
+      if (!whatsapp) {
+        return new Response(
+          JSON.stringify({ error: 'whatsapp es requerido para proveedor Twilio', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/twilio-livechat-send';
+      console.log(`📤 [${requestId}] Twilio imagen → ${whatsapp}`);
+    } else if (provider === 'uchat') {
+      // ── uChat: flujo original ──
+      webhookUrl = Deno.env.get('N8N_SEND_IMG_URL') || 'https://primary-dev-d75a.up.railway.app/webhook/send-img';
+    } else {
+      return new Response(
+        JSON.stringify({ error: `Proveedor no soportado: ${provider}`, success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Hacer request al webhook con request ID para trazabilidad
-    const response = await fetch(WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -78,25 +101,25 @@ serve(async (req) => {
       },
       body: JSON.stringify(payload)
     })
-    
+
     console.log(`📥 [${requestId}] Respuesta: ${response.status} ${response.statusText}`)
-    
+
     if (!response.ok) {
       const errorText = await response.text()
       console.error(`❌ [${requestId}] Error del webhook:`, errorText)
       throw new Error(`Webhook Error: ${response.status} - ${errorText}`)
     }
-    
+
     const responseData = await response.json()
-    console.log(`✅ [${requestId}] Éxito para archivo: ${imageFile}`)
-    
+    console.log(`✅ [${requestId}] Éxito para archivo: ${imageFile} (${provider})`)
+
     return new Response(
       JSON.stringify(responseData),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     )
     

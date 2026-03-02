@@ -58,18 +58,10 @@ serve(async (req) => {
     }
 
     // Obtener payload del request
-    // Formato esperado: { message, uchat_id, type, ttl, id_sender? }
+    // uChat: { message, uchat_id, type, ttl, id_sender? }
+    // Twilio: { mensaje, whatsapp, provider: 'twilio', id_sender? }
     const payload = await req.json();
-    const { message, uchat_id, type, ttl, id_sender } = payload;
-
-    if (!message || !uchat_id) {
-      return new Response(
-        JSON.stringify({ error: 'message and uchat_id are required', success: false }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`📤 [send-message-proxy] Enviando mensaje a ${uchat_id} (user: ${user.email})`);
+    const provider = payload.provider || 'uchat';
 
     // Obtener token desde secret (mismo que otros webhooks de livechat)
     const webhookToken = Deno.env.get('LIVECHAT_AUTH') || '';
@@ -81,28 +73,72 @@ serve(async (req) => {
       );
     }
 
-    // Webhook de N8N (mismo que el backup original)
-    const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
+    let webhookUrl: string;
+    let n8nPayload: Record<string, unknown>;
 
-    // Construir payload para N8N (mismo formato que el backup)
-    const n8nPayload: Record<string, unknown> = {
-      message,
-      uchat_id,
-      type: type || 'text',
-      ttl: ttl || 180
-    };
+    if (provider === 'twilio') {
+      // ── Twilio: enviar via endpoint dedicado ──
+      const { mensaje, whatsapp, id_sender } = payload;
 
-    // Agregar id_sender si está disponible
-    if (id_sender) {
-      n8nPayload.id_sender = id_sender;
+      if (!mensaje && !payload.message) {
+        return new Response(
+          JSON.stringify({ error: 'mensaje es requerido para proveedor Twilio', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      if (!whatsapp) {
+        return new Response(
+          JSON.stringify({ error: 'whatsapp es requerido para proveedor Twilio', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/twilio-livechat-send';
+      n8nPayload = {
+        mensaje: mensaje || payload.message,
+        whatsapp,
+        id_sender: id_sender || user.id
+      };
+
+      console.log(`📤 [send-message-proxy] Twilio → ${whatsapp} (user: ${user.email})`);
+
+    } else if (provider === 'uchat') {
+      // ── uChat: flujo original ──
+      const { message, uchat_id, type, ttl, id_sender } = payload;
+
+      if (!message || !uchat_id) {
+        return new Response(
+          JSON.stringify({ error: 'message and uchat_id are required', success: false }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      webhookUrl = 'https://primary-dev-d75a.up.railway.app/webhook/send-message';
+      n8nPayload = {
+        message,
+        uchat_id,
+        type: type || 'text',
+        ttl: ttl || 180
+      };
+      if (id_sender) {
+        n8nPayload.id_sender = id_sender;
+      }
+
+      console.log(`📤 [send-message-proxy] uChat → ${uchat_id} (user: ${user.email})`);
+
+    } else {
+      return new Response(
+        JSON.stringify({ error: `Proveedor no soportado: ${provider}`, success: false }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     // Hacer request al webhook de N8N con autenticación
-    const response = await fetch(WEBHOOK_URL, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        '2025_livechat_auth': webhookToken, // Header correcto según credencial N8N
+        '2025_livechat_auth': webhookToken,
       },
       body: JSON.stringify(n8nPayload),
     });
@@ -111,15 +147,15 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error(`❌ [send-message-proxy] Webhook error ${response.status}:`, errorText);
       return new Response(
-        JSON.stringify({ 
-          error: `Webhook Error: ${response.status} - ${errorText}`, 
-          success: false 
+        JSON.stringify({
+          error: `Webhook Error: ${response.status} - ${errorText}`,
+          success: false
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Intentar parsear respuesta JSON
+    // Parsear respuesta JSON
     let responseData;
     try {
       responseData = await response.json();
@@ -127,7 +163,8 @@ serve(async (req) => {
       responseData = { success: true, message: 'Message sent' };
     }
 
-    console.log(`✅ [send-message-proxy] Mensaje enviado exitosamente a ${uchat_id}`);
+    const logId = provider === 'twilio' ? payload.whatsapp : payload.uchat_id;
+    console.log(`✅ [send-message-proxy] Mensaje enviado exitosamente a ${logId} (${provider})`);
 
     return new Response(
       JSON.stringify({ ...responseData, success: true }),

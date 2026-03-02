@@ -133,12 +133,18 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         const activePausesFromDB = await botPauseService.getAllActivePauses();
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         activePausesFromDB.forEach(pause => {
-          dbPauses[pause.uchat_id] = {
+          const pauseData = {
             isPaused: pause.is_paused,
             pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
             pausedBy: pause.paused_by,
             duration: pause.duration_minutes
           };
+          if (pause.uchat_id) {
+            dbPauses[pause.uchat_id] = pauseData;
+          }
+          if (pause.prospecto_id) {
+            dbPauses[pause.prospecto_id] = pauseData;
+          }
         });
         setBotPauseStatus({ ...dbPauses });
       } catch (error) {
@@ -154,12 +160,18 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         const newPauses = await botPauseService.getAllActivePauses();
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         newPauses.forEach(pause => {
-          dbPauses[pause.uchat_id] = {
+          const pauseData = {
             isPaused: pause.is_paused,
             pausedUntil: pause.paused_until ? new Date(pause.paused_until) : null,
             pausedBy: pause.paused_by,
             duration: pause.duration_minutes
           };
+          if (pause.uchat_id) {
+            dbPauses[pause.uchat_id] = pauseData;
+          }
+          if (pause.prospecto_id) {
+            dbPauses[pause.prospecto_id] = pauseData;
+          }
         });
         setBotPauseStatus(prev => {
           const prevKeys = Object.keys(prev).sort().join(',');
@@ -2072,15 +2084,15 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                     conv.conversation_id || 
                     conv.id;
                   
-                  // Verificar si el bot está pausado para esta conversación
-                  // Buscar directamente por uchat_id (que es como se guarda en la BD)
-                  const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
-                  
+                  // Verificar si el bot está pausado (buscar por uchat_id o prospecto_id)
+                  const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
+                    || (conv.prospecto_id ? botPauseStatus[conv.prospecto_id] : null);
+
                   const isBotPaused = pauseStatus?.isPaused && (
-                    pauseStatus.pausedUntil === null || 
+                    pauseStatus.pausedUntil === null ||
                     pauseStatus.pausedUntil > new Date()
                   );
-                  
+
                   // Crear una key única que incluya el estado de pausa y requiere_atencion para forzar re-render cuando cambia
                   const pauseKey = isBotPaused ? `paused-${pauseStatus?.pausedUntil?.getTime() || 'indefinite'}` : 'active';
                   const requiereAtencionKey = requiereAtencion ? 'requiere-atencion' : 'normal';
@@ -2242,9 +2254,9 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
                   selectedConversation.conversation_id || 
                   selectedConversation.id;
                 
-                // Verificar si el bot está pausado para esta conversación
-                // Acceso directo a botPauseStatus para que React detecte cambios
-                const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+                // Verificar si el bot está pausado (buscar por uchat_id o prospecto_id)
+                const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
+                  || (selectedConversation.prospecto_id ? botPauseStatus[selectedConversation.prospecto_id] : null);
                 const isBotPaused = pauseStatus?.isPaused && (
                   pauseStatus.pausedUntil === null || 
                   pauseStatus.pausedUntil > new Date()
@@ -2755,17 +2767,27 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
               {/* Botón 2: Pausar/Reactivar Bot */}
               {selectedConversation && (() => {
-                const uchatId = selectedConversation.metadata?.id_uchat || 
-                  selectedConversation.id_uchat || 
-                  selectedConversation.conversation_id || 
+                const uchatId = selectedConversation.metadata?.id_uchat ||
+                  selectedConversation.id_uchat ||
+                  selectedConversation.conversation_id ||
                   selectedConversation.id;
-                
+
+                // Determinar pauseId según proveedor
+                const convProvider = selectedConversation.whatsapp_provider
+                  || selectedConversation.metadata?.whatsapp_provider
+                  || 'uchat';
+                const pauseId = convProvider === 'twilio'
+                  ? (selectedConversation.prospecto_id || selectedConversation.prospect_id)
+                  : uchatId;
+
                 // ✅ RESTRICCIÓN TEMPORAL: Ocultar botón para etapa "Importado Manual" (excepto admins)
                 const prospectData = prospectosData.get(selectedConversation.prospect_id);
                 const canPause = canPauseBot(prospectData?.etapa_id, prospectData?.etapa, user?.role_name);
                 if (!canPause) return null;
-                
-                const pauseStatus = uchatId ? botPauseStatus[uchatId] : null;
+
+                const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
+                  || (selectedConversation.prospecto_id ? botPauseStatus[selectedConversation.prospecto_id] : null)
+                  || (selectedConversation.prospect_id ? botPauseStatus[selectedConversation.prospect_id] : null);
                 const isBotPaused = pauseStatus?.isPaused && (
                   pauseStatus.pausedUntil === null || 
                   pauseStatus.pausedUntil > new Date()
@@ -2776,7 +2798,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
                 return (
                   <BotPauseButton
-                    uchatId={uchatId}
+                    pauseId={pauseId || uchatId}
                     isPaused={isBotPaused}
                     timeRemaining={timeRemaining}
                     onPause={pauseBot}

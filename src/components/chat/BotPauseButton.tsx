@@ -2,11 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface BotPauseButtonProps {
-  uchatId: string;
+  /** ID de pausa: puede ser uchat_id (f{d}u{d}) o prospecto_id (UUID) */
+  pauseId: string;
   isPaused: boolean;
   timeRemaining: number | null; // segundos restantes
-  onPause: (uchatId: string, durationMinutes: number | null, force: boolean) => Promise<boolean>;
-  onResume: (uchatId: string) => Promise<boolean>;
+  onPause: (id: string, durationMinutes: number | null, force: boolean) => Promise<boolean>;
+  onResume: (id: string) => Promise<boolean>;
   showUpward?: boolean; // Si true, el dropdown aparece hacia arriba
   fullWidth?: boolean; // Si true, el botón ocupa todo el ancho disponible
 }
@@ -20,7 +21,7 @@ const PAUSE_OPTIONS = [
 ];
 
 const BotPauseButton: React.FC<BotPauseButtonProps> = ({
-  uchatId,
+  pauseId,
   isPaused,
   timeRemaining,
   onPause,
@@ -103,7 +104,7 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
     if (isPaused) {
       // Si está pausado, reactivar
       setIsLoading(true);
-      await onResume(uchatId);
+      await onResume(pauseId);
       setIsLoading(false);
     } else {
       // Si no está pausado, abrir/cerrar opciones
@@ -114,7 +115,7 @@ const BotPauseButton: React.FC<BotPauseButtonProps> = ({
   const handlePauseSelect = async (minutes: number | null) => {
     setIsLoading(true);
     setIsOpen(false);
-    await onPause(uchatId, minutes, true);
+    await onPause(pauseId, minutes, true);
     setIsLoading(false);
   };
 

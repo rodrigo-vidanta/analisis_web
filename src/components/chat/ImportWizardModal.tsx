@@ -2,68 +2,53 @@
  * ============================================
  * WIZARD DE IMPORTACIÓN DE PROSPECTOS WHATSAPP
  * ============================================
- * 
+ *
  * Wizard multi-paso para importar prospectos desde WhatsApp
  * con validaciones de permisos y envío de plantillas.
- * 
+ *
  * SOPORTA:
- * - Búsqueda por teléfono (10 dígitos) → ~70s via Power Automate
  * - Búsqueda por URL de Dynamics CRM → ~2-5s via ID directo
  * - Importación batch (1-5 prospectos en paralelo)
- * - Deduplicación automática (mismo LeadID por URL + teléfono)
  * - Envío de plantilla compartida a todos los importados
  * - Tutorial animado para copiar URLs de CRM
- * 
+ *
  * PASOS DEL WIZARD:
- * 1. Búsqueda: Input multi-línea (URLs o teléfonos, 1-5, paralelo)
- * 2. Revisión: Permisos + ingreso manual de teléfono para URL entries
+ * 1. Búsqueda: Input multi-línea (URLs de CRM, 1-5, paralelo)
+ * 2. Revisión: Permisos + datos del lead (teléfono viene del CRM, no editable)
  * 3. Importación: Envío a N8N workflow (import-contact-proxy)
  * 4. Plantilla: Selección con filtros por tags
  * 5. Variables: Configuración de fecha/hora personalizadas
  * 6. Envío: Plantilla a todos los importados
- * 
- * TELÉFONO EN BÚSQUEDAS POR URL:
+ *
+ * TELÉFONO:
  * ─────────────────────────────────
- * El endpoint de búsqueda por ID de Dynamics (Power Automate) actualmente
- * NO retorna el teléfono del lead. Sin embargo, el workflow de importación
- * en N8N SÍ requiere el teléfono para crear el suscriptor de WhatsApp.
- * 
- * Solución actual:
- * - Se pide al usuario que ingrese manualmente el teléfono en el Paso 2
- * - El campo aparece con borde amber + icono de advertencia
- * - El botón "Importar" solo se habilita cuando hay teléfono de 10 dígitos
- * 
- * ⚠️ TODO: Cuando el ingeniero de Power Automate (Alejandro Agüero) modifique
- * el endpoint de búsqueda por ID para incluir el teléfono:
- * 1. El auto-fill ya está preparado en searchSingleEntry() — busca campos
- *    Telefono, MobilePhone, Telephone1, etc. en la respuesta
- * 2. Si se detecta teléfono automáticamente, el input manual NO se muestra
- * 3. Solo verificar que el campo del response se mapee correctamente
- * 4. No se necesitan cambios adicionales si el campo viene como:
- *    Telefono, MobilePhone, Telephone1 (case-insensitive)
+ * El endpoint de Dynamics retorna el teléfono en el campo Telefono
+ * con formato "<number>;<>;<>". Se extrae automáticamente y NO es editable
+ * para evitar errores humanos.
  * ─────────────────────────────────
- * 
+ *
  * SCROLLBARS: Ocultas con scrollbar-hide (scroll funcional sin barra visible)
- * 
- * Actualizado: 2026-02-06
- * Cambios: Multi-import, URL CRM, tutorial animado, phone input inline,
- *          fix AnimatePresence keys, scrollbar-hide
+ *
+ * Actualizado: 2026-03-02
+ * Cambios: Eliminada búsqueda por teléfono, solo URL CRM,
+ *          teléfono automático del payload (no editable),
+ *          nuevos campos BaseOrigen y Telefono del CRM
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, Search, Phone, User, Mail, Building, AlertCircle, 
+import {
+  X, Search, Phone, User, Building, AlertCircle,
   Loader2, CheckCircle, ShieldAlert, ChevronRight, ChevronLeft,
   MessageSquare, Tag, Calendar, Clock, Send, AlertTriangle, Info,
-  Link, Hash, CheckSquare, Square, Globe, Zap
+  Hash, CheckSquare, Square, Globe, Zap
 } from 'lucide-react';
 import { dynamicsLeadService, type DynamicsLeadInfo } from '../../services/dynamicsLeadService';
 import { importContactService, type ImportContactPayload } from '../../services/importContactService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
-import { whatsappTemplatesService, type WhatsAppTemplate, type VariableMapping } from '../../services/whatsappTemplatesService';
+import { whatsappTemplatesService, type WhatsAppTemplate } from '../../services/whatsappTemplatesService';
 import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
 import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
@@ -82,29 +67,18 @@ type WizardStep = 'search' | 'permissions' | 'select_template' | 'configure_vari
 interface SearchEntry {
   id: string;
   raw: string;
-  type: 'url' | 'phone';
-  value: string; // id_dynamics (para URL) o 10 dígitos (para phone)
-  phone: string; // Teléfono (auto para phone, manual para URL)
-  status: 'pending' | 'searching' | 'found' | 'not_found' | 'error' | 'exists_locally';
+  type: 'url';
+  value: string; // id_dynamics extraído de la URL
+  phone: string; // Teléfono extraído automáticamente del CRM (no editable)
+  status: 'pending' | 'searching' | 'found' | 'not_found' | 'error';
   searchTimeMs?: number;
   leadData?: DynamicsLeadInfo;
-  existingProspect?: ExistingProspect | null;
   permission?: PermissionValidation;
   error?: string;
   selected: boolean;
   importStatus: 'idle' | 'importing' | 'success' | 'error';
   importError?: string;
   importedProspectId?: string;
-}
-
-interface ExistingProspect {
-  id: string;
-  nombre_completo: string;
-  conversacion_id: string | null;
-  ejecutivo_id: string | null;
-  coordinacion_id: string | null;
-  coordinacion_nombre?: string | null;
-  ejecutivo_nombre?: string | null;
 }
 
 interface PermissionValidation {
@@ -144,12 +118,31 @@ const extractDynamicsIdFromUrl = (url: string): string | null => {
   return match ? match[1] : null;
 };
 
-/** Detecta si una línea es URL, teléfono o inválida */
+/**
+ * Extrae el primer teléfono válido del formato CRM: "<2721899480>;<>;<>"
+ * Retorna 10 dígitos o string vacío si no encuentra teléfono válido.
+ */
+const extractPhoneFromCrmField = (raw: string): string => {
+  if (!raw) return '';
+  const parts = raw.split(';');
+  for (const part of parts) {
+    const match = part.match(/<([^>]+)>/);
+    if (match) {
+      const digits = match[1].replace(/\D/g, '').slice(-10);
+      if (digits.length === 10) return digits;
+    }
+  }
+  // Fallback: intentar normalizar el string completo
+  const fallback = raw.replace(/\D/g, '').slice(-10);
+  return fallback.length === 10 ? fallback : '';
+};
+
+/** Detecta si una línea es una URL de Dynamics CRM válida */
 const parseInputLine = (line: string, index: number): SearchEntry | null => {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
-  // Detectar URL de Dynamics
+  // Solo aceptar URLs de Dynamics CRM
   if (trimmed.includes('crm.dynamics.com') || trimmed.includes('dynamics.com/main.aspx')) {
     const id = extractDynamicsIdFromUrl(trimmed);
     if (id) {
@@ -158,28 +151,12 @@ const parseInputLine = (line: string, index: number): SearchEntry | null => {
         raw: trimmed,
         type: 'url',
         value: id,
-        phone: '', // Se pedirá después si se quiere importar
+        phone: '', // Se llenará automáticamente desde el CRM
         status: 'pending',
         selected: true,
         importStatus: 'idle',
       };
     }
-  }
-
-  // Detectar teléfono (solo dígitos, 10 dígitos después de limpiar)
-  const digits = trimmed.replace(/\D/g, '');
-  const phone10 = digits.slice(-10);
-  if (phone10.length === 10) {
-    return {
-      id: `entry-${index}-${Date.now()}`,
-      raw: trimmed,
-      type: 'phone',
-      value: phone10,
-      phone: phone10,
-      status: 'pending',
-      selected: true,
-      importStatus: 'idle',
-    };
   }
 
   return null;
@@ -201,7 +178,7 @@ const parseSearchInput = (input: string): { entries: SearchEntry[]; errors: stri
     if (entry) {
       entries.push(entry);
     } else {
-      errors.push(`Línea ${i + 1}: No se reconoce como URL de CRM ni teléfono de 10 dígitos`);
+      errors.push(`Línea ${i + 1}: No se reconoce como URL de Dynamics CRM`);
     }
   });
 
@@ -303,26 +280,20 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
   /**
    * Entradas listas para importar (requieren teléfono de 10 dígitos).
-   * El workflow N8N necesita el teléfono para crear el suscriptor de WhatsApp.
-   * La búsqueda por URL no devuelve teléfono, así que se pide manualmente.
+   * El teléfono viene automáticamente del CRM en el campo Telefono.
    */
   const readyToImport = useMemo(
     () => selectedEntries.filter(e => e.phone.length === 10),
     [selectedEntries]
   );
 
-  /** Entradas encontradas pero sin teléfono (URL entries) */
-  const pendingPhone = useMemo(
+  /** Entradas sin teléfono del CRM (no se pueden importar) */
+  const missingPhone = useMemo(
     () => selectedEntries.filter(e => e.phone.length !== 10),
     [selectedEntries]
   );
 
   const importableCount = readyToImport.length;
-
-  const allImported = useMemo(
-    () => searchEntries.filter(e => e.importStatus === 'success').length,
-    [searchEntries]
-  );
 
   // ============================================
   // EFFECTS
@@ -382,82 +353,25 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // SEARCH LOGIC
   // ============================================
 
-  /**
-   * Busca prospecto en BD LOCAL por teléfono.
-   * Usa RPC SECURITY DEFINER para bypasear RLS y detectar duplicados
-   * independientemente de los permisos del usuario.
-   */
-  const searchLocalProspect = async (phone: string): Promise<ExistingProspect | null> => {
-    try {
-      const normalized = normalizePhone(phone);
-
-      const { data, error: rpcError } = await analysisSupabase
-        .rpc('check_prospect_exists_by_phone', { p_phone: normalized });
-
-      if (rpcError) {
-        console.error('Error verificando prospecto local:', rpcError);
-        return null;
-      }
-
-      if (!data || data.length === 0) return null;
-
-      const match = data[0];
-      return {
-        id: match.prospecto_id,
-        nombre_completo: match.nombre_completo,
-        conversacion_id: match.conversacion_id || null,
-        ejecutivo_id: match.ejecutivo_id,
-        coordinacion_id: match.coordinacion_id,
-        coordinacion_nombre: match.coordinacion_nombre || null,
-        ejecutivo_nombre: match.ejecutivo_nombre || null,
-      };
-    } catch {
-      return null;
-    }
-  };
-
   const searchSingleEntry = async (entry: SearchEntry): Promise<SearchEntry> => {
     const start = Date.now();
     try {
-      // For phone entries, check local DB first
-      if (entry.type === 'phone') {
-        const local = await searchLocalProspect(entry.value);
-        if (local) {
-          return {
-            ...entry,
-            status: 'exists_locally',
-            existingProspect: local,
-            selected: false,
-            searchTimeMs: Date.now() - start,
-          };
-        }
-      }
-
-      // Search in Dynamics
-      const searchParams = entry.type === 'url'
-        ? { id_dynamics: entry.value }
-        : { phone: entry.value };
-
-      const result = await dynamicsLeadService.searchLead(searchParams);
+      const result = await dynamicsLeadService.searchLead({ id_dynamics: entry.value });
 
       if (result.success && result.data) {
         const permission = validateDynamicsLeadPermissions(result.data);
-        
-        // Auto-fill phone if the CRM response includes it
-        // Fields that Dynamics may return with phone data
-        const leadAny = result.data as Record<string, any>;
-        const crmPhone = leadAny.Telefono || leadAny.MobilePhone || leadAny.Telephone1 
-          || leadAny.telefono || leadAny.mobilephone || leadAny.telephone1 || '';
-        const autoPhone = crmPhone ? normalizePhone(String(crmPhone)) : '';
-        
+
+        // Extraer teléfono del campo Telefono del CRM (formato: "<2721899480>;<>;<>")
+        const crmPhoneRaw = result.data.Telefono || '';
+        const autoPhone = extractPhoneFromCrmField(String(crmPhoneRaw));
+
         return {
           ...entry,
           status: 'found',
           leadData: result.data,
           permission,
           selected: permission.canImport,
-          // Auto-fill: use CRM phone if available, keep existing phone (from phone entry) if not
-          phone: entry.phone || (autoPhone.length === 10 ? autoPhone : ''),
+          phone: autoPhone,
           searchTimeMs: Date.now() - start,
         };
       }
@@ -480,65 +394,12 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
   };
 
-  /**
-   * Deduplica entradas por LeadID después de las búsquedas.
-   * Si el mismo lead aparece por URL y por teléfono, fusiona:
-   * - Toma el teléfono de la entrada tipo 'phone'
-   * - Marca la entrada duplicada como merged (eliminada)
-   */
-  const deduplicateByLeadId = (results: SearchEntry[]): { deduplicated: SearchEntry[]; mergedCount: number } => {
-    const leadIdMap = new Map<string, SearchEntry>();
-    const deduplicated: SearchEntry[] = [];
-    let mergedCount = 0;
-
-    for (const entry of results) {
-      const leadId = entry.leadData?.LeadID;
-
-      // Si no tiene leadId (no encontrado, error, etc.), mantenerlo tal cual
-      if (!leadId || entry.status !== 'found') {
-        deduplicated.push(entry);
-        continue;
-      }
-
-      const existing = leadIdMap.get(leadId);
-      if (!existing) {
-        leadIdMap.set(leadId, entry);
-        deduplicated.push(entry);
-        continue;
-      }
-
-      // Duplicado encontrado → fusionar
-      mergedCount++;
-
-      // Determinar cuál tiene teléfono
-      const phoneEntry = entry.type === 'phone' ? entry : existing.type === 'phone' ? existing : null;
-      const urlEntry = entry.type === 'url' ? entry : existing.type === 'url' ? existing : null;
-
-      // Fusionar: mantener el que ya está en deduplicated, agregar teléfono si falta
-      const idx = deduplicated.findIndex(e => e.id === existing.id);
-      if (idx !== -1) {
-        deduplicated[idx] = {
-          ...deduplicated[idx],
-          // Tomar el teléfono de donde lo tenga
-          phone: phoneEntry?.phone || deduplicated[idx].phone || entry.phone,
-          // Marcar como fusionado para UI
-          raw: `${deduplicated[idx].raw} (fusionado)`,
-          // Usar el menor tiempo de búsqueda
-          searchTimeMs: Math.min(deduplicated[idx].searchTimeMs || 999999, entry.searchTimeMs || 999999),
-        };
-      }
-      // El duplicado NO se agrega a deduplicated (se descarta)
-    }
-
-    return { deduplicated, mergedCount };
-  };
-
   const handleSearch = async () => {
     const { entries, errors } = parseSearchInput(searchInput);
     setParseErrors(errors);
 
     if (entries.length === 0) {
-      if (errors.length === 0) toast.error('Ingresa al menos un teléfono o URL de CRM');
+      if (errors.length === 0) toast.error('Ingresa al menos una URL de Dynamics CRM');
       return;
     }
 
@@ -549,11 +410,9 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     setHasSearched(true);
 
     // Launch all searches in parallel
-    const allResults: SearchEntry[] = new Array(searching.length);
     const promises = searching.map(async (entry, i) => {
       const result = await searchSingleEntry(entry);
-      allResults[i] = result;
-      // Update individual entry as it completes (pre-dedup, for real-time feedback)
+      // Update individual entry as it completes
       setSearchEntries(prev => {
         const updated = [...prev];
         updated[i] = result;
@@ -562,28 +421,19 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       return result;
     });
 
-    await Promise.allSettled(promises);
-
-    // Deduplicate by LeadID after ALL searches complete
-    const { deduplicated, mergedCount } = deduplicateByLeadId(allResults);
-    setSearchEntries(deduplicated);
+    const results = await Promise.allSettled(promises);
+    const finalResults = results.map(r => r.status === 'fulfilled' ? r.value : null).filter(Boolean) as SearchEntry[];
+    setSearchEntries(finalResults.length > 0 ? finalResults : searching);
     setIsSearching(false);
 
     // Summary toast
-    const found = deduplicated.filter(r => r.status === 'found').length;
-    const existing = deduplicated.filter(r => r.status === 'exists_locally').length;
-    const notFound = deduplicated.filter(r => r.status === 'not_found' || r.status === 'error').length;
+    const found = finalResults.filter(r => r.status === 'found').length;
+    const notFound = finalResults.filter(r => r.status === 'not_found' || r.status === 'error').length;
 
-    if (mergedCount > 0) {
-      toast(`${mergedCount} duplicado${mergedCount > 1 ? 's' : ''} fusionado${mergedCount > 1 ? 's' : ''} (mismo lead)`, { icon: '🔗' });
-    }
     if (found > 0) {
       toast.success(`${found} lead${found > 1 ? 's' : ''} encontrado${found > 1 ? 's' : ''} en Dynamics`);
     }
-    if (existing > 0) {
-      toast(`${existing} ya existe${existing > 1 ? 'n' : ''} en el sistema`, { icon: '⚠️' });
-    }
-    if (notFound > 0 && found === 0 && mergedCount === 0) {
+    if (notFound > 0 && found === 0) {
       toast.error('No se encontraron leads');
     }
   };
@@ -656,8 +506,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     if (!user) return;
 
     if (readyToImport.length === 0) {
-      if (pendingPhone.length > 0) {
-        toast.error('Ingresa el número de WhatsApp para poder importar');
+      if (missingPhone.length > 0) {
+        toast.error('Los prospectos no tienen teléfono registrado en el CRM');
       } else {
         toast.error('No hay prospectos listos para importar');
       }
@@ -959,14 +809,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     ));
   };
 
-  const updateEntryPhone = (entryId: string, phone: string) => {
-    const digits = phone.replace(/\D/g, '').slice(0, 10);
-    setSearchEntries(prev => prev.map(e =>
-      e.id === entryId ? { ...e, phone: digits } : e
-    ));
-  };
-
-
   // ============================================
   // NAVIGATION
   // ============================================
@@ -974,11 +816,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const canGoNext = (): boolean => {
     switch (currentStep) {
       case 'search':
-        // Permitir avanzar si hay al menos 1 entrada seleccionada con permisos
-        // (el teléfono se puede ingresar en el paso 2)
         return selectedEntries.length > 0 && !isSearching;
       case 'permissions':
-        // Para importar sí se requiere teléfono completo
         return importableCount > 0;
       case 'select_template':
         return !!selectedTemplate;
@@ -1036,11 +875,9 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       case 'searching':
         return <Loader2 className="w-4 h-4 animate-spin text-blue-500" />;
       case 'found':
-        return entry.permission?.canImport 
+        return entry.permission?.canImport
           ? <CheckCircle className="w-4 h-4 text-emerald-500" />
           : <ShieldAlert className="w-4 h-4 text-amber-500" />;
-      case 'exists_locally':
-        return <AlertTriangle className="w-4 h-4 text-amber-500" />;
       case 'not_found':
       case 'error':
         return <AlertCircle className="w-4 h-4 text-red-500" />;
@@ -1133,42 +970,28 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   <div>
                     <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                       <Search className="w-4 h-4 text-gray-400" />
-                      <span>Teléfonos o URLs de Dynamics CRM</span>
+                      <span>URLs de Dynamics CRM</span>
                     </label>
                     <textarea
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder={`Pega 1 a 5 entradas (una por línea):\n5512345678\nhttps://vidanta.crm.dynamics.com/...?id=xxxx\n3331234567`}
+                      placeholder={`Pega 1 a 5 URLs de CRM (una por línea):\nhttps://vidanta.crm.dynamics.com/...?id=xxxx\nhttps://vidanta.crm.dynamics.com/...?id=yyyy`}
                       rows={4}
                       className="w-full px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 font-mono resize-none"
                       disabled={isSearching}
                     />
-                    
+
                     {/* Input summary */}
                     {searchInput.trim() && !hasSearched && (
                       <div className="mt-2 flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                         {(() => {
                           const { entries, errors } = parseSearchInput(searchInput);
-                          const urls = entries.filter(e => e.type === 'url').length;
-                          const phones = entries.filter(e => e.type === 'phone').length;
                           return (
                             <>
                               {entries.length > 0 && (
-                                <span className="flex items-center gap-1">
-                                  <Hash className="w-3 h-3" />
-                                  {entries.length} entrada{entries.length > 1 ? 's' : ''}
-                                </span>
-                              )}
-                              {urls > 0 && (
                                 <span className="flex items-center gap-1 text-purple-500">
                                   <Zap className="w-3 h-3" />
-                                  {urls} URL{urls > 1 ? 's' : ''} (rápido)
-                                </span>
-                              )}
-                              {phones > 0 && (
-                                <span className="flex items-center gap-1 text-blue-500">
-                                  <Phone className="w-3 h-3" />
-                                  {phones} teléfono{phones > 1 ? 's' : ''}
+                                  {entries.length} URL{entries.length > 1 ? 's' : ''} detectada{entries.length > 1 ? 's' : ''}
                                 </span>
                               )}
                               {errors.length > 0 && (
@@ -1190,7 +1013,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                         {isSearching ? (
                           <><Loader2 className="w-4 h-4 animate-spin" /><span>Buscando...</span></>
                         ) : (
-                          <><Search className="w-4 h-4" /><span>Buscar Todos</span></>
+                          <><Search className="w-4 h-4" /><span>Buscar</span></>
                         )}
                       </button>
                     </div>
@@ -1200,9 +1023,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                       <div className="flex items-start gap-2">
                         <Info className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                         <div className="flex-1 text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                          <p><strong>URLs de CRM</strong> → búsqueda por ID, ~3 segundos</p>
-                          <p><strong>Teléfonos</strong> → búsqueda en Dynamics, ~60-90 segundos</p>
-                          <p>Todas las búsquedas se lanzan en paralelo</p>
+                          <p>Pega las URLs del CRM de Dynamics para buscar los leads (~3 segundos por URL)</p>
+                          <p>El teléfono y la base de origen se obtienen automáticamente del CRM</p>
                         </div>
                       </div>
                       <button
@@ -1245,8 +1067,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                 : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
                               : entry.status === 'searching'
                               ? 'border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-900/10'
-                              : entry.status === 'exists_locally'
-                              ? 'border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10'
                               : 'border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-900/10'
                           }`}
                         >
@@ -1260,28 +1080,22 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                 }
                               </button>
                             )}
-                            
+
                             {/* Status icon */}
                             <div className="mt-0.5 flex-shrink-0">{getStatusIcon(entry)}</div>
-                            
+
                             {/* Content */}
                             <div className="flex-1 min-w-0">
-                              {/* Type badge + time */}
+                              {/* Time */}
                               <div className="flex items-center gap-2 mb-1">
-                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
-                                  entry.type === 'url'
-                                    ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300'
-                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                                }`}>
-                                  {entry.type === 'url' ? <><Zap className="w-2.5 h-2.5" /> URL</> : <><Phone className="w-2.5 h-2.5" /> Tel</>}
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                                  <Zap className="w-2.5 h-2.5" /> URL
                                 </span>
                                 {entry.searchTimeMs !== undefined && (
                                   <span className="text-[10px] text-gray-400">{(entry.searchTimeMs / 1000).toFixed(1)}s</span>
                                 )}
                                 {entry.status === 'searching' && (
-                                  <span className="text-[10px] text-blue-500 animate-pulse">
-                                    {entry.type === 'url' ? 'Buscando por ID...' : 'Buscando en Dynamics CRM...'}
-                                  </span>
+                                  <span className="text-[10px] text-blue-500 animate-pulse">Buscando por ID...</span>
                                 )}
                               </div>
 
@@ -1307,20 +1121,12 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                         <Phone className="w-3 h-3" /> {formatPhoneDisplay(entry.phone)}
                                       </span>
                                     )}
+                                    {entry.leadData.BaseOrigen && (
+                                      <span className="flex items-center gap-1">
+                                        <Tag className="w-3 h-3" /> {entry.leadData.BaseOrigen}
+                                      </span>
+                                    )}
                                   </div>
-                                </div>
-                              )}
-
-                              {/* Existing prospect */}
-                              {entry.status === 'exists_locally' && entry.existingProspect && (
-                                <div className="mt-1">
-                                  <p className="text-sm font-medium text-amber-800 dark:text-amber-300">
-                                    {entry.existingProspect.nombre_completo}
-                                  </p>
-                                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                                    Ya existe — {entry.existingProspect.ejecutivo_nombre || 'Sin ejecutivo'}
-                                    {entry.existingProspect.coordinacion_nombre && ` · ${entry.existingProspect.coordinacion_nombre}`}
-                                  </p>
                                 </div>
                               )}
 
@@ -1328,6 +1134,13 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                               {entry.status === 'found' && entry.permission && !entry.permission.canImport && (
                                 <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                                   {entry.permission.reason}
+                                </p>
+                              )}
+
+                              {/* No phone warning */}
+                              {entry.status === 'found' && entry.permission?.canImport && !entry.phone && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                                  Sin teléfono registrado en el CRM — no se podrá importar
                                 </p>
                               )}
 
@@ -1367,13 +1180,13 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Phone needed warning for URL entries */}
-                  {pendingPhone.length > 0 && (
+                  {/* Warning for entries without phone from CRM */}
+                  {missingPhone.length > 0 && (
                     <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
                       <div className="flex items-start gap-2">
-                        <Phone className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                         <p className="text-xs text-amber-800 dark:text-amber-300">
-                          La búsqueda por URL no incluye el teléfono. Ingresa el número de WhatsApp para poder enviar mensajes al prospecto.
+                          {missingPhone.length} prospecto{missingPhone.length > 1 ? 's' : ''} sin teléfono en el CRM. No se podrán importar hasta que tengan teléfono registrado en Dynamics.
                         </p>
                       </div>
                     </div>
@@ -1400,7 +1213,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                         >
                           <div className="flex items-center gap-3">
                             {getImportStatusIcon(entry) || (
-                              hasPhone 
+                              hasPhone
                                 ? <CheckCircle className="w-4 h-4 text-emerald-500" />
                                 : <AlertTriangle className="w-4 h-4 text-amber-500" />
                             )}
@@ -1411,35 +1224,24 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                               <div className="flex flex-wrap gap-x-3 text-xs text-gray-500 dark:text-gray-400">
                                 <span>{entry.leadData?.Coordinacion}</span>
                                 <span>{entry.leadData?.Propietario}</span>
-                                {hasPhone && <span>{formatPhoneDisplay(entry.phone)}</span>}
+                                {hasPhone && (
+                                  <span className="flex items-center gap-1">
+                                    <Phone className="w-3 h-3" /> {formatPhoneDisplay(entry.phone)}
+                                  </span>
+                                )}
+                                {entry.leadData?.BaseOrigen && (
+                                  <span className="flex items-center gap-1">
+                                    <Tag className="w-3 h-3" /> {entry.leadData.BaseOrigen}
+                                  </span>
+                                )}
                               </div>
+                              {!hasPhone && (
+                                <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+                                  Sin teléfono en CRM — no importable
+                                </p>
+                              )}
                             </div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full ${
-                              entry.type === 'url'
-                                ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-300'
-                                : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300'
-                            }`}>
-                              {entry.type === 'url' ? 'URL' : 'Tel'}
-                            </span>
                           </div>
-
-                          {/* Phone input for entries without phone (URL entries) */}
-                          {!hasPhone && entry.importStatus === 'idle' && (
-                            <div className="mt-3 flex items-center gap-2 pl-7">
-                              <Phone className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
-                              <input
-                                type="tel"
-                                value={entry.phone}
-                                onChange={(e) => updateEntryPhone(entry.id, e.target.value)}
-                                placeholder="WhatsApp del prospecto"
-                                maxLength={10}
-                                className="flex-1 max-w-[200px] px-3 py-1.5 text-xs border border-amber-300 dark:border-amber-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 dark:bg-gray-800/50 dark:text-white placeholder:text-gray-400"
-                              />
-                              <span className={`text-[10px] font-medium ${entry.phone.length === 10 ? 'text-emerald-500' : 'text-gray-400'}`}>
-                                {entry.phone.length}/10
-                              </span>
-                            </div>
-                          )}
 
                           {entry.importStatus === 'error' && entry.importError && (
                             <p className="text-xs text-red-600 dark:text-red-400 mt-2 pl-7">{entry.importError}</p>

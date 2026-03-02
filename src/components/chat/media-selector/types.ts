@@ -57,7 +57,7 @@ export interface MediaSelectorModalProps {
     [key: string]: unknown;
   } | null;
   onImageSent?: (imageUrl: string, caption: string) => void;
-  onPauseBot?: (uchatId: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>;
+  onPauseBot?: (id: string, durationMinutes: number | null, force?: boolean) => Promise<boolean>;
 }
 
 export interface ImageCardProps {
@@ -100,7 +100,8 @@ export interface MediaSidebarProps {
 
 export interface ProspectoData {
   whatsapp: string;
-  id_uchat: string;
+  id_uchat?: string;
+  whatsapp_provider: string;
 }
 
 // ============================================

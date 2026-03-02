@@ -102,6 +102,10 @@ export interface DynamicsLeadInfo {
   OwnerID: string;
   FechaUltimaLlamada: string | null;
   Calificacion: string;
+  BaseOrigen?: string | null;
+  Telefono?: string | null;
+  Creado?: string | null;
+  status_crm?: string | null;
 }
 
 export interface LeadSearchRequest {
