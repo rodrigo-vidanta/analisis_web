@@ -1,3 +1,12 @@
+## [v2.19.0] - 2026-03-03
+
+**B10.1.44N2.19.0** - 1 feature
+
+### Features
+- add delivery checks interactive tutorial (`6fbef89`)
+
+---
+
 ## [v2.18.1] - 2026-03-03
 
 **B10.1.44N2.18.1** - Puntos de presion de conexiones en WhatsApp module

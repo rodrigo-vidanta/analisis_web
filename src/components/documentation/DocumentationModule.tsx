@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'bf988c0', date: '2026-03-03', author: 'Team', message: 'v2.19.0: B10.1.44N2.19.0 - 1 feature', isRelease: true },
   { hash: 'abbc308', date: '2026-03-03', author: 'Team', message: 'v2.18.1: B10.1.44N2.18.1 - Puntos de presion de conexiones en WhatsApp module', isRelease: true },
   { hash: 'a47cbaa', date: '2026-03-03', author: 'Team', message: 'v2.18.0: B10.1.44N2.18.0 - 1 feature + Meta bloqueó el número de WhatsApp de la plataform', isRelease: true },
   { hash: 'a015ce3', date: '2026-03-03', author: 'Team', message: 'v2.17.7: B10.1.44N2.17.7 - Deploy automatico', isRelease: true },
@@ -558,6 +559,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-723', date: '03/03/2026, 15:45', version: 'B10.1.44N2.19.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-758', date: '03/03/2026, 14:27', version: 'B10.1.44N2.18.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-021', date: '03/03/2026, 09:57', version: 'B10.1.44N2.18.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-617', date: '02/03/2026, 21:03', version: 'B10.1.44N2.17.7', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -761,8 +763,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.18.1', highlight: true },
-  { label: 'Release', value: 'B10.1.44N2.18.1', highlight: false },
+  { label: 'Version', value: 'v2.19.0', highlight: true },
+  { label: 'Release', value: 'B10.1.44N2.19.0', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '3 mar 2026', highlight: false },
 ];
