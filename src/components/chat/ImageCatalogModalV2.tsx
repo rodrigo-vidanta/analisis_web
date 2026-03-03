@@ -459,13 +459,8 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
   const handleSendImages = useCallback(async () => {
     if (selectedImages.length === 0) return;
 
-    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
     if (!prospectoData?.whatsapp) {
       toast.error('No se puede enviar: falta número WhatsApp del prospecto');
-      return;
-    }
-    if (!isTwilio && !prospectoData?.id_uchat) {
-      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -494,13 +489,8 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
       return;
     }
 
-    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
     if (!prospectoData?.whatsapp) {
       toast.error('No se puede enviar: falta número WhatsApp del prospecto');
-      return;
-    }
-    if (!isTwilio && !prospectoData?.id_uchat) {
-      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -548,61 +538,37 @@ export const ImageCatalogModalV2: React.FC<ImageCatalogModalV2Props> = ({
           onImageSent(currentUrl, captionForThisImage || '');
         }
 
-        // Construir payload con ID único
-        const payloadItem: Record<string, string | { archivo: string; destino: string; resort: string }[]> = {
-          request_id: imageRequestId,
+        // Envío unificado via send-message-proxy → /webhook/send-message
+        const imgPayload: Record<string, unknown> = {
           whatsapp: prospectoData.whatsapp,
-          provider: prospectoData.whatsapp_provider,
+          imagenes: [currentItem.nombre_archivo],
           id_sender: loggedUserId,
-          imagenes: [{
-            archivo: currentItem.nombre_archivo,
-            destino: currentItem.destinos?.[0] || '',
-            resort: currentItem.resorts?.[0] || ''
-          }]
         };
-
-        // Solo agregar uchat_id para proveedor uChat
-        if (!isTwilio && prospectoData.id_uchat) {
-          payloadItem.uchat_id = prospectoData.id_uchat;
-        }
-
-        // Solo agregar caption si corresponde
         if (captionForThisImage) {
-          payloadItem.caption = captionForThisImage;
+          imgPayload.caption = captionForThisImage;
         }
 
-        const payload = [payloadItem];
-
-        // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
-        const response = await authenticatedEdgeFetch('send-img-proxy', {
-          body: payload
+        const response = await authenticatedEdgeFetch('send-message-proxy', {
+          body: imgPayload
         });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`   ❌ Error:`, errorText);
-          throw new Error(`Error al enviar imagen ${i + 1}`);
+        const result = await response.json().catch(() => null);
+        if (!response.ok || result?.success === false) {
+          const errorMsg = result?.error || `Error ${response.status}`;
+          console.error(`   ❌ Error:`, errorMsg);
+          throw new Error(`Error al enviar imagen ${i + 1}: ${errorMsg}`);
         }
 
-        // Esperar respuesta completa
-        await response.json();
-
-        // Pausa MUY LARGA entre envíos para evitar race condition en uChat
-        // N8N setea una variable en uChat y luego dispara un flujo
-        // Si enviamos otra imagen antes de que uChat termine, sobrescribe la variable
-        // 8 segundos = tiempo para que N8N complete + uChat procese + buffer
+        // Pausa entre envíos (2s rate limit)
         if (!isLast) {
-          console.log(`   ⏳ Esperando 8s antes de la siguiente imagen (evitar race condition en uChat)...`);
-          await new Promise(resolve => setTimeout(resolve, 8000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
-      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      // Pausar bot por prospecto_id
       if (onPauseBot) {
         try {
-          const pauseId = isTwilio
-            ? selectedConversation?.prospecto_id
-            : prospectoData.id_uchat;
+          const pauseId = selectedConversation?.prospecto_id;
           if (pauseId) {
             await onPauseBot(pauseId, 1, false);
           }

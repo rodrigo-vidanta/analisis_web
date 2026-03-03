@@ -368,13 +368,8 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
 
   // Función real para enviar la imagen (después del parafraseo)
   const sendImageWithCaption = async (imageItem: ContentItem, finalCaption: string) => {
-    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
     if (!prospectoData?.whatsapp) {
-      console.error('Faltan datos para enviar');
-      return;
-    }
-    if (!isTwilio && !prospectoData?.id_uchat) {
-      console.error('Faltan datos para enviar (uChat)');
+      console.error('Faltan datos para enviar: falta número WhatsApp');
       return;
     }
 
@@ -392,43 +387,30 @@ export const ImageCatalogModal: React.FC<ImageCatalogModalProps> = ({
         onImageSent(imageUrl, finalCaption);
       }
 
-      const payloadItem: Record<string, unknown> = {
+      // Envío unificado via send-message-proxy → /webhook/send-message
+      const payload: Record<string, unknown> = {
         whatsapp: prospectoData.whatsapp,
-        provider: prospectoData.whatsapp_provider,
-        caption: finalCaption || undefined,
+        imagenes: [imageItem.nombre_archivo],
         id_sender: user?.id || undefined,
-        imagenes: [{
-          archivo: imageItem.nombre_archivo,
-          destino: imageItem.destinos?.[0] || '',
-          resort: imageItem.resorts?.[0] || ''
-        }]
       };
-
-      // Solo agregar uchat_id para proveedor uChat
-      if (!isTwilio && prospectoData.id_uchat) {
-        payloadItem.uchat_id = prospectoData.id_uchat;
+      if (finalCaption) {
+        payload.caption = finalCaption;
       }
 
-      const payload = [payloadItem];
-
-      const response = await authenticatedEdgeFetch('send-img-proxy', {
+      const response = await authenticatedEdgeFetch('send-message-proxy', {
         body: payload
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => null);
-        const errorMsg = errorData?.error || `Error ${response.status}`;
+      const result = await response.json().catch(() => null);
+      if (!response.ok || result?.success === false) {
+        const errorMsg = result?.error || `Error ${response.status}`;
         throw new Error(errorMsg);
       }
 
-      await response.json();
-
-      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      // Pausar bot por prospecto_id
       if (onPauseBot) {
         try {
-          const pauseId = isTwilio
-            ? selectedConversation?.prospecto_id
-            : prospectoData.id_uchat;
+          const pauseId = selectedConversation?.prospecto_id;
           if (pauseId) {
             await onPauseBot(pauseId, 1, false);
           }

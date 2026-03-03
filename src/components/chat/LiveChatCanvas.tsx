@@ -17,6 +17,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, startTransition } from 'react';
 import { createPortal } from 'react-dom';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 // ✅ Tipos para requestIdleCallback (soporte TypeScript)
 declare global {
@@ -1087,6 +1088,16 @@ const LiveChatCanvas: React.FC = () => {
   const isLoadingConversationsRef = useRef(false);
   const currentConversationsPageRef = useRef(0);
   const hasInitialConversationsLoadRef = useRef(false);
+
+  // v7.0: Search mode — separa datos base (paginados) de resultados de búsqueda
+  const [isInSearchMode, setIsInSearchMode] = useState(false);
+  const isInSearchModeRef = useRef(false);
+  const hasMoreConversationsRef = useRef(true);
+  const allConversationsLoadedRef = useRef<Conversation[]>([]);
+  // v7.1: Estado aislado para resultados de búsqueda server-side
+  // null = no hay búsqueda activa (usar conversations), Conversation[] = resultados de búsqueda
+  // Este estado SOLO lo toca el search useEffect, ningún Realtime handler lo modifica
+  const [searchResults, setSearchResults] = useState<Conversation[] | null>(null);
   
   
   const [conversationBlocks, setConversationBlocks] = useState<ConversationBlock[]>([]);
@@ -1427,8 +1438,8 @@ const LiveChatCanvas: React.FC = () => {
   const scrollDebounceTimerRef = useRef<number | null>(null);
   
   // Ref para almacenar datos de prospectos (coordinacion_id, ejecutivo_id, etapa) para acceso desde handlers
-  const prospectosDataRef = useRef<Map<string, { 
-    coordinacion_id?: string; 
+  const prospectosDataRef = useRef<Map<string, {
+    coordinacion_id?: string;
     ejecutivo_id?: string;
     id_dynamics?: string | null;
     nombre_completo?: string | null;
@@ -1440,6 +1451,8 @@ const LiveChatCanvas: React.FC = () => {
     motivo_handoff?: string | null;
     etapa?: string | null;
     etapa_id?: string | null; // ✅ AGREGADO: FK a tabla etapas
+    bloqueado_whatsapp?: boolean; // true si prospecto bloqueó nuestro número WhatsApp
+    whatsapp_provider?: string; // 'uchat' | 'twilio'
   }>>(new Map());
 
   // ⚠️ CRÍTICO: Refs para filtros de permisos en tiempo real
@@ -1713,7 +1726,7 @@ const LiveChatCanvas: React.FC = () => {
           // Si no está en cache O tiene datos parciales (sin nombre), cargar desde BD
           const { data: prospecto } = await analysisSupabase
             .from('prospectos')
-            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics')
+            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics, bloqueado_whatsapp, whatsapp_provider')
             .eq('id', targetProspectoId)
             .maybeSingle();
 
@@ -1757,9 +1770,11 @@ const LiveChatCanvas: React.FC = () => {
             return [adaptedConv, ...prevList];
           };
           
-          // Actualizar ambas listas
-          setConversations(addNewConversation);
+          // v7.0: Siempre actualizar base, conversations solo si no estamos buscando
           setAllConversationsLoaded(addNewConversation);
+          if (!isInSearchModeRef.current) {
+            setConversations(addNewConversation);
+          }
         });
       } catch (error) {
         // Silenciar errores - la conversación aparecerá en el próximo refresh
@@ -1798,20 +1813,29 @@ const LiveChatCanvas: React.FC = () => {
     (debouncedSearchTerm.trim().length >= 3 && !serverSearchSucceededRef.current) ||
     false; // filterByUnread ahora se maneja server-side
   
-  // ESCALABILIDAD 2026-02-07: Búsqueda server-side como mecanismo primario
-  // Reemplaza la carga agresiva de todos los batches para filtrar localmente
+  // v7.1: Búsqueda server-side con estado AISLADO (searchResults)
+  // Los resultados van a searchResults (NUNCA a conversations), inmune a 30+ setConversations
   useEffect(() => {
-    // Reset flag cuando cambia el término
     serverSearchSucceededRef.current = false;
 
     const searchInServer = async () => {
-      if (debouncedSearchTerm.trim().length < 3) return;
+      if (debouncedSearchTerm.trim().length < 3) {
+        // Borrar búsqueda: limpiar searchResults → useMemo vuelve a usar conversations
+        if (isInSearchModeRef.current) {
+          isInSearchModeRef.current = false;
+          setIsInSearchMode(false);
+          setSearchResults(null); // ← null = sin búsqueda, useMemo usa conversations
+          setIsSearchingAllBatches(false);
+        }
+        return;
+      }
 
       try {
         setIsSearchingAllBatches(true);
+        isInSearchModeRef.current = true;
+        setIsInSearchMode(true);
 
-        // Llamar a función de búsqueda en servidor (usa índices pg_trgm)
-        const { data: searchResults, error } = await analysisSupabase.rpc('search_dashboard_conversations', {
+        const { data: rpcResults, error } = await analysisSupabase.rpc('search_dashboard_conversations', {
           p_search_term: debouncedSearchTerm.trim(),
           p_user_id: queryUserId,
           p_is_admin: isAdminRef.current,
@@ -1823,47 +1847,40 @@ const LiveChatCanvas: React.FC = () => {
         if (error) {
           console.warn('⚠️ Búsqueda en servidor no disponible, usando filtrado local');
           serverSearchSucceededRef.current = false;
+          // Fallback: limpiar searchResults para que useMemo filtre localmente
+          setSearchResults(null);
+          setIsSearchingAllBatches(false);
           return;
         }
 
-        // Marcar búsqueda server-side como exitosa → deshabilita carga agresiva
         serverSearchSucceededRef.current = true;
-        
-        if (searchResults && searchResults.length > 0) {
-          // Convertir resultados a formato esperado
-          const convertedResults = searchResults.map(conv => 
+
+        if (rpcResults && rpcResults.length > 0) {
+          const convertedResults = rpcResults.map(conv =>
             optimizedConversationsService.convertToConversationFormat(conv)
           );
-          
-          // Actualizar prospectosDataRef con resultados
-          const prospectosMap = optimizedConversationsService.buildProspectosDataMap(searchResults);
+
+          // Actualizar prospectosDataRef con datos de búsqueda (cache compartido)
+          const prospectosMap = optimizedConversationsService.buildProspectosDataMap(rpcResults);
           prospectosMap.forEach((value, key) => {
             prospectosDataRef.current.set(key, value);
           });
           setProspectosDataVersion(prev => prev + 1);
-          
-          // FIX 2026-02-07: Agregar resultados a AMBAS listas para que la carga agresiva no los borre
-          setAllConversationsLoaded(prev => {
-            const existingIds = new Set(prev.map(c => c.id).filter(Boolean));
-            const newConvs = convertedResults.filter(c => c.id && !existingIds.has(c.id));
-            if (newConvs.length === 0) return prev;
-            return [...prev, ...newConvs];
-          });
-          setConversations(prev => {
-            const existingIds = new Set(prev.map(c => c.id).filter(Boolean));
-            const newConvs = convertedResults.filter(c => c.id && !existingIds.has(c.id));
-            if (newConvs.length === 0) return prev;
-            return [...prev, ...newConvs];
-          });
+
+          // v7.1: Resultados van a searchResults (aislado de Realtime/load)
+          setSearchResults(convertedResults);
+        } else {
+          setSearchResults([]);
         }
-        
+
         setIsSearchingAllBatches(false);
       } catch (error) {
         console.error('Error en búsqueda servidor:', error);
+        setSearchResults(null); // Fallback a filtrado local
         setIsSearchingAllBatches(false);
       }
     };
-    
+
     searchInServer();
   }, [debouncedSearchTerm]);
   
@@ -1873,20 +1890,26 @@ const LiveChatCanvas: React.FC = () => {
       clearInterval(searchLoadIntervalRef.current);
       searchLoadIntervalRef.current = null;
     }
-    
-    // Si hay búsqueda >= 3 chars O filtro de no leídos, y hay más batches
+
+    // v7.0: No cargar agresivamente durante búsqueda server-side
+    // Double-guard: ref directo + check del search term (evita race condition)
+    if (isInSearchModeRef.current || debouncedSearchTerm.trim().length >= 3) {
+      setIsSearchingAllBatches(false);
+      return;
+    }
+
+    // Si hay filtro de no leídos y hay más batches (búsqueda >= 3 ya la maneja el server)
     if (needsAggressiveLoading && hasMoreConversations) {
       setIsSearchingAllBatches(true);
-      
+
       // Cargar batches cada 500ms hasta completar
       const loadNextBatch = async () => {
-        if (!hasMoreConversations || isLoadingConversationsRef.current) {
+        if (!hasMoreConversations || isLoadingConversationsRef.current || isInSearchModeRef.current) {
           return;
         }
-        
-        // Verificar si aún necesitamos cargar (solo fallback de búsqueda, unread es server-side)
-        const stillNeedsLoading = debouncedSearchTerm.trim().length >= 3 && !serverSearchSucceededRef.current;
-        if (!stillNeedsLoading) {
+
+        // Solo para filtro de no leídos (búsqueda es server-side)
+        if (debouncedSearchTerm.trim().length >= 3) {
           if (searchLoadIntervalRef.current) {
             clearInterval(searchLoadIntervalRef.current);
             searchLoadIntervalRef.current = null;
@@ -1894,13 +1917,13 @@ const LiveChatCanvas: React.FC = () => {
           setIsSearchingAllBatches(false);
           return;
         }
-        
+
         await loadConversationsWrapper('', false);
       };
-      
+
       // Cargar primer batch inmediatamente
       loadNextBatch();
-      
+
       // Configurar intervalo para cargar más
       searchLoadIntervalRef.current = setInterval(loadNextBatch, 2000);
     } else {
@@ -1938,6 +1961,11 @@ const LiveChatCanvas: React.FC = () => {
     }
     loadConversationsWrapper('', true);
   }, [filterByUnread]);
+
+  // v7.0: Sync refs para search mode y scroll check (lectura sin re-render)
+  useEffect(() => { isInSearchModeRef.current = isInSearchMode; }, [isInSearchMode]);
+  useEffect(() => { hasMoreConversationsRef.current = hasMoreConversations; }, [hasMoreConversations]);
+  useEffect(() => { allConversationsLoadedRef.current = allConversationsLoaded; }, [allConversationsLoaded]);
 
   // ⚡ OPTIMIZADO V5.2: Verificar llamadas activas - ref en lugar de dependencia
   const conversationsRef = useRef<Conversation[]>([]);
@@ -2239,9 +2267,11 @@ const LiveChatCanvas: React.FC = () => {
             return [updatedConv, ...prev.slice(0, existingIndex), ...prev.slice(existingIndex + 1)];
           };
           
-          // Actualizar ambas listas con la misma lógica
-          setConversations(updateConversationsList);
+          // v7.0: Siempre actualizar base, conversations solo fuera de búsqueda
           setAllConversationsLoaded(updateConversationsList);
+          if (!isInSearchModeRef.current) {
+            setConversations(updateConversationsList);
+          }
 
           // ⚡ Trabajo secundario diferido (no crítico para UI)
           if (window.requestIdleCallback) {
@@ -2347,10 +2377,12 @@ const LiveChatCanvas: React.FC = () => {
                 id_dynamics: updatedProspecto.id_dynamics || null,
                 etapa: updatedProspecto.etapa || null,
                 etapa_id: updatedProspecto.etapa_id || null,
+                bloqueado_whatsapp: updatedProspecto.bloqueado_whatsapp ?? existingCacheData?.bloqueado_whatsapp ?? false,
                 // Incluir campos de nombre/contacto del payload Realtime (payload.new tiene row completa)
                 nombre_completo: updatedProspecto.nombre_completo || existingCacheData?.nombre_completo || null,
                 nombre_whatsapp: updatedProspecto.nombre_whatsapp || existingCacheData?.nombre_whatsapp || null,
                 whatsapp: updatedProspecto.whatsapp || existingCacheData?.whatsapp || null,
+                whatsapp_provider: updatedProspecto.whatsapp_provider || existingCacheData?.whatsapp_provider || 'uchat',
               });
               
               // Verificar permisos del usuario para este prospecto actualizado
@@ -2529,6 +2561,75 @@ const LiveChatCanvas: React.FC = () => {
               });
             }
             
+            // ✅ REALTIME bloqueado_whatsapp: Actualizar cache cuando cambia
+            const bloqueadoChanged = currentCached
+              ? currentCached.bloqueado_whatsapp !== updatedProspecto.bloqueado_whatsapp
+              : updatedProspecto.bloqueado_whatsapp === true;
+            if (bloqueadoChanged) {
+              const prospectoData = prospectosDataRef.current.get(prospectoId);
+              if (prospectoData) {
+                prospectosDataRef.current.set(prospectoId, {
+                  ...prospectoData,
+                  bloqueado_whatsapp: updatedProspecto.bloqueado_whatsapp ?? false
+                });
+              }
+              // Forzar re-render si la conversación seleccionada cambió
+              const currentSelected = selectedConversationStateRef.current;
+              if (currentSelected &&
+                  (currentSelected.prospecto_id === prospectoId || currentSelected.id === prospectoId)) {
+                startTransition(() => {
+                  setSelectedConversation(prev => prev ? { ...prev } : null);
+                });
+              }
+              setProspectosDataVersion(prev => prev + 1);
+            }
+
+            // ✅ REALTIME whatsapp_provider: Actualizar cache y conversación cuando cambia
+            const providerChanged = currentCached
+              ? currentCached.whatsapp_provider !== updatedProspecto.whatsapp_provider
+              : false;
+            if (providerChanged && updatedProspecto.whatsapp_provider) {
+              const prospectoData = prospectosDataRef.current.get(prospectoId);
+              if (prospectoData) {
+                prospectosDataRef.current.set(prospectoId, {
+                  ...prospectoData,
+                  whatsapp_provider: updatedProspecto.whatsapp_provider,
+                });
+              }
+              // Actualizar whatsapp_provider en la conversación para que badge e isWithin24HourWindow se actualicen
+              const updateProviderInList = (prev: Conversation[]) => {
+                const idx = prev.findIndex(c => c.prospecto_id === prospectoId || c.id === prospectoId);
+                if (idx === -1) return prev;
+                const updated = [...prev];
+                updated[idx] = {
+                  ...updated[idx],
+                  whatsapp_provider: updatedProspecto.whatsapp_provider,
+                  metadata: { ...updated[idx].metadata, whatsapp_provider: updatedProspecto.whatsapp_provider },
+                };
+                return updated;
+              };
+              startTransition(() => {
+                setAllConversationsLoaded(updateProviderInList);
+                if (!isInSearchModeRef.current) {
+                  setConversations(updateProviderInList);
+                }
+              });
+              // Forzar re-render si es la conversación seleccionada
+              const currentSelected = selectedConversationStateRef.current;
+              if (currentSelected &&
+                  (currentSelected.prospecto_id === prospectoId || currentSelected.id === prospectoId)) {
+                startTransition(() => {
+                  setSelectedConversation(prev => prev ? {
+                    ...prev,
+                    whatsapp_provider: updatedProspecto.whatsapp_provider,
+                    metadata: { ...prev.metadata, whatsapp_provider: updatedProspecto.whatsapp_provider },
+                  } : null);
+                });
+              }
+              setProspectosDataVersion(prev => prev + 1);
+              console.log(`🔄 [Realtime] whatsapp_provider cambió para ${prospectoId}: ${currentCached?.whatsapp_provider} → ${updatedProspecto.whatsapp_provider}`);
+            }
+
             // ✅ OPTIMIZACIÓN: Diferir actualización de nombre usando requestIdleCallback
             const updateName = () => {
               startTransition(() => {
@@ -2875,85 +2976,51 @@ const LiveChatCanvas: React.FC = () => {
   }, [conversations.length, selectedConversation?.id]); // Se ejecuta cuando cambia el número de conversaciones o la conversación seleccionada
 
   // ============================================
-  // 🚀 INFINITE SCROLL HANDLER (v6.2.0)
+  // 🚀 v7.0: INFINITE SCROLL HANDLER (reescrito — ref-based, sin loop)
   // ============================================
+  // Se monta UNA vez con deps vacías. Lee estado actual de refs
+  // para evitar el loop causado por conversations.length como dependencia.
   useEffect(() => {
-    if (!hasMoreConversations || loadingMoreConversations || isLoadingConversationsRef.current) {
-      return;
-    }
-
     const scrollContainer = conversationsScrollContainerRef.current;
-    if (!scrollContainer) {
-      return;
-    }
+    if (!scrollContainer) return;
 
-    let lastScrollCheck = 0;
     let scrollCheckTimeout: NodeJS.Timeout | null = null;
 
     const checkShouldLoadMore = () => {
-      if (loadingMoreConversations || isLoadingConversationsRef.current || !hasMoreConversations) {
+      if (!hasMoreConversationsRef.current ||
+          isLoadingConversationsRef.current ||
+          isInSearchModeRef.current) return;
+
+      const { clientHeight, scrollTop, scrollHeight } = scrollContainer;
+      const scrollPct = ((scrollTop + clientHeight) / scrollHeight) * 100;
+
+      // Cargar al 75% del scroll
+      if (scrollPct >= 75) {
+        loadConversationsWrapper('', false);
         return;
       }
 
-      const containerHeight = scrollContainer.clientHeight;
-      const scrollTop = scrollContainer.scrollTop;
-      const scrollHeight = scrollContainer.scrollHeight;
-      
-      const scrollPercentage = ((scrollTop + containerHeight) / scrollHeight) * 100;
-      
-      // Cargar al 75% del scroll (25% antes del final)
-      if (scrollPercentage >= 75 && hasMoreConversations && !loadingMoreConversations && !isLoadingConversationsRef.current) {
-        loadConversationsWrapper('', false); // Cargar siguiente página sin reset
-        return;
-      }
-      
-      // ============================================
-      // FIX v6.3.0: Carga automática más agresiva para ejecutivos
-      // ============================================
-      // Si no hay suficiente scroll O si hay muy pocas conversaciones,
-      // cargar automáticamente más batches.
-      // El límite de 1000 es para evitar loops infinitos, pero seguimos
-      // hasta tener al menos algo de scroll o agotar la BD.
-      const MIN_CONVERSATIONS_FOR_SCROLL = 10; // Mínimo para tener scroll decente
-      const shouldLoadMore = 
-        hasMoreConversations && 
-        !loadingMoreConversations && 
-        !isLoadingConversationsRef.current && 
-        allConversationsLoaded.length < 1000 &&
-        (
-          scrollHeight <= containerHeight + 50 || // No hay suficiente scroll
-          allConversationsLoaded.length < MIN_CONVERSATIONS_FOR_SCROLL // Muy pocas conversaciones
-        );
-      
-      if (shouldLoadMore) {
+      // Auto-fill si no hay suficiente scroll (solo primeras cargas, límite 1000)
+      const count = allConversationsLoadedRef.current.length;
+      if (count < 1000 && (scrollHeight <= clientHeight + 50 || count < 10)) {
         loadConversationsWrapper('', false);
-        return;
       }
     };
 
     const handleScroll = () => {
-      if (scrollCheckTimeout) {
-        clearTimeout(scrollCheckTimeout);
-      }
-      scrollCheckTimeout = setTimeout(() => {
-        checkShouldLoadMore();
-      }, 150); // Throttle de 150ms
+      if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout);
+      scrollCheckTimeout = setTimeout(checkShouldLoadMore, 150);
     };
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
-    
-    // Verificar rápidamente después de la carga inicial
-    // Reducido de 800ms a 300ms para mejor UX cuando hay pocas conversaciones
-    const initialCheck = setTimeout(() => {
-      checkShouldLoadMore();
-    }, 300);
+    const initialCheck = setTimeout(checkShouldLoadMore, 300);
 
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
       if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout);
       clearTimeout(initialCheck);
     };
-  }, [hasMoreConversations, loadingMoreConversations, conversations.length, allConversationsLoaded.length]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Efecto para cargar el nombre del agente asignado cuando se selecciona una conversación
   useEffect(() => {
@@ -3976,7 +4043,8 @@ const LiveChatCanvas: React.FC = () => {
             mensajes_totales: row.mensajes_totales,
             mensajes_no_leidos: row.mensajes_no_leidos,
             ultimo_mensaje: row.ultimo_mensaje_preview,
-            id_uchat: row.id_uchat
+            id_uchat: row.id_uchat,
+            whatsapp_provider: row.whatsapp_provider || 'uchat'
           }));
           
           return { data: transformedData, error };
@@ -4041,7 +4109,8 @@ const LiveChatCanvas: React.FC = () => {
         requiere_atencion_humana?: boolean;
         motivo_handoff?: string | null;
         etapa?: string | null;
-        etapa_id?: string | null; // ✅ AGREGADO para restricciones
+        etapa_id?: string | null;
+        whatsapp_provider?: string;
       }>> => {
         const resultMap = new Map<string, {
           coordinacion_id?: string;
@@ -4055,7 +4124,8 @@ const LiveChatCanvas: React.FC = () => {
           requiere_atencion_humana?: boolean;
           motivo_handoff?: string | null;
           etapa?: string | null;
-          etapa_id?: string | null; // ✅ AGREGADO para restricciones
+          etapa_id?: string | null;
+          whatsapp_provider?: string;
         }>();
         
         // Procesar en batches para evitar URL demasiado larga
@@ -4064,7 +4134,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { data, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id, whatsapp_provider')
               .in('id', batch);
             
             if (error) {
@@ -4109,7 +4179,8 @@ const LiveChatCanvas: React.FC = () => {
                 requiere_atencion_humana: p.requiere_atencion_humana || false,
                 motivo_handoff: p.motivo_handoff || null,
                 etapa: p.etapa || null,
-                etapa_id: p.etapa_id || null, // ✅ AGREGADO para restricciones
+                etapa_id: p.etapa_id || null,
+                whatsapp_provider: p.whatsapp_provider || 'uchat',
               });
               if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
               if (p.ejecutivo_id) ejecutivoIds.add(p.ejecutivo_id);
@@ -4322,9 +4393,13 @@ const LiveChatCanvas: React.FC = () => {
             updated_at: c.fecha_ultimo_mensaje,
             fecha_inicio: c.fecha_creacion_prospecto,
             tipo: 'whatsapp',
-            metadata: { 
+            whatsapp_provider: c.whatsapp_provider || prospectoData?.whatsapp_provider || 'uchat',
+            whatsapp: prospectoData?.whatsapp || c.numero_telefono,
+            metadata: {
               prospecto_id: c.prospecto_id,
               id_uchat: c.id_uchat,
+              whatsapp_provider: c.whatsapp_provider || prospectoData?.whatsapp_provider || 'uchat',
+              whatsapp: prospectoData?.whatsapp || c.numero_telefono,
               coordinacion_id: coordinacionInfo?.id,
               coordinacion_codigo: coordinacionInfo?.codigo,
               coordinacion_nombre: coordinacionInfo?.nombre,
@@ -4429,6 +4504,10 @@ const LiveChatCanvas: React.FC = () => {
       if (reset || pageToLoad === 0) {
         // Reset: reemplazar todos los datos
         setAllConversationsLoaded(filtered);
+        // v7.1: Reset sale de search mode y limpia resultados aislados
+        isInSearchModeRef.current = false;
+        setIsInSearchMode(false);
+        setSearchResults(null);
         setConversations(filtered);
         currentConversationsPageRef.current = 1;
         
@@ -4454,9 +4533,11 @@ const LiveChatCanvas: React.FC = () => {
         // CRÍTICO: Usar setState funcional y actualizar AMBAS listas en el mismo callback
         setAllConversationsLoaded(prev => {
           const updatedData = [...prev, ...filtered];
-          
-          // Actualizar conversations también dentro del mismo callback
-          setConversations(updatedData);
+
+          // v7.0: Solo actualizar conversations si no estamos en búsqueda
+          if (!isInSearchModeRef.current) {
+            setConversations(updatedData);
+          }
           
           // ============================================
           // FIX v6.3.0: hasMore basado en rawLoadedCount (crudo), NO en filtered.length
@@ -4507,6 +4588,16 @@ const LiveChatCanvas: React.FC = () => {
       setLoading(false);
       setLoadingMoreConversations(false);
       isLoadingConversationsRef.current = false;
+
+      // v7.0: Re-check si necesita auto-fill (reemplaza el loop del useEffect anterior)
+      setTimeout(() => {
+        const el = conversationsScrollContainerRef.current;
+        if (el && hasMoreConversationsRef.current && !isInSearchModeRef.current && !isLoadingConversationsRef.current) {
+          if (el.scrollHeight <= el.clientHeight + 50 || allConversationsLoadedRef.current.length < 10) {
+            loadConversationsWrapper('', false);
+          }
+        }
+      }, 100);
     }
   };
 
@@ -4651,15 +4742,22 @@ const LiveChatCanvas: React.FC = () => {
       // Actualizar estado de conversaciones
       if (reset) {
         setAllConversationsLoaded(convertedConversations);
+        // v7.1: Reset sale de search mode y limpia resultados aislados
+        isInSearchModeRef.current = false;
+        setIsInSearchMode(false);
+        setSearchResults(null);
         setConversations(convertedConversations);
       } else {
         const existingIds = new Set(allConversationsLoaded.map(c => c.id).filter(Boolean));
         const newConversations = convertedConversations.filter(c => c.id && !existingIds.has(c.id));
-        
+
         if (newConversations.length > 0) {
           const merged = [...allConversationsLoaded, ...newConversations];
           setAllConversationsLoaded(merged);
-          setConversations(merged);
+          // v7.0: Solo actualizar vista si no estamos buscando
+          if (!isInSearchModeRef.current) {
+            setConversations(merged);
+          }
         }
       }
       
@@ -4686,6 +4784,16 @@ const LiveChatCanvas: React.FC = () => {
       setLoading(false);
       setLoadingMoreConversations(false);
       isLoadingConversationsRef.current = false;
+
+      // v7.0: Re-check si necesita auto-fill
+      setTimeout(() => {
+        const el = conversationsScrollContainerRef.current;
+        if (el && hasMoreConversationsRef.current && !isInSearchModeRef.current && !isLoadingConversationsRef.current) {
+          if (el.scrollHeight <= el.clientHeight + 50 || allConversationsLoadedRef.current.length < 10) {
+            loadConversationsWrapper('', false);
+          }
+        }
+      }, 100);
     }
   };
 
@@ -6204,44 +6312,12 @@ const LiveChatCanvas: React.FC = () => {
   // MÉTODOS DE ENVÍO
   // ============================================
 
-  const sendMessageToUChat = async (message: string, uchatId: string, idSender?: string): Promise<boolean> => {
+  // Envío unificado: texto via send-message-proxy → /webhook/twilio-livechat-send
+  const sendMessage = async (message: string, whatsapp: string, idSender?: string): Promise<boolean> => {
     try {
       const payload: Record<string, unknown> = {
-        message: message,
-        uchat_id: uchatId,
-        type: 'text',
-        ttl: 180,
-        provider: 'uchat'
-      };
-
-      if (idSender) {
-        payload.id_sender = idSender;
-      }
-
-      const response = await authenticatedEdgeFetch('send-message-proxy', {
-        body: payload
-      });
-
-      if (response.status === 200 || response.status === 201) {
-        await response.json();
-        return true;
-      } else {
-        const errorText = await response.text();
-        console.error('Error del webhook uChat:', errorText);
-        return false;
-      }
-    } catch (error) {
-      console.error('Error enviando a UChat webhook:', error);
-      return false;
-    }
-  };
-
-  const sendMessageToTwilio = async (message: string, whatsapp: string, idSender?: string): Promise<boolean> => {
-    try {
-      const payload: Record<string, unknown> = {
-        mensaje: message,
-        whatsapp: whatsapp,
-        provider: 'twilio'
+        whatsapp,
+        message,
       };
 
       if (idSender) {
@@ -6255,7 +6331,7 @@ const LiveChatCanvas: React.FC = () => {
       if (response.status === 200 || response.status === 201) {
         const result = await response.json();
         if (result.success === false) {
-          console.error('Error Twilio:', result.error, result.error_code);
+          console.error('Error envío:', result.error, result.error_code);
           toast.error(`Error al enviar: ${result.error || 'Error desconocido'}`);
           return false;
         }
@@ -6683,35 +6759,17 @@ const LiveChatCanvas: React.FC = () => {
     const messageContent = messageText;
     const prospectoId = selectedConversation.prospecto_id || selectedConversation.id;
 
-    // Determinar proveedor
-    const provider = (selectedConversation.whatsapp_provider as string)
-      || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string
-      || 'uchat';
-    const isTwilio = provider === 'twilio';
-
-    // Obtener identificadores según proveedor
-    const uchatId = selectedConversation.conversation_id
-      || (selectedConversation.metadata as Record<string, unknown>)?.id_uchat as string
-      || selectedConversation.id_uchat;
+    // Obtener número WhatsApp del prospecto (requerido para envío unificado)
     const whatsapp = (selectedConversation.metadata as Record<string, unknown>)?.whatsapp as string
       || selectedConversation.whatsapp
-      || (selectedConversation as Record<string, unknown>).whatsapp_raw as string;
+      || (selectedConversation as Record<string, unknown>).whatsapp_raw as string
+      || prospectosDataRef.current.get(prospectoId)?.whatsapp;
 
-    // Validar según proveedor
-    if (isTwilio) {
-      if (!whatsapp) {
-        toast.error('No se puede enviar: falta número WhatsApp del prospecto');
-        isSendingRef.current = false;
-        setSending(false);
-        return;
-      }
-    } else {
-      if (!uchatId) {
-        toast.error('No se puede enviar: falta ID de UChat del prospecto');
-        isSendingRef.current = false;
-        setSending(false);
-        return;
-      }
+    if (!whatsapp) {
+      toast.error('No se puede enviar: falta número WhatsApp del prospecto');
+      isSendingRef.current = false;
+      setSending(false);
+      return;
     }
 
     const optimisticMessage: Message = {
@@ -6742,22 +6800,14 @@ const LiveChatCanvas: React.FC = () => {
     scrollToBottom('smooth');
 
     try {
-      // 2. Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
-      if (isTwilio) {
-        await pauseBot(prospectoId, 1, false);
-      } else {
-        await pauseBot(uchatId!, 1, false);
-      }
+      // 2. Pausar bot por prospecto_id
+      await pauseBot(prospectoId, 1, false);
 
-      // 3. Enviar mensaje según proveedor
-      const success = isTwilio
-        ? await sendMessageToTwilio(messageContent, whatsapp!, user?.id)
-        : await sendMessageToUChat(messageContent, uchatId!, user?.id);
+      // 3. Enviar mensaje via endpoint unificado
+      const success = await sendMessage(messageContent, whatsapp, user?.id);
 
       if (!success) {
-        throw new Error(isTwilio
-          ? 'Error al enviar mensaje via Twilio'
-          : 'El webhook de UChat no respondió correctamente');
+        throw new Error('Error al enviar mensaje');
       }
 
     } catch (error) {
@@ -6940,28 +6990,49 @@ const LiveChatCanvas: React.FC = () => {
     }
   };
 
-  // Helper: Checks de delivery estilo WhatsApp (✓ ✓✓ 🔵✓✓)
+  // Helper: Checks de delivery estilo WhatsApp con etiqueta de texto
   const renderDeliveryChecks = (message: Message, variant: 'bubble' | 'plain' = 'bubble'): React.ReactNode => {
     if (message.sender_type === 'customer' || message.sender_type === 'call') return null;
     if (message.status === 'bloqueado_whatsapp' || message.status === 'bloqueo_meta') return null;
     if (!message.status_delivery) return null;
 
-    const grey = variant === 'bubble' ? 'text-white/60' : 'text-gray-400 dark:text-gray-500';
-    const blue = variant === 'bubble' ? 'text-blue-300' : 'text-blue-500 dark:text-blue-400';
+    const grey = variant === 'bubble' ? 'text-white/50' : 'text-gray-400 dark:text-gray-500';
+    const labelGrey = variant === 'bubble' ? 'text-white/50' : 'text-gray-400 dark:text-gray-500';
+    const readColor = variant === 'bubble' ? 'text-cyan-200' : 'text-blue-500 dark:text-blue-400';
 
     switch (message.status_delivery) {
       case 'queued':
-        return <Clock className={`w-3.5 h-3.5 ml-1 ${grey}`} />;
+        return (
+          <span className={`inline-flex items-center gap-0.5 ml-1.5 ${grey}`}>
+            <Clock className="w-3 h-3" />
+            <span className="text-[9px]">En cola</span>
+          </span>
+        );
       case 'sent':
-        return <Check className={`w-3.5 h-3.5 ml-1 ${grey}`} />;
+        return (
+          <span className={`inline-flex items-center gap-0.5 ml-1.5 ${grey}`}>
+            <Check className="w-3.5 h-3.5" />
+            <span className="text-[9px]">Enviado</span>
+          </span>
+        );
       case 'delivered':
-        return <CheckCheck className={`w-4 h-4 ml-1 ${grey}`} />;
+        return (
+          <span className={`inline-flex items-center gap-0.5 ml-1.5 ${labelGrey}`}>
+            <CheckCheck className="w-4 h-4" />
+            <span className="text-[9px]">Recibido</span>
+          </span>
+        );
       case 'read':
-        return <CheckCheck className={`w-4 h-4 ml-1 ${blue}`} />;
+        return (
+          <span className={`inline-flex items-center gap-0.5 ml-1.5 ${readColor} drop-shadow-[0_0_3px_rgba(165,243,252,0.4)]`}>
+            <CheckCheck className="w-4 h-4" />
+            <span className="text-[9px] font-medium">Leído</span>
+          </span>
+        );
       case 'failed':
       case 'undelivered':
         return (
-          <span className="flex items-center gap-1 ml-1 text-orange-300">
+          <span className="inline-flex items-center gap-1 ml-1.5 text-orange-300">
             <AlertTriangle className="w-3.5 h-3.5" />
             <span className="text-[10px]">No entregado</span>
           </span>
@@ -7007,19 +7078,27 @@ const LiveChatCanvas: React.FC = () => {
 
   const isWithin24HourWindow = (conversation: Conversation | null): boolean => {
     if (!conversation) return false;
-    
+
+    // Si el proveedor es uchat, Twilio NO tiene ventana abierta → forzar reactivación con plantilla
+    const provPId = conversation.prospecto_id || conversation.id;
+    const provPData = provPId ? prospectosDataRef.current.get(provPId) : null;
+    const provider = provPData?.whatsapp_provider
+      || conversation.whatsapp_provider
+      || (conversation.metadata as Record<string, unknown>)?.whatsapp_provider as string;
+    if (provider === 'uchat') return false;
+
     // Buscar el último mensaje del USUARIO (no del bot/agente)
     const messages = messagesByConversation[conversation.id] || [];
     const lastUserMessage = messages
       .filter(m => m.sender_type === 'customer')
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-    
+
     if (!lastUserMessage) return false;
-    
+
     const lastMessageDate = new Date(lastUserMessage.created_at);
     const now = new Date();
     const hoursSinceLastMessage = (now.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60);
-    
+
     return hoursSinceLastMessage < 24;
   };
 
@@ -7161,10 +7240,12 @@ const LiveChatCanvas: React.FC = () => {
   }, [selectedEtapas]);
 
   // Filtrado optimizado con useMemo - Búsqueda mejorada + Filtro por etapa + Filtro por etiquetas
+  // v7.1: Fuente de datos = searchResults (si hay búsqueda activa) ?? conversations (datos base)
   const filteredConversations = useMemo(() => {
+    const source = searchResults !== null ? searchResults : conversations;
     // ✅ DEDUP: Eliminar conversaciones duplicadas por ID antes de filtrar
     const seenIds = new Set<string>();
-    let filtered = conversations.filter(conv => {
+    let filtered = source.filter(conv => {
       const id = conv.id;
       if (!id || seenIds.has(id)) return false;
       seenIds.add(id);
@@ -7234,6 +7315,7 @@ const LiveChatCanvas: React.FC = () => {
     }
     
     // 2. Filtro por búsqueda (nombre sin acentos, teléfono mejorado, email)
+    // v7.1: SIEMPRE filtrar localmente — el server provee dataset ampliado, el local asegura match exacto
     if (debouncedSearchTerm.trim()) {
       const searchLower = debouncedSearchTerm.toLowerCase().trim();
       const searchNoAccents = normalizeText(debouncedSearchTerm); // Búsqueda sin acentos
@@ -7291,7 +7373,7 @@ const LiveChatCanvas: React.FC = () => {
     });
 
     return filtered;
-  }, [conversations, debouncedSearchTerm, selectedEtapas, selectedEjecutivoId, labelFilters, prospectoLabels, prospectosDataVersion, filterByUnread, unreadCounts, sortOrder]);
+  }, [conversations, searchResults, debouncedSearchTerm, selectedEtapas, selectedEjecutivoId, labelFilters, prospectoLabels, prospectosDataVersion, filterByUnread, unreadCounts, sortOrder, isInSearchMode]);
 
   // v6.6.0: Contador de CONVERSACIONES no leídas (no mensajes)
   // Cuenta cuántas conversaciones tienen al menos 1 mensaje no leído
@@ -7305,6 +7387,30 @@ const LiveChatCanvas: React.FC = () => {
       return unread > 0;
     }).length;
   }, [unreadCounts, conversations]);
+
+  // v7.0: Virtualización de la lista de conversaciones
+  const conversationsVirtualizer = useVirtualizer({
+    count: filteredConversations.length,
+    getScrollElement: () => conversationsScrollContainerRef.current,
+    estimateSize: () => 88,
+    overscan: 5,
+    getItemKey: (index) => filteredConversations[index]?.id || String(index),
+  });
+
+  // v7.0: Infinite scroll trigger via virtualizer (reemplaza scroll % check)
+  const virtualItems = conversationsVirtualizer.getVirtualItems();
+  useEffect(() => {
+    if (virtualItems.length === 0) return;
+    const lastItem = virtualItems[virtualItems.length - 1];
+    if (!lastItem) return;
+
+    if (lastItem.index >= filteredConversations.length - 15 &&
+        hasMoreConversationsRef.current &&
+        !isLoadingConversationsRef.current &&
+        !isInSearchModeRef.current) {
+      loadConversationsWrapper('', false);
+    }
+  }, [virtualItems, filteredConversations.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ⚡ OPTIMIZADO V5: Métricas calculadas con useMemo (sin useEffect separado)
   // Esto evita un setState adicional en cada mensaje
@@ -7863,76 +7969,90 @@ const LiveChatCanvas: React.FC = () => {
           {/* ⚡ OPTIMIZADO V5: Estilos CSS globales (una sola vez) */}
           <GlobalAnimationStyles />
           
-          {filteredConversations.map((conversation) => {
-            // Pre-calcular valores fuera del componente para memoización efectiva
-            const prospectId = conversation.prospecto_id || conversation.id;
-            const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
-            // CRÍTICO: conversation_id es el verdadero ID de UChat (ej: f190385u343660219)
-            const uchatId = conversation.conversation_id || conversation.metadata?.id_uchat || conversation.id_uchat;
-            // Buscar pausa por uchat_id o prospecto_id (indexación dual)
-            const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
-              || (conversation.prospecto_id ? botPauseStatus[conversation.prospecto_id] : null);
-            
-            return (
-              <ConversationItem
-                key={conversation.id}
-                conversation={conversation}
-                isSelected={selectedConversation?.id === conversation.id}
-                hasActiveCall={prospectsWithActiveCalls.has(conversation.prospecto_id)}
-                isBotPaused={!!(pauseStatus?.isPaused && (
-                  pauseStatus.pausedUntil === null || 
-                  pauseStatus.pausedUntil > new Date()
-                ))}
-                requiereAtencion={prospectoData?.requiere_atencion_humana || false}
-                unreadCount={Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)}
-                userRole={user?.role_name}
-                userId={user?.id}
-                labels={prospectoLabels[conversation.prospecto_id] || []}
-                prospectoData={prospectoData ? { id_dynamics: prospectoData.id_dynamics, etapa: prospectoData.etapa } : null}
-                onLabelsClick={(e) => handleOpenLabelsModal({
-                  id: conversation.prospecto_id,
-                  name: conversation.customer_name || 'Conversación'
-                }, e)}
-                onSelect={() => {
-                  isManualSelectionRef.current = true;
-                  selectedConversationRef.current = conversation.prospecto_id;
-                  setSelectedConversation(conversation);
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  // Permitir menú contextual para admin, administrador_operativo, coordinadores y coordinadores de Calidad
-                  if (isCoordinador || isAdmin || isAdminOperativo || isCoordinadorCalidad) {
-                    const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
-                    const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
-                    
-                    setAssignmentContextMenu({
-                      prospectId,
-                      coordinacionId,
-                      ejecutivoId,
-                      prospectData: prospectoData ? {
-                        id_dynamics: prospectoData.id_dynamics,
-                        nombre_completo: prospectoData.nombre_completo,
-                        nombre_whatsapp: prospectoData.nombre_whatsapp,
-                        email: prospectoData.email,
-                        whatsapp: prospectoData.whatsapp,
-                      } : undefined,
-                      position: { x: e.clientX, y: e.clientY }
-                    });
-                  }
-                }}
-                onCallClick={() => setAppMode('live-monitor')}
-                getStatusIndicator={getStatusIndicator}
-                formatTimeAgo={formatTimeAgo}
-              />
-            );
-          })}
-          
-          {/* 🚀 Indicador discreto de carga incremental (v6.2.0) */}
+          {/* v7.0: Lista virtualizada — solo renderiza ~20-30 items visibles */}
+          <div style={{ height: `${conversationsVirtualizer.getTotalSize()}px`, width: '100%', position: 'relative' }}>
+            {conversationsVirtualizer.getVirtualItems().map((virtualItem) => {
+              const conversation = filteredConversations[virtualItem.index];
+              if (!conversation) return null;
+
+              const prospectId = conversation.prospecto_id || conversation.id;
+              const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
+              const uchatId = conversation.conversation_id || conversation.metadata?.id_uchat || conversation.id_uchat;
+              const pauseStatus = (uchatId ? botPauseStatus[uchatId] : null)
+                || (conversation.prospecto_id ? botPauseStatus[conversation.prospecto_id] : null);
+
+              return (
+                <div
+                  key={conversation.id}
+                  data-index={virtualItem.index}
+                  ref={conversationsVirtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
+                >
+                  <ConversationItem
+                    conversation={conversation}
+                    isSelected={selectedConversation?.id === conversation.id}
+                    hasActiveCall={prospectsWithActiveCalls.has(conversation.prospecto_id)}
+                    isBotPaused={!!(pauseStatus?.isPaused && (
+                      pauseStatus.pausedUntil === null ||
+                      pauseStatus.pausedUntil > new Date()
+                    ))}
+                    requiereAtencion={prospectoData?.requiere_atencion_humana || false}
+                    unreadCount={Number(conversation.unread_count ?? unreadCounts[conversation.id] ?? conversation.mensajes_no_leidos ?? 0)}
+                    userRole={user?.role_name}
+                    userId={user?.id}
+                    labels={prospectoLabels[conversation.prospecto_id] || []}
+                    prospectoData={prospectoData ? { id_dynamics: prospectoData.id_dynamics, etapa: prospectoData.etapa } : null}
+                    onLabelsClick={(e) => handleOpenLabelsModal({
+                      id: conversation.prospecto_id,
+                      name: conversation.customer_name || 'Conversacion'
+                    }, e)}
+                    onSelect={() => {
+                      isManualSelectionRef.current = true;
+                      selectedConversationRef.current = conversation.prospecto_id;
+                      setSelectedConversation(conversation);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      if (isCoordinador || isAdmin || isAdminOperativo || isCoordinadorCalidad) {
+                        const ejecutivoId = conversation.metadata?.ejecutivo_id || prospectoData?.ejecutivo_id;
+                        const coordinacionId = conversation.metadata?.coordinacion_id || prospectoData?.coordinacion_id;
+
+                        setAssignmentContextMenu({
+                          prospectId,
+                          coordinacionId,
+                          ejecutivoId,
+                          prospectData: prospectoData ? {
+                            id_dynamics: prospectoData.id_dynamics,
+                            nombre_completo: prospectoData.nombre_completo,
+                            nombre_whatsapp: prospectoData.nombre_whatsapp,
+                            email: prospectoData.email,
+                            whatsapp: prospectoData.whatsapp,
+                          } : undefined,
+                          position: { x: e.clientX, y: e.clientY }
+                        });
+                      }
+                    }}
+                    onCallClick={() => setAppMode('live-monitor')}
+                    getStatusIndicator={getStatusIndicator}
+                    formatTimeAgo={formatTimeAgo}
+                  />
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Indicador de carga incremental */}
           {loadingMoreConversations && filteredConversations.length > 0 && (
             <div className="p-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/50">
               <div className="flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-600"></div>
-                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cargando más conversaciones...</span>
+                <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">Cargando mas conversaciones...</span>
               </div>
             </div>
           )}
@@ -8164,15 +8284,56 @@ const LiveChatCanvas: React.FC = () => {
                   onClick={() => setShowProspectSidebar(true)}
                   title="Click para ver detalles del prospecto"
                 >
-                  <Avatar
-                    name={selectedConversation.customer_name}
-                    size="lg"
-                    showIcon={false}
-                  />
+                  <div className="relative">
+                    <Avatar
+                      name={selectedConversation.customer_name}
+                      size="lg"
+                      showIcon={false}
+                    />
+                    {/* Badge proveedor WhatsApp: T=Twilio, U=uChat */}
+                    {(() => {
+                      const provId = selectedConversation.prospecto_id || selectedConversation.id;
+                      const provData = provId ? prospectosDataRef.current.get(provId) : null;
+                      const prov = provData?.whatsapp_provider
+                        || selectedConversation.whatsapp_provider
+                        || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string
+                        || 'uchat';
+                      const isTwilio = prov === 'twilio';
+                      return (
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold text-white ring-2 ring-white dark:ring-gray-900 ${
+                            isTwilio
+                              ? 'bg-emerald-500'
+                              : 'bg-blue-500'
+                          }`}
+                          title={isTwilio ? 'Twilio' : 'uChat'}
+                        >
+                          {isTwilio ? 'T' : 'U'}
+                        </span>
+                      );
+                    })()}
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                      {selectedConversation.customer_name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        {selectedConversation.customer_name}
+                      </h3>
+                      {/* Badge de prospecto bloqueado en WhatsApp */}
+                      {(() => {
+                        const pId = selectedConversation.prospecto_id || selectedConversation.id;
+                        const pData = pId ? prospectosDataRef.current.get(pId) : null;
+                        if (!pData?.bloqueado_whatsapp) return null;
+                        return (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 flex-shrink-0"
+                            title="Este prospecto ha bloqueado nuestro n\u00famero de WhatsApp. Los mensajes no se entregar\u00e1n hasta que nos desbloquee."
+                          >
+                            <ShieldAlert className="w-3 h-3" />
+                            Bloqueado
+                          </span>
+                        );
+                      })()}
+                    </div>
                     {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
                     <div className="flex items-center flex-wrap gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                       {/* Badges de asignación inline */}
@@ -9128,23 +9289,35 @@ const LiveChatCanvas: React.FC = () => {
               }}
             >
             {!isWithin24HourWindow(selectedConversation) ? (
-              // VENTANA DE 24 HORAS EXPIRADA - Mostrar restricción de WhatsApp con botón de reactivar
+              // VENTANA CERRADA O PROSPECTO SIN SESIÓN TWILIO - Mostrar reactivación con plantilla
               <div className="flex flex-col items-center justify-center h-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-700/50 px-4 py-6 space-y-4">
                 <div className="flex items-center space-x-3 text-amber-800 dark:text-amber-200 w-full">
                   <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-sm font-semibold">
-                      Ventana de mensajería cerrada
-                    </p>
-                    <p className="text-xs opacity-80 mt-0.5">
-                      Han pasado {Math.floor(getHoursSinceLastUserMessage(selectedConversation))}h desde el último mensaje del usuario. WhatsApp Business API solo permite responder dentro de las 24 horas siguientes.
-                    </p>
+                    {(() => {
+                      const rId = selectedConversation?.prospecto_id || selectedConversation?.id;
+                      const rData = rId ? prospectosDataRef.current.get(rId) : null;
+                      const rProv = rData?.whatsapp_provider
+                        || selectedConversation?.whatsapp_provider
+                        || (selectedConversation?.metadata as Record<string, unknown>)?.whatsapp_provider;
+                      const isUchat = rProv === 'uchat';
+                      return (
+                        <>
+                          <p className="text-sm font-semibold">
+                            {isUchat ? 'Sesión de Twilio no iniciada' : 'Ventana de mensajería cerrada'}
+                          </p>
+                          <p className="text-xs opacity-80 mt-0.5">
+                            {isUchat
+                              ? 'Este prospecto aún no tiene sesión activa en Twilio. Envía una plantilla para iniciar la conversación.'
+                              : `Han pasado ${Math.floor(getHoursSinceLastUserMessage(selectedConversation))}h desde el último mensaje del usuario. WhatsApp Business API solo permite responder dentro de las 24 horas siguientes.`}
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
-                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por mantenimiento del proveedor de mensajería - eliminar {false &&} para re-habilitar */}
-                {false && (
                 <motion.button
                   whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}
                   whileTap={{ scale: loadingReactivate ? 1 : 0.98 }}
@@ -9213,11 +9386,6 @@ const LiveChatCanvas: React.FC = () => {
                     </>
                   )}
                 </motion.button>
-                )}
-                {/* Mensaje temporal mientras plantillas están deshabilitadas */}
-                <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-1">
-                  Envío de plantillas temporalmente suspendido por mantenimiento del proveedor.
-                </p>
               </div>
             ) : isUserBlocked ? (
               // USUARIO BLOQUEADO - Mostrar alerta de moderación
@@ -9236,6 +9404,19 @@ const LiveChatCanvas: React.FC = () => {
               </div>
             ) : (
               // VENTANA ACTIVA - Mostrar input normal
+            <div className="flex flex-col gap-1">
+              {/* Banner de prospecto bloqueado en WhatsApp */}
+              {(() => {
+                const bId = selectedConversation?.prospecto_id || selectedConversation?.id;
+                const bData = bId ? prospectosDataRef.current.get(bId) : null;
+                if (!bData?.bloqueado_whatsapp) return null;
+                return (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-xs">
+                    <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Prospecto bloqueó nuestro número. Los mensajes probablemente no se entregarán.</span>
+                  </div>
+                );
+              })()}
             <div className="flex items-center space-x-2">
               {/* Botón Adjuntar */}
               <button
@@ -9391,6 +9572,7 @@ const LiveChatCanvas: React.FC = () => {
                   </motion.button>
                 </div>
               )}
+            </div>
             </div>
             )}
             </div>

@@ -1,3 +1,12 @@
+## [v2.18.1] - 2026-03-03
+
+**B10.1.44N2.18.1** - Puntos de presion de conexiones en WhatsApp module
+
+### Sesiones de trabajo
+- **2026-03-03-fix-thundering-herd-permissions**: Puntos de presion de conexiones en WhatsApp module
+
+---
+
 ## [v2.18.0] - 2026-03-03
 
 **B10.1.44N2.18.0** - 1 feature + Meta bloqueó el número de WhatsApp de la plataform

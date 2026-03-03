@@ -1,7 +1,7 @@
 {
   "name": "pqnc-qa-ai-platform",
   "private": true,
-  "version": "2.18.0",
+  "version": "2.18.1",
   "type": "module",
   "engines": {
     "node": ">=20.19.0",
@@ -51,6 +51,7 @@
     "@reactflow/node-resizer": "^2.2.14",
     "@supabase/mcp-utils": "^0.2.3",
     "@supabase/supabase-js": "^2.76.1",
+    "@tanstack/react-virtual": "^3.13.19",
     "@twilio/voice-sdk": "^2.15.0",
     "@types/react-plotly.js": "^2.6.4",
     "@vapi-ai/web": "^2.3.10",

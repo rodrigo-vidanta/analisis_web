@@ -67,22 +67,29 @@ let cachedUserGroups: Map<string, PermissionGroup[]> = new Map();
 let cacheTimestamp = 0;
 const CACHE_TTL = 60000; // 1 minuto
 
+// Deduplicación: promesa compartida para evitar thundering herd
+// Cuando 40+ componentes montan simultáneamente, TODOS comparten la misma request
+let _inFlightPromise: Promise<{ groups: PermissionGroup[]; userGroups: Map<string, PermissionGroup[]> }> | null = null;
+// Cooldown en error para evitar reintentos infinitos
+let _errorCooldownUntil = 0;
+const ERROR_COOLDOWN_MS = 10000; // 10 segundos de cooldown tras error
+
 export function useEffectivePermissions(): EffectivePermissions {
   const { user } = useAuth();
   const [allGroups, setAllGroups] = useState<PermissionGroup[]>([]);
   const [userGroups, setUserGroups] = useState<PermissionGroup[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Cargar grupos
   const loadGroups = useCallback(async () => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
-    
+
     const now = Date.now();
     const cacheValid = now - cacheTimestamp < CACHE_TTL;
-    
+
     try {
       // Usar cache si es válido
       if (cacheValid && cachedGroups && cachedUserGroups.has(user.id)) {
@@ -91,28 +98,51 @@ export function useEffectivePermissions(): EffectivePermissions {
         setLoading(false);
         return;
       }
-      
-      // Cargar todos los grupos
-      const groups = cachedGroups || await groupsService.getGroups(true);
-      if (!cachedGroups) {
-        cachedGroups = groups;
+
+      // Cooldown: si hubo un error reciente, usar fallback sin hacer requests
+      if (now < _errorCooldownUntil) {
+        if (cachedGroups) setAllGroups(cachedGroups);
+        setUserGroups(cachedUserGroups.get(user.id) || []);
+        setLoading(false);
+        return;
       }
-      setAllGroups(groups);
-      
-      // Cargar grupos del usuario
-      const userAssignments = await groupsService.getUserGroups(user.id);
-      const userGroupIds = userAssignments.map(a => a.group_id);
-      const userGroupsFiltered = groups.filter(g => userGroupIds.includes(g.id));
-      
-      // Actualizar cache
-      cachedUserGroups.set(user.id, userGroupsFiltered);
-      cacheTimestamp = now;
-      
-      setUserGroups(userGroupsFiltered);
+
+      // Deduplicación: si ya hay un fetch en curso, esperar el mismo resultado
+      if (_inFlightPromise) {
+        const result = await _inFlightPromise;
+        setAllGroups(result.groups);
+        setUserGroups(result.userGroups.get(user.id) || []);
+        setLoading(false);
+        return;
+      }
+
+      // Iniciar fetch compartido
+      _inFlightPromise = (async () => {
+        const groups = cachedGroups || await groupsService.getGroups(true);
+        if (!cachedGroups) {
+          cachedGroups = groups;
+        }
+
+        const userAssignments = await groupsService.getUserGroups(user.id);
+        const userGroupIds = userAssignments.map(a => a.group_id);
+        const userGroupsFiltered = groups.filter(g => userGroupIds.includes(g.id));
+
+        cachedUserGroups.set(user.id, userGroupsFiltered);
+        cacheTimestamp = Date.now();
+
+        return { groups, userGroups: cachedUserGroups };
+      })();
+
+      const result = await _inFlightPromise;
+      setAllGroups(result.groups);
+      setUserGroups(result.userGroups.get(user.id) || []);
     } catch (error) {
       console.warn('Error cargando grupos para permisos efectivos:', error);
-      setUserGroups([]);
+      // Activar cooldown para evitar estampida de reintentos
+      _errorCooldownUntil = Date.now() + ERROR_COOLDOWN_MS;
+      setUserGroups(cachedUserGroups.get(user.id) || []);
     } finally {
+      _inFlightPromise = null;
       setLoading(false);
     }
   }, [user?.id]);

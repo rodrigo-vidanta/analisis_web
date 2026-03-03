@@ -310,15 +310,8 @@ export function useImageCatalog(
       return;
     }
 
-    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
-
     if (!prospectoData?.whatsapp) {
       toast.error('No se puede enviar: falta número WhatsApp del prospecto');
-      return;
-    }
-
-    if (!isTwilio && !prospectoData?.id_uchat) {
-      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
 
@@ -337,65 +330,46 @@ export function useImageCatalog(
 
     isSendingRef.current = true;
     const totalImages = imagesToSend.length;
-    const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     try {
       for (let i = 0; i < totalImages; i++) {
         const currentImage = imagesToSend[i];
-        const currentItem = currentImage.item;
         const currentUrl = currentImage.url;
         const isLast = i === totalImages - 1;
-        const imageRequestId = `${batchId}_img${i + 1}`;
 
         // UI optimista
         if (onImageSent) {
           onImageSent(currentUrl, '');
         }
 
-        const payloadItem: Record<string, string | { archivo: string; destino: string; resort: string }[]> = {
-          request_id: imageRequestId,
+        // Envío unificado via send-message-proxy → /webhook/send-message
+        const imgPayload: Record<string, unknown> = {
           whatsapp: prospectoData.whatsapp,
+          imagenes: [currentImage.item.nombre_archivo],
           id_sender: loggedUserId,
-          provider: prospectoData.whatsapp_provider,
-          imagenes: [{
-            archivo: currentItem.nombre_archivo,
-            destino: currentItem.destinos?.[0] || '',
-            resort: currentItem.resorts?.[0] || ''
-          }]
         };
 
-        // Solo agregar uchat_id para proveedor uChat
-        if (!isTwilio && prospectoData.id_uchat) {
-          payloadItem.uchat_id = prospectoData.id_uchat;
-        }
-
-        const payload = [payloadItem];
-
-        const response = await authenticatedEdgeFetch('send-img-proxy', {
-          body: payload
+        const response = await authenticatedEdgeFetch('send-message-proxy', {
+          body: imgPayload
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => null);
-          const errorMsg = errorData?.error || `Error ${response.status}`;
+        const result = await response.json().catch(() => null);
+        if (!response.ok || result?.success === false) {
+          const errorMsg = result?.error || `Error ${response.status}`;
           console.error(`Error enviando imagen ${i + 1}:`, errorMsg);
           throw new Error(`Error al enviar imagen ${i + 1}: ${errorMsg}`);
         }
 
-        await response.json();
-
-        // 8 segundos entre imagenes
+        // Pausa entre envíos (2s rate limit)
         if (!isLast) {
-          await new Promise(resolve => setTimeout(resolve, 8000));
+          await new Promise(resolve => setTimeout(resolve, 2000));
         }
       }
 
-      // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
+      // Pausar bot por prospecto_id
       if (onPauseBot) {
         try {
-          const pauseId = isTwilio
-            ? selectedConversation?.prospecto_id
-            : prospectoData.id_uchat;
+          const pauseId = selectedConversation?.prospecto_id;
           if (pauseId) {
             await onPauseBot(pauseId, 1, false);
           }
@@ -416,13 +390,8 @@ export function useImageCatalog(
 
   const handleSendImages = useCallback(() => {
     if (selectedImages.length === 0) return;
-    const isTwilio = prospectoData?.whatsapp_provider === 'twilio';
     if (!prospectoData?.whatsapp) {
       toast.error('No se puede enviar: falta número WhatsApp del prospecto');
-      return;
-    }
-    if (!isTwilio && !prospectoData?.id_uchat) {
-      toast.error('No se puede enviar: falta ID de UChat del prospecto');
       return;
     }
     imagesToSendRef.current = [...selectedImages];

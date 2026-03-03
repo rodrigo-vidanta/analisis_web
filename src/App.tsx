@@ -16,7 +16,7 @@ import MaintenancePage from './components/MaintenancePage';
  *   1. Descomentar import de HealthCheckGuard
  *   2. Envolver el return con <HealthCheckGuard>...</HealthCheckGuard>
  */
-const MAINTENANCE_MODE = true;
+const MAINTENANCE_MODE = false;
 
 function App() {
   // Override manual: fuerza mantenimiento (migración infraestructura mensajería 2026-03-03)

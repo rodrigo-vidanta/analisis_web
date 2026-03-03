@@ -125,6 +125,10 @@ export interface GroupAuditLog {
 // ============================================
 
 class GroupsService {
+  // Deduplicación de requests in-flight para evitar thundering herd
+  private _getGroupsPromise: Promise<PermissionGroup[]> | null = null;
+  private _getUserGroupsPromises: Map<string, Promise<UserGroupAssignment[]>> = new Map();
+
   // ============================================
   // CRUD DE GRUPOS
   // ============================================
@@ -133,6 +137,18 @@ class GroupsService {
    * Obtiene todos los grupos activos
    */
   async getGroups(includeSystem = true): Promise<PermissionGroup[]> {
+    // Deduplicar: si ya hay un fetch in-flight, reusar la misma promesa
+    if (this._getGroupsPromise) return this._getGroupsPromise;
+
+    this._getGroupsPromise = this._fetchGroups(includeSystem);
+    try {
+      return await this._getGroupsPromise;
+    } finally {
+      this._getGroupsPromise = null;
+    }
+  }
+
+  private async _fetchGroups(includeSystem: boolean): Promise<PermissionGroup[]> {
     try {
       let query = supabaseSystemUI
         .from('permission_groups')
@@ -509,9 +525,24 @@ class GroupsService {
   }
 
   /**
-   * Obtiene los grupos de un usuario
+   * Obtiene los grupos de un usuario (con deduplicación de requests in-flight)
    */
   async getUserGroups(userId: string): Promise<UserGroupAssignment[]> {
+    // Si ya hay una request in-flight para este usuario, reusar la misma promesa
+    const existing = this._getUserGroupsPromises.get(userId);
+    if (existing) return existing;
+
+    const promise = this._fetchUserGroups(userId);
+    this._getUserGroupsPromises.set(userId, promise);
+
+    try {
+      return await promise;
+    } finally {
+      this._getUserGroupsPromises.delete(userId);
+    }
+  }
+
+  private async _fetchUserGroups(userId: string): Promise<UserGroupAssignment[]> {
     try {
       const { data, error } = await supabaseSystemUI
         .from('user_permission_groups')
@@ -524,7 +555,7 @@ class GroupsService {
 
       if (error) {
         console.warn('Error obteniendo grupos del usuario:', error.message);
-        return []; // Devolver array vacío en lugar de lanzar error
+        return [];
       }
 
       return (data || []).map(item => ({
@@ -533,7 +564,7 @@ class GroupsService {
       }));
     } catch (error) {
       console.error('Error obteniendo grupos del usuario:', error);
-      return []; // Devolver array vacío para no romper la UI
+      return [];
     }
   }
 
