@@ -2,7 +2,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import MainApp from './components/MainApp';
 import { Toaster } from 'react-hot-toast';
 import NetworkStatusIndicator from './components/common/NetworkStatusIndicator';
-// import MaintenancePage from './components/MaintenancePage';
+import MaintenancePage from './components/MaintenancePage';
 // import HealthCheckGuard from './components/HealthCheckGuard';
 
 /**
@@ -16,13 +16,13 @@ import NetworkStatusIndicator from './components/common/NetworkStatusIndicator';
  *   1. Descomentar import de HealthCheckGuard
  *   2. Envolver el return con <HealthCheckGuard>...</HealthCheckGuard>
  */
-// const MAINTENANCE_MODE = false;
+const MAINTENANCE_MODE = true;
 
 function App() {
-  // Override manual: fuerza mantenimiento sin importar health check
-  // if (MAINTENANCE_MODE) {
-  //   return <MaintenancePage />;
-  // }
+  // Override manual: fuerza mantenimiento (migración infraestructura mensajería 2026-03-03)
+  if (MAINTENANCE_MODE) {
+    return <MaintenancePage />;
+  }
 
   return (
     // <HealthCheckGuard>

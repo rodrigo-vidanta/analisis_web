@@ -2329,7 +2329,7 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 <span>Reasignación Masiva</span>
               </div>
             </button>
-            {/* TEMP_DISABLED: Tab importación deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
+            {/* TEMP_DISABLED: Tab importación deshabilitada por mantenimiento del proveedor de mensajería - eliminar {false &&} para re-habilitar */}
             {false && (
             <button
               onClick={() => setActiveTab('import')}

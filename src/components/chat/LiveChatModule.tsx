@@ -184,7 +184,7 @@ const LiveChatModule: React.FC<LiveChatModuleProps> = ({ className = '' }) => {
       {/* Navigation SLIM - Sin título, solo icono y tabs */}
       <div className="border-b border-neutral-100 dark:border-neutral-700 px-6 py-2.5 bg-white dark:bg-neutral-800 sticky top-0 z-20">
         <div className="flex items-center space-x-4">
-          {/* TEMP_DISABLED: Importación manual deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
+          {/* TEMP_DISABLED: Importación manual deshabilitada por mantenimiento del proveedor de mensajería - eliminar {false &&} para re-habilitar */}
           {false && (
           <motion.button
             onClick={() => setShowQuickImportModal(true)}

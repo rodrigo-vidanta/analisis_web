@@ -37,6 +37,7 @@ PLANIFICAR → VERIFICAR (leer antes de modificar) → IMPLEMENTAR (max 3 archiv
 ## Skills Obligatorios
 
 - Cuando el usuario pida crear un **comunicado, aviso, anuncio o tutorial** para los usuarios de la plataforma → usar `/comunicado`
+- Cuando el usuario pida **activar/desactivar mantenimiento** de la plataforma → usar `/maintenance`
 
 ## Anti-Alucinacion
 

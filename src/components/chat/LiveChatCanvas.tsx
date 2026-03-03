@@ -9143,7 +9143,7 @@ const LiveChatCanvas: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por problemas de pago META - eliminar {false &&} para re-habilitar */}
+                {/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por mantenimiento del proveedor de mensajería - eliminar {false &&} para re-habilitar */}
                 {false && (
                 <motion.button
                   whileHover={{ scale: loadingReactivate ? 1 : 1.02 }}

@@ -1,8 +1,8 @@
-# Handover: Deshabilitacion temporal de envio de plantillas (v2) por problemas de pago META
+# Handover: Deshabilitacion temporal de envio de plantillas (v2) por mantenimiento del proveedor
 
 **Fecha:** 2026-03-02
-**Motivo:** Problemas persistentes con el metodo de pago de META que causan fallos en envio de plantillas WhatsApp
-**Tipo:** Cambio temporal - rollback requerido cuando META resuelva el problema de pago
+**Motivo:** Mantenimiento del proveedor de mensajeria que causa fallos en envio de plantillas WhatsApp
+**Tipo:** Cambio temporal - rollback requerido cuando el proveedor resuelva el problema
 **Archivos modificados:** 3
 **Marcador de busqueda:** `TEMP_DISABLED`
 **Referencia anterior:** `.cursor/handovers/2026-02-19-temp-disable-import-reactivate-meta-payment.md`
@@ -70,7 +70,7 @@ src/components/chat/LiveChatCanvas.tsx:9146:  {/* TEMP_DISABLED: ...
 
 ```tsx
 // ELIMINAR linea 187:
-{/* TEMP_DISABLED: Importacion manual deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
+{/* TEMP_DISABLED: Importacion manual deshabilitada por mantenimiento del proveedor de mensajeria - eliminar {false &&} para re-habilitar */}
 
 // ELIMINAR linea 188:
 {false && (
@@ -97,7 +97,7 @@ src/components/chat/LiveChatCanvas.tsx:9146:  {/* TEMP_DISABLED: ...
 
 ```tsx
 // ELIMINAR linea 2332:
-{/* TEMP_DISABLED: Tab importacion deshabilitada por problemas de pago META - eliminar {false &&} para re-habilitar */}
+{/* TEMP_DISABLED: Tab importacion deshabilitada por mantenimiento del proveedor de mensajeria - eliminar {false &&} para re-habilitar */}
 
 // ELIMINAR linea 2333:
 {false && (
@@ -118,7 +118,7 @@ src/components/chat/LiveChatCanvas.tsx:9146:  {/* TEMP_DISABLED: ...
 
 ```tsx
 // ELIMINAR linea 9146:
-{/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por problemas de pago META - eliminar {false &&} para re-habilitar */}
+{/* TEMP_DISABLED: Reactivar con plantilla deshabilitado por mantenimiento del proveedor de mensajeria - eliminar {false &&} para re-habilitar */}
 
 // ELIMINAR linea 9147:
 {false && (

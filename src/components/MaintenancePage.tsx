@@ -6,7 +6,7 @@
  * Mascara fullscreen que cubre TODA la app (login incluido).
  * Para activar/desactivar: cambiar MAINTENANCE_MODE en App.tsx
  *
- * Fecha: 12 Febrero 2026
+ * Fecha: 12 Febrero 2026 (original), 3 Marzo 2026 (migración mensajería)
  */
 
 import { useState, useEffect } from 'react';
@@ -42,7 +42,7 @@ const funFacts = [
 
 export default function MaintenancePage() {
   const [currentFact, setCurrentFact] = useState(0);
-  const [dots, setDots] = useState('');
+  const [isVisible, setIsVisible] = useState(true);
 
   // Forzar dark mode y fondo oscuro independiente del tema del usuario
   useEffect(() => {
@@ -51,19 +51,41 @@ export default function MaintenancePage() {
     document.body.style.colorScheme = 'dark';
   }, []);
 
-  // Rotar fun facts cada 6 segundos
+  // Auto-reload: polling cada 2 min para detectar nuevo deploy (index.html cambia de hash)
   useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentFact((prev) => (prev + 1) % funFacts.length);
-    }, 6000);
-    return () => clearInterval(interval);
+    let initialHash = '';
+
+    async function fetchHash() {
+      try {
+        const res = await fetch(`/?_t=${Date.now()}`, { cache: 'no-store' });
+        const text = await res.text();
+        return text.slice(0, 500);
+      } catch {
+        return '';
+      }
+    }
+
+    fetchHash().then((h) => { initialHash = h; });
+
+    const poll = setInterval(async () => {
+      const current = await fetchHash();
+      if (initialHash && current && current !== initialHash) {
+        window.location.reload();
+      }
+    }, 120000);
+
+    return () => clearInterval(poll);
   }, []);
 
-  // Animar puntos suspensivos
+  // Rotar tips con animación de desvanecimiento: 10s visible, 0.8s fade out, cambio, 0.8s fade in
   useEffect(() => {
     const interval = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
-    }, 500);
+      setIsVisible(false);
+      setTimeout(() => {
+        setCurrentFact((prev) => (prev + 1) % funFacts.length);
+        setIsVisible(true);
+      }, 800);
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -104,10 +126,10 @@ export default function MaintenancePage() {
             <span className="text-5xl select-none" role="img" aria-label="herramientas">&#128736;&#65039;</span>
           </div>
           <h1 className="text-4xl font-bold text-white mb-2" style={{ fontFamily: 'Inter, sans-serif' }}>
-            No estamos de vacaciones
+            Mejorando tu experiencia
           </h1>
           <p className="text-indigo-300 text-lg font-medium">
-            ...bueno, solo los servidores
+            Volveremos en breve con novedades
           </p>
         </div>
 
@@ -120,17 +142,27 @@ export default function MaintenancePage() {
               <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" style={{ animationDelay: '0.4s' }} />
             </div>
             <span className="text-amber-300 font-semibold text-sm tracking-wide uppercase">
-              Mantenimiento en progreso{dots}
+              Actualización en progreso
             </span>
           </div>
 
-          <p className="text-gray-300 text-sm leading-relaxed mb-4">
-            Estamos realizando tareas de mantenimiento en nuestra infraestructura.
-            La plataforma volvera a estar disponible en breve.
+          <p className="text-gray-300 text-sm leading-relaxed mb-3">
+            Estamos mejorando nuestra infraestructura de mensajería para brindarte una experiencia más estable y rápida.
+          </p>
+          <p className="text-indigo-300 text-sm font-medium mb-4">
+            Mientras tanto, aquí tienes algunos tips para maximizar tus ventas:
           </p>
 
-          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4">
-            <p className="text-indigo-200 text-sm italic transition-all duration-500" key={currentFact}>
+          <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-4 min-h-[60px] flex items-center justify-center">
+            <p
+              className="text-indigo-200 text-sm italic"
+              style={{
+                opacity: isVisible ? 1 : 0,
+                filter: isVisible ? 'blur(0px)' : 'blur(8px)',
+                transform: isVisible ? 'translateY(0) scale(1)' : 'translateY(-4px) scale(0.98)',
+                transition: 'opacity 0.8s ease, filter 0.8s ease, transform 0.8s ease',
+              }}
+            >
               &ldquo;{funFacts[currentFact]}&rdquo;
             </p>
           </div>
@@ -142,7 +174,7 @@ export default function MaintenancePage() {
             PQNC QA AI Platform &bull; Vida Vacations
           </p>
           <p className="text-gray-600 text-xs">
-            No necesitas hacer nada. Cuando el servicio se restablezca, la pagina cargara automaticamente.
+            No necesitas hacer nada. Te notificaremos cuando la plataforma esté lista.
           </p>
         </div>
       </div>
