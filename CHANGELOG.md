@@ -1,3 +1,9 @@
+## [v2.17.7] - 2026-03-03
+
+**B10.1.44N2.17.7** - Deploy automatico
+
+---
+
 ## [v2.17.6] - 2026-03-02
 
 **B10.1.44N2.17.6** - El backend migró el envío de mensajes WhatsApp de 
