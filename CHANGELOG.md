@@ -1,3 +1,15 @@
+## [v2.18.0] - 2026-03-03
+
+**B10.1.44N2.18.0** - 1 feature + Meta bloqueó el número de WhatsApp de la plataform
+
+### Sesiones de trabajo
+- **2026-03-03-maintenance-mode-messaging-migration**: Meta bloqueó el número de WhatsApp de la plataforma por un problema con el método de pago. Esto causó:
+
+### Features
+- activate maintenance mode for messaging infrastructure migration (`14b87d2`)
+
+---
+
 ## [v2.17.7] - 2026-03-03
 
 **B10.1.44N2.17.7** - Deploy automatico
