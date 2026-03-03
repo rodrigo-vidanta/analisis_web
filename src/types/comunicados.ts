@@ -103,4 +103,9 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Tutorial: Plantilla Utility',
     description: 'Tutorial interactivo sobre la plantilla seguimiento_contacto_utilidad',
   },
+  {
+    component_key: 'delivery-checks-tutorial',
+    label: 'Tutorial: Checks de Entrega',
+    description: 'Tutorial interactivo sobre los checks de entrega WhatsApp (enviado, recibido, leido)',
+  },
 ];
