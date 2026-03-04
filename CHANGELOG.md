@@ -1,3 +1,15 @@
+## [v2.20.0] - 2026-03-04
+
+**B10.2.0N2.20.0** - 1 feature + El workflow N8N de envío de audio ahora rutea por 
+
+### Sesiones de trabajo
+- **2026-03-04-send-audio-proxy-whatsapp-migration**: El workflow N8N de envío de audio ahora rutea por número `whatsapp` en vez de `uchat_id`. Se necesitaba actualizar la Edge Function y el frontend para enviar el campo correcto.
+
+### Features
+- migrate send-audio-proxy from uchat_id to whatsapp (`72759b8`)
+
+---
+
 ## [v2.19.0] - 2026-03-03
 
 **B10.1.44N2.19.0** - 1 feature
