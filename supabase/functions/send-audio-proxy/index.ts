@@ -25,11 +25,11 @@ Deno.serve(async (req) => {
   try {
     // Obtener payload
     const payload = await req.json();
-    const { audio_base64, uchat_id, filename, id_sender } = payload;
+    const { audio_base64, whatsapp, filename, id_sender } = payload;
 
-    if (!audio_base64 || !uchat_id) {
+    if (!audio_base64 || !whatsapp) {
       return new Response(
-        JSON.stringify({ error: 'audio_base64 and uchat_id are required', success: false }),
+        JSON.stringify({ error: 'audio_base64 and whatsapp are required', success: false }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -46,8 +46,8 @@ Deno.serve(async (req) => {
     // Construir payload para N8N
     const n8nPayload: Record<string, unknown> = {
       audio_base64,
-      uchat_id,
-      filename: filename || 'audio.mp3',
+      whatsapp,
+      filename: filename || 'audio.ogg',
     };
     if (id_sender) {
       n8nPayload.id_sender = id_sender;

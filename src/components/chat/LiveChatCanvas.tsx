@@ -6581,35 +6581,18 @@ const LiveChatCanvas: React.FC = () => {
         const audioBase64 = await base64Promise;
         toast.dismiss(conversionToast);
         
-        // Determinar proveedor y obtener IDs relevantes
-        const audioProvider = selectedConversation.whatsapp_provider
-          || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string
-          || 'uchat';
-        const isTwilioAudio = audioProvider === 'twilio';
-        const uchatId = selectedConversation.conversation_id ||
-                       selectedConversation.metadata?.id_uchat ||
-                       selectedConversation.id_uchat;
+        // Obtener número WhatsApp del prospecto
         const audioWhatsapp = selectedConversation.whatsapp
           || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp as string;
 
-        if (isTwilioAudio) {
-          if (!audioWhatsapp) {
-            toast.error('No se puede enviar audio: falta número WhatsApp del prospecto');
-            setSendingAudio(false);
-            return;
-          }
-        } else {
-          if (!uchatId) {
-            toast.error('No se puede enviar audio: falta ID de UChat del prospecto');
-            setSendingAudio(false);
-            return;
-          }
+        if (!audioWhatsapp) {
+          toast.error('No se puede enviar audio: falta número WhatsApp del prospecto');
+          setSendingAudio(false);
+          return;
         }
 
-        // Pausar bot: por prospecto_id (Twilio) o uchat_id (uChat)
-        const audioPauseId = isTwilioAudio
-          ? selectedConversation.prospecto_id
-          : uchatId;
+        // Pausar bot
+        const audioPauseId = selectedConversation.prospecto_id;
         if (audioPauseId) {
           await pauseBot(audioPauseId, 1, false);
         }
@@ -6617,16 +6600,10 @@ const LiveChatCanvas: React.FC = () => {
         // Usar Edge Function con auth automático (refresh + retry 401 + force logout)
         const payload: Record<string, unknown> = {
           audio_base64: audioBase64,
+          whatsapp: audioWhatsapp,
           filename: `audio_${Date.now()}.ogg`,
           id_sender: user?.id
         };
-        // Agregar campos según proveedor
-        if (isTwilioAudio) {
-          payload.whatsapp = audioWhatsapp;
-          payload.provider = 'twilio';
-        } else {
-          payload.uchat_id = uchatId;
-        }
 
         const response = await authenticatedEdgeFetch('send-audio-proxy', {
           body: payload

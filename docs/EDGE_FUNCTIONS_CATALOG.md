@@ -99,8 +99,10 @@ Operaciones: `updateLastLogin`, `getUserById`, `updateUserField`, `verifyPasswor
 
 #### send-audio-proxy
 
-- Body: `{ audio_base64, uchat_id, filename?, id_sender? }`
+- Body: `{ audio_base64, whatsapp, filename?, id_sender? }`
+- `whatsapp`: numero completo con codigo pais, solo digitos (ej: `5219621661461`)
 - Migrado a Deno.serve() nativo (Feb 2026)
+- Migrado de `uchat_id` a `whatsapp` (Mar 2026) — N8N rutea por numero
 
 #### pause-bot-proxy
 
