@@ -1,3 +1,15 @@
+## [v2.21.0] - 2026-03-04
+
+**B10.2.0N2.21.0** - 1 feature + Cuando un usuario envia un audio en el chat, la pl
+
+### Sesiones de trabajo
+- **2026-03-04-audio-transcription-realtime-animation**: Cuando un usuario envia un audio en el chat, la plataforma transcribe el audio via LLM. La transcripcion tarda unos segundos y se almacena en `adjuntos[0].descripcion` (JSONB) de `mensajes_whatsapp`, NO en el campo `mensaje` (que queda como `""`).
+
+### Features
+- add transcription animation and realtime for audio messages (`c3dddc3`)
+
+---
+
 ## [v2.20.1] - 2026-03-04
 
 **B10.2.0N2.20.1** - 1 fix
