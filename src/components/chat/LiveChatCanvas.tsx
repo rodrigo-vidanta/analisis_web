@@ -2288,10 +2288,11 @@ const LiveChatCanvas: React.FC = () => {
     }));
 
     // ========================================
-    // SUSCRIPCION 1.5: Status + Delivery Status de mensajes WhatsApp (UPDATE)
+    // SUSCRIPCION 1.5: Status + Delivery Status + Transcripción de mensajes WhatsApp (UPDATE)
     // ========================================
     // Detectar: 1) cambios a bloqueado_whatsapp/bloqueo_meta/bloqueado_guardrail
     //           2) progresión de status_delivery (queued→sent→delivered→read)
+    //           3) transcripción de audio llegando como UPDATE a adjuntos.descripcion
     unsubs.push(realtimeHub.subscribe('mensajes_whatsapp', 'UPDATE', (payload) => {
       const updated = payload.new as any;
       if (!updated?.id) return;
@@ -2300,8 +2301,22 @@ const LiveChatCanvas: React.FC = () => {
       const hasBlockedStatus = blockedStatuses.includes(updated.status);
       const hasDeliveryStatus = !!updated.status_delivery;
 
-      // Ignorar updates que no afectan status ni delivery
-      if (!hasBlockedStatus && !hasDeliveryStatus) return;
+      // Detectar transcripción en adjuntos: audio con descripcion presente
+      const hasTranscriptionInAdjuntos = (() => {
+        try {
+          const adj = updated.adjuntos;
+          if (!adj || !Array.isArray(adj)) return false;
+          return adj.some((a: Record<string, unknown>) => {
+            const tipo = ((a.tipo || '') as string).toLowerCase();
+            const filename = ((a.filename || a.archivo || '') as string).toLowerCase();
+            const isAudio = tipo.includes('audio') || /\.(mp3|ogg|wav|m4a|aac)$/i.test(filename);
+            return isAudio && !!a.descripcion;
+          });
+        } catch { return false; }
+      })();
+
+      // Ignorar updates que no afectan status, delivery ni transcripción
+      if (!hasBlockedStatus && !hasDeliveryStatus && !hasTranscriptionInAdjuntos) return;
 
       const targetProspectoId = updated.prospecto_id;
       if (!targetProspectoId) return;
@@ -2326,13 +2341,29 @@ const LiveChatCanvas: React.FC = () => {
         const statusChanged = hasBlockedStatus && existing.status !== updated.status;
         const deliveryProgressed = newRank > currentRank;
 
-        if (!statusChanged && !deliveryProgressed) return prev;
+        // Transcripción: actualizar adjuntos si el audio en memoria no tiene descripcion aún
+        const transcriptionArrived = hasTranscriptionInAdjuntos && (() => {
+          try {
+            const existingAdj = (existing as any).adjuntos;
+            const parsed = typeof existingAdj === 'string' ? JSON.parse(existingAdj) : existingAdj;
+            if (!Array.isArray(parsed)) return true;
+            return parsed.some((a: Record<string, unknown>) => {
+              const tipo = ((a.tipo || '') as string).toLowerCase();
+              const filename = ((a.filename || a.archivo || '') as string).toLowerCase();
+              const isAudio = tipo.includes('audio') || /\.(mp3|ogg|wav|m4a|aac)$/i.test(filename);
+              return isAudio && !a.descripcion;
+            });
+          } catch { return true; }
+        })();
+
+        if (!statusChanged && !deliveryProgressed && !transcriptionArrived) return prev;
 
         const updatedMessages = [...messages];
         updatedMessages[idx] = {
           ...existing,
           ...(statusChanged ? { status: updated.status } : {}),
           ...(deliveryProgressed ? { status_delivery: updated.status_delivery } : {}),
+          ...(transcriptionArrived ? { adjuntos: updated.adjuntos } : {}),
         };
         return { ...prev, [targetProspectoId]: updatedMessages };
       });
@@ -9121,14 +9152,28 @@ const LiveChatCanvas: React.FC = () => {
                                 );
                               } else {
                                 // SIN GLOBO: Stickers y audios solamente (estilo WhatsApp)
+                                // Detectar audios sin transcripción (descripcion en adjuntos)
+                                const audioMissingTranscription = adjuntos && Array.isArray(adjuntos) && adjuntos.some((adj: Record<string, unknown>) => {
+                                  const filename = ((adj.filename || adj.archivo || '') as string).toLowerCase();
+                                  const tipo = ((adj.tipo || '') as string).toLowerCase();
+                                  const isAudio = tipo.includes('audio') || /\.(mp3|ogg|wav|m4a|aac)$/i.test(filename);
+                                  return isAudio && !adj.descripcion;
+                                });
+
                                 return (
                                   <div className="flex flex-col">
                                     {adjuntos && adjuntos.length > 0 && (
-                                      <MultimediaMessage 
+                                      <MultimediaMessage
                                         adjuntos={adjuntos}
                                         hasTextContent={false}
                                         isFromCustomer={isCustomer}
                                       />
+                                    )}
+                                    {/* Indicador de transcripción en progreso para audios sin descripcion */}
+                                    {audioMissingTranscription && (
+                                      <span className={`text-[11px] text-gray-400 dark:text-gray-500 animate-pulse mt-1 italic ${isCustomer ? 'ml-1' : 'mr-1 text-right'}`}>
+                                        Transcribiendo...
+                                      </span>
                                     )}
                                     {/* Timestamp pequeño debajo */}
                                     <div className={`text-xs text-gray-400 dark:text-gray-500 mt-1 flex items-center ${isCustomer ? 'justify-start' : 'justify-end'} gap-0.5`}>
