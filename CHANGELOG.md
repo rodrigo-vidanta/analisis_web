@@ -1,3 +1,12 @@
+## [v2.20.1] - 2026-03-04
+
+**B10.2.0N2.20.1** - 1 fix
+
+### Bug Fixes
+- filter non-UUID ids before querying user_profiles_v2 (`b5365e6`)
+
+---
+
 ## [v2.20.0] - 2026-03-04
 
 **B10.2.0N2.20.0** - 1 feature + El workflow N8N de envío de audio ahora rutea por 

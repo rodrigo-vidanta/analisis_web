@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '028f622', date: '2026-03-04', author: 'Team', message: 'v2.20.1: B10.2.0N2.20.1 - 1 fix', isRelease: true },
   { hash: '6b8d920', date: '2026-03-04', author: 'Team', message: 'v2.20.0: B10.2.0N2.20.0 - 1 feature + El workflow N8N de envío de audio ahora rutea por ', isRelease: true },
   { hash: 'bf988c0', date: '2026-03-03', author: 'Team', message: 'v2.19.0: B10.1.44N2.19.0 - 1 feature', isRelease: true },
   { hash: 'abbc308', date: '2026-03-03', author: 'Team', message: 'v2.18.1: B10.1.44N2.18.1 - Puntos de presion de conexiones en WhatsApp module', isRelease: true },
@@ -560,6 +561,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-998', date: '04/03/2026, 12:37', version: 'B10.2.0N2.20.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-580', date: '04/03/2026, 12:11', version: 'B10.2.0N2.20.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-723', date: '03/03/2026, 15:45', version: 'B10.1.44N2.19.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-758', date: '03/03/2026, 14:27', version: 'B10.1.44N2.18.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -765,8 +767,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.20.0', highlight: true },
-  { label: 'Release', value: 'B10.2.0N2.20.0', highlight: false },
+  { label: 'Version', value: 'v2.20.1', highlight: true },
+  { label: 'Release', value: 'B10.2.0N2.20.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '4 mar 2026', highlight: false },
 ];
