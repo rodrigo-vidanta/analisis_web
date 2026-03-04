@@ -110,6 +110,8 @@ import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
 
 // Utilidades de log (silenciar en producción)
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUUID = (id: string): boolean => UUID_REGEX.test(id);
 const enableRtDebug = import.meta.env.VITE_ENABLE_RT_DEBUG === 'true';
 const logDev = (...args: any[]) => {
 };
@@ -1671,7 +1673,7 @@ const LiveChatCanvas: React.FC = () => {
     }
 
     // 3. Cargar nombre de agente solo si es necesario (diferido y con cache)
-    if (newMessagePayload.id_sender && newMessagePayload.rol !== 'Prospecto') {
+    if (newMessagePayload.id_sender && newMessagePayload.rol !== 'Prospecto' && isValidUUID(newMessagePayload.id_sender)) {
       // Verificar cache primero
       const cachedName = agentNamesById[newMessagePayload.id_sender];
       if (!cachedName) {
@@ -5394,8 +5396,8 @@ const LiveChatCanvas: React.FC = () => {
           .filter(v => v.triggered_by_user)
           .map(v => v.triggered_by_user as string);
         
-        const allUserIds = [...new Set([...senderIds, ...templateUserIds])];
-        
+        const allUserIds = [...new Set([...senderIds, ...templateUserIds])].filter(isValidUUID);
+
         const senderNamesMap: Record<string, string> = {};
         if (allUserIds.length > 0) {
           try {
@@ -5802,8 +5804,9 @@ const LiveChatCanvas: React.FC = () => {
       // Obtener nombres de usuarios para mensajes con id_sender
       const senderIds = newMessages
         .filter(msg => msg.id_sender)
-        .map(msg => msg.id_sender);
-      
+        .map(msg => msg.id_sender)
+        .filter(isValidUUID);
+
       const senderNamesMap: Record<string, string> = {};
       if (senderIds.length > 0) {
         try {
@@ -5811,7 +5814,7 @@ const LiveChatCanvas: React.FC = () => {
             .from('user_profiles_v2')
             .select('id, full_name, first_name, last_name')
             .in('id', senderIds);
-          
+
           if (usersData) {
             usersData.forEach(user => {
               senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
@@ -5883,8 +5886,9 @@ const LiveChatCanvas: React.FC = () => {
       // Obtener nombres de usuarios para mensajes con id_sender
       const senderIds = recentMessages
         .filter(msg => msg.id_sender)
-        .map(msg => msg.id_sender);
-      
+        .map(msg => msg.id_sender)
+        .filter(isValidUUID);
+
       const senderNamesMap: Record<string, string> = {};
       if (senderIds.length > 0) {
         try {
@@ -5892,7 +5896,7 @@ const LiveChatCanvas: React.FC = () => {
             .from('user_profiles_v2')
             .select('id, full_name, first_name, last_name')
             .in('id', senderIds);
-          
+
           if (usersData) {
             usersData.forEach(user => {
               senderNamesMap[user.id] = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
@@ -5963,7 +5967,8 @@ const LiveChatCanvas: React.FC = () => {
       // Obtener nombres de usuarios para mensajes con id_sender
       const senderIds = recentMessages
         .filter(msg => msg.id_sender && !existingMessageIds.has(`real_${msg.id}`))
-        .map(msg => msg.id_sender);
+        .map(msg => msg.id_sender)
+        .filter(isValidUUID);
       
       const senderNamesMap: Record<string, string> = {};
       if (senderIds.length > 0) {
@@ -7156,7 +7161,7 @@ const LiveChatCanvas: React.FC = () => {
       }
 
       // Si tenemos el assigned_agent_id, buscar el nombre en user_profiles_v2
-      if (assignedAgentId) {
+      if (assignedAgentId && isValidUUID(assignedAgentId)) {
         const { data: agentData, error: agentError } = await supabaseSystemUI
           .from('user_profiles_v2')
           .select('full_name')
