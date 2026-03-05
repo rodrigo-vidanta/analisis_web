@@ -22,6 +22,9 @@ aws s3api create-bucket \
   --object-lock-enabled-for-bucket
 
 echo "      Bucket creado: $BUCKET"
+echo "      Esperando disponibilidad del bucket..."
+aws s3api wait bucket-exists --bucket "$BUCKET"
+sleep 5
 
 echo "[2/9] Configurando encriptacion..."
 aws s3api put-bucket-encryption \

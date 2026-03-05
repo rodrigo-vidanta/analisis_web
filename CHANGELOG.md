@@ -1,3 +1,15 @@
+## [v2.22.0] - 2026-03-05
+
+**B10.2.0N2.22.0** - 1 feature + El sistema de livechat incorporo status_delivery
+
+### Sesiones de trabajo
+- **2026-03-05-comunicado-delivery-checks-tutorial**: El sistema de livechat incorporo `status_delivery` en mensajes WhatsApp (queued → sent → delivered → read) con iconos estilo WhatsApp (Check, CheckCheck en gris/cyan). Se creo un comunicado interactivo para informar a todos los usuarios sobre esta funcionalidad.
+
+### Features
+- blur overlay for undelivered templates + error catalog Twilio codes (`8849d65`)
+
+---
+
 ## [v2.21.0] - 2026-03-04
 
 **B10.2.0N2.21.0** - 1 feature + Cuando un usuario envia un audio en el chat, la pl

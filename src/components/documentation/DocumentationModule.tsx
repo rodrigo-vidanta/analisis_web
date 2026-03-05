@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'dbd5a6c', date: '2026-03-05', author: 'Team', message: 'v2.22.0: B10.2.0N2.22.0 - 1 feature + El sistema de livechat incorporo status_delivery', isRelease: true },
   { hash: '03dc5cc', date: '2026-03-04', author: 'Team', message: 'v2.21.0: B10.2.0N2.21.0 - 1 feature + Cuando un usuario envia un audio en el chat, la pl', isRelease: true },
   { hash: '028f622', date: '2026-03-04', author: 'Team', message: 'v2.20.1: B10.2.0N2.20.1 - 1 fix', isRelease: true },
   { hash: '6b8d920', date: '2026-03-04', author: 'Team', message: 'v2.20.0: B10.2.0N2.20.0 - 1 feature + El workflow N8N de envío de audio ahora rutea por ', isRelease: true },
@@ -562,6 +563,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-390', date: '05/03/2026, 13:20', version: 'B10.2.0N2.22.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-199', date: '04/03/2026, 13:25', version: 'B10.2.0N2.21.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-998', date: '04/03/2026, 12:37', version: 'B10.2.0N2.20.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-580', date: '04/03/2026, 12:11', version: 'B10.2.0N2.20.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -769,10 +771,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.21.0', highlight: true },
-  { label: 'Release', value: 'B10.2.0N2.21.0', highlight: false },
+  { label: 'Version', value: 'v2.22.0', highlight: true },
+  { label: 'Release', value: 'B10.2.0N2.22.0', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '4 mar 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '5 mar 2026', highlight: false },
 ];
 
 // ============================================
