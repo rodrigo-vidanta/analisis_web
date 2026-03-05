@@ -90,6 +90,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { AssignmentContextMenu } from '../shared/AssignmentContextMenu';
 import { AssignmentBadge } from '../analysis/AssignmentBadge';
 import { authenticatedEdgeFetch } from '../../utils/authenticatedFetch';
+import { ERROR_CATALOG } from '../../types/errorCatalog';
 import { BackupBadgeWrapper } from '../shared/BackupBadgeWrapper';
 import { useAppStore } from '../../stores/appStore';
 import { etapasService } from '../../services/etapasService';
@@ -203,6 +204,7 @@ interface Message {
   created_at: string;
   status?: 'enviado' | 'bloqueado_whatsapp' | 'bloqueo_meta' | 'bloqueado_guardrail' | 'sin_respuesta';
   status_delivery?: 'queued' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed' | null;
+  delivery_error_code?: string | null;
   // Campos específicos para llamadas
   call_data?: {
     id: string;
@@ -1222,6 +1224,21 @@ const LiveChatCanvas: React.FC = () => {
   const [recordingTime, setRecordingTime] = useState(0);
   const recordingIntervalRef = useRef<number | null>(null);
 
+  // Overlay de error en plantillas no entregadas
+  const dismissedErrorOverlays = useRef<Set<string>>(new Set());
+  const [, setOverlayDismissCounter] = useState(0);
+
+  const shouldShowErrorOverlay = useCallback((message: Message): boolean => {
+    if (message.sender_type !== 'template') return false;
+    if (message.status_delivery !== 'failed' && message.status_delivery !== 'undelivered') return false;
+    return !dismissedErrorOverlays.current.has(message.id);
+  }, []);
+
+  const handleDismissErrorOverlay = useCallback((messageId: string) => {
+    dismissedErrorOverlays.current.add(messageId);
+    setOverlayDismissCounter(c => c + 1);
+  }, []);
+
   // Limpieza de grabación al desmontar o cambiar conversación
   useEffect(() => {
     return () => {
@@ -2212,6 +2229,7 @@ const LiveChatCanvas: React.FC = () => {
             adjuntos: newMessage.adjuntos,
             status: newMessage.status || 'enviado',
             status_delivery: newMessage.status_delivery || null,
+            delivery_error_code: newMessage.delivery_error_code || null,
           } as any;
 
           // ⚡ Actualizar estado directamente
@@ -2362,7 +2380,7 @@ const LiveChatCanvas: React.FC = () => {
         updatedMessages[idx] = {
           ...existing,
           ...(statusChanged ? { status: updated.status } : {}),
-          ...(deliveryProgressed ? { status_delivery: updated.status_delivery } : {}),
+          ...(deliveryProgressed ? { status_delivery: updated.status_delivery, delivery_error_code: updated.delivery_error_code || null } : {}),
           ...(transcriptionArrived ? { adjuntos: updated.adjuntos } : {}),
         };
         return { ...prev, [targetProspectoId]: updatedMessages };
@@ -5385,7 +5403,7 @@ const LiveChatCanvas: React.FC = () => {
         .from('whatsapp_template_sends')
         .select('mensaje_id, triggered_by_user')
         .eq('prospecto_id', prospectoId)
-        .in('status', ['SENT', 'FAILED'])
+        .in('status', ['SENT', 'PENDING', 'FAILED'])
         : Promise.resolve({ data: null, error: null });
 
       let callsResult: { data: any[] | null; error: any } = { data: null, error: null };
@@ -5495,6 +5513,7 @@ const LiveChatCanvas: React.FC = () => {
             adjuntos: msg.adjuntos,
             status: msg.status || 'enviado',
             status_delivery: msg.status_delivery || null,
+            delivery_error_code: msg.delivery_error_code || null,
           } as any;
         });
       }
@@ -7043,13 +7062,18 @@ const LiveChatCanvas: React.FC = () => {
           </span>
         );
       case 'failed':
-      case 'undelivered':
+      case 'undelivered': {
+        const errorInfo = message.delivery_error_code ? ERROR_CATALOG[message.delivery_error_code] : null;
+        const label = errorInfo?.title || 'No entregado';
+        const tooltip = errorInfo?.description || 'Mensaje no entregado';
+        const errorColor = variant === 'bubble' ? 'text-rose-100' : 'text-red-400';
         return (
-          <span className="inline-flex items-center gap-1 ml-1.5 text-orange-300">
-            <AlertTriangle className="w-3.5 h-3.5" />
-            <span className="text-[10px]">No entregado</span>
+          <span className={`inline-flex items-center gap-1 ml-1.5 ${errorColor} cursor-help`} title={tooltip}>
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+            <span className="text-[10px] font-medium">{label}</span>
           </span>
         );
+      }
       default:
         return null;
     }
@@ -9085,7 +9109,7 @@ const LiveChatCanvas: React.FC = () => {
                                       <div className="absolute -right-2 bottom-2 w-3 h-3 overflow-hidden">
                                         <div className={`absolute transform rotate-45 w-3 h-3 ${
                                           message.sender_type === 'template'
-                                            ? 'bg-teal-500'
+                                            ? 'bg-teal-600'
                                             : isBot 
                                             ? 'bg-cyan-600' 
                                             : message.message_id.startsWith('cache_')
@@ -9096,57 +9120,81 @@ const LiveChatCanvas: React.FC = () => {
                                       </div>
                                     )}
 
-                                    <div className={`relative px-3 py-2 shadow-sm backdrop-blur-sm ${
-                                      isCustomer 
-                                        ? 'bg-white/95 dark:bg-gray-600/95 border border-gray-200/50 dark:border-gray-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md' 
+                                    <div className={`relative px-3 py-2 shadow-sm backdrop-blur-sm overflow-hidden ${
+                                      isCustomer
+                                        ? 'bg-white/95 dark:bg-gray-600/95 border border-gray-200/50 dark:border-gray-500/50 text-gray-800 dark:text-gray-100 rounded-2xl rounded-bl-md'
                                         : message.sender_type === 'template'
-                                          ? 'bg-gradient-to-br from-emerald-500/95 to-teal-500/95 text-white rounded-2xl rounded-br-md shadow-md border border-emerald-400/30'
+                                          ? 'bg-gradient-to-br from-teal-600/95 to-emerald-700/95 text-white rounded-2xl rounded-br-md shadow-md border border-teal-500/30'
                                           : isBot
                                           ? 'bg-gradient-to-br from-blue-600/95 to-cyan-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                           : message.message_id.startsWith('cache_')
                                             ? 'bg-gray-500/90 text-white border-2 border-dashed border-gray-400 dark:border-gray-400 rounded-2xl rounded-br-md'
                                             : 'bg-gradient-to-br from-violet-600/95 to-purple-600/95 text-white rounded-2xl rounded-br-md shadow-md'
                                     }`}>
-                                      {message.content && (
-                                        <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                                          {renderWhatsAppFormattedText(message.content.replace(/\\n/g, '\n'))}
-                                        </div>
-                                      )}
+                                      {/* Contenido con blur condicional para plantillas no entregadas */}
+                                      <div className={`transition-all duration-300 ${shouldShowErrorOverlay(message) ? 'blur-[6px] select-none' : ''}`}>
+                                        {message.content && (
+                                          <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                                            {renderWhatsAppFormattedText(message.content.replace(/\\n/g, '\n'))}
+                                          </div>
+                                        )}
 
-                                      {/* Multimedia con globo */}
-                                      {adjuntos && adjuntos.length > 0 && (
-                                        <MultimediaMessage 
-                                          adjuntos={adjuntos}
-                                          hasTextContent={!!message.content}
-                                          isFromCustomer={isCustomer}
-                                        />
-                                      )}
-                                      
-                                      <div className={`text-right text-xs mt-1 flex items-center justify-end space-x-2 ${
-                                        isCustomer ? 'text-gray-500 dark:text-gray-400' : 'text-white/75'
-                                      }`}>
-                                        {message.id.startsWith('temp_') && (
-                                          <span className="italic">
-                                            {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
-                                          </span>
+                                        {/* Multimedia con globo */}
+                                        {adjuntos && adjuntos.length > 0 && (
+                                          <MultimediaMessage
+                                            adjuntos={adjuntos}
+                                            hasTextContent={!!message.content}
+                                            isFromCustomer={isCustomer}
+                                          />
                                         )}
-                                        {message.status === 'bloqueado_whatsapp' && (
-                                          <span className="flex items-center gap-1 text-orange-300" title="Mensaje no entregado por WhatsApp">
-                                            <AlertTriangle className="w-3 h-3" />
-                                            <span className="text-[10px]">No entregado</span>
+
+                                        <div className={`text-right text-xs mt-1 flex items-center justify-end space-x-2 ${
+                                          isCustomer ? 'text-gray-500 dark:text-gray-400' : 'text-white/75'
+                                        }`}>
+                                          {message.id.startsWith('temp_') && (
+                                            <span className="italic">
+                                              {message.sender_name === 'Error' ? 'Error al enviar' : 'Enviando...'}
+                                            </span>
+                                          )}
+                                          {message.status === 'bloqueado_whatsapp' && (
+                                            <span className="flex items-center gap-1 text-orange-300" title="Mensaje no entregado por WhatsApp">
+                                              <AlertTriangle className="w-3 h-3" />
+                                              <span className="text-[10px]">No entregado</span>
+                                            </span>
+                                          )}
+                                          {message.status === 'bloqueo_meta' && (
+                                            <span className="flex items-center gap-1 text-blue-300" title="Meta limitó este envío para proteger al usuario de exceso de marketing">
+                                              <Info className="w-3 h-3" />
+                                              <span className="text-[10px]">Limitado por Meta</span>
+                                            </span>
+                                          )}
+                                          <span>
+                                            {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                           </span>
-                                        )}
-                                        {message.status === 'bloqueo_meta' && (
-                                          <span className="flex items-center gap-1 text-blue-300" title="Meta limitó este envío para proteger al usuario de exceso de marketing">
-                                            <Info className="w-3 h-3" />
-                                            <span className="text-[10px]">Limitado por Meta</span>
-                                          </span>
-                                        )}
-                                        <span>
-                                          {new Date(message.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                        {!message.id.startsWith('temp_') && renderDeliveryChecks(message)}
+                                          {!message.id.startsWith('temp_') && renderDeliveryChecks(message)}
+                                        </div>
                                       </div>
+
+                                      {/* Overlay de error para plantillas no entregadas */}
+                                      <AnimatePresence>
+                                        {shouldShowErrorOverlay(message) && (
+                                          <motion.div
+                                            initial={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer z-10 px-4"
+                                            onClick={() => handleDismissErrorOverlay(message.id)}
+                                          >
+                                            <AlertTriangle className="w-6 h-6 text-rose-200 mb-1.5" />
+                                            <span className="text-sm font-semibold text-white text-center leading-tight">
+                                              {(message.delivery_error_code && ERROR_CATALOG[message.delivery_error_code]?.title) || 'No entregado'}
+                                            </span>
+                                            <span className="text-[10px] text-white/50 mt-2">
+                                              Toca para ver el mensaje
+                                            </span>
+                                          </motion.div>
+                                        )}
+                                      </AnimatePresence>
                                     </div>
                                   </div>
                                 );
@@ -9195,7 +9243,7 @@ const LiveChatCanvas: React.FC = () => {
                                   : message.status === 'bloqueo_meta'
                                   ? 'bg-gradient-to-br from-slate-400 to-blue-500'
                                   : message.sender_type === 'template'
-                                  ? 'bg-gradient-to-br from-emerald-400 to-teal-500'
+                                  ? 'bg-gradient-to-br from-teal-500 to-emerald-600'
                                   : isBot
                                   ? 'bg-gradient-to-br from-blue-500 to-cyan-600'
                                   : 'bg-gradient-to-br from-violet-500 to-purple-600'

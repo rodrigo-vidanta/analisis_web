@@ -184,6 +184,59 @@ export const ERROR_CATALOG: Record<string, ErrorCode> = {
     technicalDetails: 'cURL error 28: Operation timed out after 15000+ milliseconds',
     suggestedAction: 'Verificar latencia de red. Aumentar timeout si persiste.',
     retryable: true
+  },
+
+  // ===== ERRORES TWILIO WHATSAPP (63xxx) =====
+  '63049': {
+    code: '63049',
+    category: ErrorCategory.BUSINESS_RULES,
+    severity: ErrorSeverity.MEDIUM,
+    title: 'Meta decidió no entregar este mensaje de marketing',
+    description: 'Meta filtró el mensaje para mantener la calidad del ecosistema WhatsApp',
+    userMessage: 'Meta decidió no entregar este mensaje de marketing a este contacto.',
+    technicalDetails: 'Twilio 63049: Meta chose not to deliver this WhatsApp marketing message',
+    suggestedAction: 'Reducir frecuencia de mensajes de marketing. Considerar plantilla de utilidad.',
+    retryable: false,
+    documentationUrl: 'https://www.twilio.com/docs/api/errors/63049'
+  },
+
+  '63032': {
+    code: '63032',
+    category: ErrorCategory.BUSINESS_RULES,
+    severity: ErrorSeverity.MEDIUM,
+    title: 'No se puede enviar por una limitación de WhatsApp',
+    description: 'WhatsApp impuso una restricción para este destinatario',
+    userMessage: 'No se puede enviar a este contacto por una limitación de WhatsApp.',
+    technicalDetails: 'Twilio 63032: Cannot send this message to this user because of a WhatsApp limitation',
+    suggestedAction: 'Verificar si el número sigue activo en WhatsApp. Reintentar más tarde.',
+    retryable: true,
+    documentationUrl: 'https://www.twilio.com/docs/api/errors/63032'
+  },
+
+  '63024': {
+    code: '63024',
+    category: ErrorCategory.WHATSAPP_API,
+    severity: ErrorSeverity.HIGH,
+    title: 'Destinatario inválido en WhatsApp',
+    description: 'El número no es un usuario válido de WhatsApp o tiene restricciones de Meta',
+    userMessage: 'Este número no es válido en WhatsApp o tiene restricciones.',
+    technicalDetails: 'Twilio 63024: Invalid message recipient - user not on WhatsApp or Meta restrictions',
+    suggestedAction: 'Verificar que el número tenga WhatsApp activo. Considerar marcar como inactivo.',
+    retryable: false,
+    documentationUrl: 'https://www.twilio.com/docs/api/errors/63024'
+  },
+
+  '63005': {
+    code: '63005',
+    category: ErrorCategory.WHATSAPP_API,
+    severity: ErrorSeverity.HIGH,
+    title: 'El canal no aceptó el contenido',
+    description: 'WhatsApp rechazó el contenido del mensaje',
+    userMessage: 'El contenido del mensaje fue rechazado por WhatsApp.',
+    technicalDetails: 'Twilio 63005: Channel did not accept given content',
+    suggestedAction: 'Revisar contenido del mensaje y variables de la plantilla.',
+    retryable: true,
+    documentationUrl: 'https://www.twilio.com/docs/api/errors/63005'
   }
 };
 

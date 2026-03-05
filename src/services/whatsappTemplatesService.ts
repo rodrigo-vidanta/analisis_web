@@ -1611,11 +1611,12 @@ class WhatsAppTemplatesService {
       const semesterAgo = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000).toISOString();
 
       // Consultar envíos del prospecto (últimos 180 días para cubrir semestre)
+      // Todo envío cuenta para límites, independientemente del resultado de entrega
       const { data: sends, error } = await analysisSupabase
         .from('whatsapp_template_sends')
         .select('id, template_id, sent_at, status')
         .eq('prospecto_id', prospectoId)
-        .eq('status', 'SENT')
+        .in('status', ['SENT', 'PENDING', 'FAILED'])
         .gte('sent_at', semesterAgo)
         .order('sent_at', { ascending: false });
 
@@ -1753,7 +1754,7 @@ class WhatsAppTemplatesService {
         .select('id, sent_at')
         .eq('prospecto_id', prospectoId)
         .eq('template_id', templateId)
-        .eq('status', 'SENT')
+        .in('status', ['SENT', 'PENDING', 'FAILED'])
         .gte('sent_at', semesterAgo)
         .order('sent_at', { ascending: false });
 
