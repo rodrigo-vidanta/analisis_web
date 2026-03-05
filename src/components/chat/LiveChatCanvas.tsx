@@ -109,6 +109,8 @@ import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
 import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMessage } from '../../utils/prospectRestrictions';
 import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
+import { notasInternasService } from '../../services/notasInternasService';
+import { StickyNote } from 'lucide-react';
 
 // Utilidades de log (silenciar en producción)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -195,7 +197,7 @@ interface Message {
   id: string;
   message_id: string;
   conversation_id: string;
-  sender_type: 'customer' | 'bot' | 'agent' | 'call' | 'template';
+  sender_type: 'customer' | 'bot' | 'agent' | 'call' | 'template' | 'note';
   sender_name?: string;
   id_sender?: string; // ID del usuario que envió el mensaje
   sender_user_name?: string; // Nombre completo del usuario que envió el mensaje
@@ -205,6 +207,11 @@ interface Message {
   status?: 'enviado' | 'bloqueado_whatsapp' | 'bloqueo_meta' | 'bloqueado_guardrail' | 'sin_respuesta';
   status_delivery?: 'queued' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed' | null;
   delivery_error_code?: string | null;
+  // Campos específicos para notas internas
+  note_data?: {
+    user_name: string;
+    user_role: string;
+  };
   // Campos específicos para llamadas
   call_data?: {
     id: string;
@@ -1415,6 +1422,86 @@ const LiveChatCanvas: React.FC = () => {
     checkCoordinadorCalidad();
   }, [user?.id, user?.role_name]);
 
+  // ============================================
+  // NOTAS INTERNAS - Estados y permisos
+  // ============================================
+  const canSendNotes = isAdmin || isAdminOperativo || isCoordinador || isSupervisor || isCoordinadorCalidad;
+  const canSendNotesRef = useRef(canSendNotes);
+  useEffect(() => { canSendNotesRef.current = canSendNotes; }, [canSendNotes]);
+  const [isNoteMode, setIsNoteMode] = useState(false);
+  const [noteFlipping, setNoteFlipping] = useState(false);
+  // Cooldown: Web Animations API (imperativo, 0 re-renders durante animacion)
+  const cooldownOverlayRef = useRef<HTMLDivElement>(null);
+  const cooldownAnimRef = useRef<Animation | null>(null);
+  const noteCooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const COOLDOWN_DURATION_MS = 17000; // 17 segundos
+
+  const clearNoteCooldown = useCallback(() => {
+    if (noteCooldownTimerRef.current) {
+      clearTimeout(noteCooldownTimerRef.current);
+      noteCooldownTimerRef.current = null;
+    }
+    if (cooldownAnimRef.current) {
+      cooldownAnimRef.current.cancel();
+      cooldownAnimRef.current = null;
+    }
+    // Restaurar overlay a visible (listo para siguiente ciclo)
+    if (cooldownOverlayRef.current) {
+      cooldownOverlayRef.current.style.opacity = '1';
+      cooldownOverlayRef.current.style.clipPath = 'inset(1px 2px 8px 2px round 18px)';
+    }
+  }, []);
+
+  const startNoteCooldown = useCallback(() => {
+    clearNoteCooldown();
+    // Esperar un frame para que el overlay ya este en DOM
+    requestAnimationFrame(() => {
+      const el = cooldownOverlayRef.current;
+      if (!el) return;
+      // Animacion imperativa: clip-path se cierra de derecha a izquierda (con round para respetar bordes)
+      const anim = el.animate(
+        [
+          { clipPath: 'inset(1px 2px 8px 2px round 18px)', opacity: 1 },
+          { clipPath: 'inset(1px 2px 8px 100% round 18px)', opacity: 0.3 },
+        ],
+        {
+          duration: COOLDOWN_DURATION_MS,
+          easing: 'linear',
+          fill: 'forwards',
+        }
+      );
+      cooldownAnimRef.current = anim;
+    });
+    // Timer unico para expirar al final
+    noteCooldownTimerRef.current = setTimeout(() => {
+      setNoteFlipping(true);
+      setTimeout(() => {
+        setIsNoteMode(false);
+        setNoteFlipping(false);
+        if (cooldownAnimRef.current) { cooldownAnimRef.current.cancel(); cooldownAnimRef.current = null; }
+      }, 300);
+    }, COOLDOWN_DURATION_MS);
+  }, [clearNoteCooldown]);
+
+  const activateNoteMode = useCallback(() => {
+    setNoteFlipping(true);
+    setTimeout(() => {
+      setIsNoteMode(true);
+      setTimeout(() => {
+        setNoteFlipping(false);
+        textareaRef.current?.focus();
+      }, 300);
+    }, 150);
+  }, []);
+
+  // Iniciar cooldown DESPUES de que React monte/actualice el overlay (garantiza ref disponible)
+  useEffect(() => {
+    if (isNoteMode) {
+      startNoteCooldown();
+    }
+    return () => clearNoteCooldown();
+  }, [isNoteMode, startNoteCooldown, clearNoteCooldown]);
+
   // Estados para modal de imágenes y cache de URLs
   const [selectedImageModal, setSelectedImageModal] = useState<{ url: string; alt: string } | null>(null);
   const [imageUrlsCache, setImageUrlsCache] = useState<Record<string, string>>({});
@@ -1632,6 +1719,9 @@ const LiveChatCanvas: React.FC = () => {
       selectedConversationRef.current = null;
       isManualSelectionRef.current = false;
     }
+    // Resetear modo nota al cambiar de conversación
+    setIsNoteMode(false);
+    clearNoteCooldown();
     // ⚡ Actualizar ref de estado para evitar closures
     selectedConversationStateRef.current = selectedConversation;
   }, [selectedConversation?.id]); // ✅ Cambiar dependencia a selectedConversation?.id para detectar cambios
@@ -2798,6 +2888,53 @@ const LiveChatCanvas: React.FC = () => {
           logDev(`[REALTIME] Llamada ${callId} actualizada: ${call.estatus}`);
     }));
 
+    // ========================================
+    // SUSCRIPCION 4: Notas Internas (INSERT)
+    // ========================================
+    unsubs.push(realtimeHub.subscribe('notas_internas', 'INSERT', (payload) => {
+      const newNote = payload.new as Record<string, unknown>;
+      const targetProspectoId = newNote.prospecto_id as string;
+      if (!targetProspectoId) return;
+
+      const adaptedNote: Message = {
+        id: `note_${newNote.id}`,
+        message_id: `note_${newNote.id}`,
+        conversation_id: targetProspectoId,
+        sender_type: 'note',
+        sender_name: 'Nota Interna',
+        content: newNote.contenido as string,
+        is_read: true,
+        created_at: newNote.created_at as string,
+        note_data: {
+          user_name: newNote.user_name as string,
+          user_role: newNote.user_role as string,
+        },
+      };
+
+      setMessagesByConversation(prev => {
+        const current = prev[targetProspectoId] || [];
+        // Dedup: si ya existe con este ID real, ignorar
+        if (current.some(m => m.id === adaptedNote.id)) return prev;
+        // Reemplazar nota temporal optimista (mismo contenido + cercana en tiempo)
+        const hasOptimistic = current.some(m =>
+          m.id.startsWith('note_temp_') &&
+          m.content === adaptedNote.content &&
+          Math.abs(new Date(m.created_at).getTime() - new Date(adaptedNote.created_at).getTime()) < 30000
+        );
+        const filtered = hasOptimistic
+          ? current.filter(m => !(m.id.startsWith('note_temp_') && m.content === adaptedNote.content))
+          : current;
+        return {
+          ...prev,
+          [targetProspectoId]: [...filtered, adaptedNote].sort((a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          ),
+        };
+      });
+
+      logDev(`[REALTIME] Nota interna recibida para prospecto ${targetProspectoId}`);
+    }));
+
     // Almacenar todas las funciones de unsubscribe
     realtimeUnsubscribesRef.current = unsubs;
 
@@ -2805,7 +2942,7 @@ const LiveChatCanvas: React.FC = () => {
     // Resetear flag y backoff
     isSettingUpRef.current = false;
     reconnectBackoffRef.current = 0;
-    logDev('[REALTIME HUB] 3 suscripciones activas: mensajes_whatsapp, prospectos, llamadas_programadas');
+    logDev('[REALTIME HUB] 4 suscripciones activas: mensajes_whatsapp, prospectos, llamadas_programadas, notas_internas');
   };
 
   // Función de throttling para actualizaciones masivas
@@ -5421,7 +5558,10 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
-      const [messagesResult, templateSendsResult] = await Promise.all([messagesPromise, templateSendsPromise]);
+      // Cargar notas internas en paralelo
+      const notasPromise = notasInternasService.getByProspecto(queryId);
+
+      const [messagesResult, templateSendsResult, notasInternas] = await Promise.all([messagesPromise, templateSendsPromise, notasPromise]);
 
       const { data: conversationMessages, error: messagesError } = messagesResult;
       const { data: templateSends } = templateSendsResult;
@@ -5573,6 +5713,28 @@ const LiveChatCanvas: React.FC = () => {
 
         // Combinar mensajes y llamadas, ordenar por fecha
         adaptedMessages = [...adaptedMessages, ...callMessages].sort((a, b) => 
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+      }
+
+      // Agregar notas internas como mensajes especiales
+      if (notasInternas && notasInternas.length > 0) {
+        const noteMessages: Message[] = notasInternas.map((nota) => ({
+          id: `note_${nota.id}`,
+          message_id: `note_${nota.id}`,
+          conversation_id: conversationId,
+          sender_type: 'note' as const,
+          sender_name: 'Nota Interna',
+          content: nota.contenido,
+          is_read: true,
+          created_at: nota.created_at,
+          note_data: {
+            user_name: nota.user_name,
+            user_role: nota.user_role,
+          },
+        }));
+
+        adaptedMessages = [...adaptedMessages, ...noteMessages].sort((a, b) =>
           new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
         );
       }
@@ -6318,10 +6480,21 @@ const LiveChatCanvas: React.FC = () => {
       );
     });
     // ✅ DEDUP: Eliminar mensajes duplicados por ID
+    // Para notas internas: si existe una real (note_uuid), eliminar la temporal (note_temp_)
     const seenMsgIds = new Set<string>();
-    const merged = [...realMessages, ...validCachedMessages].filter(msg => {
+    const seenNoteContents = new Map<string, string>(); // contenido → id real
+    const allMsgs = [...realMessages, ...validCachedMessages];
+    // Primer paso: indexar notas reales
+    for (const msg of allMsgs) {
+      if (msg.sender_type === 'note' && msg.id.startsWith('note_') && !msg.id.startsWith('note_temp_') && msg.content) {
+        seenNoteContents.set(msg.content, msg.id);
+      }
+    }
+    const merged = allMsgs.filter(msg => {
       const id = msg.id;
       if (!id || seenMsgIds.has(id)) return false;
+      // Si es nota temporal y ya existe la real con mismo contenido, descartar temporal
+      if (msg.id.startsWith('note_temp_') && msg.content && seenNoteContents.has(msg.content)) return false;
       seenMsgIds.add(id);
       return true;
     });
@@ -6725,7 +6898,84 @@ const LiveChatCanvas: React.FC = () => {
     checkUserBlocked();
   }, [user?.id]);
 
+  // ============================================
+  // ENVIO DE NOTA INTERNA
+  // ============================================
+  const handleSendNote = async () => {
+    if (!newMessage.trim() || !selectedConversation || !user?.id) return;
+
+    const prospectoId = selectedConversation.prospecto_id || selectedConversation.id;
+    const contenido = newMessage.trim();
+
+    // Determinar rol para snapshot
+    const userRole = isCoordinadorCalidad ? 'calidad' :
+      isAdmin ? 'admin' :
+      isAdminOperativo ? 'administrador_operativo' :
+      isSupervisor ? 'supervisor' :
+      isCoordinador ? 'coordinador' : (user.role_name || 'desconocido');
+
+    const userName = user.full_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Usuario';
+
+    setNewMessage('');
+    setIsNoteMode(false);
+    clearNoteCooldown();
+
+    // Optimistic: agregar nota inmediatamente
+    const tempId = `note_temp_${Date.now()}`;
+    const optimisticNote: Message = {
+      id: tempId,
+      message_id: tempId,
+      conversation_id: prospectoId,
+      sender_type: 'note',
+      sender_name: 'Nota Interna',
+      content: contenido,
+      is_read: true,
+      created_at: new Date().toISOString(),
+      note_data: {
+        user_name: userName,
+        user_role: userRole,
+      },
+    };
+
+    setMessagesByConversation(prev => ({
+      ...prev,
+      [prospectoId]: [...(prev[prospectoId] || []), optimisticNote].sort((a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      ),
+    }));
+
+    // Enviar a BD
+    const result = await notasInternasService.create({
+      prospectoId,
+      userId: user.id,
+      userName,
+      userRole,
+      contenido,
+    });
+
+    if (!result) {
+      toast.error('Error al guardar nota interna');
+      // Rollback optimistic
+      setMessagesByConversation(prev => ({
+        ...prev,
+        [prospectoId]: (prev[prospectoId] || []).filter(m => m.id !== tempId),
+      }));
+    }
+  };
+
   const handleSendMessage = async () => {
+    // NOTA INTERNA: Si estamos en modo nota, enviar nota en vez de mensaje
+    if (isNoteMode && newMessage.trim() && selectedConversation) {
+      await handleSendNote();
+      return;
+    }
+
+    // TOGGLE: Si campo vacío + permiso + click Send → activar modo nota
+    if (!newMessage.trim() && canSendNotes && !isNoteMode) {
+      activateNoteMode();
+      return;
+    }
+
     if (!newMessage.trim() || !selectedConversation) return;
 
     // Verificar si el usuario está bloqueado (usa contador optimizado)
@@ -7024,7 +7274,7 @@ const LiveChatCanvas: React.FC = () => {
 
   // Helper: Checks de delivery estilo WhatsApp con etiqueta de texto
   const renderDeliveryChecks = (message: Message, variant: 'bubble' | 'plain' = 'bubble'): React.ReactNode => {
-    if (message.sender_type === 'customer' || message.sender_type === 'call') return null;
+    if (message.sender_type === 'customer' || message.sender_type === 'call' || message.sender_type === 'note') return null;
     if (message.status === 'bloqueado_whatsapp' || message.status === 'bloqueo_meta') return null;
     if (!message.status_delivery) return null;
 
@@ -8695,6 +8945,7 @@ const LiveChatCanvas: React.FC = () => {
                   const isCustomer = message.sender_type === 'customer';
                   const isBot = message.sender_type === 'bot';
                   const isCall = message.sender_type === 'call';
+                  const isNote = message.sender_type === 'note';
                   const showDate = index === 0 || 
                     formatDate(message.created_at) !== formatDate(combinedMessages[index - 1]?.created_at);
 
@@ -8921,8 +9172,49 @@ const LiveChatCanvas: React.FC = () => {
                         </div>
                       ) : null}
 
-                      {/* Mensajes regulares (no llamadas) */}
-                      {!isCall && (
+                      {/* Renderizar nota interna - centrada como llamadas */}
+                      {isNote && message.note_data && (
+                        <div className="flex justify-center px-4">
+                          <div className="w-full max-w-xl">
+                            <div className="relative px-4 py-3 rounded-2xl shadow-md border bg-gradient-to-r from-amber-500/10 to-yellow-500/10 dark:from-amber-900/30 dark:to-yellow-900/30 border-amber-300/40 dark:border-amber-700/40">
+                              <div className="flex items-start gap-3">
+                                {/* Icono de nota */}
+                                <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center bg-amber-100 dark:bg-amber-900/50">
+                                  <StickyNote className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                </div>
+
+                                {/* Contenido */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-xs font-bold text-amber-800 dark:text-amber-200">
+                                      {message.note_data.user_role === 'admin' ? 'Administrador' :
+                                       message.note_data.user_role === 'administrador_operativo' ? 'Admin Operativo' :
+                                       message.note_data.user_role === 'calidad' ? 'Calidad' :
+                                       message.note_data.user_role === 'supervisor' ? 'Supervisor' :
+                                       message.note_data.user_role === 'coordinador' ? 'Coordinador' :
+                                       message.note_data.user_role}:
+                                    </span>
+                                    <span className="text-[10px] text-amber-600/70 dark:text-amber-400/60">
+                                      {message.note_data.user_name}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                    {message.content}
+                                  </p>
+                                </div>
+
+                                {/* Timestamp */}
+                                <div className="text-[10px] text-amber-500/60 dark:text-amber-400/40 self-end flex-shrink-0">
+                                  {formatTime(message.created_at)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mensajes regulares (no llamadas, no notas) */}
+                      {!isCall && !isNote && (
                         <div className={`flex items-end gap-2 ${isCustomer ? 'justify-start' : 'justify-end'}`}>
                           {/* Avatar - Cliente a la izquierda */}
                           {isCustomer && (
@@ -9304,57 +9596,81 @@ const LiveChatCanvas: React.FC = () => {
               flexShrink: 0
             }}
           >
-            {/* Barra de Respuestas Rápidas */}
-            <AnimatePresence>
-              {quickReplies.length > 0 && isWithin24HourWindow(selectedConversation) && !isUserBlocked && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.2 }}
-                  className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50"
-                >
-                  <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
-                    {quickReplies.map((reply, index) => (
-                      <motion.button
-                        key={index}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.05, duration: 0.2 }}
-                        whileHover={{ scale: sending ? 1 : 1.05 }}
-                        whileTap={{ scale: sending ? 1 : 0.95 }}
-                        disabled={sending}
-                        onClick={async () => {
-                          // ⚠️ PROTECCIÓN: Verificar sending antes de ejecutar
-                          if (sending) return;
-                          
-                          // Pausar bot antes de enviar quick reply
-                          const qrProvider = selectedConversation?.whatsapp_provider
-                            || (selectedConversation?.metadata as Record<string, unknown>)?.whatsapp_provider
-                            || 'uchat';
-                          const qrUchatId = selectedConversation?.conversation_id || selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat;
-                          const qrPauseId = qrProvider === 'twilio'
-                            ? selectedConversation?.prospecto_id
-                            : qrUchatId;
-                          if (qrPauseId) {
-                            await pauseBot(qrPauseId, 1, false);
-                          }
-                          await sendMessageWithText(reply.text);
-                        }}
-                        className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm ${
-                          sending 
-                            ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700' 
-                            : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow'
-                        }`}
-                        title={sending ? 'Enviando mensaje...' : reply.text}
-                      >
-                        {reply.text}
-                      </motion.button>
-                    ))}
+            {/* Barra de Respuestas Rápidas + Toggle Nota Interna */}
+            {(quickReplies.length > 0 && isWithin24HourWindow(selectedConversation) && !isUserBlocked) || canSendNotes ? (
+              <div className="px-4 pt-3 pb-2 border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-gray-50/50 to-transparent dark:from-gray-800/50">
+                <div className="flex items-center gap-2">
+                  {/* Quick replies scrollable */}
+                  <div className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-none pb-1 min-w-0">
+                    <AnimatePresence>
+                      {quickReplies.length > 0 && isWithin24HourWindow(selectedConversation) && !isUserBlocked && quickReplies.map((reply, index) => (
+                        <motion.button
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.9 }}
+                          transition={{ delay: index * 0.05, duration: 0.2 }}
+                          whileHover={{ scale: sending ? 1 : 1.05 }}
+                          whileTap={{ scale: sending ? 1 : 0.95 }}
+                          disabled={sending}
+                          onClick={async () => {
+                            if (sending) return;
+                            const qrProvider = selectedConversation?.whatsapp_provider
+                              || (selectedConversation?.metadata as Record<string, unknown>)?.whatsapp_provider
+                              || 'uchat';
+                            const qrUchatId = selectedConversation?.conversation_id || selectedConversation?.metadata?.id_uchat || selectedConversation?.id_uchat;
+                            const qrPauseId = qrProvider === 'twilio'
+                              ? selectedConversation?.prospecto_id
+                              : qrUchatId;
+                            if (qrPauseId) {
+                              await pauseBot(qrPauseId, 1, false);
+                            }
+                            await sendMessageWithText(reply.text);
+                          }}
+                          className={`flex-shrink-0 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm ${
+                            sending
+                              ? 'opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700'
+                              : 'text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-700 dark:hover:text-blue-300 border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow'
+                          }`}
+                          title={sending ? 'Enviando mensaje...' : reply.text}
+                        >
+                          {reply.text}
+                        </motion.button>
+                      ))}
+                    </AnimatePresence>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                  {/* Toggle Nota Interna / Mensaje - alineado a la derecha */}
+                  {canSendNotes && (
+                    <button
+                      onClick={() => {
+                        if (isNoteMode) {
+                          setNoteFlipping(true);
+                          setTimeout(() => {
+                            setIsNoteMode(false);
+                            clearNoteCooldown();
+                            setTimeout(() => {
+                              setNoteFlipping(false);
+                              textareaRef.current?.focus();
+                            }, 300);
+                          }, 150);
+                        } else {
+                          activateNoteMode();
+                        }
+                      }}
+                      className={`flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border rounded-lg transition-all duration-200 whitespace-nowrap shadow-sm ${
+                        isNoteMode
+                          ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-600 hover:bg-amber-200 dark:hover:bg-amber-900/60'
+                          : 'text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-600 dark:hover:text-amber-400 hover:border-amber-300 dark:hover:border-amber-600'
+                      }`}
+                      title={isNoteMode ? 'Modo nota activo - clic para volver a mensaje' : 'Cambiar a modo nota interna'}
+                    >
+                      <StickyNote className="w-3.5 h-3.5" />
+                      <span>{isNoteMode ? 'Nota' : 'Nota'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : null}
 
             <div 
               className="p-4"
@@ -9539,33 +9855,65 @@ const LiveChatCanvas: React.FC = () => {
                 );
               })()}
 
-              <div className="flex-1 relative">
+              <div className="flex-1 relative" style={{ perspective: '600px' }}>
                 <label htmlFor="livechat-message-input" className="sr-only">
-                  Escribe un mensaje
+                  {isNoteMode ? 'Escribe una nota interna' : 'Escribe un mensaje'}
                 </label>
-                <textarea
-                  ref={textareaRef}
-                  id="livechat-message-input"
-                  name="livechat-message"
-                  value={newMessage}
-                  onChange={(e) => {
-                    setNewMessage(e.target.value);
-                    // Ajustar altura después de actualizar el estado
-                    setTimeout(() => adjustTextareaHeight(), 0);
+
+                <div
+                  className="rounded-xl overflow-hidden"
+                  style={{
+                    transform: noteFlipping ? 'rotateX(90deg)' : 'rotateX(0deg)',
+                    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transformOrigin: 'center center',
+                    position: 'relative',
                   }}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Escribe un mensaje..."
-                  rows={1}
-                  autoComplete="off"
-                  disabled={isRecording}
-                  className="w-full px-4 py-3 text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent resize-none shadow-sm overflow-y-auto scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{ 
-                    minHeight: '44px',
-                    maxHeight: '96px', // 3 renglones máximo (24px * 3 + padding)
-                    transition: 'height 0.1s ease-out'
-                  }}
-                />
-                
+                >
+                  {/* Overlay cooldown: Web Animations API (imperativo, 0 re-renders) */}
+                  <div
+                    ref={cooldownOverlayRef}
+                    className="absolute inset-0 pointer-events-none z-[1]"
+                    style={{
+                      background: isNoteMode ? 'linear-gradient(to right, rgba(245, 158, 11, 0.22), rgba(234, 179, 8, 0.10))' : 'transparent',
+                      clipPath: 'inset(1px 2px 8px 2px round 18px)',
+                      opacity: isNoteMode ? 1 : 0,
+                    }}
+                  />
+                  <textarea
+                    ref={textareaRef}
+                    id="livechat-message-input"
+                    name="livechat-message"
+                    value={newMessage}
+                    onChange={(e) => {
+                      setNewMessage(e.target.value);
+                      setTimeout(() => adjustTextareaHeight(), 0);
+                      if (isNoteMode) {
+                        if (e.target.value.trim()) {
+                          // Pausar cooldown: el overlay vuelve a scaleX(1) instantáneamente
+                          clearNoteCooldown();
+                        } else {
+                          // Reiniciar cooldown
+                          startNoteCooldown();
+                        }
+                      }
+                    }}
+                    onKeyPress={handleKeyPress}
+                    placeholder={isNoteMode ? 'Escribe una nota interna para el ejecutivo...' : 'Escribe un mensaje...'}
+                    rows={1}
+                    autoComplete="off"
+                    disabled={isRecording}
+                    className={`w-full px-4 py-3 text-sm border rounded-xl focus:outline-none resize-none shadow-sm overflow-y-auto scrollbar-hide disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-500 ${
+                      isNoteMode
+                        ? 'border-amber-400/60 dark:border-amber-700/60 bg-amber-50 dark:bg-amber-900/20 text-gray-900 dark:text-white placeholder-amber-500/70 dark:placeholder-amber-400/60 focus:ring-0'
+                        : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 focus:border-transparent'
+                    }`}
+                    style={{
+                      minHeight: '44px',
+                      maxHeight: '96px',
+                    }}
+                  />
+                </div>
+
                 {/* Indicador de grabación sobre el textarea */}
                 {isRecording && (
                   <motion.div
@@ -9587,20 +9935,68 @@ const LiveChatCanvas: React.FC = () => {
                 )}
               </div>
 
-              {/* Botón de Enviar Mensaje */}
-              <button
-                onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sending || isUserBlocked || isRecording}
-                className="px-4 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
-                style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                title={isRecording ? 'Deten la grabación para enviar mensaje' : 'Enviar mensaje'}
-              >
-                {sending ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <Send className="w-5 h-5" />
+              {/* Botón para volver a modo mensaje (solo visible en modo nota) */}
+              <AnimatePresence>
+                {isNoteMode && (
+                  <motion.button
+                    initial={{ scale: 0, opacity: 0, rotate: -90 }}
+                    animate={{ scale: 1, opacity: 1, rotate: 0 }}
+                    exit={{ scale: 0, opacity: 0, rotate: 90 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    onClick={() => {
+                      setNoteFlipping(true);
+                      setTimeout(() => {
+                        setIsNoteMode(false);
+                        clearNoteCooldown();
+                        setTimeout(() => {
+                          setNoteFlipping(false);
+                          textareaRef.current?.focus();
+                        }, 300);
+                      }, 150);
+                    }}
+                    className="p-3 text-amber-600 dark:text-amber-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="Volver a modo mensaje"
+                  >
+                    <X className="w-5 h-5" />
+                  </motion.button>
                 )}
-              </button>
+              </AnimatePresence>
+
+              {/* Botón de Enviar Mensaje / Nota Interna con animación flip */}
+              <div style={{ perspective: '400px' }}>
+                <button
+                  onClick={handleSendMessage}
+                  disabled={
+                    isNoteMode
+                      ? (!newMessage.trim() || sending)
+                      : ((!newMessage.trim() && !canSendNotes) || sending || isUserBlocked || isRecording)
+                  }
+                  className={`px-4 py-3 text-white rounded-xl shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isNoteMode
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700'
+                      : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'
+                  }`}
+                  style={{
+                    height: '44px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transform: noteFlipping ? 'rotateY(90deg) scale(0.9)' : 'rotateY(0deg) scale(1)',
+                    transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.5s ease',
+                    transformOrigin: 'center center',
+                  }}
+                  title={isNoteMode ? 'Enviar nota interna' : (isRecording ? 'Deten la grabación para enviar mensaje' : (canSendNotes && !newMessage.trim() ? 'Cambiar a modo nota interna' : 'Enviar mensaje'))}
+                >
+                  {sending ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : isNoteMode ? (
+                    <StickyNote className="w-5 h-5" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
 
               {/* Botones de Audio: Grabar o Controles de Grabación */}
               {!isRecording ? (

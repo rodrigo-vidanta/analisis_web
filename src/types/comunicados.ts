@@ -113,4 +113,14 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Tutorial: Mensajes No Entregados',
     description: 'Tutorial interactivo que explica por que algunas plantillas aparecen borrosas y que hacer',
   },
+  {
+    component_key: 'notas-internas-admin-tutorial',
+    label: 'Tutorial: Notas Internas (Admin/Coordinadores)',
+    description: 'Tutorial interactivo sobre como usar notas internas en conversaciones WhatsApp',
+  },
+  {
+    component_key: 'notas-internas-ejecutivo-tutorial',
+    label: 'Tutorial: Notas Internas (Ejecutivos)',
+    description: 'Tutorial interactivo que explica la nueva funcion de notas internas para ejecutivos',
+  },
 ];
