@@ -1,3 +1,12 @@
+## [v2.24.0] - 2026-03-05
+
+**B10.2.0N2.24.0** - 1 feature
+
+### Features
+- add internal notes system + interactive tutorials (`392f489`)
+
+---
+
 ## [v2.23.0] - 2026-03-05
 
 **B10.2.0N2.23.0** - 1 feature
