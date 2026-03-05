@@ -1,3 +1,12 @@
+## [v2.23.0] - 2026-03-05
+
+**B10.2.0N2.23.0** - 1 feature
+
+### Features
+- add undelivered template tutorial + fix template send limit filter (`e562189`)
+
+---
+
 ## [v2.22.0] - 2026-03-05
 
 **B10.2.0N2.22.0** - 1 feature + El sistema de livechat incorporo status_delivery
