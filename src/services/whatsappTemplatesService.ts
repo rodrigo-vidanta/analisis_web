@@ -1616,7 +1616,7 @@ class WhatsAppTemplatesService {
         .from('whatsapp_template_sends')
         .select('id, template_id, sent_at, status')
         .eq('prospecto_id', prospectoId)
-        .in('status', ['SENT', 'PENDING', 'FAILED'])
+        .neq('status', 'PENDING')
         .gte('sent_at', semesterAgo)
         .order('sent_at', { ascending: false });
 
@@ -1754,7 +1754,7 @@ class WhatsAppTemplatesService {
         .select('id, sent_at')
         .eq('prospecto_id', prospectoId)
         .eq('template_id', templateId)
-        .in('status', ['SENT', 'PENDING', 'FAILED'])
+        .neq('status', 'PENDING')
         .gte('sent_at', semesterAgo)
         .order('sent_at', { ascending: false });
 

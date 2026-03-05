@@ -108,4 +108,9 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Tutorial: Checks de Entrega',
     description: 'Tutorial interactivo sobre los checks de entrega WhatsApp (enviado, recibido, leido)',
   },
+  {
+    component_key: 'undelivered-template-tutorial',
+    label: 'Tutorial: Mensajes No Entregados',
+    description: 'Tutorial interactivo que explica por que algunas plantillas aparecen borrosas y que hacer',
+  },
 ];

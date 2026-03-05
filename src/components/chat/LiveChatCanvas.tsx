@@ -5403,7 +5403,7 @@ const LiveChatCanvas: React.FC = () => {
         .from('whatsapp_template_sends')
         .select('mensaje_id, triggered_by_user')
         .eq('prospecto_id', prospectoId)
-        .in('status', ['SENT', 'PENDING', 'FAILED'])
+        .neq('status', 'PENDING')
         : Promise.resolve({ data: null, error: null });
 
       let callsResult: { data: any[] | null; error: any } = { data: null, error: null };

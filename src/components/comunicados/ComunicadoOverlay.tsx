@@ -21,6 +21,7 @@ import ComunicadoCard from './ComunicadoCard';
 const INTERACTIVE_REGISTRY: Record<string, React.LazyExoticComponent<React.FC<{ onComplete: () => void }>>> = {
   'utility-template-tutorial': lazy(() => import('./tutorials/UtilityTemplateTutorial')),
   'delivery-checks-tutorial': lazy(() => import('./tutorials/DeliveryChecksTutorial')),
+  'undelivered-template-tutorial': lazy(() => import('./tutorials/UndeliveredTemplateTutorial')),
 };
 
 const ComunicadoOverlay: React.FC = () => {
