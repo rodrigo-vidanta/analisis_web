@@ -94,7 +94,7 @@
 - `base/` - Componentes base UI
 - `common/` - Utilidades comunes
 
-## Servicios (70) (`src/services/`)
+## Servicios (71) (`src/services/`)
 
 ### Auth y Permisos (7)
 - `authService.ts` - Autenticacion y sesiones
@@ -118,7 +118,7 @@
 - `callStatusClassifier.ts` - Clasificador estados
 - `logMonitorService.ts` / `logMonitorSecureClient.ts` - Monitor logs
 
-### WhatsApp (7)
+### WhatsApp (8)
 - `whatsappTemplatesService.ts` - Plantillas
 - `whatsappLabelsService.ts` - Etiquetas
 - `quickRepliesService.ts` - Respuestas rapidas
@@ -126,6 +126,7 @@
 - `botPauseService.ts` - Control pausa bot
 - `whatsappTemplateSuggestionsService.ts` - Sugerencias IA
 - `uchatService.ts` - Interaccion UChat API
+- `notasInternasService.ts` - CRUD para notas internas en conversaciones (getByProspecto, create)
 
 ### Notificaciones (6)
 - `notificationService.ts` - Core

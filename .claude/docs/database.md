@@ -80,6 +80,7 @@ ALTER VIEW nombre_vista SET (security_invoker = true);
 - `conversaciones_whatsapp` / `mensajes_whatsapp` - Tablas legacy WhatsApp
 - `quick_replies` - Respuestas rapidas
 - `content_management` - Gestion contenido (imagenes catalogo)
+- `notas_internas` - Notas internas en conversaciones WhatsApp (id uuid PK, prospecto_id uuid FK, user_id, user_name, user_role, contenido, created_at). RLS: SELECT via `user_can_see_prospecto()`, INSERT solo roles privilegiados. Realtime habilitado.
 
 ### Comunicados (nuevo 2026-02-13)
 - `comunicados` - Anuncios y tutoriales (RLS: admin-only write, REVOKE anon)
