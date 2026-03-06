@@ -265,8 +265,8 @@ class ImportacionesService {
 
   async createAndExecuteBroadcast(params: {
     importacionId: string;
-    templateId: string;
-    templateName: string;
+    groupId: string;
+    groupName: string;
     batchCount: number;
     batchSize: number;
     batchIntervalSeconds: number;
@@ -291,8 +291,8 @@ class ImportacionesService {
       .from('importacion_broadcasts')
       .insert({
         importacion_id: params.importacionId,
-        template_id: params.templateId,
-        template_name: params.templateName,
+        template_id: params.groupId,
+        template_name: params.groupName,
         batch_count: params.batchCount,
         batch_size: params.batchSize,
         batch_interval_seconds: params.batchIntervalSeconds,
@@ -312,8 +312,8 @@ class ImportacionesService {
     const payload: MassiveBroadcastPayload = {
       importacion_id: params.importacionId,
       broadcast_id: broadcast.id,
-      template_id: params.templateId,
-      template_name: params.templateName,
+      group_id: params.groupId,
+      group_name: params.groupName,
       batch_count: params.batchCount,
       batch_size: params.batchSize,
       batch_interval_seconds: params.batchIntervalSeconds,

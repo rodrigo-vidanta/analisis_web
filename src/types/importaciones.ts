@@ -101,8 +101,8 @@ export interface CSVParseResult {
 export interface MassiveBroadcastPayload {
   importacion_id: string;
   broadcast_id: string;
-  template_id: string;
-  template_name: string;
+  group_id: string;
+  group_name: string;
   batch_count: number;
   batch_size: number;
   batch_interval_seconds: number;

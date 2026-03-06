@@ -1,36 +1,34 @@
 /**
  * ============================================
- * MODAL DE CONFIGURACIÓN DE BROADCAST
+ * MODAL DE CONFIGURACION DE BROADCAST
  * ============================================
  *
  * Configura batches, intervalo y schedule antes de
  * ejecutar el broadcast masivo a importados.
+ * Ahora usa GRUPOS de plantillas — N8N selecciona
+ * la mejor plantilla por prospecto automaticamente.
  */
 
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Rocket, Clock, Calendar, Layers, Users,
-  MessageSquare, Loader2, AlertTriangle, Zap
+  Loader2, AlertTriangle, Zap
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '../../../contexts/AuthContext';
 import { importacionesService } from '../../../services/importacionesService';
 import { BATCH_INTERVAL_OPTIONS } from '../../../types/importaciones';
 import type { ImportacionConStats } from '../../../types/importaciones';
-import type { WhatsAppTemplate } from '../../../types/whatsappTemplates';
-
-interface TemplateConRating extends WhatsAppTemplate {
-  starRating: number;
-  replyRate: number;
-  totalSent: number;
-}
+import type { TemplateGroupHealth } from '../../../types/whatsappTemplates';
+import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../../types/whatsappTemplates';
+import { GroupStatusBadge } from '../../shared/GroupStatusBadge';
 
 interface BroadcastConfigModalProps {
   isOpen: boolean;
   onClose: () => void;
   importacion: ImportacionConStats;
-  template: TemplateConRating;
+  group: TemplateGroupHealth;
   onSuccess: () => void;
 }
 
@@ -38,7 +36,7 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
   isOpen,
   onClose,
   importacion,
-  template,
+  group,
   onSuccess,
 }) => {
   const { user } = useAuth();
@@ -56,11 +54,6 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
   const totalTime = (batchCount - 1) * batchIntervalSeconds;
   const totalMinutes = Math.ceil(totalTime / 60);
 
-  const getBodyText = (t: WhatsAppTemplate): string => {
-    const body = t.components?.find((c: { type: string; text?: string }) => c.type === 'BODY');
-    return (body as { type: string; text?: string })?.text || '';
-  };
-
   const scheduledAt = useMemo(() => {
     if (!scheduleEnabled || !scheduleDate) return null;
     return new Date(`${scheduleDate}T${scheduleTime}:00`).toISOString();
@@ -73,8 +66,8 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
     try {
       await importacionesService.createAndExecuteBroadcast({
         importacionId: importacion.id,
-        templateId: template.id,
-        templateName: template.name,
+        groupId: group.group_id,
+        groupName: group.group_name,
         batchCount,
         batchSize,
         batchIntervalSeconds,
@@ -145,14 +138,22 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
 
           {/* Content */}
           <div className="px-6 py-5 space-y-5">
-            {/* Template preview */}
+            {/* Group preview */}
             <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
               <div className="flex items-center gap-2 mb-2">
-                <MessageSquare className="w-4 h-4 text-blue-500" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Plantilla</span>
+                <Layers className="w-4 h-4 text-blue-500" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Grupo de Plantillas</span>
               </div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">{template.name}</p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{getBodyText(template)}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white">{group.group_name}</p>
+                <GroupStatusBadge status={group.group_status as TemplateGroupStatus} />
+              </div>
+              {group.description && (
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">{group.description}</p>
+              )}
+              <p className="text-[11px] text-blue-600 dark:text-blue-400 mt-2">
+                El sistema seleccionara automaticamente la mejor plantilla del grupo para cada destinatario.
+              </p>
             </div>
 
             {/* Recipients */}
@@ -167,14 +168,14 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
             {/* Batch config */}
             <div className="space-y-4">
               <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                <Layers className="w-4 h-4" />
-                Configuración de lotes
+                <Clock className="w-4 h-4" />
+                Configuracion de lotes
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    Número de lotes
+                    Numero de lotes
                   </label>
                   <select
                     value={batchCount}
@@ -188,7 +189,7 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                    Tamaño por lote
+                    Tamano por lote
                   </label>
                   <div className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 text-sm font-medium text-gray-700 dark:text-gray-300">
                     ~{batchSize} contactos
@@ -215,7 +216,7 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
               <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-3 border border-gray-200 dark:border-gray-700">
                 <p className="text-xs text-gray-600 dark:text-gray-400">
                   <Zap className="w-3 h-3 inline mr-1 text-amber-500" />
-                  Se enviarán <strong className="text-gray-900 dark:text-white">{pendientes.toLocaleString()}</strong> mensajes en{' '}
+                  Se enviaran <strong className="text-gray-900 dark:text-white">{pendientes.toLocaleString()}</strong> mensajes en{' '}
                   <strong className="text-gray-900 dark:text-white">{batchCount}</strong> lotes de{' '}
                   <strong className="text-gray-900 dark:text-white">~{batchSize}</strong> cada{' '}
                   <strong className="text-gray-900 dark:text-white">{BATCH_INTERVAL_OPTIONS.find(o => o.value === batchIntervalSeconds)?.label}</strong>
@@ -231,7 +232,7 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                   <Calendar className="w-4 h-4" />
-                  Programación
+                  Programacion
                 </div>
                 <button
                   onClick={() => setScheduleEnabled(!scheduleEnabled)}
@@ -304,8 +305,8 @@ const BroadcastConfigModal: React.FC<BroadcastConfigModalProps> = ({
                 <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
                   <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
                   <p className="text-sm text-amber-700 dark:text-amber-300">
-                    Se enviarán <strong>{pendientes.toLocaleString()}</strong> mensajes con la plantilla <strong>{template.name}</strong>.
-                    Esta acción no se puede deshacer.
+                    Se enviaran <strong>{pendientes.toLocaleString()}</strong> mensajes con el grupo <strong>{group.group_name}</strong>.
+                    Esta accion no se puede deshacer.
                   </p>
                 </div>
                 <div className="flex items-center justify-between">

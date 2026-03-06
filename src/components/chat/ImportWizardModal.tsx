@@ -41,7 +41,8 @@ import {
   X, Search, Phone, User, Building, AlertCircle,
   Loader2, CheckCircle, ShieldAlert, ChevronRight, ChevronLeft,
   MessageSquare, Tag, Calendar, Clock, Send, AlertTriangle, Info,
-  Hash, CheckSquare, Square, Globe, Zap
+  Hash, CheckSquare, Square, Globe, Zap, FolderOpen, ChevronDown, ChevronUp,
+  Activity, BarChart3
 } from 'lucide-react';
 import { dynamicsLeadService, type DynamicsLeadInfo } from '../../services/dynamicsLeadService';
 import { importContactService, type ImportContactPayload } from '../../services/importContactService';
@@ -50,6 +51,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService, type WhatsAppTemplate } from '../../services/whatsappTemplatesService';
 import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
+import type { TemplateGroupHealth } from '../../types/whatsappTemplates';
+import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../types/whatsappTemplates';
+import { GroupStatusBadge } from '../shared/GroupStatusBadge';
+import { GroupStarRating, calcGroupRating } from '../shared/GroupStarRating';
 import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
 import toast from 'react-hot-toast';
@@ -255,6 +260,13 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Group state
+  const [templateGroups, setTemplateGroups] = useState<TemplateGroupHealth[]>([]);
+  const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null);
+  const [groupTemplatesMap, setGroupTemplatesMap] = useState<Record<string, WhatsAppTemplate[]>>({});
+  const [loadingGroupTemplates, setLoadingGroupTemplates] = useState<string | null>(null);
+  const [expandedPreviewIdx, setExpandedPreviewIdx] = useState<Record<string, number>>({});
   
   // Variable state
   const [variableValues, setVariableValues] = useState<Record<number, string>>({});
@@ -330,6 +342,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       setSelectedTags([]);
       setSearchTerm('');
       setVariableValues({});
+      setTemplateGroups([]);
+      setExpandedGroupId(null);
+      setGroupTemplatesMap({});
+      setLoadingGroupTemplates(null);
     }
   }, [isOpen]);
 
@@ -348,6 +364,45 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     setFilteredTemplates(filtered.filter(t => t.name !== SPECIAL_UTILITY_TEMPLATE_NAME));
     setFilteredSpecialTemplates(filtered.filter(t => t.name === SPECIAL_UTILITY_TEMPLATE_NAME));
   }, [selectedTags, searchTerm, templates]);
+
+  // Filter groups by search term
+  const filteredGroups = useMemo(() => {
+    const base = searchTerm.trim()
+      ? templateGroups.filter(g => {
+          const term = searchTerm.toLowerCase();
+          return g.group_name.toLowerCase().includes(term) || g.description?.toLowerCase().includes(term);
+        })
+      : [...templateGroups];
+    return base.sort((a, b) =>
+      calcGroupRating(b.group_status as TemplateGroupStatus, b.avg_reply_rate_24h) -
+      calcGroupRating(a.group_status as TemplateGroupStatus, a.avg_reply_rate_24h)
+    );
+  }, [templateGroups, searchTerm]);
+
+  const formatRate = (value: string | null): string => {
+    if (!value) return '\u2014';
+    const num = parseFloat(value);
+    return isNaN(num) ? '\u2014' : `${num.toFixed(1)}%`;
+  };
+
+  // Filter group templates for expanded group (search + tags + canSend)
+  const getFilteredGroupTemplates = (groupId: string): { normal: WhatsAppTemplate[]; special: WhatsAppTemplate[] } => {
+    const all = groupTemplatesMap[groupId] || [];
+    let filtered = all.filter(t => t.status === 'APPROVED');
+    if (selectedTags.length > 0) {
+      filtered = filtered.filter(t => t.tags?.some(tag => selectedTags.includes(tag)));
+    }
+    if (searchTerm.trim()) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(t =>
+        t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term)
+      );
+    }
+    return {
+      normal: filtered.filter(t => t.name !== SPECIAL_UTILITY_TEMPLATE_NAME),
+      special: filtered.filter(t => t.name === SPECIAL_UTILITY_TEMPLATE_NAME),
+    };
+  };
 
   // ============================================
   // SEARCH LOGIC
@@ -617,14 +672,39 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const loadTemplates = async () => {
     try {
       setLoadingTemplates(true);
-      const allTemplates = await whatsappTemplatesService.getAllTemplates();
+      const [allTemplates, groups] = await Promise.all([
+        whatsappTemplatesService.getAllTemplates(),
+        whatsappTemplatesService.getGroupsWithHealth(),
+      ]);
       const approved = allTemplates.filter(t => t.status === 'APPROVED');
       setTemplates(approved);
       setFilteredTemplates(approved);
+      setTemplateGroups(groups);
     } catch {
       toast.error('Error al cargar plantillas');
     } finally {
       setLoadingTemplates(false);
+    }
+  };
+
+  const handleExpandGroup = async (groupId: string) => {
+    if (expandedGroupId === groupId) {
+      setExpandedGroupId(null);
+      return;
+    }
+    setExpandedGroupId(groupId);
+    setExpandedPreviewIdx(prev => ({ ...prev, [groupId]: prev[groupId] ?? 0 }));
+    if (!groupTemplatesMap[groupId]) {
+      setLoadingGroupTemplates(groupId);
+      try {
+        const groupTemplates = await whatsappTemplatesService.getTemplatesByGroup(groupId);
+        const approved = groupTemplates.filter(t => t.status === 'APPROVED');
+        setGroupTemplatesMap(prev => ({ ...prev, [groupId]: approved }));
+      } catch {
+        toast.error('Error al cargar plantillas del grupo');
+      } finally {
+        setLoadingGroupTemplates(null);
+      }
     }
   };
 
@@ -1253,7 +1333,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                 </motion.div>
               )}
 
-              {/* ====== PASO 3: SELECCIÓN DE PLANTILLA ====== */}
+              {/* ====== PASO 3: SELECCIÓN DE PLANTILLA POR GRUPO ====== */}
               {currentStep === 'select_template' && (
                 <motion.div
                   key="select_template"
@@ -1265,7 +1345,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   {importedProspects.length > 1 && (
                     <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                       <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                        <strong>{importedProspects.length} prospectos importados.</strong> La plantilla seleccionada se enviará a todos.
+                        <strong>{importedProspects.length} prospectos importados.</strong> La plantilla seleccionada se enviara a todos.
                       </p>
                     </div>
                   )}
@@ -1273,20 +1353,20 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   <div className="space-y-4">
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <p className="text-xs text-blue-800 dark:text-blue-300">
-                        <strong>ℹ️</strong> Solo se muestran plantillas compatibles con los datos del prospecto.
+                        Selecciona un grupo y luego elige la plantilla a enviar. Solo se muestran plantillas compatibles.
                       </p>
                     </div>
 
                     <div>
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                         <Search className="w-4 h-4 text-gray-400" />
-                        <span>Buscar plantilla</span>
+                        <span>Buscar grupo o plantilla</span>
                       </label>
                       <input
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder="Nombre o descripción..."
+                        placeholder="Nombre o descripcion..."
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                       />
                     </div>
@@ -1302,136 +1382,200 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
                   <div>
                     <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                      Plantillas disponibles ({filteredTemplates.length + filteredSpecialTemplates.length})
+                      Grupos de plantillas ({filteredGroups.length})
                     </p>
 
                     {loadingTemplates ? (
                       <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
                       </div>
-                    ) : (filteredTemplates.length === 0 && filteredSpecialTemplates.length === 0) ? (
+                    ) : filteredGroups.length === 0 ? (
                       <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 text-center">
-                        <MessageSquare className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-600 dark:text-gray-400">No hay plantillas que coincidan</p>
+                        <FolderOpen className="w-12 h-12 mx-auto text-gray-400 mb-3" />
+                        <p className="text-sm text-gray-600 dark:text-gray-400">No hay grupos que coincidan</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-h-[400px] overflow-y-auto scrollbar-hide">
-                        {filteredTemplates.map(template => {
-                          const validation = canSendTemplate(template);
+                      <div className="space-y-2 max-h-[400px] overflow-y-auto scrollbar-hide">
+                        {filteredGroups.map(group => {
+                          const isExpanded = expandedGroupId === group.group_id;
+                          const isLoadingThis = loadingGroupTemplates === group.group_id;
+                          const replyRate = group.avg_reply_rate_24h ? parseFloat(group.avg_reply_rate_24h) : null;
+                          const { normal: groupNormal, special: groupSpecial } = isExpanded ? getFilteredGroupTemplates(group.group_id) : { normal: [], special: [] };
+
                           return (
-                            <button
-                              key={template.id}
-                              onClick={() => handleSelectTemplate(template)}
-                              disabled={!validation.canSend}
-                              className={`w-full p-4 border-2 rounded-xl text-left transition-all duration-200 ${
-                                selectedTemplate?.id === template.id
-                                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                                  : validation.canSend
-                                  ? 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 bg-white dark:bg-gray-800'
-                                  : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 opacity-60 cursor-not-allowed'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-gray-900 dark:text-white mb-2">{template.name}</p>
-                                  {template.components
-                                    .filter(c => c.type === 'BODY' && c.text)
-                                    .map((c, i) => {
-                                      let preview = c.text || '';
-                                      template.variable_mappings?.forEach(m => {
-                                        preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
-                                      });
-                                      return <p key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">{preview}</p>;
-                                    })}
-                                  {template.tags?.length ? (
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                      {template.tags.filter(Boolean).map((tag, tagIdx) => (
-                                        <span key={`${tag}-${tagIdx}`} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">{tag}</span>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                  {!validation.canSend && (
-                                    <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-                                      <p className="text-xs text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
-                                    </div>
-                                  )}
+                            <div key={group.group_id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden transition-all">
+                              {/* Group header - clickable */}
+                              <button
+                                onClick={() => handleExpandGroup(group.group_id)}
+                                className={`w-full p-3 text-left flex items-center gap-3 transition-colors ${
+                                  isExpanded
+                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700'
+                                    : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
+                                }`}
+                              >
+                                <FolderOpen className={`w-4 h-4 flex-shrink-0 ${isExpanded ? 'text-blue-500' : 'text-gray-400'}`} />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{group.group_name}</span>
+                                    <GroupStatusBadge status={group.group_status as TemplateGroupStatus} />
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-0.5">
+                                    <GroupStarRating status={group.group_status as TemplateGroupStatus} replyRate={group.avg_reply_rate_24h} showValue />
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      Resp: {formatRate(group.avg_reply_rate_24h)}
+                                    </span>
+                                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                                      Entrega: {formatRate(group.avg_delivery_rate_24h)}
+                                    </span>
+                                  </div>
                                 </div>
-                                {validation.canSend && (
-                                  <CheckCircle className={`w-5 h-5 flex-shrink-0 ${selectedTemplate?.id === template.id ? 'text-blue-600' : 'text-gray-300 dark:text-gray-600'}`} />
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
                                 )}
-                              </div>
-                            </button>
+                              </button>
+
+                              {/* Expanded: templates list */}
+                              <AnimatePresence>
+                                {isExpanded && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                  >
+                                    <div className="p-3 space-y-2 bg-gray-50/50 dark:bg-gray-900/30">
+                                      {isLoadingThis ? (
+                                        <div className="flex items-center justify-center py-6">
+                                          <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                                        </div>
+                                      ) : (groupNormal.length === 0 && groupSpecial.length === 0) ? (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
+                                          No hay plantillas compatibles en este grupo
+                                        </p>
+                                      ) : (() => {
+                                        const allTpls = [...groupNormal, ...groupSpecial].slice(0, 5);
+                                        const currentPreviewIdx = expandedPreviewIdx[group.group_id] ?? 0;
+                                        return (
+                                          <>
+                                            {/* Estadisticas */}
+                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                              <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa respuesta</p>
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_reply_rate_24h)}</p>
+                                              </div>
+                                              <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa entrega</p>
+                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_delivery_rate_24h)}</p>
+                                              </div>
+                                            </div>
+
+                                            {/* Vista previa top 5 */}
+                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                              Vista Previa ({allTpls.length})
+                                            </p>
+                                            {allTpls.map((template, tplIdx) => {
+                                              const isPreviewExpanded = tplIdx === currentPreviewIdx;
+                                              const validation = canSendTemplate(template);
+                                              const isSelected = selectedTemplate?.id === template.id;
+                                              const isSpecial = template.name === SPECIAL_UTILITY_TEMPLATE_NAME;
+                                              return (
+                                                <div key={template.id} className={`rounded-xl border overflow-hidden transition-all ${
+                                                  isSelected
+                                                    ? isSpecial ? 'border-amber-500 ring-1 ring-amber-400/30' : 'border-blue-500 ring-1 ring-blue-400/30'
+                                                    : 'border-gray-200 dark:border-gray-700'
+                                                }`}>
+                                                  {/* Header clickable */}
+                                                  <button
+                                                    onClick={() => {
+                                                      setExpandedPreviewIdx(prev => ({ ...prev, [group.group_id]: tplIdx }));
+                                                      if (validation.canSend) handleSelectTemplate(template);
+                                                    }}
+                                                    disabled={!validation.canSend}
+                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                                                      !validation.canSend
+                                                        ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800/30'
+                                                        : isPreviewExpanded
+                                                        ? isSpecial ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'
+                                                        : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
+                                                    }`}
+                                                  >
+                                                    {isSelected && (
+                                                      <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isSpecial ? 'text-amber-600' : 'text-blue-600'}`} />
+                                                    )}
+                                                    <span className={`text-xs font-medium flex-1 truncate ${
+                                                      isPreviewExpanded
+                                                        ? isSpecial ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'
+                                                        : 'text-gray-700 dark:text-gray-300'
+                                                    }`}>
+                                                      {template.name}
+                                                    </span>
+                                                    {isSpecial && (
+                                                      <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex-shrink-0">
+                                                        UTILIDAD
+                                                      </span>
+                                                    )}
+                                                    {isPreviewExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />}
+                                                  </button>
+                                                  <AnimatePresence>
+                                                    {isPreviewExpanded && (
+                                                      <motion.div
+                                                        initial={{ height: 0, opacity: 0 }}
+                                                        animate={{ height: 'auto', opacity: 1 }}
+                                                        exit={{ height: 0, opacity: 0 }}
+                                                        transition={{ duration: 0.2 }}
+                                                        className="overflow-hidden"
+                                                      >
+                                                        <div className={`px-3 py-2.5 border-t ${
+                                                          isSpecial
+                                                            ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/15 dark:to-yellow-900/15 border-amber-200/50 dark:border-amber-800/50'
+                                                            : 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/15 border-emerald-200/50 dark:border-emerald-800/50'
+                                                        }`}>
+                                                          {template.components
+                                                            .filter(c => c.type === 'BODY' && c.text)
+                                                            .map((c, i) => {
+                                                              let preview = c.text || '';
+                                                              template.variable_mappings?.forEach(m => {
+                                                                preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
+                                                              });
+                                                              return <p key={i} className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{preview}</p>;
+                                                            })}
+                                                          {template.components?.find(c => c.type === 'BUTTONS')?.buttons?.map((btn, i) => (
+                                                            <div key={i} className="mt-2 px-3 py-1 text-center text-[11px] font-medium text-blue-600 dark:text-blue-400 border-t border-gray-200/50 dark:border-gray-700/50">
+                                                              {btn.text}
+                                                            </div>
+                                                          ))}
+                                                          {!validation.canSend && (
+                                                            <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
+                                                              <p className="text-[10px] text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
+                                                            </div>
+                                                          )}
+                                                        </div>
+                                                      </motion.div>
+                                                    )}
+                                                  </AnimatePresence>
+                                                </div>
+                                              );
+                                            })}
+
+                                            {/* Disclaimer */}
+                                            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                              <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                                                Selecciona una plantilla para enviar. Haz click en el nombre para ver la vista previa.
+                                              </p>
+                                            </div>
+                                          </>
+                                        );
+                                      })()}
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
                           );
                         })}
-
-                        {/* ============================================ */}
-                        {/* SECCIÓN ESPECIAL: Plantilla de Utilidad */}
-                        {/* ============================================ */}
-                        {filteredSpecialTemplates.length > 0 && (
-                          <div className="mt-4 pt-4 border-t-2 border-amber-200 dark:border-amber-800/50">
-                            <div className="flex items-center gap-2 mb-2">
-                              <AlertTriangle className="w-4 h-4 text-amber-500" />
-                              <span className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-wide">
-                                Plantilla de Utilidad
-                              </span>
-                            </div>
-
-                            <div className="mb-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                              <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-                                {SPECIAL_UTILITY_TEMPLATE_CONFIG.warningMessage}
-                              </p>
-                            </div>
-
-                            {filteredSpecialTemplates.map(template => {
-                              const validation = canSendTemplate(template);
-                              return (
-                                <button
-                                  key={template.id}
-                                  onClick={() => handleSelectTemplate(template)}
-                                  disabled={!validation.canSend}
-                                  className={`w-full p-4 border-2 rounded-xl text-left transition-all duration-200 ${
-                                    selectedTemplate?.id === template.id
-                                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                                      : validation.canSend
-                                      ? 'border-amber-200 dark:border-amber-700 hover:border-amber-400 dark:hover:border-amber-500 bg-white dark:bg-gray-800'
-                                      : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10 opacity-60 cursor-not-allowed'
-                                  }`}
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{template.name}</p>
-                                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-                                          UTILIDAD
-                                        </span>
-                                        <span className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400">
-                                          Max 2 / 6 meses
-                                        </span>
-                                      </div>
-                                      {template.components
-                                        .filter(c => c.type === 'BODY' && c.text)
-                                        .map((c, i) => {
-                                          let preview = c.text || '';
-                                          template.variable_mappings?.forEach(m => {
-                                            preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
-                                          });
-                                          return <p key={i} className="text-xs text-gray-600 dark:text-gray-400 mt-1 whitespace-pre-wrap line-clamp-3">{preview}</p>;
-                                        })}
-                                      {!validation.canSend && (
-                                        <div className="mt-3 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-                                          <p className="text-xs text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
-                                        </div>
-                                      )}
-                                    </div>
-                                    {validation.canSend && (
-                                      <CheckCircle className={`w-5 h-5 flex-shrink-0 ${selectedTemplate?.id === template.id ? 'text-amber-600' : 'text-gray-300 dark:text-gray-600'}`} />
-                                    )}
-                                  </div>
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
                       </div>
                     )}
                   </div>

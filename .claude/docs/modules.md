@@ -29,7 +29,9 @@
 - `MessageBubble.tsx` - Burbuja mensaje
 - `QuickReplies.tsx` - Respuestas rapidas
 - `TemplateSelector.tsx` - Selector plantillas
-- `ReactivateConversationModal.tsx` - Modal reactivacion (4 tabs, tag filtering)
+- `ReactivateConversationModal.tsx` - Modal reactivacion por grupo (top 5 preview acordeon, star rating, stats simplificadas)
+- `ImportWizardModal.tsx` - Wizard importacion multi-paso (step 3: grupos acordeon con preview top 5)
+- `SendTemplateToProspectModal.tsx` - Envio plantilla por grupo a prospecto
 - `ImageCatalogModal.tsx` / `ImageCatalogModalV2.tsx` - Catalogo imagenes
 - `ProspectDetailSidebar.tsx` - Sidebar detalle prospecto
 - `CallDetailModal.tsx` / `CallDetailModalSidebar.tsx` - Detalle llamadas
@@ -39,6 +41,11 @@
 - `ComunicadoOverlay.tsx` - Overlay z-[60] con registry componentes lazy
 - `ComunicadoCard.tsx` - Card presentacional (icon, badge, body, markdown)
 - `tutorials/UtilityTemplateTutorial.tsx` - Tutorial animado 4 pasos
+- `tutorials/DeliveryChecksTutorial.tsx` - Tutorial checks entrega WhatsApp
+- `tutorials/UndeliveredTemplateTutorial.tsx` - Tutorial mensajes no entregados
+- `tutorials/NotasInternasAdminTutorial.tsx` - Tutorial notas internas (admin)
+- `tutorials/NotasInternasEjecutivoTutorial.tsx` - Tutorial notas internas (ejecutivos)
+- `tutorials/TemplateGroupsTutorial.tsx` - Tutorial grupos inteligentes plantillas (5 pasos, 9s delay)
 
 ### Prospectos (`src/components/prospectos/`)
 - `ProspectosModule.tsx` - Gestion prospectos Kanban (GOLD STANDARD)
@@ -61,7 +68,7 @@
 - `audiencias/` - Filtros y audiencias
 - `bases-datos/` - Gestion bases datos
 - `campanas/` - Editor campanas (A/B testing)
-- `plantillas/` - Plantillas WhatsApp
+- `plantillas/` - Plantillas WhatsApp (vista por grupos: GroupCard, GroupTemplatesSubModal, DeleteGroupConfirmationModal)
 - `secuencias/` - Secuencias automaticas
 
 ### Dashboard (`src/components/dashboard/`)
@@ -86,7 +93,7 @@
 - `ninja/` - Modo debug/suplantacion admin
 - `notifications/` - Notificaciones real-time
 - `scheduled-calls/` - Llamadas programadas
-- `shared/` - Componentes reutilizables (Modal, Button, ManualCallModal, etc.)
+- `shared/` - Componentes reutilizables (Modal, Button, ManualCallModal, GroupStatusBadge, GroupStarRating, etc.)
 - `support/` - Sistema tickets (ReportIssueModal, etc.)
 - `documentation/` - Visualizador docs markdown
 - `editor/` - Editor prompts/tools IA

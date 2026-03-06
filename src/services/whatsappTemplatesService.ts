@@ -9,6 +9,9 @@ import type {
   TableField,
   TableSchema,
   ProspectoEtapa,
+  TemplateGroup,
+  TemplateGroupHealth,
+  GroupSendResponse,
 } from '../types/whatsappTemplates';
 import { SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../types/whatsappTemplates';
 import { formatExecutiveDisplayName } from '../utils/nameFormatter';
@@ -31,6 +34,9 @@ export type {
   UpdateTemplateInput,
   TableField,
   TableSchema,
+  TemplateGroup,
+  TemplateGroupHealth,
+  GroupSendResponse,
 } from '../types/whatsappTemplates';
 
 // ============================================
@@ -555,7 +561,7 @@ class WhatsAppTemplatesService {
     
     // El webhook crea el registro en BD, pero puede que no incluya variable_mappings, tags o suggested_by
     // Actualizar el registro en BD local con los datos adicionales
-    const hasAdditionalData = (input.variable_mappings && input.variable_mappings.length > 0) || input.suggested_by || (input.tags && input.tags.length > 0);
+    const hasAdditionalData = (input.variable_mappings && input.variable_mappings.length > 0) || input.suggested_by || (input.tags && input.tags.length > 0) || input.template_group_id;
     
     if (hasAdditionalData && uchatData?.id) {
       try {
@@ -573,6 +579,10 @@ class WhatsAppTemplatesService {
         
         if (input.tags && input.tags.length > 0) {
           updateData.tags = input.tags;
+        }
+
+        if (input.template_group_id) {
+          updateData.template_group_id = input.template_group_id;
         }
         
         const { error: updateError } = await analysisSupabase
@@ -1944,6 +1954,185 @@ class WhatsAppTemplatesService {
     } catch (error) {
       console.error('Error obteniendo tasas de respuesta:', error);
       return new Map();
+    }
+  }
+  // ============================================
+  // TEMPLATE GROUPS
+  // ============================================
+
+  /**
+   * Obtener todos los grupos activos (para dropdown de creacion)
+   */
+  async getAllGroups(): Promise<TemplateGroup[]> {
+    const { data, error } = await analysisSupabase
+      .from('template_groups')
+      .select('*')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('Error obteniendo grupos:', error);
+      throw error;
+    }
+    return (data || []) as TemplateGroup[];
+  }
+
+  /**
+   * Obtener grupos con datos de salud desde v_template_group_health
+   */
+  async getGroupsWithHealth(): Promise<TemplateGroupHealth[]> {
+    const { data, error } = await analysisSupabase
+      .from('v_template_group_health')
+      .select('*')
+      .order('group_name');
+
+    if (error) {
+      console.error('Error obteniendo health de grupos:', error);
+      throw error;
+    }
+    return (data || []) as TemplateGroupHealth[];
+  }
+
+  /**
+   * Obtener todas las plantillas de un grupo especifico.
+   */
+  async getTemplatesByGroup(groupId: string): Promise<WhatsAppTemplate[]> {
+    const { data, error } = await analysisSupabase
+      .from('whatsapp_templates')
+      .select('*')
+      .eq('template_group_id', groupId)
+      .eq('is_deleted', false)
+      .order('name');
+
+    if (error) {
+      console.error('Error obteniendo plantillas del grupo:', error);
+      throw error;
+    }
+    return this.normalizeTemplatesVariableMappings(data || []);
+  }
+
+  /**
+   * Eliminar un grupo completo via webhook N8N.
+   * N8N desactiva el grupo y elimina todas sus plantillas.
+   */
+  async deleteGroup(groupId: string): Promise<{ success: boolean; group_name?: string; templates_deleted?: number }> {
+    const userToken = await this.getUserAccessToken();
+
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${userToken}`,
+      },
+      body: JSON.stringify({
+        action: 'delete_group',
+        group_id: groupId,
+      }),
+    });
+
+    const responseText = await response.text();
+    let result;
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+      throw new Error(`Error eliminando grupo (${response.status}): ${responseText}`);
+    }
+
+    if (!response.ok) {
+      throw new Error(result.error || `Error eliminando grupo: ${response.status}`);
+    }
+
+    return {
+      success: result.success ?? false,
+      group_name: result.data?.group_name,
+      templates_deleted: result.data?.templates_deleted,
+    };
+  }
+
+  /**
+   * Obtener un template sin variables del grupo para usar como preview.
+   * Busca el primer template APPROVED, activo, sin {{variables}} en el body.
+   */
+  async getGroupPreviewTemplate(groupId: string): Promise<WhatsAppTemplate | null> {
+    const { data, error } = await analysisSupabase
+      .from('whatsapp_templates')
+      .select('*')
+      .eq('template_group_id', groupId)
+      .eq('is_deleted', false)
+      .eq('status', 'APPROVED')
+      .eq('is_active', true)
+      .order('name');
+
+    if (error) {
+      console.error('Error obteniendo preview template:', error);
+      return null;
+    }
+
+    // Buscar template sin variables en el body
+    const withoutVars = (data || []).find((t: WhatsAppTemplate) => {
+      const bodyComponent = t.components?.find(c => c.type === 'BODY');
+      return bodyComponent?.text && !/\{\{\d+\}\}/.test(bodyComponent.text);
+    });
+
+    if (withoutVars) return this.normalizeTemplatesVariableMappings([withoutVars])[0];
+
+    // Fallback: retornar el primero disponible
+    if (data && data.length > 0) return this.normalizeTemplatesVariableMappings([data[0]])[0];
+    return null;
+  }
+
+  /**
+   * Enviar template por grupo via webhook N8N.
+   * N8N selecciona el template mas sano, resuelve variables y envia.
+   */
+  async sendTemplateByGroup(
+    groupId: string,
+    prospectoId: string,
+    triggeredBy: string = 'MANUAL',
+    triggeredByUser?: string
+  ): Promise<GroupSendResponse> {
+    const proxyUrl = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
+
+    const payload: Record<string, string> = {
+      group_id: groupId,
+      prospecto_id: prospectoId,
+      triggered_by: triggeredBy,
+    };
+
+    if (triggeredByUser) {
+      payload.triggered_by_user = triggeredByUser;
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
+
+      const response = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const responseText = await response.text();
+      let result: GroupSendResponse;
+      try {
+        result = JSON.parse(responseText);
+      } catch {
+        throw new Error(`Respuesta invalida del servidor (${response.status}): ${responseText}`);
+      }
+
+      return result;
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return { success: false, error: 'timeout', message: 'El envio tardo demasiado. Intenta de nuevo.' };
+      }
+      throw error;
     }
   }
 }

@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '736d9a3', date: '2026-03-06', author: 'Team', message: 'v2.24.1: B10.2.0N2.24.1 - 1 mejora + Las plantillas WhatsApp se organizaban individualm', isRelease: true },
   { hash: '99c9059', date: '2026-03-05', author: 'Team', message: 'v2.24.0: B10.2.0N2.24.0 - 1 feature', isRelease: true },
   { hash: '11a9940', date: '2026-03-05', author: 'Team', message: 'v2.23.0: B10.2.0N2.23.0 - 1 feature', isRelease: true },
   { hash: 'dbd5a6c', date: '2026-03-05', author: 'Team', message: 'v2.22.0: B10.2.0N2.22.0 - 1 feature + El sistema de livechat incorporo status_delivery', isRelease: true },
@@ -565,6 +566,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-004', date: '06/03/2026, 16:41', version: 'B10.2.0N2.24.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-274', date: '05/03/2026, 15:50', version: 'B10.2.0N2.24.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-851', date: '05/03/2026, 13:34', version: 'B10.2.0N2.23.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-390', date: '05/03/2026, 13:20', version: 'B10.2.0N2.22.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -775,10 +777,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.24.0', highlight: true },
-  { label: 'Release', value: 'B10.2.0N2.24.0', highlight: false },
+  { label: 'Version', value: 'v2.24.1', highlight: true },
+  { label: 'Release', value: 'B10.2.0N2.24.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '5 mar 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '6 mar 2026', highlight: false },
 ];
 
 // ============================================

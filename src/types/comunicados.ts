@@ -123,4 +123,9 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Tutorial: Notas Internas (Ejecutivos)',
     description: 'Tutorial interactivo que explica la nueva funcion de notas internas para ejecutivos',
   },
+  {
+    component_key: 'template-groups-tutorial',
+    label: 'Tutorial: Grupos Inteligentes de Plantillas',
+    description: 'Tutorial interactivo sobre el nuevo sistema de envio de plantillas por grupos con seleccion automatica',
+  },
 ];

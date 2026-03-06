@@ -1,3 +1,21 @@
+## [v2.24.1] - 2026-03-06
+
+**B10.2.0N2.24.1** - 1 mejora + Las plantillas WhatsApp se organizaban individualm
+
+### Sesiones de trabajo
+- **2026-03-06-template-groups-refactor**: Las plantillas WhatsApp se organizaban individualmente. El usuario seleccionaba manualmente cual enviar. Con este refactor, las plantillas se agrupan en **grupos inteligentes** donde el sistema N8N selecciona automaticamente la mejor plantilla segun salud y rendimiento, rotando para evitar bloqueos de Meta.
+  - 1. Servicio: `whatsappTemplatesService.ts`
+  - 2. `WhatsAppTemplatesManager.tsx` — Vista principal por grupos
+  - 3. `ReactivateConversationModal.tsx` — Reactivacion con plantilla
+  - 4. `ImportWizardModal.tsx` — Importacion de prospectos (Step 3)
+  - 5. Componente compartido: `GroupStarRating.tsx` (NUEVO)
+  - 6. Comunicado interactivo: `TemplateGroupsTutorial.tsx` (NUEVO)
+
+### Documentation
+- update modules and database docs for notas_internas (`5d74df7`)
+
+---
+
 ## [v2.24.0] - 2026-03-05
 
 **B10.2.0N2.24.0** - 1 feature

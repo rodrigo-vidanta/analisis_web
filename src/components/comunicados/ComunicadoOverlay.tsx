@@ -24,6 +24,7 @@ const INTERACTIVE_REGISTRY: Record<string, React.LazyExoticComponent<React.FC<{ 
   'undelivered-template-tutorial': lazy(() => import('./tutorials/UndeliveredTemplateTutorial')),
   'notas-internas-admin-tutorial': lazy(() => import('./tutorials/NotasInternasAdminTutorial')),
   'notas-internas-ejecutivo-tutorial': lazy(() => import('./tutorials/NotasInternasEjecutivoTutorial')),
+  'template-groups-tutorial': lazy(() => import('./tutorials/TemplateGroupsTutorial')),
 };
 
 const ComunicadoOverlay: React.FC = () => {

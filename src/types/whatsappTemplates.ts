@@ -377,6 +377,7 @@ export interface WhatsAppTemplate {
   created_at: string;
   updated_at: string;
   variable_mappings?: VariableMapping[];
+  template_group_id?: string; // FK a template_groups
 }
 
 export interface CreateTemplateInput {
@@ -391,6 +392,8 @@ export interface CreateTemplateInput {
   classification?: TemplateClassification;
   // ID del usuario que sugirió esta plantilla (si viene de una sugerencia)
   suggested_by?: string;
+  // Grupo al que pertenece la plantilla (obligatorio)
+  template_group_id: string;
 }
 
 export interface UpdateTemplateInput {
@@ -406,6 +409,8 @@ export interface UpdateTemplateInput {
   variable_mappings?: VariableMapping[];
   // Clasificación de la plantilla
   classification?: TemplateClassification;
+  // Grupo al que pertenece la plantilla
+  template_group_id?: string;
 }
 
 export interface TableField {
@@ -626,4 +631,119 @@ export interface BroadcastWebhookPayload {
   ab_distribution_percent?: number;
   ab_linked_campaign_id?: string;
 }
+
+// ============================================
+// TEMPLATE GROUPS
+// ============================================
+
+/**
+ * Status de un grupo basado en la salud de sus templates.
+ * Calculado automaticamente por la vista v_template_group_health.
+ */
+export type TemplateGroupStatus = 'healthy' | 'mixed' | 'degraded' | 'blocked' | 'disabled';
+
+/** Grupo de plantillas desde tabla template_groups */
+export interface TemplateGroup {
+  id: string;
+  name: string;
+  description: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Health de grupo desde vista v_template_group_health */
+export interface TemplateGroupHealth {
+  group_id: string;
+  group_name: string;
+  description: string | null;
+  group_is_active: boolean;
+  total_templates: number;
+  sendable_count: number;
+  healthy_count: number;
+  warning_count: number;
+  critical_count: number;
+  dead_or_paused_count: number;
+  avg_failure_rate_24h: string | null;
+  avg_delivery_rate_24h: string | null;
+  total_sends_24h: string;
+  total_sends_7d: string;
+  avg_reply_rate_24h: string | null;
+  group_status: TemplateGroupStatus;
+}
+
+/** Respuesta del webhook de envio por grupo */
+export interface GroupSendResponse {
+  success: boolean;
+  template_name?: string;
+  prospecto_id?: string;
+  provider?: string;
+  twilio_sid?: string;
+  conversacion_id?: string;
+  template_send_id?: string;
+  mensaje_id?: string;
+  group_id?: string;
+  health_status?: string;
+  weight?: string;
+  selected_by?: string;
+  candidates_total?: number;
+  candidates_resolvable?: number;
+  candidates_skipped?: number;
+  error?: string;
+  message?: string;
+  group_name?: string;
+  group_status?: string;
+  skipped_templates?: Array<{ name: string; reason: string; weight: number }>;
+}
+
+/** Configuracion visual por status de grupo */
+export const GROUP_STATUS_CONFIG: Record<TemplateGroupStatus, {
+  label: string;
+  color: string;
+  bgColor: string;
+  borderColor: string;
+  icon: 'CheckCircle2' | 'AlertTriangle' | 'Ban' | 'Power';
+  sendable: boolean;
+}> = {
+  healthy: {
+    label: 'Saludable',
+    color: 'text-emerald-700 dark:text-emerald-400',
+    bgColor: 'bg-emerald-50 dark:bg-emerald-900/20',
+    borderColor: 'border-emerald-200 dark:border-emerald-800',
+    icon: 'CheckCircle2',
+    sendable: true,
+  },
+  mixed: {
+    label: 'Mixto',
+    color: 'text-yellow-700 dark:text-yellow-400',
+    bgColor: 'bg-yellow-50 dark:bg-yellow-900/20',
+    borderColor: 'border-yellow-200 dark:border-yellow-800',
+    icon: 'AlertTriangle',
+    sendable: true,
+  },
+  degraded: {
+    label: 'Degradado',
+    color: 'text-orange-700 dark:text-orange-400',
+    bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+    borderColor: 'border-orange-200 dark:border-orange-800',
+    icon: 'AlertTriangle',
+    sendable: true,
+  },
+  blocked: {
+    label: 'Bloqueado',
+    color: 'text-red-700 dark:text-red-400',
+    bgColor: 'bg-red-50 dark:bg-red-900/20',
+    borderColor: 'border-red-200 dark:border-red-800',
+    icon: 'Ban',
+    sendable: false,
+  },
+  disabled: {
+    label: 'Deshabilitado',
+    color: 'text-gray-500 dark:text-gray-500',
+    bgColor: 'bg-gray-50 dark:bg-gray-800',
+    borderColor: 'border-gray-200 dark:border-gray-700',
+    icon: 'Power',
+    sendable: false,
+  },
+};
 

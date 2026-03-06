@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../../contexts/AuthContext';
 import { 
@@ -38,7 +39,12 @@ import {
   ChevronRight,
   ArrowUpDown,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  FolderOpen,
+  Activity,
+  BarChart3,
+  Loader2,
+  AlertTriangle,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService } from '../../../services/whatsappTemplatesService';
@@ -55,7 +61,11 @@ import type {
   WhatsAppAudience,
   CreateAudienceInput,
   EstadoCivil,
+  TemplateGroup,
+  TemplateGroupHealth,
 } from '../../../types/whatsappTemplates';
+import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../../types/whatsappTemplates';
+import { GroupStatusBadge } from '../../shared/GroupStatusBadge';
 import {
   PROSPECTO_ETAPAS,
   DESTINOS,
@@ -116,7 +126,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const itemsPerPageGrid = 50;
   
   // Estados para ordenamiento del grid
-  const [sortColumn, setSortColumn] = useState<keyof WhatsAppTemplate | null>(null);
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // Filtros rápidos (etiquetas)
@@ -171,17 +181,37 @@ const WhatsAppTemplatesManager: React.FC = () => {
     tags: [], // Etiquetas de clasificación
     variable_mappings: [],
     classification: { ...defaultClassification },
+    template_group_id: '',
   });
   
   // Estados para audiencias
   const [audiences, setAudiences] = useState<WhatsAppAudience[]>([]);
-  
+
+  // Grupos de plantillas
+  const [templateGroups, setTemplateGroups] = useState<TemplateGroup[]>([]);
+
+  // Grupos con health (vista principal)
+  const [groupsWithHealth, setGroupsWithHealth] = useState<TemplateGroupHealth[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<TemplateGroupHealth[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+
+  // Sub-modal: plantillas de un grupo
+  const [selectedGroupForView, setSelectedGroupForView] = useState<TemplateGroupHealth | null>(null);
+  const [groupTemplates, setGroupTemplates] = useState<WhatsAppTemplate[]>([]);
+  const [loadingGroupTemplates, setLoadingGroupTemplates] = useState(false);
+
+  // Eliminar grupo completo
+  const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<TemplateGroupHealth | null>(null);
+  const [isDeletingGroup, setIsDeletingGroup] = useState(false);
+
   // Estado para errores de validación (minimalista)
   const [validationErrors, setValidationErrors] = useState<{
     unmappedVariables?: number[];
     noAudiences?: boolean;
     emptyName?: boolean;
     invalidBodyChars?: boolean;
+    noGroup?: boolean;
   }>({});
   const [showAudienceModal, setShowAudienceModal] = useState(false);
   const [audienceFormData, setAudienceFormData] = useState<CreateAudienceInput>({
@@ -214,7 +244,22 @@ const WhatsAppTemplatesManager: React.FC = () => {
     loadTemplates();
     loadTableSchemas();
     loadAudiencesForCards();
+    loadTemplateGroups();
   }, []);
+
+  const loadTemplateGroups = async () => {
+    try {
+      setLoadingGroups(true);
+      const groups = await whatsappTemplatesService.getAllGroups();
+      setTemplateGroups(groups);
+      const healthGroups = await whatsappTemplatesService.getGroupsWithHealth();
+      setGroupsWithHealth(healthGroups);
+    } catch (error) {
+      console.error('Error cargando grupos de plantillas:', error);
+    } finally {
+      setLoadingGroups(false);
+    }
+  };
   
   // Cargar audiencias para mostrar en las cards
   const loadAudiencesForCards = async () => {
@@ -275,110 +320,58 @@ const WhatsAppTemplatesManager: React.FC = () => {
     }
   };
 
-  // Filtrar plantillas
+  // Filtrar grupos (vista principal)
   useEffect(() => {
-    let filtered = [...templates];
+    let filtered = [...groupsWithHealth];
 
-    // Filtro de búsqueda
+    // Filtro de busqueda por nombre o descripcion del grupo
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
-        t => 
-          t.name.toLowerCase().includes(query) ||
-          t.description?.toLowerCase().includes(query) ||
-          t.components.some(c => c.text?.toLowerCase().includes(query))
+        g =>
+          g.group_name.toLowerCase().includes(query) ||
+          (g.description && g.description.toLowerCase().includes(query))
       );
     }
 
-    // Filtro de categoría
-    if (filterCategory !== 'all') {
-      filtered = filtered.filter(t => t.category === filterCategory);
-    }
-
-    // Filtro de estado
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter(t => t.status === filterStatus);
-    }
-
-    // Filtro de activo/inactivo
-    if (filterActive !== 'all') {
-      const isActive = filterActive === 'active';
-      filtered = filtered.filter(t => t.is_active === isActive);
-    }
-
-    // Filtros rápidos (etiquetas) - acumulativos (OR entre filtros del mismo tipo, AND entre tipos diferentes)
+    // Filtros rapidos por status de grupo
     if (activeQuickFilters.size > 0) {
-      const categoryFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('category-'));
-      const statusFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('status-'));
-      const activeFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('active-'));
-
-      filtered = filtered.filter(t => {
-        // Si hay filtros de categoría, debe coincidir con al menos uno
-        if (categoryFilters.length > 0) {
-          const matchesCategory = categoryFilters.some(filter => {
-            if (filter === 'category-MARKETING') return t.category === 'MARKETING';
-            if (filter === 'category-UTILITY') return t.category === 'UTILITY';
-            if (filter === 'category-AUTHENTICATION') return t.category === 'AUTHENTICATION';
-            return false;
-          });
-          if (!matchesCategory) return false;
-        }
-
-        // Si hay filtros de estado, debe coincidir con al menos uno
-        if (statusFilters.length > 0) {
-          const matchesStatus = statusFilters.some(filter => {
-            if (filter === 'status-APPROVED') return t.status === 'APPROVED';
-            if (filter === 'status-PENDING') return t.status === 'PENDING';
-            if (filter === 'status-REJECTED') return t.status === 'REJECTED';
-            return false;
-          });
-          if (!matchesStatus) return false;
-        }
-
-        // Si hay filtros de activo/inactivo, debe coincidir con al menos uno
-        if (activeFilters.length > 0) {
-          const matchesActive = activeFilters.some(filter => {
-            if (filter === 'active-true') return t.is_active === true;
-            if (filter === 'active-false') return t.is_active === false;
-            return false;
-          });
-          if (!matchesActive) return false;
-        }
-
-        return true;
-      });
+      const statusFilters = Array.from(activeQuickFilters).filter(f => f.startsWith('gstatus-'));
+      if (statusFilters.length > 0) {
+        filtered = filtered.filter(g =>
+          statusFilters.some(filter => g.group_status === filter.replace('gstatus-', ''))
+        );
+      }
     }
 
     // Ordenamiento para grid
     if (viewMode === 'grid' && sortColumn) {
       filtered.sort((a, b) => {
-        const aValue = a[sortColumn];
-        const bValue = b[sortColumn];
-        
+        const aValue = (a as Record<string, unknown>)[sortColumn];
+        const bValue = (b as Record<string, unknown>)[sortColumn];
+
         if (aValue === null || aValue === undefined) return 1;
         if (bValue === null || bValue === undefined) return -1;
-        
+
         if (typeof aValue === 'string' && typeof bValue === 'string') {
           const comparison = aValue.localeCompare(bValue);
           return sortDirection === 'asc' ? comparison : -comparison;
         }
-        
-        if (typeof aValue === 'boolean' && typeof bValue === 'boolean') {
-          return sortDirection === 'asc' 
-            ? (aValue === bValue ? 0 : aValue ? 1 : -1)
-            : (aValue === bValue ? 0 : aValue ? -1 : 1);
+
+        if (typeof aValue === 'number' && typeof bValue === 'number') {
+          return sortDirection === 'asc' ? aValue - bValue : bValue - aValue;
         }
-        
+
         return 0;
       });
     }
 
-    setFilteredTemplates(filtered);
-    
-    // Resetear páginas cuando cambian los filtros
+    setFilteredGroups(filtered);
+
+    // Resetear paginas cuando cambian los filtros
     setCurrentPageCards(1);
     setCurrentPageGrid(1);
-  }, [templates, searchQuery, filterCategory, filterStatus, filterActive, activeQuickFilters, viewMode, sortColumn, sortDirection]);
+  }, [groupsWithHealth, searchQuery, activeQuickFilters, viewMode, sortColumn, sortDirection]);
 
   // Toggle filtro rápido
   const toggleQuickFilter = (filter: string) => {
@@ -394,7 +387,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
   };
 
   // Manejar ordenamiento
-  const handleSort = (column: keyof WhatsAppTemplate) => {
+  const handleSort = (column: string) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -403,17 +396,17 @@ const WhatsAppTemplatesManager: React.FC = () => {
     }
   };
 
-  // Calcular paginación
-  const totalPagesCards = Math.ceil(filteredTemplates.length / itemsPerPageCards);
-  const totalPagesGrid = Math.ceil(filteredTemplates.length / itemsPerPageGrid);
-  
+  // Calcular paginacion (ahora sobre grupos)
+  const totalPagesCards = Math.ceil(filteredGroups.length / itemsPerPageCards);
+  const totalPagesGrid = Math.ceil(filteredGroups.length / itemsPerPageGrid);
+
   const startIndexCards = (currentPageCards - 1) * itemsPerPageCards;
   const endIndexCards = startIndexCards + itemsPerPageCards;
-  const paginatedTemplatesCards = filteredTemplates.slice(startIndexCards, endIndexCards);
-  
+  const paginatedGroupsCards = filteredGroups.slice(startIndexCards, endIndexCards);
+
   const startIndexGrid = (currentPageGrid - 1) * itemsPerPageGrid;
   const endIndexGrid = startIndexGrid + itemsPerPageGrid;
-  const paginatedTemplatesGrid = filteredTemplates.slice(startIndexGrid, endIndexGrid);
+  const paginatedGroupsGrid = filteredGroups.slice(startIndexGrid, endIndexGrid);
 
   // Cargar plantillas
   const loadTemplates = async () => {
@@ -514,6 +507,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
       tags: template.tags || [], // Cargar tags existentes
       variable_mappings: template.variable_mappings || [],
       classification: (template as any).classification || { ...defaultClassification },
+      template_group_id: template.template_group_id || '',
     });
     setIsModalOpen(true);
   };
@@ -695,6 +689,11 @@ const WhatsAppTemplatesManager: React.FC = () => {
         errors.emptyName = true; // Usar el mismo error para simplificar
       }
 
+      // Validar grupo de plantilla
+      if (!formData.template_group_id) {
+        errors.noGroup = true;
+      }
+
       // Validar que haya contenido en los componentes
       const hasContent = formData.components.some(c => c.text && c.text.trim());
       if (!hasContent) {
@@ -854,9 +853,16 @@ const WhatsAppTemplatesManager: React.FC = () => {
       // El modal detectará que isDeleting=false e isSyncing=false y mostrará éxito
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2 segundos para mostrar éxito
       
-      // Recargar plantillas después de mostrar la animación
+      // Recargar plantillas y grupos después de mostrar la animación
       await loadTemplates();
-      
+      await loadTemplateGroups();
+
+      // Re-cargar templates del grupo abierto si hay sub-modal
+      if (selectedGroupForView) {
+        const updated = await whatsappTemplatesService.getTemplatesByGroup(selectedGroupForView.group_id);
+        setGroupTemplates(updated);
+      }
+
       // Cerrar el modal después de mostrar éxito y recargar
       setShowDeleteModal(false);
       setTemplateToDelete(null);
@@ -870,6 +876,54 @@ const WhatsAppTemplatesManager: React.FC = () => {
       setTemplateToDelete(null);
       toast.error(error.message || 'Error al eliminar la plantilla');
       throw error; // Re-lanzar para que el modal maneje el error
+    }
+  };
+
+  // Ver plantillas de un grupo (sub-modal)
+  const handleViewGroupTemplates = async (group: TemplateGroupHealth) => {
+    setSelectedGroupForView(group);
+    setLoadingGroupTemplates(true);
+    try {
+      const templates = await whatsappTemplatesService.getTemplatesByGroup(group.group_id);
+      setGroupTemplates(templates);
+    } catch (error) {
+      console.error('Error cargando plantillas del grupo:', error);
+      toast.error('Error al cargar las plantillas del grupo');
+    } finally {
+      setLoadingGroupTemplates(false);
+    }
+  };
+
+  // Eliminar grupo completo
+  const handleDeleteGroup = (group: TemplateGroupHealth) => {
+    setGroupToDelete(group);
+    setShowDeleteGroupModal(true);
+  };
+
+  const handleConfirmDeleteGroup = async () => {
+    if (!groupToDelete) return;
+
+    try {
+      setIsDeletingGroup(true);
+      const result = await whatsappTemplatesService.deleteGroup(groupToDelete.group_id);
+
+      if (result.success) {
+        toast.success(`Grupo "${result.group_name || groupToDelete.group_name}" eliminado (${result.templates_deleted ?? 0} plantillas)`);
+      } else {
+        toast.error('Error al eliminar el grupo');
+      }
+
+      await Promise.all([loadTemplates(), loadTemplateGroups()]);
+      setShowDeleteGroupModal(false);
+      setGroupToDelete(null);
+      setSelectedGroupForView(null);
+      setGroupTemplates([]);
+    } catch (error: unknown) {
+      const errorMsg = error instanceof Error ? error.message : 'Error al eliminar el grupo';
+      console.error('Error eliminando grupo:', error);
+      toast.error(errorMsg);
+    } finally {
+      setIsDeletingGroup(false);
     }
   };
 
@@ -1333,97 +1387,26 @@ const WhatsAppTemplatesManager: React.FC = () => {
           </div>
         </div>
 
-        {/* Filtros rápidos tipo etiquetas */}
+        {/* Filtros rapidos por status de grupo */}
         <div className="flex flex-wrap gap-2">
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 self-center">Filtros rápidos:</span>
-          
-          {/* Categorías */}
-          <button
-            onClick={() => toggleQuickFilter('category-MARKETING')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('category-MARKETING')
-                ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-2 border-purple-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Marketing
-          </button>
-          <button
-            onClick={() => toggleQuickFilter('category-UTILITY')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('category-UTILITY')
-                ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border-2 border-blue-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Utilidad
-          </button>
-          <button
-            onClick={() => toggleQuickFilter('category-AUTHENTICATION')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('category-AUTHENTICATION')
-                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border-2 border-orange-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Autenticación
-          </button>
-
-          {/* Estados */}
-          <button
-            onClick={() => toggleQuickFilter('status-APPROVED')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('status-APPROVED')
-                ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-2 border-green-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Aprobadas
-          </button>
-          <button
-            onClick={() => toggleQuickFilter('status-PENDING')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('status-PENDING')
-                ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400 border-2 border-yellow-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Pendientes
-          </button>
-          <button
-            onClick={() => toggleQuickFilter('status-REJECTED')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('status-REJECTED')
-                ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 border-2 border-red-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Rechazadas
-          </button>
-
-          {/* Activo/Inactivo */}
-          <button
-            onClick={() => toggleQuickFilter('active-true')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('active-true')
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border-2 border-emerald-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Activas
-          </button>
-          <button
-            onClick={() => toggleQuickFilter('active-false')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
-              activeQuickFilters.has('active-false')
-                ? 'bg-gray-200 text-gray-700 dark:bg-gray-600 dark:text-gray-300 border-2 border-gray-500'
-                : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
-            }`}
-          >
-            Inactivas
-          </button>
-
-          {/* Limpiar filtros */}
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 self-center">Filtros:</span>
+          {(['healthy', 'mixed', 'degraded', 'blocked', 'disabled'] as TemplateGroupStatus[]).map(status => {
+            const config = GROUP_STATUS_CONFIG[status];
+            const filterKey = `gstatus-${status}`;
+            return (
+              <button
+                key={status}
+                onClick={() => toggleQuickFilter(filterKey)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${
+                  activeQuickFilters.has(filterKey)
+                    ? `${config.bgColor} ${config.color} border-2 ${config.borderColor}`
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 border-2 border-transparent hover:border-gray-300'
+                }`}
+              >
+                {config.label}
+              </button>
+            );
+          })}
           {activeQuickFilters.size > 0 && (
             <button
               onClick={() => setActiveQuickFilters(new Set())}
@@ -1436,80 +1419,59 @@ const WhatsAppTemplatesManager: React.FC = () => {
       </div>
 
       {/* Contador de resultados */}
-      {filteredTemplates.length > 0 && (
+      {filteredGroups.length > 0 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {filteredTemplates.length} plantilla{filteredTemplates.length !== 1 ? 's' : ''} 
-            {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' || filterActive !== 'all' 
-              ? ' encontrada' + (filteredTemplates.length !== 1 ? 's' : '') 
-              : ''}
+            {filteredGroups.length} grupo{filteredGroups.length !== 1 ? 's' : ''} de plantillas
           </p>
         </div>
       )}
 
-      {/* Vista de plantillas */}
-      {filteredTemplates.length === 0 ? (
-        <motion.div 
+      {/* Vista de grupos */}
+      {(loading || loadingGroups) ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500" />
+        </div>
+      ) : filteredGroups.length === 0 ? (
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-16 text-center border border-gray-200 dark:border-gray-700"
         >
           <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 flex items-center justify-center">
-            <MessageSquare className="w-10 h-10 text-gray-400" />
+            <FolderOpen className="w-10 h-10 text-gray-400" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-            No hay plantillas
+            No hay grupos de plantillas
           </h3>
           <p className="text-gray-500 dark:text-gray-400 mb-8 max-w-md mx-auto">
-            {searchQuery || filterCategory !== 'all' || filterStatus !== 'all' || filterActive !== 'all'
-              ? 'No se encontraron plantillas con los filtros aplicados'
-              : 'Las plantillas de WhatsApp te permiten enviar mensajes predefinidos a tus prospectos'}
+            {searchQuery || activeQuickFilters.size > 0
+              ? 'No se encontraron grupos con los filtros aplicados'
+              : 'Los grupos organizan tus plantillas para envio automatico'}
           </p>
-          {!searchQuery && filterCategory === 'all' && filterStatus === 'all' && filterActive === 'all' && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleCreateNew}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg shadow-blue-500/25"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Crear Primera Plantilla</span>
-            </motion.button>
-          )}
         </motion.div>
       ) : viewMode === 'cards' ? (
         <>
-          {/* Vista de Cards */}
+          {/* Vista de Cards por Grupo */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
             <AnimatePresence mode="popLayout">
-              {paginatedTemplatesCards.map((template, index) => (
-                <TemplateGridCard
-                  key={template.id}
-                  template={template}
+              {paginatedGroupsCards.map((group, index) => (
+                <GroupCard
+                  key={group.group_id}
+                  group={group}
                   index={index}
-                  onEdit={() => handleLimitedEdit(template)}
-                  onDelete={() => handleDelete(template)}
-                  onToggleActive={() => handleToggleActive(template)}
-                  onViewPreview={() => {
-                    setSelectedTemplate(template);
-                    setShowPreview(true);
-                  }}
-                  onSync={handleSyncSingle}
-                  syncingTemplateId={syncingTemplateId}
-                  getStatusColor={getStatusColor}
-                  getStatusText={getStatusText}
-                  getCategoryColor={getCategoryColor}
-                  audiences={audiences}
+                  onViewTemplates={() => handleViewGroupTemplates(group)}
+                  onDeleteGroup={() => handleDeleteGroup(group)}
                 />
               ))}
             </AnimatePresence>
           </div>
 
-          {/* Paginación Cards */}
+          {/* Paginacion Cards */}
           {totalPagesCards > 1 && (
             <div className="flex items-center justify-between pt-4">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Mostrando {startIndexCards + 1} - {Math.min(endIndexCards, filteredTemplates.length)} de {filteredTemplates.length} plantillas
+                Mostrando {startIndexCards + 1} - {Math.min(endIndexCards, filteredGroups.length)} de {filteredGroups.length} grupos
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -1520,7 +1482,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
-                  Página {currentPageCards} de {totalPagesCards}
+                  Pagina {currentPageCards} de {totalPagesCards}
                 </span>
                 <button
                   onClick={() => setCurrentPageCards(prev => Math.min(totalPagesCards, prev + 1))}
@@ -1535,7 +1497,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
         </>
       ) : (
         <>
-          {/* Vista de Data Grid */}
+          {/* Vista de Data Grid por Grupos */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700">
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -1543,16 +1505,12 @@ const WhatsAppTemplatesManager: React.FC = () => {
                   <tr>
                     <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => handleSort('name')}
+                        onClick={() => handleSort('group_name')}
                         className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         Nombre
-                        {sortColumn === 'name' ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="w-3 h-3" />
-                          )
+                        {sortColumn === 'group_name' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-40" />
                         )}
@@ -1560,60 +1518,64 @@ const WhatsAppTemplatesManager: React.FC = () => {
                     </th>
                     <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => handleSort('category')}
-                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
-                      >
-                        Categoría
-                        {sortColumn === 'category' ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="w-3 h-3" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="w-3 h-3 opacity-40" />
-                        )}
-                      </button>
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <button
-                        onClick={() => handleSort('status')}
+                        onClick={() => handleSort('group_status')}
                         className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
                         Estado
-                        {sortColumn === 'status' ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="w-3 h-3" />
-                          )
+                        {sortColumn === 'group_status' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-40" />
                         )}
                       </button>
                     </th>
                     <th className="px-4 py-3 text-left">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Descripción
-                      </span>
-                    </th>
-                    <th className="px-4 py-3 text-left">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                        Variables
-                      </span>
+                      <button
+                        onClick={() => handleSort('total_templates')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Templates
+                        {sortColumn === 'total_templates' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
                     </th>
                     <th className="px-4 py-3 text-left">
                       <button
-                        onClick={() => handleSort('is_active')}
+                        onClick={() => handleSort('sendable_count')}
                         className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
                       >
-                        Activa
-                        {sortColumn === 'is_active' ? (
-                          sortDirection === 'asc' ? (
-                            <ArrowUp className="w-3 h-3" />
-                          ) : (
-                            <ArrowDown className="w-3 h-3" />
-                          )
+                        Enviables
+                        {sortColumn === 'sendable_count' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('avg_reply_rate_24h')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Reply Rate
+                        {sortColumn === 'avg_reply_rate_24h' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
+                        ) : (
+                          <ArrowUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-4 py-3 text-left">
+                      <button
+                        onClick={() => handleSort('total_sends_7d')}
+                        className="flex items-center gap-2 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider hover:text-gray-900 dark:hover:text-white transition-colors"
+                      >
+                        Envios 7d
+                        {sortColumn === 'total_sends_7d' ? (
+                          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
                         ) : (
                           <ArrowUpDown className="w-3 h-3 opacity-40" />
                         )}
@@ -1627,107 +1589,63 @@ const WhatsAppTemplatesManager: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {paginatedTemplatesGrid.map((template) => {
-                    const normalizedMappings = (() => {
-                      let mappings: any[] = [];
-                      if (template.variable_mappings) {
-                        if (Array.isArray(template.variable_mappings)) {
-                          mappings = template.variable_mappings;
-                        } else if (typeof template.variable_mappings === 'object' && 'mappings' in template.variable_mappings) {
-                          const mappingsObj = template.variable_mappings as { mappings?: any[] };
-                          mappings = Array.isArray(mappingsObj.mappings) ? mappingsObj.mappings : [];
-                        }
-                      }
-                      return mappings;
-                    })();
-
-                    // assignedAudiences no se usa en el grid, pero se mantiene por si se necesita después
-
+                  {paginatedGroupsGrid.map((group) => {
+                    const replyRate = group.avg_reply_rate_24h ? parseFloat(group.avg_reply_rate_24h) : null;
                     return (
                       <motion.tr
-                        key={template.id}
+                        key={group.group_id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                        onClick={() => handleViewGroupTemplates(group)}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
                       >
                         <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900 dark:text-white">
-                            {template.name}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getCategoryColor(template.category)}`}>
-                            {template.category === 'MARKETING' ? 'Marketing' :
-                             template.category === 'UTILITY' ? 'Utilidad' :
-                             'Autenticación'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-lg ${getStatusColor(template.status)}`}>
-                            {getStatusText(template.status)}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 max-w-xs">
-                            {template.description || 'Sin descripción'}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex flex-wrap gap-1">
-                            {normalizedMappings.slice(0, 2).map((mapping: any, idx: number) => (
-                              <span
-                                key={idx}
-                                className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded"
-                              >
-                                {mapping.display_name}
-                              </span>
-                            ))}
-                            {normalizedMappings.length > 2 && (
-                              <span className="px-2 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                                +{normalizedMappings.length - 2}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleToggleActive(template)}
-                            className={`w-10 h-6 rounded-full relative transition-colors ${
-                              template.is_active
-                                ? 'bg-green-500'
-                                : 'bg-gray-300 dark:bg-gray-600'
-                            }`}
-                          >
-                            <span
-                              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${
-                                template.is_active ? 'translate-x-4' : 'translate-x-0'
-                              }`}
-                            />
-                          </button>
-                        </td>
-                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
+                            <FolderOpen className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                            <div>
+                              <div className="font-medium text-gray-900 dark:text-white">{group.group_name}</div>
+                              {group.description && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 max-w-xs">{group.description}</p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <GroupStatusBadge status={group.group_status as TemplateGroupStatus} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm font-medium text-gray-900 dark:text-white">{group.total_templates}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {group.sendable_count}/{group.total_templates}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className={`text-sm font-medium ${
+                            replyRate !== null && replyRate >= 5 ? 'text-green-600 dark:text-green-400' :
+                            replyRate !== null && replyRate >= 2 ? 'text-yellow-600 dark:text-yellow-400' :
+                            'text-gray-500 dark:text-gray-400'
+                          }`}>
+                            {replyRate !== null ? `${replyRate.toFixed(1)}%` : '\u2014'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{group.total_sends_7d}</span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                             <button
-                              onClick={() => handleLimitedEdit(template)}
+                              onClick={() => handleViewGroupTemplates(group)}
                               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                              title="Editar"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedTemplate(template);
-                                setShowPreview(true);
-                              }}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors"
-                              title="Vista previa"
+                              title="Ver plantillas"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(template)}
+                              onClick={() => handleDeleteGroup(group)}
                               className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                              title="Eliminar"
+                              title="Eliminar grupo"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1740,11 +1658,11 @@ const WhatsAppTemplatesManager: React.FC = () => {
               </table>
             </div>
 
-            {/* Paginación Grid */}
+            {/* Paginacion Grid */}
             {totalPagesGrid > 1 && (
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Mostrando {startIndexGrid + 1} - {Math.min(endIndexGrid, filteredTemplates.length)} de {filteredTemplates.length} plantillas
+                  Mostrando {startIndexGrid + 1} - {Math.min(endIndexGrid, filteredGroups.length)} de {filteredGroups.length} grupos
                 </p>
                 <div className="flex items-center gap-2">
                   <button
@@ -1755,7 +1673,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <span className="text-sm text-gray-600 dark:text-gray-400 px-3">
-                    Página {currentPageGrid} de {totalPagesGrid}
+                    Pagina {currentPageGrid} de {totalPagesGrid}
                   </span>
                   <button
                     onClick={() => setCurrentPageGrid(prev => Math.min(totalPagesGrid, prev + 1))}
@@ -1783,6 +1701,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
         setFormData={setFormData}
         editingTemplate={editingTemplate}
         tableSchemas={tableSchemas}
+        templateGroups={templateGroups}
         onAddComponent={handleAddComponent}
         onUpdateComponent={handleUpdateComponent}
         onRemoveComponent={handleRemoveComponent}
@@ -1855,6 +1774,44 @@ const WhatsAppTemplatesManager: React.FC = () => {
         systemVariables={systemVariables}
         audiences={audiences}
       />
+
+      {/* Sub-modal de plantillas del grupo */}
+      {selectedGroupForView && (
+        <GroupTemplatesSubModal
+          group={selectedGroupForView}
+          templates={groupTemplates}
+          loading={loadingGroupTemplates}
+          onClose={() => {
+            setSelectedGroupForView(null);
+            setGroupTemplates([]);
+          }}
+          onEdit={(t) => handleLimitedEdit(t)}
+          onDelete={(t) => handleDelete(t)}
+          onViewPreview={(t) => {
+            setSelectedTemplate(t);
+            setShowPreview(true);
+          }}
+          getStatusColor={getStatusColor}
+          getStatusText={getStatusText}
+          getCategoryColor={getCategoryColor}
+        />
+      )}
+
+      {/* Modal de confirmacion de eliminacion de grupo */}
+      {showDeleteGroupModal && groupToDelete && (
+        <DeleteGroupConfirmationModal
+          isOpen={showDeleteGroupModal}
+          group={groupToDelete}
+          onClose={() => {
+            if (!isDeletingGroup) {
+              setShowDeleteGroupModal(false);
+              setGroupToDelete(null);
+            }
+          }}
+          onConfirm={handleConfirmDeleteGroup}
+          isDeleting={isDeletingGroup}
+        />
+      )}
     </div>
   );
 };
@@ -2403,6 +2360,343 @@ const TemplateGridCard: React.FC<TemplateGridCardProps> = ({
   );
 };
 
+// ============================================
+// COMPONENTE: GroupCard (tarjeta de grupo)
+// ============================================
+interface GroupCardProps {
+  group: TemplateGroupHealth;
+  index: number;
+  onViewTemplates: () => void;
+  onDeleteGroup: () => void;
+}
+
+const GroupCard: React.FC<GroupCardProps> = ({ group, index, onViewTemplates, onDeleteGroup }) => {
+  const replyRate = group.avg_reply_rate_24h ? parseFloat(group.avg_reply_rate_24h) : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ delay: index * 0.03 }}
+      onClick={onViewTemplates}
+      className="bg-white dark:bg-gray-800 rounded-xl shadow-lg overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all cursor-pointer group"
+    >
+      <div className="p-5">
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <FolderOpen className="w-5 h-5 text-blue-500 flex-shrink-0" />
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{group.group_name}</h4>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <GroupStatusBadge status={group.group_status as TemplateGroupStatus} />
+            <button
+              onClick={(e) => { e.stopPropagation(); onDeleteGroup(); }}
+              className="p-1 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-900/20 text-gray-400 hover:text-red-500 transition-all"
+              title="Eliminar grupo"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        {group.description && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">{group.description}</p>
+        )}
+        <div className="grid grid-cols-2 gap-2">
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Templates</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{group.total_templates}</p>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Enviables</p>
+            <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{group.sendable_count}/{group.total_templates}</p>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Reply Rate</p>
+            <p className={`text-sm font-bold ${
+              replyRate !== null && replyRate >= 5 ? 'text-green-600 dark:text-green-400' :
+              replyRate !== null && replyRate >= 2 ? 'text-yellow-600 dark:text-yellow-400' :
+              'text-gray-400 dark:text-gray-500'
+            }`}>
+              {replyRate !== null ? `${replyRate.toFixed(1)}%` : '\u2014'}
+            </p>
+          </div>
+          <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-2">
+            <p className="text-[10px] text-gray-500 dark:text-gray-400">Envios 7d</p>
+            <p className="text-sm font-bold text-gray-900 dark:text-white">{group.total_sends_7d}</p>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// ============================================
+// COMPONENTE: GroupTemplatesSubModal
+// ============================================
+interface GroupTemplatesSubModalProps {
+  group: TemplateGroupHealth;
+  templates: WhatsAppTemplate[];
+  loading: boolean;
+  onClose: () => void;
+  onEdit: (t: WhatsAppTemplate) => void;
+  onDelete: (t: WhatsAppTemplate) => void;
+  onViewPreview: (t: WhatsAppTemplate) => void;
+  getStatusColor: (status: string) => string;
+  getStatusText: (status: string) => string;
+  getCategoryColor: (category: string) => string;
+}
+
+const GroupTemplatesSubModal: React.FC<GroupTemplatesSubModalProps> = ({
+  group, templates, loading, onClose, onEdit, onDelete, onViewPreview,
+  getStatusColor, getStatusText, getCategoryColor,
+}) => {
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[60]"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-hidden border border-gray-200 dark:border-gray-800 flex flex-col"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <FolderOpen className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{group.group_name}</h3>
+                  <GroupStatusBadge status={group.group_status as TemplateGroupStatus} />
+                </div>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {group.total_templates} plantilla{group.total_templates !== 1 ? 's' : ''} en este grupo
+                </p>
+              </div>
+            </div>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-500" />
+            </motion.button>
+          </div>
+
+          {/* Metricas rapidas */}
+          <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center gap-4">
+            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <Activity className="w-3 h-3" />
+              {group.sendable_count}/{group.total_templates} enviables
+            </span>
+            <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+              <BarChart3 className="w-3 h-3" />
+              {group.avg_reply_rate_24h ? `${parseFloat(group.avg_reply_rate_24h).toFixed(1)}%` : '\u2014'} reply rate
+            </span>
+            <span className="text-xs text-gray-400 dark:text-gray-500">
+              {group.total_sends_7d} envios/7d
+            </span>
+          </div>
+
+          {/* Templates list */}
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+              </div>
+            ) : templates.length === 0 ? (
+              <div className="text-center py-12">
+                <FileText className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                <p className="text-sm text-gray-500 dark:text-gray-400">No hay plantillas en este grupo</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {templates.map((template) => {
+                  const bodyComponent = template.components.find(c => c.type === 'BODY');
+                  const previewText = bodyComponent?.text || 'Sin contenido';
+                  const truncated = previewText.length > 100 ? previewText.substring(0, 100) + '...' : previewText;
+
+                  return (
+                    <div
+                      key={template.id}
+                      className="p-3 rounded-xl border border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">{template.name}</h4>
+                            <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded ${getStatusColor(template.status)}`}>
+                              {getStatusText(template.status)}
+                            </span>
+                            <span className={`inline-flex px-1.5 py-0.5 text-[10px] font-medium rounded ${getCategoryColor(template.category)}`}>
+                              {template.category === 'MARKETING' ? 'MKT' : template.category === 'UTILITY' ? 'UTL' : 'AUTH'}
+                            </span>
+                            {!template.is_active && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-medium bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400 rounded">
+                                Inactiva
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{truncated}</p>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => onEdit(template)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-blue-500 transition-colors"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onViewPreview(template)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-green-500 transition-colors"
+                            title="Vista previa"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            onClick={() => onDelete(template)}
+                            className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500 transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-3 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+            >
+              Cerrar
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  );
+};
+
+// ============================================
+// COMPONENTE: DeleteGroupConfirmationModal
+// ============================================
+interface DeleteGroupConfirmationModalProps {
+  isOpen: boolean;
+  group: TemplateGroupHealth;
+  onClose: () => void;
+  onConfirm: () => Promise<void>;
+  isDeleting: boolean;
+}
+
+const DeleteGroupConfirmationModal: React.FC<DeleteGroupConfirmationModalProps> = ({
+  isOpen, group, onClose, onConfirm, isDeleting,
+}) => {
+  if (!isOpen) return null;
+
+  return createPortal(
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-[70]"
+        onClick={onClose}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.96, y: 10 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.96, y: 10 }}
+          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+          onClick={(e) => e.stopPropagation()}
+          className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-200 dark:border-gray-800"
+        >
+          {/* Header */}
+          <div className="flex items-center gap-3 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-700 rounded-lg flex items-center justify-center">
+              <Trash2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Eliminar Grupo</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{group.group_name}</p>
+            </div>
+          </div>
+
+          {/* Body */}
+          <div className="px-6 py-5 space-y-4">
+            <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-800">
+              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Se eliminaran <strong>{group.total_templates}</strong> plantilla{group.total_templates !== 1 ? 's' : ''} de este grupo.
+                Esta accion no se puede deshacer.
+              </p>
+            </div>
+
+            {isDeleting && (
+              <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <Loader2 className="w-5 h-5 text-blue-500 animate-spin flex-shrink-0" />
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  Eliminando grupo y plantillas...
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between">
+            <button
+              onClick={onClose}
+              disabled={isDeleting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <motion.button
+              whileHover={{ scale: isDeleting ? 1 : 1.02 }}
+              whileTap={{ scale: isDeleting ? 1 : 0.98 }}
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="flex items-center gap-2 px-5 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-red-600 to-red-700 rounded-xl shadow-lg shadow-red-500/25 hover:shadow-red-500/40 transition-all disabled:opacity-50"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Eliminando...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="w-4 h-4" />
+                  Eliminar Grupo
+                </>
+              )}
+            </motion.button>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>,
+    document.body
+  );
+};
+
 // Componente de modal de creación/edición
 interface TemplateModalProps {
   isOpen: boolean;
@@ -2412,6 +2706,7 @@ interface TemplateModalProps {
   setFormData: React.Dispatch<React.SetStateAction<CreateTemplateInput>>;
   editingTemplate: WhatsAppTemplate | null;
   tableSchemas: TableSchema[];
+  templateGroups: TemplateGroup[];
   onAddComponent: (type: 'HEADER' | 'BODY' | 'FOOTER' | 'BUTTONS') => void;
   onUpdateComponent: (index: number, updates: Partial<WhatsAppTemplate['components'][0]>) => void;
   onRemoveComponent: (index: number) => void;
@@ -2429,12 +2724,14 @@ interface TemplateModalProps {
   validationErrors?: {
     unmappedVariables?: number[];
     noAudiences?: boolean;
+    noGroup?: boolean;
     emptyName?: boolean;
     invalidBodyChars?: boolean;
   };
   onValidationErrorsChange?: (errors: {
     unmappedVariables?: number[];
     noAudiences?: boolean;
+    noGroup?: boolean;
     emptyName?: boolean;
     invalidBodyChars?: boolean;
   }) => void;
@@ -2448,6 +2745,7 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
   setFormData,
   editingTemplate,
   tableSchemas,
+  templateGroups,
   onAddComponent,
   onUpdateComponent,
   onRemoveComponent,
@@ -2654,6 +2952,28 @@ const TemplateModal: React.FC<TemplateModalProps> = ({
                             <option value="MARKETING">Marketing</option>
                             <option value="AUTHENTICATION">Autenticación</option>
                           </select>
+                        </div>
+
+                        <div>
+                          <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                            <LayoutGrid className="w-4 h-4" />
+                            <span>Grupo de Plantilla *</span>
+                          </label>
+                          <select
+                            value={formData.template_group_id || ''}
+                            onChange={(e) => setFormData({ ...formData, template_group_id: e.target.value })}
+                            className={`w-full px-4 py-2.5 text-sm border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white ${
+                              validationErrors.noGroup ? 'border-red-300 dark:border-red-700' : 'border-gray-200 dark:border-gray-700'
+                            }`}
+                          >
+                            <option value="">Selecciona un grupo</option>
+                            {templateGroups.map(g => (
+                              <option key={g.id} value={g.id}>{g.name}</option>
+                            ))}
+                          </select>
+                          <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                            Cada plantilla debe pertenecer a un grupo para envio automatico.
+                          </p>
                         </div>
 
                         <div>
@@ -3570,12 +3890,14 @@ interface VariableMapperTabProps {
   validationErrors?: {
     unmappedVariables?: number[];
     noAudiences?: boolean;
+    noGroup?: boolean;
     emptyName?: boolean;
     invalidBodyChars?: boolean;
   };
   onValidationErrorsChange?: (errors: {
     unmappedVariables?: number[];
     noAudiences?: boolean;
+    noGroup?: boolean;
     emptyName?: boolean;
     invalidBodyChars?: boolean;
   }) => void;

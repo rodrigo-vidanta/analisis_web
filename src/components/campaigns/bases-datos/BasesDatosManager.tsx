@@ -24,17 +24,11 @@ import {
   BROADCAST_STATUS_CONFIG,
 } from '../../../types/importaciones';
 import type { ImportacionConStats } from '../../../types/importaciones';
-import type { WhatsAppTemplate } from '../../../types/whatsappTemplates';
+import type { TemplateGroupHealth } from '../../../types/whatsappTemplates';
 import ImportCSVModal from './ImportCSVModal';
 import TemplateSelectionModal from './TemplateSelectionModal';
 import BroadcastConfigModal from './BroadcastConfigModal';
 import ImportacionDetailModal from './ImportacionDetailModal';
-
-interface TemplateConRating extends WhatsAppTemplate {
-  starRating: number;
-  replyRate: number;
-  totalSent: number;
-}
 
 const BasesDatosManager: React.FC = () => {
   const [importaciones, setImportaciones] = useState<ImportacionConStats[]>([]);
@@ -51,7 +45,7 @@ const BasesDatosManager: React.FC = () => {
 
   // Selected items for flow
   const [selectedImportacion, setSelectedImportacion] = useState<ImportacionConStats | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<TemplateConRating | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<TemplateGroupHealth | null>(null);
 
   // Delete confirmation
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -95,8 +89,8 @@ const BasesDatosManager: React.FC = () => {
     setShowTemplateModal(true);
   }, []);
 
-  const handleTemplateSelected = useCallback((template: TemplateConRating) => {
-    setSelectedTemplate(template);
+  const handleGroupSelected = useCallback((group: TemplateGroupHealth) => {
+    setSelectedGroup(group);
     setShowTemplateModal(false);
     setShowBroadcastModal(true);
   }, []);
@@ -413,15 +407,15 @@ const BasesDatosManager: React.FC = () => {
       <TemplateSelectionModal
         isOpen={showTemplateModal}
         onClose={() => { setShowTemplateModal(false); setSelectedImportacion(null); }}
-        onSelect={handleTemplateSelected}
+        onSelect={handleGroupSelected}
       />
 
-      {selectedImportacion && selectedTemplate && (
+      {selectedImportacion && selectedGroup && (
         <BroadcastConfigModal
           isOpen={showBroadcastModal}
-          onClose={() => { setShowBroadcastModal(false); setSelectedTemplate(null); setSelectedImportacion(null); }}
+          onClose={() => { setShowBroadcastModal(false); setSelectedGroup(null); setSelectedImportacion(null); }}
           importacion={selectedImportacion}
-          template={selectedTemplate}
+          group={selectedGroup}
           onSuccess={loadData}
         />
       )}
