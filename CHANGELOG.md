@@ -1,3 +1,20 @@
+## [v2.25.0] - 2026-03-07
+
+**B10.2.0N2.25.0** - 3 features + 1 fix + 1 mejora
+
+### Features
+- add Neural Constellation Remotion composition for login background (`e4446a8`)
+- add interactive Doodle characters as login background animation (`d34a2c6`)
+- add Sileo toast provider with global switcher in SystemPreferences (`603c2d0`)
+
+### Documentation
+- add session handovers for sileo, doodles, remotion fix and related work (`dd99395`)
+
+### Bug Fixes
+- make Remotion Neural Constellation responsive with object-fit cover (`598ff68`)
+
+---
+
 ## [v2.24.3] - 2026-03-07
 
 **B10.2.0N2.24.3** - 1 fix

@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'bc0756c', date: '2026-03-07', author: 'Team', message: 'v2.25.0: B10.2.0N2.25.0 - 3 features + 1 fix + 1 mejora', isRelease: true },
   { hash: '4d41079', date: '2026-03-07', author: 'Team', message: 'v2.24.3: B10.2.0N2.24.3 - 1 fix', isRelease: true },
   { hash: 'cb35eb0', date: '2026-03-07', author: 'Team', message: 'v2.24.2: B10.2.0N2.24.2 - 1 fix', isRelease: true },
   { hash: '736d9a3', date: '2026-03-06', author: 'Team', message: 'v2.24.1: B10.2.0N2.24.1 - 1 mejora + Las plantillas WhatsApp se organizaban individualm', isRelease: true },
@@ -568,6 +569,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-391', date: '07/03/2026, 13:28', version: 'B10.2.0N2.25.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-326', date: '06/03/2026, 19:44', version: 'B10.2.0N2.24.3', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-427', date: '06/03/2026, 18:29', version: 'B10.2.0N2.24.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-004', date: '06/03/2026, 16:41', version: 'B10.2.0N2.24.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -781,10 +783,10 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.24.3', highlight: true },
-  { label: 'Release', value: 'B10.2.0N2.24.3', highlight: false },
+  { label: 'Version', value: 'v2.25.0', highlight: true },
+  { label: 'Release', value: 'B10.2.0N2.25.0', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
-  { label: 'Ultima actualizacion', value: '6 mar 2026', highlight: false },
+  { label: 'Ultima actualizacion', value: '7 mar 2026', highlight: false },
 ];
 
 // ============================================
