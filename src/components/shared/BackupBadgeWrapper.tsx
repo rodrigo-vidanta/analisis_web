@@ -1,8 +1,10 @@
 /**
- * Wrapper para mostrar BackupBadge de forma asíncrona
+ * Wrapper para mostrar BackupBadge de forma asíncrona.
+ * Se suscribe a broadcasts de Realtime para actualizar el badge
+ * cuando se asigna o remueve un backup.
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { backupService } from '../../services/backupService';
 import { BackupBadge } from './BackupBadge';
 
@@ -25,47 +27,51 @@ export const BackupBadgeWrapper: React.FC<BackupBadgeWrapperProps> = ({
   } | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const checkBackup = useCallback(async () => {
     if (!currentUserId || !prospectoEjecutivoId) {
+      setBackupInfo(null);
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
+    try {
+      const result = await backupService.isProspectFromBackupEjecutivo(
+        currentUserId,
+        prospectoEjecutivoId
+      );
 
-    const checkBackup = async () => {
-      try {
-        const result = await backupService.isProspectFromBackupEjecutivo(
-          currentUserId,
-          prospectoEjecutivoId
-        );
-
-        if (!cancelled && result.isBackup && result.ejecutivo_nombre) {
-          setBackupInfo({
-            ejecutivo_nombre: result.ejecutivo_nombre,
-            ejecutivo_email: result.ejecutivo_email
-          });
-        } else if (!cancelled) {
-          setBackupInfo(null);
-        }
-      } catch (error) {
-        console.error('Error verificando backup:', error);
-        if (!cancelled) {
-          setBackupInfo(null);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      if (result.isBackup && result.ejecutivo_nombre) {
+        setBackupInfo({
+          ejecutivo_nombre: result.ejecutivo_nombre,
+          ejecutivo_email: result.ejecutivo_email
+        });
+      } else {
+        setBackupInfo(null);
       }
-    };
+    } catch (error) {
+      console.error('Error verificando backup:', error);
+      setBackupInfo(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUserId, prospectoEjecutivoId]);
 
+  // Check inicial + suscripción a broadcasts de backup
+  useEffect(() => {
     checkBackup();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [currentUserId, prospectoEjecutivoId]);
+    if (!currentUserId) return;
+
+    // Inicializar listener de broadcast (idempotente)
+    backupService.initBackupListener(currentUserId);
+
+    // Re-verificar cuando se recibe un broadcast de cambio de backup
+    const unsubscribe = backupService.onBackupChange(() => {
+      checkBackup();
+    });
+
+    return unsubscribe;
+  }, [currentUserId, prospectoEjecutivoId, checkBackup]);
 
   if (loading || !backupInfo) {
     return null;
@@ -79,4 +85,3 @@ export const BackupBadgeWrapper: React.FC<BackupBadgeWrapperProps> = ({
     />
   );
 };
-

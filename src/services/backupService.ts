@@ -5,8 +5,6 @@
  * 
  * Gestiona el sistema de backup cuando ejecutivos están fuera de oficina
  * - Asignación de backup al hacer logout
- * - Cambio de teléfono al teléfono del backup
- * - Restauración de teléfono original al hacer login
  * - Permisos de visualización para backups
  * 
  * ⚠️ ARQUITECTURA ACTUAL (Post-migración Supabase Auth Nativo):
@@ -18,6 +16,7 @@
  * REFACTOR 2026-01-22: Uso de authAdminProxyService centralizado
  */
 
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { supabaseSystemUI } from '../config/supabaseSystemUI';
 import { authAdminProxyService } from './authAdminProxyService';
 import { coordinacionService } from './coordinacionService';
@@ -57,7 +56,75 @@ class BackupService {
    * Cuando múltiples componentes piden los mismos datos simultáneamente,
    * solo se hace UNA request real y todas las demás esperan la misma promise.
    */
-  private inflight = new Map<string, Promise<any>>();
+  private inflight = new Map<string, Promise<unknown>>();
+
+  /** Listeners que se notifican cuando cambia el estado de backup */
+  private backupChangeListeners = new Set<() => void>();
+
+  /** Canal Realtime para recibir broadcasts de backup */
+  private activeChannel: RealtimeChannel | null = null;
+
+  /** ID del usuario que está escuchando broadcasts */
+  private activeUserId: string | null = null;
+
+  /**
+   * Inicia la escucha de broadcasts de backup para el usuario actual.
+   * Idempotente: si ya hay un canal activo para el mismo userId, no crea otro.
+   */
+  initBackupListener(userId: string): void {
+    if (this.activeUserId === userId && this.activeChannel) return;
+
+    this.cleanupBackupListener();
+
+    const channel = supabaseSystemUI!.channel(`backup:${userId}`);
+    channel.on('broadcast', { event: 'backup-change' }, () => {
+      this.backupChangeListeners.forEach(cb => cb());
+    }).subscribe();
+
+    this.activeChannel = channel;
+    this.activeUserId = userId;
+  }
+
+  /**
+   * Registra un callback que se ejecuta cuando cambia el estado de backup.
+   * Retorna función de cleanup.
+   */
+  onBackupChange(callback: () => void): () => void {
+    this.backupChangeListeners.add(callback);
+    return () => { this.backupChangeListeners.delete(callback); };
+  }
+
+  /** Limpia el canal de escucha y todos los listeners */
+  cleanupBackupListener(): void {
+    if (this.activeChannel) {
+      supabaseSystemUI!.removeChannel(this.activeChannel);
+      this.activeChannel = null;
+    }
+    this.activeUserId = null;
+    this.backupChangeListeners.clear();
+  }
+
+  /**
+   * Envía un broadcast al usuario backup para que actualice su UI.
+   * Crea un canal temporal, envía el evento, y limpia.
+   */
+  private async broadcastBackupChange(targetUserId: string, eventType: 'assigned' | 'removed'): Promise<void> {
+    try {
+      const channel = supabaseSystemUI!.channel(`backup:${targetUserId}`);
+      await channel.subscribe();
+      await channel.send({
+        type: 'broadcast',
+        event: 'backup-change',
+        payload: { eventType }
+      });
+      // Pequeño delay para asegurar que el mensaje se envíe antes de limpiar
+      setTimeout(() => {
+        supabaseSystemUI!.removeChannel(channel);
+      }, 1000);
+    } catch (error) {
+      console.error('Error enviando broadcast de backup:', error);
+    }
+  }
 
   /**
    * Ejecuta una función async con deduplicación por clave.
@@ -77,47 +144,28 @@ class BackupService {
 
   /**
    * Asigna un backup a un ejecutivo
-   * - Guarda el teléfono original
-   * - Cambia el teléfono del ejecutivo al del backup
-   * - Asigna el backup_id
-   * 
-   * Usa user_profiles_v2 (VIEW) para lectura y authAdminProxyService para escritura
+   * - Registra el backup_id y has_backup
+   * - NO modifica el teléfono del ejecutivo
    */
   async assignBackup(
     ejecutivoId: string,
     backupId: string
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      // Obtener teléfono del backup desde user_profiles_v2 (VIEW sobre auth.users)
-      let telefonoBackup = '';
+      // Verificar que el backup existe
       const { data: backupData, error: backupError } = await supabaseSystemUI!
         .from('user_profiles_v2')
-        .select('phone')
+        .select('id')
         .eq('id', backupId)
         .maybeSingle();
 
       if (backupError || !backupData) {
         return { success: false, error: 'Backup no encontrado' };
       }
-      telefonoBackup = backupData.phone || '';
 
-      // Obtener teléfono original del ejecutivo
-      let telefonoOriginal = '';
-      const { data: ejecutivoData } = await supabaseSystemUI!
-        .from('user_profiles_v2')
-        .select('phone, telefono_original')
-        .eq('id', ejecutivoId)
-        .maybeSingle();
-
-      if (ejecutivoData) {
-        telefonoOriginal = ejecutivoData.telefono_original || ejecutivoData.phone || '';
-      }
-
-      // Usar servicio centralizado para actualizar backup
+      // Asignar backup sin modificar el teléfono del ejecutivo
       const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, {
         backup_id: backupId,
-        telefono_original: telefonoOriginal,
-        phone: telefonoBackup,
         has_backup: true,
         updated_at: new Date().toISOString()
       });
@@ -126,38 +174,38 @@ class BackupService {
         throw new Error('Error al asignar backup');
       }
 
+      // Notificar al usuario backup via Realtime broadcast
+      this.broadcastBackupChange(backupId, 'assigned');
+
       return { success: true };
     } catch (error) {
       console.error('Error en assignBackup:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Error desconocido' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido'
       };
     }
   }
 
   /**
-   * Remueve el backup de un ejecutivo y restaura su teléfono original
-   * Usa user_profiles_v2 (VIEW) para lectura y authAdminProxyService para escritura
+   * Remueve el backup de un ejecutivo
+   * - Limpia backup_id, telefono_original y has_backup
+   * - NO modifica el teléfono del ejecutivo
    */
   async removeBackup(ejecutivoId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      // Obtener teléfono original desde user_profiles_v2 (VIEW sobre auth.users)
-      let telefonoOriginal = '';
+      // Obtener backup_id actual antes de limpiar (para notificarle)
       const { data: ejecutivoData } = await supabaseSystemUI!
         .from('user_profiles_v2')
-        .select('telefono_original')
+        .select('backup_id')
         .eq('id', ejecutivoId)
         .maybeSingle();
 
-      if (ejecutivoData) {
-        telefonoOriginal = ejecutivoData.telefono_original || '';
-      }
+      const previousBackupId = ejecutivoData?.backup_id as string | null;
 
-      // Usar servicio centralizado para remover backup
+      // Remover backup sin modificar el teléfono del ejecutivo
       const success = await authAdminProxyService.updateUserMetadata(ejecutivoId, {
         backup_id: null,
-        phone: telefonoOriginal,
         telefono_original: null,
         has_backup: false,
         updated_at: new Date().toISOString()
@@ -165,6 +213,11 @@ class BackupService {
 
       if (!success) {
         throw new Error('Error al remover backup');
+      }
+
+      // Notificar al ex-backup via Realtime broadcast
+      if (previousBackupId) {
+        this.broadcastBackupChange(previousBackupId, 'removed');
       }
 
       return { success: true };
