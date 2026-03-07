@@ -1,3 +1,12 @@
+## [v2.24.2] - 2026-03-07
+
+**B10.2.0N2.24.2** - 1 fix
+
+### Bug Fixes
+- remove phone overwrite on logout + add realtime broadcast for backup badges (`414e342`)
+
+---
+
 ## [v2.24.1] - 2026-03-06
 
 **B10.2.0N2.24.1** - 1 mejora + Las plantillas WhatsApp se organizaban individualm
