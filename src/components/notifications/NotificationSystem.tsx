@@ -123,8 +123,10 @@ const NotificationDropdown: React.FC<{ onNavigate: (prospectoId: string) => void
     // Navegar a la conversación
     if (notification.metadata?.prospecto_id) {
       onNavigate(notification.metadata.prospecto_id);
+    } else {
+      console.warn('[Notifications] Click sin prospecto_id:', notification.id, notification.type);
     }
-    
+
     // Eliminar notificación
     await markAsReadAndDelete(notification.id);
     closeDropdown();
@@ -531,15 +533,25 @@ export const NotificationSystem: React.FC<NotificationSystemProps> = ({
 
   // Handler para navegación
   const handleNavigate = useCallback((prospectoId: string) => {
+    // Siempre guardar en localStorage (para el caso de mount fresco)
+    localStorage.setItem('livechat-prospect-id', prospectoId);
+
     if (onNavigateToProspecto) {
       onNavigateToProspecto(prospectoId);
     } else {
-      // Fallback: usar localStorage y cambiar a live-chat
-      localStorage.setItem('livechat-prospect-id', prospectoId);
-      window.dispatchEvent(new CustomEvent('navigate-to-livechat', { 
-        detail: { prospectoId } 
+      // Fallback: usar evento para cambiar módulo
+      window.dispatchEvent(new CustomEvent('navigate-to-livechat', {
+        detail: prospectoId
       }));
     }
+
+    // Evento para cuando LiveChatCanvas ya está montado
+    // (los useEffects basados en localStorage no se re-ejecutan si las deps no cambian)
+    setTimeout(() => {
+      window.dispatchEvent(new CustomEvent('select-livechat-prospect', {
+        detail: prospectoId
+      }));
+    }, 100);
   }, [onNavigateToProspecto]);
 
   // Verificar si el usuario debe ver notificaciones

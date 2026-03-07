@@ -1376,6 +1376,8 @@ const LiveChatCanvas: React.FC = () => {
     pausedBy: string;
     duration: number | null; // en minutos (null para indefinido)
   }}>({});
+  // Cooldown para evitar que Realtime sobreescriba el estado optimista local
+  const pauseSaveCooldownRef = useRef<number>(0);
 
   // Estados para caché de mensajes enviados
   const [cachedMessages, setCachedMessages] = useState<Message[]>([]);
@@ -3951,6 +3953,11 @@ const LiveChatCanvas: React.FC = () => {
     // Suscripción via RealtimeHub (1 canal compartido para bot_pause_status)
     const unsubPause = realtimeHubSystemUI.subscribe('bot_pause_status', '*', async () => {
       try {
+        // Protección 1: si acabamos de guardar una pausa (< 3s), ignorar callback
+        if (Date.now() - pauseSaveCooldownRef.current < 3000) {
+          return;
+        }
+
         const newPauses = await botPauseService.getAllActivePauses();
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         newPauses.forEach(pause => {
@@ -3967,7 +3974,16 @@ const LiveChatCanvas: React.FC = () => {
             dbPauses[pause.prospecto_id] = pauseData;
           }
         });
-        setBotPauseStatus(dbPauses);
+
+        // Protección 2: si el query retornó vacío pero hay estado local,
+        // preservar estado local (posible fallo transitorio del query).
+        // El timer de expiración (L4040) limpia pausas realmente expiradas.
+        setBotPauseStatus(prev => {
+          if (Object.keys(dbPauses).length === 0 && Object.keys(prev).length > 0) {
+            return prev;
+          }
+          return dbPauses;
+        });
       } catch (error) {
         // Silenciar
       }
@@ -4023,12 +4039,22 @@ const LiveChatCanvas: React.FC = () => {
       loadConversationsWrapper('', true);
     };
     
+    // Handler para seleccionar conversación por prospecto_id (desde notificaciones)
+    const handleSelectByProspectId = (event: CustomEvent) => {
+      const prospectoId = event.detail;
+      if (!prospectoId || typeof prospectoId !== 'string') return;
+      localStorage.removeItem('livechat-prospect-id');
+      selectConversationByProspectId(prospectoId);
+    };
+
     window.addEventListener('select-livechat-conversation', handleSelectConversation as EventListener);
     window.addEventListener('refresh-livechat-conversations', handleRefreshConversations as EventListener);
-    
+    window.addEventListener('select-livechat-prospect', handleSelectByProspectId as EventListener);
+
     return () => {
       window.removeEventListener('select-livechat-conversation', handleSelectConversation as EventListener);
       window.removeEventListener('refresh-livechat-conversations', handleRefreshConversations as EventListener);
+      window.removeEventListener('select-livechat-prospect', handleSelectByProspectId as EventListener);
     };
   }, [allConversationsLoaded]);
 
@@ -6307,6 +6333,9 @@ const LiveChatCanvas: React.FC = () => {
         }
       }
 
+      // Activar cooldown para que Realtime no sobreescriba estado optimista
+      pauseSaveCooldownRef.current = Date.now();
+
       // Escribir directamente en BD (fuente única de verdad)
       const result = isProspectoId
         ? await botPauseService.savePauseByProspectoId(id, durationMinutes, 'agent')
@@ -6349,6 +6378,9 @@ const LiveChatCanvas: React.FC = () => {
     }
 
     try {
+      // Activar cooldown para que Realtime no sobreescriba estado optimista
+      pauseSaveCooldownRef.current = Date.now();
+
       // Eliminar de BD (fuente única de verdad)
       const success = isProspectoId
         ? await botPauseService.resumeBotByProspectoId(id)

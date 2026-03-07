@@ -96,6 +96,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     pausedBy: string;
     duration: number | null;
   }}>({});
+  const pauseSaveCooldownRef = useRef<number>(0);
   const [imageUrlsCache, setImageUrlsCache] = useState<Record<string, string>>({});
   const [imageLoadingStates, setImageLoadingStates] = useState<Record<string, boolean>>({});
   const [prospectosDataVersion, setProspectosDataVersion] = useState(0); // Para forzar re-render cuando cambia el Map
@@ -157,6 +158,10 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
     // Suscripción via RealtimeHub (1 canal compartido para bot_pause_status)
     const unsubPause = realtimeHubSystemUI.subscribe('bot_pause_status', '*', async () => {
       try {
+        // Protección: si acabamos de guardar una pausa (< 3s), ignorar callback
+        if (Date.now() - pauseSaveCooldownRef.current < 3000) {
+          return;
+        }
         const newPauses = await botPauseService.getAllActivePauses();
         const dbPauses: Record<string, { isPaused: boolean; pausedUntil: Date | null; pausedBy: string; duration: number | null }> = {};
         newPauses.forEach(pause => {
@@ -173,7 +178,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
             dbPauses[pause.prospecto_id] = pauseData;
           }
         });
+        // Protección 2: si el query retornó vacío pero hay estado local,
+        // preservar estado local (posible fallo transitorio del query)
         setBotPauseStatus(prev => {
+          if (Object.keys(dbPauses).length === 0 && Object.keys(prev).length > 0) {
+            return prev;
+          }
           const prevKeys = Object.keys(prev).sort().join(',');
           const newKeys = Object.keys(dbPauses).sort().join(',');
           if (prevKeys !== newKeys) return { ...dbPauses };
@@ -1911,15 +1921,20 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   };
 
   // Función para pausar el bot (solo BD, sin Edge Function/N8N)
-  const pauseBot = async (uchatId: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
-    if (!botPauseService.isValidUchatId(uchatId)) {
-      console.error('❌ No se puede pausar bot: uchat_id no válido', { uchatId });
+  const pauseBot = async (id: string, durationMinutes: number | null, force: boolean = false): Promise<boolean> => {
+    const isProspectoId = botPauseService.isValidProspectoId(id);
+    const isUchatId = botPauseService.isValidUchatId(id);
+
+    if (!isProspectoId && !isUchatId) {
+      console.error('❌ No se puede pausar bot: ID no válido', { id });
       return false;
     }
 
     try {
       if (!force) {
-        const existingPause = await botPauseService.getPauseStatus(uchatId);
+        const existingPause = isProspectoId
+          ? await botPauseService.getPauseByProspectoId(id)
+          : await botPauseService.getPauseStatus(id);
         if (existingPause && existingPause.is_paused && existingPause.paused_until) {
           if (new Date(existingPause.paused_until) > new Date()) {
             return true;
@@ -1927,7 +1942,12 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
         }
       }
 
-      const result = await botPauseService.savePauseStatus(uchatId, durationMinutes, 'agent');
+      // Activar cooldown para que Realtime no sobreescriba estado optimista
+      pauseSaveCooldownRef.current = Date.now();
+
+      const result = isProspectoId
+        ? await botPauseService.savePauseByProspectoId(id, durationMinutes, 'agent')
+        : await botPauseService.savePauseStatus(id, durationMinutes, 'agent');
       if (!result) {
         toast.error('No se pudo pausar el bot.', { duration: 4000 });
         return false;
@@ -1939,7 +1959,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
       setBotPauseStatus(prev => ({
         ...prev,
-        [uchatId]: {
+        [id]: {
           isPaused: true,
           pausedUntil,
           pausedBy: 'agent',
@@ -1954,14 +1974,22 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
   };
 
   // Función para reactivar el bot (solo BD, sin Edge Function/N8N)
-  const resumeBot = async (uchatId: string): Promise<boolean> => {
-    if (!botPauseService.isValidUchatId(uchatId)) {
-      console.error('❌ No se puede reactivar bot: uchat_id no válido', { uchatId });
+  const resumeBot = async (id: string): Promise<boolean> => {
+    const isProspectoId = botPauseService.isValidProspectoId(id);
+    const isUchatId = botPauseService.isValidUchatId(id);
+
+    if (!isProspectoId && !isUchatId) {
+      console.error('❌ No se puede reactivar bot: ID no válido', { id });
       return false;
     }
 
     try {
-      const success = await botPauseService.resumeBot(uchatId);
+      // Activar cooldown para que Realtime no sobreescriba estado optimista
+      pauseSaveCooldownRef.current = Date.now();
+
+      const success = isProspectoId
+        ? await botPauseService.resumeBotByProspectoId(id)
+        : await botPauseService.resumeBot(id);
       if (!success) {
         toast.error('No se pudo reactivar el bot.', { duration: 4000 });
         return false;
@@ -1969,7 +1997,7 @@ export const ConversacionesWidget: React.FC<ConversacionesWidgetProps> = ({ user
 
       setBotPauseStatus(prev => {
         const updated = { ...prev };
-        delete updated[uchatId];
+        delete updated[id];
         return updated;
       });
 
