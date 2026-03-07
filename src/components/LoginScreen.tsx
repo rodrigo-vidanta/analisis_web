@@ -1,11 +1,20 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSystemConfig } from '../hooks/useSystemConfig';
+import type { LoginAnimationType } from '../hooks/useSystemConfig';
 import PasswordResetModal from './auth/PasswordResetModal';
 import AccountUnlockModal from './auth/AccountUnlockModal';
 import { AnimatedGradientBackground } from './AnimatedGradientBackground';
 import { RotatingBackground } from './RotatingBackground';
-// Componentes de transición eliminados - se usa LightSpeedTunnel en AuthContext
+import type { DoodleInteraction } from './login/doodles/types';
+
+// Lazy load backgrounds (solo se cargan cuando se seleccionan)
+const RemotionLoginBackground = lazy(() =>
+  import('./login/remotion/RemotionLoginBackground').then(m => ({ default: m.RemotionLoginBackground }))
+);
+const DoodleLoginBackground = lazy(() =>
+  import('./login/doodles/DoodleLoginBackground').then(m => ({ default: m.DoodleLoginBackground }))
+);
 
 const LoginScreen: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -19,6 +28,52 @@ const LoginScreen: React.FC = () => {
   const [lastAttemptedEmail, setLastAttemptedEmail] = useState('');
   const { login, isLoading, error } = useAuth();
   const { config } = useSystemConfig();
+  const loginAnimation: LoginAnimationType = config.login_animation?.animation_type || 'classic';
+
+  // Estado de interaccion para doodles
+  const [doodleState, setDoodleState] = useState<DoodleInteraction>({
+    activeField: 'none',
+    hasError: false,
+    isTypingError: false,
+    mouseX: 0.5,
+    mouseY: 0.5,
+  });
+  const rafRef = useRef(0);
+  const mouseRef = useRef({ x: 0.5, y: 0.5 });
+  const typingErrorTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    mouseRef.current = {
+      x: e.clientX / window.innerWidth,
+      y: e.clientY / window.innerHeight,
+    };
+    if (!rafRef.current) {
+      rafRef.current = requestAnimationFrame(() => {
+        setDoodleState(prev => ({ ...prev, mouseX: mouseRef.current.x, mouseY: mouseRef.current.y }));
+        rafRef.current = 0;
+      });
+    }
+  }, []);
+
+  // Detectar backspace en email → confusion temporal
+  const handleEmailKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      setDoodleState(prev => ({ ...prev, isTypingError: true }));
+      if (typingErrorTimerRef.current) clearTimeout(typingErrorTimerRef.current);
+      typingErrorTimerRef.current = setTimeout(() => {
+        setDoodleState(prev => ({ ...prev, isTypingError: false }));
+      }, 1200);
+    }
+  }, []);
+
+  // Sincronizar error de auth con doodle state
+  useEffect(() => {
+    if (error) {
+      setDoodleState(prev => ({ ...prev, hasError: true }));
+      const timer = setTimeout(() => setDoodleState(prev => ({ ...prev, hasError: false })), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   // Cargar email recordado al inicializar
   useEffect(() => {
@@ -106,9 +161,25 @@ const LoginScreen: React.FC = () => {
   return (
     <>
       
-      <div className="min-h-screen tech-gradient flex items-center justify-center px-4 relative overflow-hidden" id="login-background">
-      <RotatingBackground />
-      <AnimatedGradientBackground />
+      <div
+        className="min-h-screen tech-gradient flex items-center justify-center px-4 relative overflow-hidden"
+        id="login-background"
+        onMouseMove={loginAnimation === 'doodles' ? handleMouseMove : undefined}
+      >
+      {loginAnimation === 'classic' ? (
+        <>
+          <RotatingBackground />
+          <AnimatedGradientBackground />
+        </>
+      ) : loginAnimation === 'doodles' ? (
+        <Suspense fallback={null}>
+          <DoodleLoginBackground interaction={doodleState} />
+        </Suspense>
+      ) : (
+        <Suspense fallback={null}>
+          <RemotionLoginBackground />
+        </Suspense>
+      )}
       {/* SVG Definitions for gradients */}
       <svg width="0" height="0" className="absolute">
         <defs>
@@ -200,6 +271,9 @@ const LoginScreen: React.FC = () => {
                 autoComplete="username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                onFocus={() => setDoodleState(prev => ({ ...prev, activeField: 'email' }))}
+                onBlur={() => setDoodleState(prev => ({ ...prev, activeField: 'none' }))}
+                onKeyDown={handleEmailKeyDown}
                 required
                 placeholder="nombre@vidavacations.com"
                 className="w-full px-4 py-3 bg-black/20 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
@@ -218,6 +292,8 @@ const LoginScreen: React.FC = () => {
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  onFocus={() => setDoodleState(prev => ({ ...prev, activeField: 'password' }))}
+                  onBlur={() => setDoodleState(prev => ({ ...prev, activeField: 'none' }))}
                   required
                   placeholder="••••••••"
                   autoComplete="current-password"
