@@ -2075,3 +2075,22 @@ body.ninja-mode {
     opacity: 0.6;
   }
 }
+
+/* ---- Sileo toast theme overrides ---- */
+
+/* z-index igual que react-hot-toast */
+[data-sileo-viewport] {
+  z-index: 100 !important;
+}
+
+/* Sombra light mode: sutil, limpia */
+[data-sileo-toast][data-ready="true"] {
+  filter: drop-shadow(0 4px 16px rgba(0, 0, 0, 0.10))
+          drop-shadow(0 1px 4px rgba(0, 0, 0, 0.06));
+}
+
+/* Sombra dark mode: profunda con sutil glow indigo */
+.dark [data-sileo-toast][data-ready="true"] {
+  filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.50))
+          drop-shadow(0 0 12px rgba(99, 102, 241, 0.12));
+}

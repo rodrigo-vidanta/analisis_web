@@ -1,6 +1,9 @@
+import { useState, useEffect, memo } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
 import MainApp from './components/MainApp';
 import { Toaster } from 'react-hot-toast';
+import { Toaster as SileoToaster } from 'sileo';
+import 'sileo/styles.css';
 import NetworkStatusIndicator from './components/common/NetworkStatusIndicator';
 import MaintenancePage from './components/MaintenancePage';
 // import HealthCheckGuard from './components/HealthCheckGuard';
@@ -17,6 +20,30 @@ import MaintenancePage from './components/MaintenancePage';
  *   2. Envolver el return con <HealthCheckGuard>...</HealthCheckGuard>
  */
 const MAINTENANCE_MODE = false;
+
+const ThemedSileoToaster = memo(function ThemedSileoToaster() {
+  const [isDark, setIsDark] = useState(
+    document.documentElement.classList.contains('dark')
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <SileoToaster
+      position="top-center"
+      theme={isDark ? 'dark' : 'light'}
+    />
+  );
+});
 
 function App() {
   // Override manual: fuerza mantenimiento (migración infraestructura mensajería 2026-03-03)
@@ -42,6 +69,7 @@ function App() {
             },
           }}
         />
+        <ThemedSileoToaster />
         {/* Indicador de estado de red (mejora 2026-01-20) */}
         <NetworkStatusIndicator position="bottom" />
       </AuthProvider>

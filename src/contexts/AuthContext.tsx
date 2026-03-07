@@ -261,13 +261,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // y los handlers de realtime siempre llaman la versión más reciente)
   const handleForceLogout = useCallback(async (reason: string) => {
     // Mostrar notificación PRIMERO (antes de desmontar componentes)
-    toast(reason, {
+    toast.error(reason, {
       duration: 5000,
       icon: '🔐',
-      style: {
-        background: '#1f2937',
-        color: '#fff',
-      }
     });
 
     // Usar ref para acceder al usuario actual (evita stale closure)

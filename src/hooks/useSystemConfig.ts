@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { analysisSupabase as supabase } from '../config/analysisSupabase';
 import { systemConfigEvents } from '../utils/systemConfigEvents';
+import { applyToastProvider, type ToastProvider } from '../lib/toastInterceptor';
 
 /**
  * Actualiza el favicon en el documento HTML
@@ -35,6 +36,8 @@ const updateFavicon = (faviconUrl: string) => {
   shortcutLink.href = `${faviconUrl}?t=${timestamp}`;
 };
 
+export type LoginAnimationType = 'classic' | 'neural-constellation' | 'doodles';
+
 interface SystemConfig {
   app_branding?: {
     app_name?: string;
@@ -48,6 +51,12 @@ interface SystemConfig {
     active_theme?: string;
     allow_user_theme_selection?: boolean;
     custom_css?: string;
+  };
+  login_animation?: {
+    animation_type: LoginAnimationType;
+  };
+  notification_style?: {
+    provider: ToastProvider;
   };
 }
 
@@ -64,18 +73,29 @@ export const useSystemConfig = () => {
         .from('system_config_public')
         .select('config_key, config_value');
 
-      // Extraer branding y tema de los resultados
+      // Extraer branding, tema y login_animation de los resultados
       const brandingData = configData?.find(c => c.config_key === 'app_branding');
       const themeData = configData?.find(c => c.config_key === 'app_theme');
+      const loginAnimData = configData?.find(c => c.config_key === 'login_animation');
 
       const newConfig: SystemConfig = {};
-      
+
       if (brandingData) {
         newConfig.app_branding = brandingData.config_value;
       }
-      
+
       if (themeData) {
         newConfig.app_theme = themeData.config_value;
+      }
+
+      if (loginAnimData) {
+        newConfig.login_animation = loginAnimData.config_value;
+      }
+
+      const notifStyleData = configData?.find(c => c.config_key === 'notification_style');
+      if (notifStyleData) {
+        newConfig.notification_style = notifStyleData.config_value;
+        applyToastProvider(notifStyleData.config_value.provider || 'react-hot-toast');
       }
 
       // Aplicar tema al documento

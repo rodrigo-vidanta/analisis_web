@@ -17,11 +17,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Settings, 
-  Palette, 
-  Image, 
-  Type, 
+import {
+  Settings,
+  Palette,
+  Image,
+  Type,
   Upload,
   Check,
   Loader2,
@@ -29,12 +29,19 @@ import {
   AlertCircle,
   CheckCircle2,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Play,
+  Monitor,
+  Bell
 } from 'lucide-react';
+import type { LoginAnimationType } from '../../hooks/useSystemConfig';
 import { analysisSupabase as supabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { systemConfigEvents } from '../../utils/systemConfigEvents';
 import { LOGO_CATALOG, type LogoType, getSuggestedLogo, isLogoAvailable } from '../logos/LogoCatalog';
+import { applyToastProvider, type ToastProvider } from '../../lib/toastInterceptor';
+import { sileo } from 'sileo';
+import toast from 'react-hot-toast';
 
 /**
  * Actualiza el favicon en el documento HTML
@@ -94,7 +101,9 @@ const SystemPreferences: React.FC = () => {
   const [themes, setThemes] = useState<AppTheme[]>([]);
   const [activeTheme, setActiveTheme] = useState<string>('default');
   const [selectedLogo, setSelectedLogo] = useState<LogoType>('default');
-  
+  const [loginAnimation, setLoginAnimation] = useState<LoginAnimationType>('classic');
+  const [notificationStyle, setNotificationStyle] = useState<ToastProvider>('react-hot-toast');
+
   // Estados para forms
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -217,7 +226,29 @@ const SystemPreferences: React.FC = () => {
         setSelectedLogo(suggested);
       }
 
-    } catch (err: any) {
+      // Cargar animacion de login
+      const { data: loginAnimData } = await supabase
+        .from('system_config')
+        .select('*')
+        .eq('config_key', 'login_animation')
+        .single();
+
+      if (loginAnimData?.config_value?.animation_type) {
+        setLoginAnimation(loginAnimData.config_value.animation_type as LoginAnimationType);
+      }
+
+      // Cargar estilo de notificaciones
+      const { data: notifStyleData } = await supabase
+        .from('system_config')
+        .select('*')
+        .eq('config_key', 'notification_style')
+        .single();
+
+      if (notifStyleData?.config_value?.provider) {
+        setNotificationStyle(notifStyleData.config_value.provider as ToastProvider);
+      }
+
+    } catch (err: unknown) {
       console.error('Error loading system config:', err);
       setError('Error al cargar configuración del sistema');
     } finally {
@@ -408,8 +439,69 @@ const SystemPreferences: React.FC = () => {
     }
   };
 
+  // Handler para cambiar animacion de login
+  const handleLoginAnimationChange = async (animationType: LoginAnimationType) => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { error } = await supabase.rpc('update_system_config', {
+        p_config_key: 'login_animation',
+        p_new_value: { animation_type: animationType }
+      });
+
+      if (error) throw error;
+
+      setLoginAnimation(animationType);
+      setSuccess('Animación de login actualizada exitosamente');
+      systemConfigEvents.notifyUpdate();
+    } catch (err: unknown) {
+      console.error('Error updating login animation:', err);
+      setError('Error al actualizar animación de login');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Handler para cambiar estilo de notificaciones
+  const handleNotificationStyleChange = async (provider: ToastProvider) => {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const { error } = await supabase.rpc('update_system_config', {
+        p_config_key: 'notification_style',
+        p_new_value: { provider }
+      });
+
+      if (error) throw error;
+
+      setNotificationStyle(provider);
+      applyToastProvider(provider);
+      systemConfigEvents.notifyUpdate();
+
+      // Mostrar preview con el provider recien activado
+      setTimeout(() => {
+        if (provider === 'sileo') {
+          sileo.success({ title: 'Sileo activado', description: 'Notificaciones con animacion physics-based' });
+        } else {
+          toast.success('React Hot Toast activado');
+        }
+      }, 300);
+
+      setSuccess(`Notificaciones cambiadas a ${provider === 'sileo' ? 'Sileo' : 'React Hot Toast'}`);
+    } catch (err: unknown) {
+      console.error('Error updating notification style:', err);
+      setError('Error al actualizar estilo de notificaciones');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Tabs de navegación
-  const [activeSection, setActiveSection] = useState<'branding' | 'themes'>('branding');
+  const [activeSection, setActiveSection] = useState<'branding' | 'themes' | 'animations' | 'notifications'>('branding');
 
   if (loading) {
     return (
@@ -503,11 +595,384 @@ const SystemPreferences: React.FC = () => {
           <Palette className="w-4 h-4" />
           Temas
         </button>
+        <button
+          onClick={() => setActiveSection('animations')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeSection === 'animations'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Play className="w-4 h-4" />
+          Animaciones
+        </button>
+        <button
+          onClick={() => setActiveSection('notifications')}
+          className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+            activeSection === 'notifications'
+              ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Bell className="w-4 h-4" />
+          Notificaciones
+        </button>
       </div>
 
       {/* Contenido según tab activo */}
       <AnimatePresence mode="wait">
-        {activeSection === 'branding' ? (
+        {activeSection === 'notifications' ? (
+          <motion.div
+            key="notifications"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-1">
+                <Bell className="w-4 h-4 text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Estilo de Notificaciones
+                </h3>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Selecciona el motor de notificaciones toast. El cambio se aplica globalmente a los 529+ toast de la plataforma.
+              </p>
+            </div>
+
+            {/* Opciones */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {/* React Hot Toast */}
+              <motion.div
+                onClick={() => notificationStyle !== 'react-hot-toast' && handleNotificationStyleChange('react-hot-toast')}
+                className={`group flex items-center gap-4 px-6 py-5 cursor-pointer transition-colors ${
+                  notificationStyle === 'react-hot-toast'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                }`}
+                whileHover={{ x: notificationStyle === 'react-hot-toast' ? 0 : 4 }}
+                whileTap={{ scale: notificationStyle === 'react-hot-toast' ? 1 : 0.99 }}
+              >
+                {/* Preview */}
+                <div className="flex-shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gray-800 border border-gray-600 flex items-center justify-center">
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-700 rounded-md">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    <div className="w-6 h-1 rounded-full bg-gray-400" />
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">React Hot Toast</span>
+                    {notificationStyle === 'react-hot-toast' && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Minimalista y confiable. Toast simple con fondo oscuro, sin animaciones complejas.
+                  </p>
+                </div>
+
+                {/* Indicador */}
+                {notificationStyle === 'react-hot-toast' ? (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                )}
+              </motion.div>
+
+              {/* Sileo */}
+              <motion.div
+                onClick={() => notificationStyle !== 'sileo' && handleNotificationStyleChange('sileo')}
+                className={`group flex items-center gap-4 px-6 py-5 cursor-pointer transition-colors ${
+                  notificationStyle === 'sileo'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                }`}
+                whileHover={{ x: notificationStyle === 'sileo' ? 0 : 4 }}
+                whileTap={{ scale: notificationStyle === 'sileo' ? 1 : 0.99 }}
+              >
+                {/* Preview */}
+                <div className="flex-shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gray-900 border border-gray-600 flex items-center justify-center relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/20 to-purple-500/20" />
+                  <div className="flex items-center gap-1 px-2 py-1 bg-gray-800/80 rounded-md border border-gray-600/50 z-10">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                    <div className="w-6 h-1 rounded-full bg-indigo-300/60" />
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">Sileo</span>
+                    <span className="px-1.5 py-0.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 rounded">
+                      Nuevo
+                    </span>
+                    {notificationStyle === 'sileo' && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                        Activo
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Physics-based con gooey SVG morphing. Animaciones fluidas con spring physics.
+                  </p>
+                </div>
+
+                {/* Indicador */}
+                {notificationStyle === 'sileo' ? (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                )}
+              </motion.div>
+            </div>
+
+            {/* Test buttons */}
+            <div className="px-6 py-4 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Probar notificacion con el motor activo:</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (notificationStyle === 'sileo') {
+                      sileo.success({ title: 'Exito', description: 'Esta es una notificacion de prueba' });
+                    } else {
+                      toast.success('Esta es una notificacion de prueba');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg hover:bg-emerald-200 dark:hover:bg-emerald-900/50 transition-colors"
+                >
+                  Success
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (notificationStyle === 'sileo') {
+                      sileo.error({ title: 'Error', description: 'Algo salio mal (prueba)' });
+                    } else {
+                      toast.error('Algo salio mal (prueba)');
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-red-700 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                >
+                  Error
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (notificationStyle === 'sileo') {
+                      sileo.warning({ title: 'Advertencia', description: 'Ten cuidado (prueba)' });
+                    } else {
+                      toast('Advertencia: ten cuidado (prueba)', { icon: '⚠️' });
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                >
+                  Warning
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (notificationStyle === 'sileo') {
+                      sileo.info({ title: 'Info', description: 'Informacion general (prueba)' });
+                    } else {
+                      toast('Informacion general (prueba)', { icon: 'ℹ️' });
+                    }
+                  }}
+                  className="px-3 py-1.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/50 transition-colors"
+                >
+                  Info
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        ) : activeSection === 'animations' ? (
+          <motion.div
+            key="animations"
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -10 }}
+            transition={{ duration: 0.2 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 overflow-hidden"
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2 mb-1">
+                <Monitor className="w-4 h-4 text-gray-400" />
+                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                  Animación de Login
+                </h3>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Selecciona la animación de fondo para la página de inicio de sesión. El cambio se aplica globalmente.
+              </p>
+            </div>
+
+            {/* Opciones de animación */}
+            <div className="divide-y divide-gray-100 dark:divide-gray-700/50">
+              {/* Opcion: Classic */}
+              <motion.div
+                onClick={() => loginAnimation !== 'classic' && handleLoginAnimationChange('classic')}
+                className={`group flex items-center gap-4 px-6 py-5 cursor-pointer transition-colors ${
+                  loginAnimation === 'classic'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                }`}
+                whileHover={{ x: loginAnimation === 'classic' ? 0 : 4 }}
+                whileTap={{ scale: loginAnimation === 'classic' ? 1 : 0.99 }}
+              >
+                {/* Preview */}
+                <div className="flex-shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/50 to-slate-900 border border-gray-200 dark:border-gray-600 relative">
+                  {/* Mini particulas simuladas */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-1 h-1 rounded-full bg-blue-400/60 absolute" style={{ top: '20%', left: '30%' }} />
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-400/40 absolute" style={{ top: '60%', left: '60%' }} />
+                    <div className="w-1 h-1 rounded-full bg-cyan-400/50 absolute" style={{ top: '40%', left: '80%' }} />
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">Clásica</span>
+                    {loginAnimation === 'classic' && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                        Activa
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Gradientes animados con partículas sutiles y rotación de fondo. Efecto discreto y elegante.
+                  </p>
+                </div>
+
+                {/* Indicador */}
+                {loginAnimation === 'classic' ? (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                )}
+              </motion.div>
+
+              {/* Opcion: Neural Constellation */}
+              <motion.div
+                onClick={() => loginAnimation !== 'neural-constellation' && handleLoginAnimationChange('neural-constellation')}
+                className={`group flex items-center gap-4 px-6 py-5 cursor-pointer transition-colors ${
+                  loginAnimation === 'neural-constellation'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                }`}
+                whileHover={{ x: loginAnimation === 'neural-constellation' ? 0 : 4 }}
+                whileTap={{ scale: loginAnimation === 'neural-constellation' ? 1 : 0.99 }}
+              >
+                {/* Preview */}
+                <div className="flex-shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-slate-950 via-indigo-950/80 to-slate-950 border border-gray-200 dark:border-gray-600 relative">
+                  {/* Mini red neuronal simulada */}
+                  <svg className="absolute inset-0 w-full h-full" viewBox="0 0 64 40">
+                    <line x1="12" y1="8" x2="32" y2="20" stroke="rgba(99,102,241,0.4)" strokeWidth="0.5" />
+                    <line x1="32" y1="20" x2="52" y2="12" stroke="rgba(139,92,246,0.4)" strokeWidth="0.5" />
+                    <line x1="20" y1="32" x2="32" y2="20" stroke="rgba(6,182,212,0.3)" strokeWidth="0.5" />
+                    <line x1="32" y1="20" x2="48" y2="30" stroke="rgba(59,130,246,0.3)" strokeWidth="0.5" />
+                    <circle cx="12" cy="8" r="2" fill="rgba(59,130,246,0.8)" />
+                    <circle cx="32" cy="20" r="2.5" fill="rgba(139,92,246,0.9)" />
+                    <circle cx="52" cy="12" r="1.5" fill="rgba(6,182,212,0.7)" />
+                    <circle cx="20" cy="32" r="1.5" fill="rgba(99,102,241,0.7)" />
+                    <circle cx="48" cy="30" r="2" fill="rgba(59,130,246,0.8)" />
+                  </svg>
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">Neural Constellation</span>
+                    {loginAnimation === 'neural-constellation' && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                        Activa
+                      </span>
+                    )}
+                    <span className="px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30 rounded">
+                      Remotion
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Red neuronal interactiva con nodos flotantes, conexiones dinámicas y pulsos de energía. Renderizada con Remotion.
+                  </p>
+                </div>
+
+                {/* Indicador */}
+                {loginAnimation === 'neural-constellation' ? (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                )}
+              </motion.div>
+
+              {/* Opcion: Doodles Interactivos */}
+              <motion.div
+                onClick={() => loginAnimation !== 'doodles' && handleLoginAnimationChange('doodles')}
+                className={`group flex items-center gap-4 px-6 py-5 cursor-pointer transition-colors ${
+                  loginAnimation === 'doodles'
+                    ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                    : 'hover:bg-gray-50 dark:hover:bg-gray-700/30'
+                }`}
+                whileHover={{ x: loginAnimation === 'doodles' ? 0 : 4 }}
+                whileTap={{ scale: loginAnimation === 'doodles' ? 1 : 0.99 }}
+              >
+                {/* Preview */}
+                <div className="flex-shrink-0 w-16 h-10 rounded-lg overflow-hidden bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-gray-200 dark:border-gray-600 relative flex items-end justify-center gap-1 px-1">
+                  {/* Mini doodles simulados */}
+                  <div className="w-3 h-5 rounded-t-full bg-blue-400 mb-0" />
+                  <div className="w-2.5 h-4 rounded-t-full bg-purple-400 mb-0" />
+                  <div className="absolute top-0 right-2 w-2.5 h-3 rounded-b-full bg-teal-400" />
+                </div>
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-gray-900 dark:text-white">Doodles Interactivos</span>
+                    {loginAnimation === 'doodles' && (
+                      <span className="px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30 rounded">
+                        Activa
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Personajes que siguen el mouse, se emocionan al escribir y se tapan los ojos con la contraseña
+                  </p>
+                </div>
+
+                {/* Indicador */}
+                {loginAnimation === 'doodles' ? (
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center">
+                    <Check className="w-4 h-4 text-white" />
+                  </div>
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-gray-400 transition-colors" />
+                )}
+              </motion.div>
+            </div>
+
+            {/* Nota */}
+            <div className="px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 dark:text-gray-400">
+              El cambio se aplica inmediatamente para todos los usuarios. No requiere recargar la página.
+            </div>
+          </motion.div>
+        ) : activeSection === 'branding' ? (
           <motion.div
             key="branding"
             initial={{ opacity: 0, x: -10 }}
