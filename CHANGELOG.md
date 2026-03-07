@@ -1,3 +1,12 @@
+## [v2.24.3] - 2026-03-07
+
+**B10.2.0N2.24.3** - 1 fix
+
+### Bug Fixes
+- resolve flicker on indefinite pause + dual provider support in ConversacionesWidget (`edfeb4b`)
+
+---
+
 ## [v2.24.2] - 2026-03-07
 
 **B10.2.0N2.24.2** - 1 fix
