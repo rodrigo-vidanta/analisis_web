@@ -40,7 +40,7 @@ const TemplateSelectionModal: React.FC<TemplateSelectionModalProps> = ({ isOpen,
     try {
       setLoading(true);
       const data = await whatsappTemplatesService.getGroupsWithHealth();
-      setGroups(data);
+      setGroups(data.filter(g => !g.exclude_from_sending));
     } catch (err) {
       console.error('Error loading groups:', err);
       toast.error('Error al cargar grupos de plantillas');

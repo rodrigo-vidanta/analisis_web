@@ -68,7 +68,8 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
     try {
       setLoading(true);
       const data = await whatsappTemplatesService.getGroupsWithHealth();
-      setGroups(data);
+      const isUchat = (prospectoData?.whatsapp_provider as string) === 'uchat';
+      setGroups(data.filter(g => !g.exclude_from_sending || isUchat));
     } catch (error) {
       console.error('Error cargando grupos:', error);
       toast.error('Error al cargar los grupos de plantillas');

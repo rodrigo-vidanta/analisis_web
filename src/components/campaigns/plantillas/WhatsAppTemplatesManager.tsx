@@ -81,6 +81,16 @@ import { TemplateTagsSelector } from './TemplateTagsSelector';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
 import { formatExecutiveDisplayName } from '../../../utils/nameFormatter';
 
+// Datos de salud individual por plantilla (de v_template_health)
+interface TemplateHealthData {
+  template_id: string;
+  health_status: 'healthy' | 'warning' | 'critical' | 'no_data';
+  sends_7d: number;
+  failure_rate_24h: number | null;
+  reply_rate_24h: number | null;
+  trend: string | null;
+}
+
 /**
  * ============================================
  * GESTOR DE PLANTILLAS WHATSAPP
@@ -199,6 +209,7 @@ const WhatsAppTemplatesManager: React.FC = () => {
   const [selectedGroupForView, setSelectedGroupForView] = useState<TemplateGroupHealth | null>(null);
   const [groupTemplates, setGroupTemplates] = useState<WhatsAppTemplate[]>([]);
   const [loadingGroupTemplates, setLoadingGroupTemplates] = useState(false);
+  const [groupTemplateHealth, setGroupTemplateHealth] = useState<Map<string, TemplateHealthData>>(new Map());
 
   // Eliminar grupo completo
   const [showDeleteGroupModal, setShowDeleteGroupModal] = useState(false);
@@ -886,6 +897,26 @@ const WhatsAppTemplatesManager: React.FC = () => {
     try {
       const templates = await whatsappTemplatesService.getTemplatesByGroup(group.group_id);
       setGroupTemplates(templates);
+      // Cargar salud individual por plantilla
+      const templateIds = templates.map(t => t.id);
+      if (templateIds.length > 0 && analysisSupabase) {
+        const { data: healthData } = await analysisSupabase
+          .from('v_template_health')
+          .select('template_id, health_status, sends_7d, failure_rate_24h, reply_rate_24h, trend')
+          .in('template_id', templateIds);
+        const healthMap = new Map<string, TemplateHealthData>();
+        for (const row of (healthData || [])) {
+          healthMap.set(row.template_id, {
+            template_id: row.template_id,
+            health_status: row.health_status || 'no_data',
+            sends_7d: Number(row.sends_7d) || 0,
+            failure_rate_24h: row.failure_rate_24h != null ? parseFloat(row.failure_rate_24h) : null,
+            reply_rate_24h: row.reply_rate_24h != null ? parseFloat(row.reply_rate_24h) : null,
+            trend: row.trend,
+          });
+        }
+        setGroupTemplateHealth(healthMap);
+      }
     } catch (error) {
       console.error('Error cargando plantillas del grupo:', error);
       toast.error('Error al cargar las plantillas del grupo');
@@ -1781,9 +1812,11 @@ const WhatsAppTemplatesManager: React.FC = () => {
           group={selectedGroupForView}
           templates={groupTemplates}
           loading={loadingGroupTemplates}
+          templateHealth={groupTemplateHealth}
           onClose={() => {
             setSelectedGroupForView(null);
             setGroupTemplates([]);
+            setGroupTemplateHealth(new Map());
           }}
           onEdit={(t) => handleLimitedEdit(t)}
           onDelete={(t) => handleDelete(t)}
@@ -2438,6 +2471,7 @@ interface GroupTemplatesSubModalProps {
   group: TemplateGroupHealth;
   templates: WhatsAppTemplate[];
   loading: boolean;
+  templateHealth: Map<string, TemplateHealthData>;
   onClose: () => void;
   onEdit: (t: WhatsAppTemplate) => void;
   onDelete: (t: WhatsAppTemplate) => void;
@@ -2448,7 +2482,7 @@ interface GroupTemplatesSubModalProps {
 }
 
 const GroupTemplatesSubModal: React.FC<GroupTemplatesSubModalProps> = ({
-  group, templates, loading, onClose, onEdit, onDelete, onViewPreview,
+  group, templates, loading, templateHealth, onClose, onEdit, onDelete, onViewPreview,
   getStatusColor, getStatusText, getCategoryColor,
 }) => {
   return createPortal(
@@ -2526,6 +2560,15 @@ const GroupTemplatesSubModal: React.FC<GroupTemplatesSubModalProps> = ({
                   const bodyComponent = template.components.find(c => c.type === 'BODY');
                   const previewText = bodyComponent?.text || 'Sin contenido';
                   const truncated = previewText.length > 100 ? previewText.substring(0, 100) + '...' : previewText;
+                  const health = templateHealth.get(template.id);
+                  const healthStatus = health?.health_status || 'no_data';
+                  const healthConfig: Record<string, { label: string; color: string; dot: string }> = {
+                    healthy: { label: 'Saludable', color: 'text-emerald-600 dark:text-emerald-400', dot: 'bg-emerald-500' },
+                    warning: { label: 'Atención', color: 'text-yellow-600 dark:text-yellow-400', dot: 'bg-yellow-500' },
+                    critical: { label: 'Crítico', color: 'text-red-600 dark:text-red-400', dot: 'bg-red-500' },
+                    no_data: { label: 'Sin datos', color: 'text-gray-400 dark:text-gray-500', dot: 'bg-gray-400' },
+                  };
+                  const hc = healthConfig[healthStatus] || healthConfig.no_data;
 
                   return (
                     <div
@@ -2547,8 +2590,51 @@ const GroupTemplatesSubModal: React.FC<GroupTemplatesSubModalProps> = ({
                                 Inactiva
                               </span>
                             )}
+                            {/* Health status dot + label */}
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${hc.color}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${hc.dot}`} />
+                              {hc.label}
+                            </span>
                           </div>
                           <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">{truncated}</p>
+                          {/* Metricas de envio y salud */}
+                          <div className="flex items-center gap-3 mt-1.5">
+                            <span className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400">
+                              <MessageSquare className="w-3 h-3" />
+                              {health ? health.sends_7d.toLocaleString() : 0} envíos/7d
+                            </span>
+                            {health && health.reply_rate_24h != null && (
+                              <span className={`flex items-center gap-1 text-[11px] ${
+                                health.reply_rate_24h >= 10 ? 'text-emerald-600 dark:text-emerald-400' :
+                                health.reply_rate_24h >= 5 ? 'text-yellow-600 dark:text-yellow-400' :
+                                'text-gray-400 dark:text-gray-500'
+                              }`}>
+                                <BarChart3 className="w-3 h-3" />
+                                {health.reply_rate_24h}% reply
+                              </span>
+                            )}
+                            {health && health.failure_rate_24h != null && (
+                              <span className={`flex items-center gap-1 text-[11px] ${
+                                health.failure_rate_24h >= 20 ? 'text-red-600 dark:text-red-400' :
+                                health.failure_rate_24h >= 10 ? 'text-yellow-600 dark:text-yellow-400' :
+                                'text-emerald-600 dark:text-emerald-400'
+                              }`}>
+                                <AlertTriangle className="w-3 h-3" />
+                                {health.failure_rate_24h}% fail
+                              </span>
+                            )}
+                            {health?.trend && health.trend !== 'no_data' && (
+                              <span className={`text-[11px] ${
+                                health.trend === 'improving' ? 'text-emerald-500' :
+                                health.trend === 'degrading' ? 'text-red-500' :
+                                'text-gray-400'
+                              }`}>
+                                {health.trend === 'improving' ? '↗ Mejorando' :
+                                 health.trend === 'degrading' ? '↘ Degradando' :
+                                 '→ Estable'}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button

@@ -679,7 +679,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       const approved = allTemplates.filter(t => t.status === 'APPROVED');
       setTemplates(approved);
       setFilteredTemplates(approved);
-      setTemplateGroups(groups);
+      setTemplateGroups(groups.filter(g => !g.exclude_from_sending));
     } catch {
       toast.error('Error al cargar plantillas');
     } finally {

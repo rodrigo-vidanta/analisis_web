@@ -658,6 +658,7 @@ export interface TemplateGroupHealth {
   group_name: string;
   description: string | null;
   group_is_active: boolean;
+  exclude_from_sending: boolean;
   total_templates: number;
   sendable_count: number;
   healthy_count: number;
