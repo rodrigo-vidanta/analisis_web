@@ -207,6 +207,8 @@ interface Message {
   status?: 'enviado' | 'bloqueado_whatsapp' | 'bloqueo_meta' | 'bloqueado_guardrail' | 'sin_respuesta';
   status_delivery?: 'queued' | 'sent' | 'delivered' | 'read' | 'undelivered' | 'failed' | null;
   delivery_error_code?: string | null;
+  // Campo de origen CTWA (Click-to-WhatsApp ads) - permite detectar ventana de 72h
+  referral_source?: string | null; // 'ctwa_ad' | 'organic' | null
   // Campos específicos para notas internas
   note_data?: {
     user_name: string;
@@ -1054,6 +1056,46 @@ const ConversationItem = React.memo<ConversationItemProps>(({
 });
 
 // ============================================
+// MINI-COMPONENTE: Countdown de ventana de mensajería
+// Timer aislado — solo re-renderiza este span cada 60s, no el padre
+// ============================================
+const WindowCountdown: React.FC<{
+  lastMessageAt: string;
+  windowHours: number;
+  isCTWA: boolean;
+}> = ({ lastMessageAt, windowHours, isCTWA }) => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const interval = setInterval(() => setTick(t => t + 1), 60000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const lastMessageDate = new Date(lastMessageAt);
+  const now = new Date();
+  const elapsedMs = now.getTime() - lastMessageDate.getTime();
+  const windowMs = windowHours * 60 * 60 * 1000;
+  const remainingMs = Math.max(0, windowMs - elapsedMs);
+  const totalMinutes = Math.floor(remainingMs / (1000 * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  const colorClass = totalMinutes <= 0 || totalMinutes <= 60
+    ? 'text-red-500 dark:text-red-400'
+    : totalMinutes <= 300
+      ? 'text-amber-500 dark:text-amber-400'
+      : 'text-emerald-500 dark:text-emerald-400';
+
+  return (
+    <span
+      className={`text-[11px] font-bold mt-1 leading-none ${colorClass}`}
+      title={`Ventana ${isCTWA ? 'CTWA 72h' : '24h'} — ${totalMinutes <= 0 ? 'Expirada' : `${hours}h ${minutes}m restantes`}`}
+    >
+      {totalMinutes <= 0 ? '⏱ 0:00' : `⏱ ${hours}:${minutes.toString().padStart(2, '0')}`}
+    </span>
+  );
+};
+
+// ============================================
 // COMPONENTE PRINCIPAL - LIENZO CON SECCIONES FIJAS
 // ============================================
 
@@ -1086,6 +1128,7 @@ const LiveChatCanvas: React.FC = () => {
   // ============================================
   // 🚀 INFINITE SCROLL STATES (v6.2.0)
   // ============================================
+
   const [allConversationsLoaded, setAllConversationsLoaded] = useState<Conversation[]>([]);
   const [hasMoreConversations, setHasMoreConversations] = useState(true);
   const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
@@ -7412,6 +7455,18 @@ const LiveChatCanvas: React.FC = () => {
     return `${Math.floor(diffInMinutes / 1440)}d`;
   };
 
+  // Detectar si la conversación se originó desde un anuncio CTWA (Click-to-WhatsApp)
+  // Si el primer mensaje del cliente tiene referral_source = 'ctwa_ad', la ventana es 72h en lugar de 24h
+  const getConversationWindowHours = (conversation: Conversation | null): number => {
+    if (!conversation) return 24;
+    const messages = messagesByConversation[conversation.id] || [];
+    const firstUserMessage = messages
+      .filter(m => m.sender_type === 'customer')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+    if (firstUserMessage?.referral_source === 'ctwa_ad') return 72;
+    return 24;
+  };
+
   const isWithin24HourWindow = (conversation: Conversation | null): boolean => {
     if (!conversation) return false;
 
@@ -7435,23 +7490,26 @@ const LiveChatCanvas: React.FC = () => {
     const now = new Date();
     const hoursSinceLastMessage = (now.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60);
 
-    return hoursSinceLastMessage < 24;
+    // Usar ventana de 72h para CTWA, 24h para orgánico
+    const windowHours = getConversationWindowHours(conversation);
+    return hoursSinceLastMessage < windowHours;
   };
 
   const getHoursSinceLastUserMessage = (conversation: Conversation | null): number => {
     if (!conversation) return 99;
-    
+
     const messages = messagesByConversation[conversation.id] || [];
     const lastUserMessage = messages
       .filter(m => m.sender_type === 'customer')
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
-    
+
     if (!lastUserMessage) return 99;
-    
+
     const lastMessageDate = new Date(lastUserMessage.created_at);
     const now = new Date();
     return (now.getTime() - lastMessageDate.getTime()) / (1000 * 60 * 60);
   };
+
 
   // Función para obtener las iniciales de un nombre completo
   const getInitials = (fullName: string | null | undefined): string => {
@@ -8543,7 +8601,27 @@ const LiveChatCanvas: React.FC = () => {
                 const { day, month } = getDayAndMonth(block.date);
                 const isToday = day === 'HOY';
                 const isYesterday = day === 'AYE';
-                
+                // Countdown de ventana para HOY y AYE (la ventana puede cruzar días)
+                // Se calcula lastMessageAt y windowHours aquí, el timer vive dentro de WindowCountdown
+                let countdownProps: { lastMessageAt: string; windowHours: number; isCTWA: boolean } | null = null;
+                if ((isToday || isYesterday) && selectedConversation) {
+                  const provPId = selectedConversation.prospecto_id || selectedConversation.id;
+                  const provPData = provPId ? prospectosDataRef.current.get(provPId) : null;
+                  const provider = provPData?.whatsapp_provider
+                    || selectedConversation.whatsapp_provider
+                    || (selectedConversation.metadata as Record<string, unknown>)?.whatsapp_provider as string;
+                  if (provider !== 'uchat') {
+                    const msgs = messagesByConversation[selectedConversation.id] || [];
+                    const lastCustMsg = msgs
+                      .filter(m => m.sender_type === 'customer')
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
+                    if (lastCustMsg) {
+                      const wh = getConversationWindowHours(selectedConversation);
+                      countdownProps = { lastMessageAt: lastCustMsg.created_at, windowHours: wh, isCTWA: wh === 72 };
+                    }
+                  }
+                }
+
                 return (
                   <div key={block.date}>
                     <button
@@ -8562,10 +8640,14 @@ const LiveChatCanvas: React.FC = () => {
                         <span className={`text-lg font-bold leading-none ${isToday || isYesterday ? 'text-[10px]' : ''}`}>
                           {day}
                         </span>
-                        {/* Contador de mensajes (muy pequeño) */}
-                        <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors mt-1 leading-none">
-                          {block.message_count} msj
-                        </span>
+                        {/* HOY/AYE con ventana activa: Countdown | Otros días: Contador de mensajes */}
+                        {countdownProps ? (
+                          <WindowCountdown {...countdownProps} />
+                        ) : (
+                          <span className="text-[9px] font-medium text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors mt-1 leading-none">
+                            {block.message_count} msj
+                          </span>
+                        )}
                       </div>
                     </button>
                     {/* Divisor entre días */}
@@ -9770,7 +9852,7 @@ const LiveChatCanvas: React.FC = () => {
                           <p className="text-xs opacity-80 mt-0.5">
                             {isUchat
                               ? 'Este prospecto aún no tiene sesión activa en Twilio. Envía una plantilla para iniciar la conversación.'
-                              : `Han pasado ${Math.floor(getHoursSinceLastUserMessage(selectedConversation))}h desde el último mensaje del usuario. WhatsApp Business API solo permite responder dentro de las 24 horas siguientes.`}
+                              : `Han pasado ${Math.floor(getHoursSinceLastUserMessage(selectedConversation))}h desde el último mensaje del usuario. WhatsApp Business API solo permite responder dentro de las ${getConversationWindowHours(selectedConversation)} horas siguientes.${getConversationWindowHours(selectedConversation) === 72 ? ' (Ventana extendida CTWA)' : ''}`}
                           </p>
                         </>
                       );
