@@ -1,3 +1,23 @@
+## [v2.26.0] - 2026-03-08
+
+**B10.2.0N2.26.0** - 2 features + 1 fix + 1 mejora + Las plantillas WhatsApp generadas manualmente care + Se necesitaban plantillas WhatsApp UTILITY para no
+
+### Sesiones de trabajo
+- **2026-03-07-factory-templates-skill-creation**: Las plantillas WhatsApp generadas manualmente carecian de consistencia en tono, compliance Meta, y efectividad psicologica. Se necesitaba un sistema que, con un simple prompt, generara plantillas optimizadas para venta en frio de certificados vacacionales Vidanta, embebiendo todas las reglas de negocio, compliance Meta, y tecnicas de persuasion.
+- **2026-03-07-whatsapp-number-update-templates-creation**: Se necesitaban plantillas WhatsApp UTILITY para notificar a prospectos sobre el cambio de numero de WhatsApp de Vidanta. Las plantillas debian ser psicologicamente optimizadas para maximizar reply rate, sin variables, cumpliendo con los estandares de salud de Meta.
+
+### Documentation
+- add handovers and template creation script for number update campaign (`394ee85`)
+
+### Bug Fixes
+- display bloqueado_whatsapp contact status in chat UI (`2630741`)
+
+### Features
+- add template health metrics and exclude number-update group from sending (`91c8698`)
+- add CRT TV shutdown animation for logout (`a50764c`)
+
+---
+
 ## [v2.25.0] - 2026-03-07
 
 **B10.2.0N2.25.0** - 3 features + 1 fix + 1 mejora
