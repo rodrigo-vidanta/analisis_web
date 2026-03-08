@@ -1773,12 +1773,25 @@ const LiveChatCanvas: React.FC = () => {
         .catch(() => {});
     }
 
-    // 2. Actualizar ref de requiere_atencion_humana (sin setState, solo ref)
-    // El realtime de prospectos se encarga de disparar el setState cuando cambie
-    const prospectoDataRef = prospectosDataRef.current.get(targetProspectoId);
-    if (prospectoDataRef) {
-      // Solo actualizar el ref, no disparar re-render
-      // La suscripción de prospectos (UPDATE) maneja el setState
+    // 2. Auto-desbloqueo: si el prospecto nos envía un mensaje, ya no está bloqueado
+    if (newMessagePayload.rol === 'Prospecto') {
+      const pDataForUnblock = prospectosDataRef.current.get(targetProspectoId);
+      if (pDataForUnblock?.bloqueado_whatsapp) {
+        // Actualizar cache local inmediatamente
+        prospectosDataRef.current.set(targetProspectoId, {
+          ...pDataForUnblock,
+          bloqueado_whatsapp: false,
+        });
+        // Actualizar BD en background
+        analysisSupabase
+          .from('prospectos')
+          .update({ bloqueado_whatsapp: false })
+          .eq('id', targetProspectoId)
+          .then(() => {})
+          .catch(() => {});
+        // Forzar re-render para quitar badge/banner
+        setProspectosDataVersion(prev => prev + 1);
+      }
     }
 
     // 3. Cargar nombre de agente solo si es necesario (diferido y con cache)
@@ -4324,6 +4337,7 @@ const LiveChatCanvas: React.FC = () => {
         motivo_handoff?: string | null;
         etapa?: string | null;
         etapa_id?: string | null;
+        bloqueado_whatsapp?: boolean;
         whatsapp_provider?: string;
       }>> => {
         const resultMap = new Map<string, {
@@ -4339,6 +4353,7 @@ const LiveChatCanvas: React.FC = () => {
           motivo_handoff?: string | null;
           etapa?: string | null;
           etapa_id?: string | null;
+          bloqueado_whatsapp?: boolean;
           whatsapp_provider?: string;
         }>();
         
@@ -4348,7 +4363,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { data, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id, whatsapp_provider')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id, bloqueado_whatsapp, whatsapp_provider')
               .in('id', batch);
             
             if (error) {
@@ -4394,6 +4409,7 @@ const LiveChatCanvas: React.FC = () => {
                 motivo_handoff: p.motivo_handoff || null,
                 etapa: p.etapa || null,
                 etapa_id: p.etapa_id || null,
+                bloqueado_whatsapp: p.bloqueado_whatsapp || false,
                 whatsapp_provider: p.whatsapp_provider || 'uchat',
               });
               if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
@@ -4433,6 +4449,7 @@ const LiveChatCanvas: React.FC = () => {
                   prospectosDataRef.current.set(key, value);
                 });
               }
+              // DEBUG: Interceptar escrituras a Flor para detectar quién sobrescribe bloqueado_whatsapp
               // Forzar actualización del filtro cuando se carguen los prospectos
               setProspectosDataVersion(prev => prev + 1);
               return prospectosDataRef.current;
@@ -9711,7 +9728,26 @@ const LiveChatCanvas: React.FC = () => {
                 minHeight: '80px'
               }}
             >
-            {!isWithin24HourWindow(selectedConversation) ? (
+            {/* CONTACTO BLOQUEADO POR WHATSAPP - No mostrar reactivar */}
+            {(() => {
+              const blkId = selectedConversation?.prospecto_id || selectedConversation?.id;
+              const blkData = blkId ? prospectosDataRef.current.get(blkId) : null;
+              return blkData?.bloqueado_whatsapp;
+            })() ? (
+              <div className="flex items-center justify-center h-full bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-950/30 rounded-xl border border-red-200 dark:border-red-800/50 px-4 py-6">
+                <div className="flex items-center space-x-3 text-red-800 dark:text-red-200 w-full">
+                  <ShieldAlert className="w-6 h-6 flex-shrink-0 text-red-500 dark:text-red-400" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      Contacto bloqueado
+                    </p>
+                    <p className="text-xs opacity-80 mt-0.5">
+                      Este prospecto ha bloqueado nuestro número de WhatsApp. No es posible enviar mensajes ni plantillas hasta que nos desbloquee.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : !isWithin24HourWindow(selectedConversation) ? (
               // VENTANA CERRADA O PROSPECTO SIN SESIÓN TWILIO - Mostrar reactivación con plantilla
               <div className="flex flex-col items-center justify-center h-full bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 rounded-xl border border-amber-200 dark:border-amber-700/50 px-4 py-6 space-y-4">
                 <div className="flex items-center space-x-3 text-amber-800 dark:text-amber-200 w-full">

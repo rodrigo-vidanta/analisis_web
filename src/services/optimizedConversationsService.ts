@@ -49,6 +49,7 @@ export interface DashboardConversation {
   ultimo_mensaje_preview: string | null;
   llamada_activa_id: string | null;
   tiene_llamada_activa: boolean;
+  bloqueado_whatsapp: boolean;
 }
 
 // Interfaz para datos complementarios (de System UI)
@@ -234,7 +235,7 @@ class OptimizedConversationsService {
    */
   buildProspectosDataMap(conversations: DashboardConversation[]): Map<string, any> {
     const map = new Map<string, any>();
-    
+
     conversations.forEach(conv => {
       map.set(conv.prospecto_id, {
         coordinacion_id: conv.coordinacion_id,
@@ -250,6 +251,7 @@ class OptimizedConversationsService {
         motivo_handoff: conv.motivo_handoff,
         etapa: conv.etapa,
         etapa_id: conv.etapa_id,
+        bloqueado_whatsapp: conv.bloqueado_whatsapp || false,
       });
     });
 
