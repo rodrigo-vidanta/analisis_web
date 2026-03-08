@@ -1,3 +1,16 @@
+## [v2.27.0] - 2026-03-08
+
+**B10.2.0N2.27.0** - 1 feature + Cuando un prospecto llega desde un anuncio **Click + Se detectaron 40 plantillas WhatsApp en estado PEN
+
+### Sesiones de trabajo
+- **2026-03-08-backend-ctwa-referral-source-capture**: Cuando un prospecto llega desde un anuncio **Click-to-WhatsApp (CTWA)** de Meta (Facebook/Instagram), la API de WhatsApp Business (via Twilio) otorga una **ventana de 72 horas** de mensajería gratuita, en lugar de las 24 horas estándar.
+- **2026-03-08-replace-pending-templates-v2**: Se detectaron 40 plantillas WhatsApp en estado PENDING. De ellas, 20 llevaban mas de 24 horas sin ser aprobadas por Meta/Twilio. Se solicito refrasearlas usando las reglas del skill `/factory-templates` y reenviarlas a traves del edge function pipeline.
+
+### Features
+- add CTWA 72h window detection with countdown timer + 40 cold templates (`6dff4fe`)
+
+---
+
 ## [v2.26.0] - 2026-03-08
 
 **B10.2.0N2.26.0** - 2 features + 1 fix + 1 mejora + Las plantillas WhatsApp generadas manualmente care + Se necesitaban plantillas WhatsApp UTILITY para no
