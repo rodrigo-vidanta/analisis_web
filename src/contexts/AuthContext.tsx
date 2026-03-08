@@ -13,6 +13,7 @@ import { authService, type Permission, type AuthState, type LoginCredentials } f
 import { permissionsService } from '../services/permissionsService';
 import { etapasService } from '../services/etapasService';
 import LightSpeedTunnel from '../components/LightSpeedTunnel';
+import CRTShutdownOverlay from '../components/CRTShutdownOverlay';
 import BackupSelectionModal from '../components/auth/BackupSelectionModal';
 import { supabaseSystemUI as supabase, supabaseSystemUI } from '../config/supabaseSystemUI';
 import { useLiveActivityStore } from '../stores/liveActivityStore';
@@ -57,6 +58,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     error: null
   });
   const [showLoginAnimation, setShowLoginAnimation] = useState(false);
+  const [showLogoutAnimation, setShowLogoutAnimation] = useState(false);
+  const pendingLogoutBackupIdRef = useRef<string | undefined>();
   const sessionBroadcastChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const [showBackupModal, setShowBackupModal] = useState(false);
   const backupRealtimeChannelRef = useRef<any>(null);
@@ -430,44 +433,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       return;
     }
 
-    // Si se proporcionó backupId válido o no es ejecutivo, proceder con logout normal
-    try {
-      setAuthState(prev => ({ ...prev, isLoading: true }));
-      await authService.logout(validBackupId);
-      
-      // ⚠️ CRÍTICO: Invalidar caché de permisos al cerrar sesión
-      permissionsService.invalidateAllCache();
-      
-      setAuthState({
-        user: null,
-        permissions: [],
-        isAuthenticated: false,
-        isLoading: false,
-        error: null
-      });
-      setShowBackupModal(false);
-    } catch (error) {
-      console.error('Logout error:', error);
-      
-      // ⚠️ CRÍTICO: Invalidar caché de permisos incluso si falla el logout
-      permissionsService.invalidateAllCache();
-      
-      // Forzar logout local aunque falle el servidor
-      setAuthState({
-        user: null,
-        permissions: [],
-        isAuthenticated: false,
-        isLoading: false,
-        error: null
-      });
-      setShowBackupModal(false);
-    }
+    // Activar animación CRT en vez de logout directo
+    pendingLogoutBackupIdRef.current = validBackupId;
+    setShowLogoutAnimation(true);
   }, []); // Sin dependencias: usa authStateRef para acceder a estado actual
 
   // Función para manejar la selección de backup
   const handleBackupSelected = async (backupId: string): Promise<void> => {
     setShowBackupModal(false);
-    await logout(backupId);
+    pendingLogoutBackupIdRef.current = backupId;
+    setShowLogoutAnimation(true);
   };
 
   // Función para manejar la cancelación del modal de backup
@@ -479,32 +454,54 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Función para logout sin asignar backup (ejecutivo consciente de que sus prospectos no serán visibles)
   const handleLogoutWithoutBackup = async (): Promise<void> => {
     setShowBackupModal(false);
-
-    // Hacer logout sin backup
-    await authService.logout(undefined);
-
-    // Invalidar cachés de permisos
-    permissionsService.invalidateAllCache();
-
-    // Limpiar canales Realtime y stores
-    useLiveActivityStore.getState().cleanup();
-    realtimeHub.cleanup();
-    realtimeHubSystemUI.cleanup();
-
-    // Limpiar estado
-    setAuthState({
-      isAuthenticated: false,
-      isLoading: false,
-      user: null,
-      permissions: [],
-      error: null
-    });
+    pendingLogoutBackupIdRef.current = undefined;
+    setShowLogoutAnimation(true);
   };
 
-  // Función para manejar el completado de la animación
+  // Función para manejar el completado de la animación de login
   const handleLoginAnimationComplete = () => {
     setShowLoginAnimation(false);
   };
+
+  // Ejecutar logout en paralelo con la animación CRT
+  // Cuando la animación empieza, el logout real se dispara tras 100ms.
+  // La pantalla negra cubre todo, así que el cambio a LoginScreen es invisible.
+  useEffect(() => {
+    if (!showLogoutAnimation) return;
+
+    const t = setTimeout(async () => {
+      const backupId = pendingLogoutBackupIdRef.current;
+      pendingLogoutBackupIdRef.current = undefined;
+
+      try {
+        await authService.logout(backupId);
+      } catch (error) {
+        console.error('Logout error:', error);
+      }
+
+      permissionsService.invalidateAllCache();
+      useLiveActivityStore.getState().cleanup();
+      realtimeHub.cleanup();
+      realtimeHubSystemUI.cleanup();
+
+      setAuthState({
+        user: null,
+        permissions: [],
+        isAuthenticated: false,
+        isLoading: false,
+        error: null
+      });
+      setShowBackupModal(false);
+    }, 100);
+
+    return () => clearTimeout(t);
+  }, [showLogoutAnimation]);
+
+  // Cuando la animación CRT termina, esperar a que LoginScreen renderice
+  // y luego desactivar el overlay (la pantalla negra hará fade-out).
+  const handleLogoutAnimationComplete = useCallback(() => {
+    setTimeout(() => setShowLogoutAnimation(false), 200);
+  }, []);
 
   // Verificar permisos
   const hasPermission = (permissionName: string): boolean => {
@@ -757,11 +754,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {children}
-      
-      {/* Animación de túnel de velocidad luz a nivel global */}
-      <LightSpeedTunnel 
-        isVisible={showLoginAnimation} 
+      {/* Wrapper CRT shutdown: aplica animación al contenido real */}
+      <CRTShutdownOverlay
+        isActive={showLogoutAnimation}
+        onAnimationEnd={handleLogoutAnimationComplete}
+      >
+        {children}
+      </CRTShutdownOverlay>
+
+      {/* Animación de túnel de velocidad luz al login */}
+      <LightSpeedTunnel
+        isVisible={showLoginAnimation}
         onComplete={handleLoginAnimationComplete}
         type="login"
       />

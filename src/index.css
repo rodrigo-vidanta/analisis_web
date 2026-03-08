@@ -2094,3 +2094,29 @@ body.ninja-mode {
   filter: drop-shadow(0 4px 20px rgba(0, 0, 0, 0.50))
           drop-shadow(0 0 12px rgba(99, 102, 241, 0.12));
 }
+
+/* ============================================
+   CRT TV Shutdown Animation
+   Aplica transform + brightness al contenido real
+   para simular el apagado de una TV CRT.
+   ============================================ */
+@keyframes crt-turn-off {
+  0% {
+    transform: scale(1, 1.3);
+    filter: brightness(1);
+    opacity: 1;
+  }
+  60% {
+    transform: scale(1.3, 0.001);
+    filter: brightness(10);
+  }
+  100% {
+    transform: scale(0, 0.0001);
+    filter: brightness(50);
+  }
+}
+
+.crt-shutdown {
+  animation: crt-turn-off 0.55s cubic-bezier(0.230, 1.000, 0.320, 1.000) forwards;
+  transform-origin: center center;
+}
