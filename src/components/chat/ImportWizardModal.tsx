@@ -8,12 +8,12 @@
  *
  * SOPORTA:
  * - Búsqueda por URL de Dynamics CRM → ~2-5s via ID directo
- * - Importación batch (1-5 prospectos en paralelo)
+ * - Importación batch (1-10 prospectos en paralelo)
  * - Envío de plantilla compartida a todos los importados
  * - Tutorial animado para copiar URLs de CRM
  *
  * PASOS DEL WIZARD:
- * 1. Búsqueda: Input multi-línea (URLs de CRM, 1-5, paralelo)
+ * 1. Búsqueda: Input multi-línea (URLs de CRM, 1-10, paralelo)
  * 2. Revisión: Permisos + datos del lead (teléfono viene del CRM, no editable)
  * 3. Importación: Envío a N8N workflow (import-contact-proxy)
  * 4. Plantilla: Selección con filtros por tags
@@ -40,9 +40,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Search, Phone, User, Building, AlertCircle,
   Loader2, CheckCircle, ShieldAlert, ChevronRight, ChevronLeft,
-  MessageSquare, Tag, Calendar, Clock, Send, AlertTriangle, Info,
-  Hash, CheckSquare, Square, Globe, Zap, FolderOpen, ChevronDown, ChevronUp,
-  Activity, BarChart3
+  Tag, Send, AlertTriangle, Info, Globe,
+  Hash, CheckSquare, Square, Zap, FolderOpen, ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { dynamicsLeadService, type DynamicsLeadInfo } from '../../services/dynamicsLeadService';
 import { importContactService, type ImportContactPayload } from '../../services/importContactService';
@@ -50,12 +49,11 @@ import { analysisSupabase } from '../../config/analysisSupabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService, type WhatsAppTemplate } from '../../services/whatsappTemplatesService';
-import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
-import type { TemplateGroupHealth, TemplateHealthData, TemplateAnalyticsData } from '../../types/whatsappTemplates';
+import { SPECIAL_UTILITY_TEMPLATE_NAME } from '../../types/whatsappTemplates';
+import type { TemplateGroupHealth, TemplateHealthData, TemplateAnalyticsData, GroupSendResponse } from '../../types/whatsappTemplates';
 import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../types/whatsappTemplates';
 import { GroupStatusBadge } from '../shared/GroupStatusBadge';
 import { GroupStarRating, calcGroupRating } from '../shared/GroupStarRating';
-import { TemplateTagsSelector } from '../campaigns/plantillas/TemplateTagsSelector';
 import { CrmUrlTutorialModal } from './CrmUrlTutorialModal';
 import toast from 'react-hot-toast';
 import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
@@ -66,7 +64,7 @@ import { formatExecutiveDisplayName } from '../../utils/nameFormatter';
  * ============================================
  */
 
-type WizardStep = 'search' | 'permissions' | 'select_template' | 'configure_variables';
+type WizardStep = 'search' | 'permissions' | 'select_template';
 
 /** Cada línea de input parseada */
 interface SearchEntry {
@@ -173,8 +171,8 @@ const parseSearchInput = (input: string): { entries: SearchEntry[]; errors: stri
   const entries: SearchEntry[] = [];
   const errors: string[] = [];
 
-  if (lines.length > 5) {
-    errors.push('Máximo 5 entradas permitidas');
+  if (lines.length > 10) {
+    errors.push('Máximo 10 entradas permitidas');
     return { entries: [], errors };
   }
 
@@ -253,12 +251,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const [isImporting, setIsImporting] = useState(false);
   const [importedProspects, setImportedProspects] = useState<Array<{ id: string; data: any }>>([]);
   
-  // Template state
-  const [templates, setTemplates] = useState<WhatsAppTemplate[]>([]);
-  const [filteredTemplates, setFilteredTemplates] = useState<WhatsAppTemplate[]>([]);
-  const [filteredSpecialTemplates, setFilteredSpecialTemplates] = useState<WhatsAppTemplate[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  // Template state (selección por grupo — backend elige la mejor plantilla)
+  const [selectedGroup, setSelectedGroup] = useState<TemplateGroupHealth | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
@@ -272,9 +266,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // Health y analytics por template (desde v_template_health y v_template_analytics)
   const [templateHealthMap, setTemplateHealthMap] = useState<Record<string, Map<string, TemplateHealthData>>>({});
   const [templateAnalyticsMap, setTemplateAnalyticsMap] = useState<Record<string, Map<string, TemplateAnalyticsData>>>({});
-  
-  // Variable state
-  const [variableValues, setVariableValues] = useState<Record<number, string>>({});
   
   // Send state
   const [isSending, setIsSending] = useState(false);
@@ -340,35 +331,14 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       setHasSearched(false);
       setIsImporting(false);
       setImportedProspects([]);
-      setTemplates([]);
-      setFilteredTemplates([]);
-      setFilteredSpecialTemplates([]);
-      setSelectedTemplate(null);
-      setSelectedTags([]);
+      setSelectedGroup(null);
       setSearchTerm('');
-      setVariableValues({});
       setTemplateGroups([]);
       setExpandedGroupId(null);
       setGroupTemplatesMap({});
       setLoadingGroupTemplates(null);
     }
   }, [isOpen]);
-
-  // Filter templates (separar plantilla especial de utilidad)
-  useEffect(() => {
-    let filtered = templates;
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter(t => t.tags?.some(tag => selectedTags.includes(tag)));
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term)
-      );
-    }
-    setFilteredTemplates(filtered.filter(t => t.name !== SPECIAL_UTILITY_TEMPLATE_NAME));
-    setFilteredSpecialTemplates(filtered.filter(t => t.name === SPECIAL_UTILITY_TEMPLATE_NAME));
-  }, [selectedTags, searchTerm, templates]);
 
   // Filter groups by search term
   const filteredGroups = useMemo(() => {
@@ -390,24 +360,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     return isNaN(num) ? '\u2014' : `${num.toFixed(1)}%`;
   };
 
-  // Filter group templates for expanded group (search + tags + canSend)
-  const getFilteredGroupTemplates = (groupId: string): { normal: WhatsAppTemplate[]; special: WhatsAppTemplate[] } => {
-    const all = groupTemplatesMap[groupId] || [];
-    let filtered = all.filter(t => t.status === 'APPROVED');
-    if (selectedTags.length > 0) {
-      filtered = filtered.filter(t => t.tags?.some(tag => selectedTags.includes(tag)));
-    }
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(t =>
-        t.name.toLowerCase().includes(term) || t.description?.toLowerCase().includes(term)
-      );
-    }
-    return {
-      normal: filtered.filter(t => t.name !== SPECIAL_UTILITY_TEMPLATE_NAME),
-      special: filtered.filter(t => t.name === SPECIAL_UTILITY_TEMPLATE_NAME),
-    };
-  };
 
   // ============================================
   // SEARCH LOGIC
@@ -503,8 +455,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   // ============================================
 
   const validateDynamicsLeadPermissions = (lead: DynamicsLeadInfo): PermissionValidation => {
-    // Roles con acceso total: admin, admin operativo, coordinador calidad, operativo
-    if (isAdmin || isAdminOperativo || user?.is_coordinador_calidad || user?.is_operativo) {
+    // Roles con acceso total: solo admin y admin operativo
+    if (isAdmin || isAdminOperativo) {
       return { canImport: true, reason: null };
     }
 
@@ -671,22 +623,16 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   };
 
   // ============================================
-  // TEMPLATE LOGIC
+  // TEMPLATE LOGIC (selección por grupo — backend elige plantilla)
   // ============================================
 
   const loadTemplates = async () => {
     try {
       setLoadingTemplates(true);
-      const [allTemplates, groups] = await Promise.all([
-        whatsappTemplatesService.getAllTemplates(),
-        whatsappTemplatesService.getGroupsWithHealth(),
-      ]);
-      const approved = allTemplates.filter(t => t.status === 'APPROVED');
-      setTemplates(approved);
-      setFilteredTemplates(approved);
+      const groups = await whatsappTemplatesService.getGroupsWithHealth();
       setTemplateGroups(groups.filter(g => !g.exclude_from_sending));
     } catch {
-      toast.error('Error al cargar plantillas');
+      toast.error('Error al cargar grupos de plantillas');
     } finally {
       setLoadingTemplates(false);
     }
@@ -726,67 +672,22 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     }
   };
 
-  const canSendTemplate = (template: WhatsAppTemplate): { canSend: boolean; reason?: string; missingFields?: string[] } => {
-    if (importedProspects.length === 0) return { canSend: true };
-    // Check first imported prospect for field availability
-    const prospectData = importedProspects[0]?.data;
-    if (!prospectData) return { canSend: true };
-
-    // Bloquear plantilla especial de utilidad para "Es miembro"
-    if (template.name === SPECIAL_UTILITY_TEMPLATE_NAME) {
-      const etapa = prospectData.etapa || prospectData.metadata?.etapa;
-      if (etapa && (SPECIAL_UTILITY_TEMPLATE_CONFIG.blockedEtapas as readonly string[]).includes(etapa)) {
-        return { canSend: false, reason: `No disponible para prospectos en etapa "${etapa}".` };
-      }
-    }
-
-    const missing: string[] = [];
-    for (const mapping of (template.variable_mappings || [])) {
-      if (mapping.table_name === 'system') continue;
-      if (mapping.table_name === 'prospectos') {
-        const val = prospectData[mapping.field_name];
-        if (!val || (typeof val === 'string' && !val.trim())) {
-          missing.push(mapping.display_name);
-        }
-      }
-    }
-    if (missing.length > 0) {
-      return { canSend: false, reason: `Faltan datos: ${missing.join(', ')}`, missingFields: missing };
-    }
-    return { canSend: true };
-  };
-
-  const handleSelectTemplate = (template: WhatsAppTemplate) => {
-    const validation = canSendTemplate(template);
-    if (!validation.canSend) {
-      toast.error(validation.reason || 'Plantilla no disponible');
+  const handleSelectGroup = (group: TemplateGroupHealth) => {
+    const statusConfig = GROUP_STATUS_CONFIG[group.group_status as TemplateGroupStatus];
+    if (statusConfig && !statusConfig.sendable) {
+      toast.error('Este grupo no está disponible para envío');
       return;
     }
-    setSelectedTemplate(template);
-    
-    const initial: Record<number, string> = {};
-    template.variable_mappings?.forEach(m => {
-      if (m.table_name === 'system') {
-        if (m.field_name === 'fecha_actual') {
-          initial[m.variable_number] = new Date().toLocaleDateString('es-MX', { month: 'long', day: 'numeric' });
-        } else if (m.field_name === 'hora_actual') {
-          initial[m.variable_number] = new Date().toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
-        } else if (m.field_name === 'ejecutivo_nombre') {
-          initial[m.variable_number] = user?.full_name || '';
-        }
-      }
-    });
-    setVariableValues(initial);
-    setCurrentStep('configure_variables');
+    setSelectedGroup(prev => prev?.group_id === group.group_id ? null : group);
   };
 
   // ============================================
-  // SEND TEMPLATE (to all imported)
+  // SEND TEMPLATE BY GROUP (backend elige la mejor plantilla)
   // ============================================
 
   const handleSendTemplate = async () => {
-    if (!selectedTemplate || importedProspects.length === 0 || !user) {
-      toast.error('Faltan datos para enviar');
+    if (!selectedGroup || importedProspects.length === 0 || !user) {
+      toast.error('Selecciona un grupo y asegúrate de que hay prospectos importados');
       return;
     }
 
@@ -796,81 +697,20 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 
     for (const prospect of importedProspects) {
       try {
-        const resolvedVariables: Record<number, string> = {};
-        
-        if (selectedTemplate.variable_mappings) {
-          for (const mapping of selectedTemplate.variable_mappings) {
-            if (mapping.table_name === 'system') {
-              if (variableValues[mapping.variable_number]) {
-                resolvedVariables[mapping.variable_number] = variableValues[mapping.variable_number];
-              } else {
-                resolvedVariables[mapping.variable_number] = whatsappTemplatesService.getSystemVariableValue(
-                  mapping.field_name, mapping.custom_value, user.full_name || user.email
-                );
-              }
-            } else if (mapping.table_name === 'prospectos') {
-              const val = prospect.data[mapping.field_name];
-              resolvedVariables[mapping.variable_number] = val ? String(val) : `[${mapping.display_name}]`;
-            } else {
-              const example = await whatsappTemplatesService.getTableExampleData(mapping.table_name, mapping.field_name);
-              resolvedVariables[mapping.variable_number] = example || `[${mapping.display_name}]`;
-            }
-          }
-        }
+        const result: GroupSendResponse = await whatsappTemplatesService.sendTemplateByGroup(
+          selectedGroup.group_id,
+          prospect.id,
+          'MANUAL',
+          user.id
+        );
 
-        let resolvedText = '';
-        selectedTemplate.components.forEach(c => {
-          if (c.type === 'BODY' && c.text) {
-            let text = c.text;
-            Object.keys(resolvedVariables)
-              .map(n => parseInt(n, 10))
-              .sort((a, b) => b - a)
-              .forEach(num => {
-                text = text.replace(new RegExp(`\\{\\{${num}\\}\\}`, 'g'), resolvedVariables[num]);
-              });
-            resolvedText += text + '\n';
-          }
-        });
-
-        const payload = {
-          template_id: selectedTemplate.id,
-          template_name: selectedTemplate.name,
-          prospecto_id: prospect.id,
-          variables: resolvedVariables,
-          resolved_text: resolvedText.trim(),
-          triggered_by: 'MANUAL' as const,
-          triggered_by_user: user.id,
-          triggered_by_user_name: user.full_name || user.email,
-        };
-
-        const url = `${import.meta.env.VITE_EDGE_FUNCTIONS_URL}/functions/v1/whatsapp-templates-send-proxy`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        const text = await response.text();
-        const result = text ? JSON.parse(text) : { success: response.ok };
-        
-        if (response.ok && result.success !== false) {
+        if (result.success) {
           sentCount++;
-          // Actualizar triggered_by_user en el registro creado por N8N
-          try {
-            await analysisSupabase
-              .from('whatsapp_template_sends')
-              .update({ triggered_by_user: user.id })
-              .eq('prospecto_id', prospect.id)
-              .eq('template_id', selectedTemplate.id)
-              .is('triggered_by_user', null)
-              .order('created_at', { ascending: false })
-              .limit(1);
-          } catch { /* silent */ }
         } else {
           errorCount++;
+          if (result.error === 'group_no_resolvable') {
+            console.warn('Templates descartados:', result.skipped_templates);
+          }
         }
       } catch {
         errorCount++;
@@ -882,8 +722,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     if (sentCount > 0) {
       toast.success(`Plantilla enviada a ${sentCount} prospecto${sentCount > 1 ? 's' : ''}`);
       window.dispatchEvent(new CustomEvent('refresh-livechat-conversations'));
-      
-      // Navigate to last imported prospect's conversation
+
       const lastImported = importedProspects[importedProspects.length - 1];
       if (lastImported) {
         onSuccess(lastImported.id);
@@ -918,9 +757,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
       case 'permissions':
         return importableCount > 0;
       case 'select_template':
-        return !!selectedTemplate;
-      case 'configure_variables':
-        return true;
+        return !!selectedGroup;
       default:
         return false;
     }
@@ -935,9 +772,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         handleImportAll();
         break;
       case 'select_template':
-        setCurrentStep('configure_variables');
-        break;
-      case 'configure_variables':
         handleSendTemplate();
         break;
     }
@@ -947,7 +781,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     switch (currentStep) {
       case 'permissions': setCurrentStep('search'); break;
       case 'select_template': setCurrentStep('permissions'); break;
-      case 'configure_variables': setCurrentStep('select_template'); break;
     }
   };
 
@@ -955,13 +788,12 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
     const titles: Record<WizardStep, string> = {
       search: 'Buscar Prospectos',
       permissions: 'Revisar e Importar',
-      select_template: 'Seleccionar Plantilla',
-      configure_variables: 'Configurar y Enviar',
+      select_template: 'Seleccionar Grupo de Plantillas',
     };
     return titles[currentStep];
   };
 
-  const stepOrder: WizardStep[] = ['search', 'permissions', 'select_template', 'configure_variables'];
+  const stepOrder: WizardStep[] = ['search', 'permissions', 'select_template'];
   const getStepNumber = () => stepOrder.indexOf(currentStep) + 1;
 
   // ============================================
@@ -1023,7 +855,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{getStepTitle()}</h3>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Paso {getStepNumber()} de 4</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Paso {getStepNumber()} de 3</p>
               </div>
               <motion.button
                 initial={{ opacity: 0, rotate: -90 }}
@@ -1073,7 +905,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                     <textarea
                       value={searchInput}
                       onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder={`Pega 1 a 5 URLs de CRM (una por línea):\nhttps://vidanta.crm.dynamics.com/...?id=xxxx\nhttps://vidanta.crm.dynamics.com/...?id=yyyy`}
+                      placeholder={`Pega 1 a 10 URLs de CRM (una por línea):\nhttps://vidanta.crm.dynamics.com/...?id=xxxx\nhttps://vidanta.crm.dynamics.com/...?id=yyyy`}
                       rows={4}
                       className="w-full px-4 py-3 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white transition-all duration-200 font-mono resize-none"
                       disabled={isSearching}
@@ -1351,7 +1183,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                 </motion.div>
               )}
 
-              {/* ====== PASO 3: SELECCIÓN DE PLANTILLA POR GRUPO ====== */}
+              {/* ====== PASO 3: SELECCIÓN DE GRUPO (backend elige plantilla) ====== */}
               {currentStep === 'select_template' && (
                 <motion.div
                   key="select_template"
@@ -1360,10 +1192,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   exit={{ opacity: 0, x: 20 }}
                   className="space-y-6"
                 >
-                  {importedProspects.length > 1 && (
+                  {importedProspects.length > 0 && (
                     <div className="p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                       <p className="text-xs text-emerald-800 dark:text-emerald-300">
-                        <strong>{importedProspects.length} prospectos importados.</strong> La plantilla seleccionada se enviara a todos.
+                        <strong>{importedProspects.length} prospecto{importedProspects.length > 1 ? 's' : ''} importado{importedProspects.length > 1 ? 's' : ''}.</strong> Selecciona un grupo y el sistema elegira la mejor plantilla automaticamente.
                       </p>
                     </div>
                   )}
@@ -1371,14 +1203,14 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                   <div className="space-y-4">
                     <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                       <p className="text-xs text-blue-800 dark:text-blue-300">
-                        Selecciona un grupo y luego elige la plantilla a enviar. Solo se muestran plantillas compatibles.
+                        Selecciona un grupo de plantillas. El sistema selecciona automaticamente la mejor plantilla del grupo.
                       </p>
                     </div>
 
                     <div>
                       <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
                         <Search className="w-4 h-4 text-gray-400" />
-                        <span>Buscar grupo o plantilla</span>
+                        <span>Buscar grupo</span>
                       </label>
                       <input
                         type="text"
@@ -1387,14 +1219,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                         placeholder="Nombre o descripcion..."
                         className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
                       />
-                    </div>
-
-                    <div>
-                      <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                        <Tag className="w-4 h-4 text-gray-400" />
-                        <span>Filtrar por etiquetas</span>
-                      </label>
-                      <TemplateTagsSelector selectedTags={selectedTags} onChange={setSelectedTags} />
                     </div>
                   </div>
 
@@ -1417,21 +1241,38 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                         {filteredGroups.map(group => {
                           const isExpanded = expandedGroupId === group.group_id;
                           const isLoadingThis = loadingGroupTemplates === group.group_id;
-                          const replyRate = group.avg_reply_rate_24h ? parseFloat(group.avg_reply_rate_24h) : null;
-                          const { normal: groupNormal, special: groupSpecial } = isExpanded ? getFilteredGroupTemplates(group.group_id) : { normal: [], special: [] };
+                          const isGroupSelected = selectedGroup?.group_id === group.group_id;
+                          const statusConfig = GROUP_STATUS_CONFIG[group.group_status as TemplateGroupStatus];
+                          const isSendable = !statusConfig || statusConfig.sendable;
+                          const groupTpls = groupTemplatesMap[group.group_id] || [];
+                          const approvedTpls = groupTpls.filter(t => t.status === 'APPROVED').slice(0, 5);
 
                           return (
-                            <div key={group.group_id} className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden transition-all">
-                              {/* Group header - clickable */}
+                            <div key={group.group_id} className={`border-2 rounded-xl overflow-hidden transition-all ${
+                              isGroupSelected
+                                ? 'border-blue-500 ring-1 ring-blue-400/30'
+                                : 'border-gray-200 dark:border-gray-700'
+                            }`}>
+                              {/* Group header - click to select + expand */}
                               <button
-                                onClick={() => handleExpandGroup(group.group_id)}
+                                onClick={() => {
+                                  if (isSendable) handleSelectGroup(group);
+                                  handleExpandGroup(group.group_id);
+                                }}
+                                disabled={!isSendable}
                                 className={`w-full p-3 text-left flex items-center gap-3 transition-colors ${
-                                  isExpanded
-                                    ? 'bg-blue-50 dark:bg-blue-900/20 border-b border-gray-200 dark:border-gray-700'
+                                  !isSendable
+                                    ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800/30'
+                                    : isGroupSelected
+                                    ? 'bg-blue-50 dark:bg-blue-900/20'
                                     : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
                                 }`}
                               >
-                                <FolderOpen className={`w-4 h-4 flex-shrink-0 ${isExpanded ? 'text-blue-500' : 'text-gray-400'}`} />
+                                {isGroupSelected ? (
+                                  <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                ) : (
+                                  <FolderOpen className={`w-4 h-4 flex-shrink-0 ${isExpanded ? 'text-blue-500' : 'text-gray-400'}`} />
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-semibold text-gray-900 dark:text-white truncate">{group.group_name}</span>
@@ -1454,7 +1295,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                 )}
                               </button>
 
-                              {/* Expanded: templates list */}
+                              {/* Expanded: preview templates (informational only) */}
                               <AnimatePresence>
                                 {isExpanded && (
                                   <motion.div
@@ -1464,188 +1305,128 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                     transition={{ duration: 0.2 }}
                                     className="overflow-hidden"
                                   >
-                                    <div className="p-3 space-y-2 bg-gray-50/50 dark:bg-gray-900/30">
+                                    <div className="p-3 space-y-2 bg-gray-50/50 dark:bg-gray-900/30 border-t border-gray-200 dark:border-gray-700">
                                       {isLoadingThis ? (
                                         <div className="flex items-center justify-center py-6">
                                           <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
                                         </div>
-                                      ) : (groupNormal.length === 0 && groupSpecial.length === 0) ? (
+                                      ) : approvedTpls.length === 0 ? (
                                         <p className="text-xs text-gray-500 dark:text-gray-400 text-center py-4">
-                                          No hay plantillas compatibles en este grupo
+                                          No hay plantillas en este grupo
                                         </p>
-                                      ) : (() => {
-                                        const allTpls = [...groupNormal, ...groupSpecial].slice(0, 5);
-                                        const currentPreviewIdx = expandedPreviewIdx[group.group_id] ?? 0;
-                                        const groupHealthMap = templateHealthMap[group.group_id];
-                                        const groupAnalyticsMap = templateAnalyticsMap[group.group_id];
-                                        return (
-                                          <>
-                                            {/* Estadisticas del grupo (v_template_group_health) */}
-                                            <div className={`grid ${isAdminUser ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2`}>
-                                              <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuesta 24h</p>
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_reply_rate_24h)}</p>
-                                              </div>
-                                              <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Entrega 24h</p>
-                                                <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_delivery_rate_24h)}</p>
-                                              </div>
-                                              {isAdminUser && (
-                                                <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Fallo 24h</p>
-                                                  <p className={`text-sm font-bold ${group.avg_failure_rate_24h && parseFloat(group.avg_failure_rate_24h) > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{formatRate(group.avg_failure_rate_24h)}</p>
-                                                </div>
-                                              )}
+                                      ) : (
+                                        <>
+                                          {/* Group stats */}
+                                          <div className={`grid ${isAdminUser ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2`}>
+                                            <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                              <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuesta 24h</p>
+                                              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_reply_rate_24h)}</p>
                                             </div>
+                                            <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                              <p className="text-[10px] text-gray-500 dark:text-gray-400">Entrega 24h</p>
+                                              <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_delivery_rate_24h)}</p>
+                                            </div>
+                                            {isAdminUser && (
+                                              <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Fallo 24h</p>
+                                                <p className={`text-sm font-bold ${group.avg_failure_rate_24h && parseFloat(group.avg_failure_rate_24h) > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{formatRate(group.avg_failure_rate_24h)}</p>
+                                              </div>
+                                            )}
+                                          </div>
 
-                                            {/* Vista previa top 5 */}
-                                            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-                                              Vista Previa ({allTpls.length})
-                                            </p>
-                                            {allTpls.map((template, tplIdx) => {
-                                              const isPreviewExpanded = tplIdx === currentPreviewIdx;
-                                              const validation = canSendTemplate(template);
-                                              const isSelected = selectedTemplate?.id === template.id;
-                                              const isSpecial = template.name === SPECIAL_UTILITY_TEMPLATE_NAME;
-                                              const tplHealth = groupHealthMap?.get(template.id);
-                                              const tplAnalytics = groupAnalyticsMap?.get(template.id);
-                                              return (
-                                                <div key={template.id} className={`rounded-xl border overflow-hidden transition-all ${
-                                                  isSelected
-                                                    ? isSpecial ? 'border-amber-500 ring-1 ring-amber-400/30' : 'border-blue-500 ring-1 ring-blue-400/30'
-                                                    : 'border-gray-200 dark:border-gray-700'
-                                                }`}>
-                                                  {/* Header clickable */}
-                                                  <button
-                                                    onClick={() => {
-                                                      setExpandedPreviewIdx(prev => ({ ...prev, [group.group_id]: tplIdx }));
-                                                      if (validation.canSend) handleSelectTemplate(template);
-                                                    }}
-                                                    disabled={!validation.canSend}
-                                                    className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
-                                                      !validation.canSend
-                                                        ? 'opacity-50 cursor-not-allowed bg-gray-50 dark:bg-gray-800/30'
-                                                        : isPreviewExpanded
-                                                        ? isSpecial ? 'bg-amber-50 dark:bg-amber-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20'
-                                                        : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
-                                                    }`}
-                                                  >
-                                                    {isSelected && (
-                                                      <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isSpecial ? 'text-amber-600' : 'text-blue-600'}`} />
-                                                    )}
-                                                    {isAdminUser && tplHealth && !isSelected && (
-                                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                                        tplHealth.health_status === 'healthy' ? 'bg-emerald-500' :
-                                                        tplHealth.health_status === 'warning' ? 'bg-yellow-500' :
-                                                        tplHealth.health_status === 'critical' ? 'bg-red-500' :
-                                                        tplHealth.health_status === 'dead' ? 'bg-gray-500' : 'bg-gray-300'
-                                                      }`} />
-                                                    )}
-                                                    <span className={`text-xs font-medium flex-1 truncate ${
-                                                      isPreviewExpanded
-                                                        ? isSpecial ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'
-                                                        : 'text-gray-700 dark:text-gray-300'
-                                                    }`}>
-                                                      {template.name}
+                                          {/* Preview templates (informational) */}
+                                          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                            Plantillas en este grupo ({approvedTpls.length})
+                                          </p>
+                                          {approvedTpls.map((template, tplIdx) => {
+                                            const currentPreviewIdx = expandedPreviewIdx[group.group_id] ?? 0;
+                                            const isPreviewExpanded = tplIdx === currentPreviewIdx;
+                                            const isSpecial = template.name === SPECIAL_UTILITY_TEMPLATE_NAME;
+                                            const tplHealth = templateHealthMap[group.group_id]?.get(template.id);
+                                            const tplAnalytics = templateAnalyticsMap[group.group_id]?.get(template.id);
+                                            return (
+                                              <div key={template.id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                                <button
+                                                  onClick={() => setExpandedPreviewIdx(prev => ({ ...prev, [group.group_id]: isPreviewExpanded ? -1 : tplIdx }))}
+                                                  className={`w-full flex items-center gap-2 px-3 py-2 text-left transition-colors ${
+                                                    isPreviewExpanded
+                                                      ? 'bg-emerald-50 dark:bg-emerald-900/20'
+                                                      : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
+                                                  }`}
+                                                >
+                                                  {isAdminUser && tplHealth && (
+                                                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                      tplHealth.health_status === 'healthy' ? 'bg-emerald-500' :
+                                                      tplHealth.health_status === 'warning' ? 'bg-yellow-500' :
+                                                      tplHealth.health_status === 'critical' ? 'bg-red-500' :
+                                                      tplHealth.health_status === 'dead' ? 'bg-gray-500' : 'bg-gray-300'
+                                                    }`} />
+                                                  )}
+                                                  <span className="text-xs font-medium flex-1 truncate text-gray-700 dark:text-gray-300">
+                                                    {template.name}
+                                                  </span>
+                                                  {isSpecial && (
+                                                    <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex-shrink-0">
+                                                      UTILIDAD
                                                     </span>
-                                                    {isAdminUser && tplHealth && (
-                                                      <span className={`text-[9px] flex-shrink-0 ${
-                                                        tplHealth.trend === 'improving' ? 'text-emerald-600 dark:text-emerald-400' :
-                                                        tplHealth.trend === 'degrading' ? 'text-orange-600 dark:text-orange-400' :
-                                                        tplHealth.trend === 'spiraling' ? 'text-red-600 dark:text-red-400' :
-                                                        'text-gray-400'
-                                                      }`}>
-                                                        {tplHealth.trend === 'improving' ? '\u2197' : tplHealth.trend === 'stable' ? '\u2192' : tplHealth.trend === 'degrading' ? '\u2198' : tplHealth.trend === 'spiraling' ? '\u2193\u2193' : ''}
-                                                      </span>
-                                                    )}
-                                                    {isSpecial && (
-                                                      <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex-shrink-0">
-                                                        UTILIDAD
-                                                      </span>
-                                                    )}
-                                                    {isPreviewExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />}
-                                                  </button>
-                                                  <AnimatePresence>
-                                                    {isPreviewExpanded && (
-                                                      <motion.div
-                                                        initial={{ height: 0, opacity: 0 }}
-                                                        animate={{ height: 'auto', opacity: 1 }}
-                                                        exit={{ height: 0, opacity: 0 }}
-                                                        transition={{ duration: 0.2 }}
-                                                        className="overflow-hidden"
-                                                      >
-                                                        {/* Health + Analytics mini stats por template - solo admins (v_template_health + v_template_analytics) */}
-                                                        {isAdminUser && (tplHealth || tplAnalytics) && (
-                                                          <div className={`px-3 py-2 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30 ${tplHealth?.confidence === 'low' ? 'opacity-60' : ''}`}>
-                                                            <div className="flex items-center gap-3 flex-wrap text-[10px]">
-                                                              {tplHealth && (
-                                                                <>
-                                                                  <span className="text-gray-500 dark:text-gray-400">
-                                                                    Entrega: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.delivery_rate_24h != null ? `${tplHealth.delivery_rate_24h.toFixed(1)}%` : '\u2014'}</span>
-                                                                  </span>
-                                                                  <span className="text-gray-500 dark:text-gray-400">
-                                                                    Fallo: <span className={`font-semibold ${tplHealth.failure_rate_24h != null && tplHealth.failure_rate_24h > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>{tplHealth.failure_rate_24h != null ? `${tplHealth.failure_rate_24h.toFixed(1)}%` : '\u2014'}</span>
-                                                                  </span>
-                                                                  <span className="text-gray-500 dark:text-gray-400">
-                                                                    Resp: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.reply_rate_24h != null ? `${tplHealth.reply_rate_24h.toFixed(1)}%` : '\u2014'}</span>
-                                                                  </span>
-                                                                  <span className="text-gray-500 dark:text-gray-400">
-                                                                    7d: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.sends_7d}</span>
-                                                                  </span>
-                                                                </>
-                                                              )}
-                                                              {tplAnalytics?.effectiveness_score != null && (
+                                                  )}
+                                                  {isPreviewExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />}
+                                                </button>
+                                                <AnimatePresence>
+                                                  {isPreviewExpanded && (
+                                                    <motion.div
+                                                      initial={{ height: 0, opacity: 0 }}
+                                                      animate={{ height: 'auto', opacity: 1 }}
+                                                      exit={{ height: 0, opacity: 0 }}
+                                                      transition={{ duration: 0.2 }}
+                                                      className="overflow-hidden"
+                                                    >
+                                                      {isAdminUser && (tplHealth || tplAnalytics) && (
+                                                        <div className={`px-3 py-2 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30 ${tplHealth?.confidence === 'low' ? 'opacity-60' : ''}`}>
+                                                          <div className="flex items-center gap-3 flex-wrap text-[10px]">
+                                                            {tplHealth && (
+                                                              <>
                                                                 <span className="text-gray-500 dark:text-gray-400">
-                                                                  Score: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{tplAnalytics.effectiveness_score.toFixed(0)}</span>
+                                                                  Entrega: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.delivery_rate_24h != null ? `${tplHealth.delivery_rate_24h.toFixed(1)}%` : '\u2014'}</span>
                                                                 </span>
-                                                              )}
-                                                              {tplHealth?.confidence === 'low' && (
-                                                                <span className="text-[9px] text-amber-600 dark:text-amber-400 italic">datos limitados</span>
-                                                              )}
-                                                            </div>
+                                                                <span className="text-gray-500 dark:text-gray-400">
+                                                                  Resp: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.reply_rate_24h != null ? `${tplHealth.reply_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                                </span>
+                                                              </>
+                                                            )}
+                                                            {tplAnalytics?.effectiveness_score != null && (
+                                                              <span className="text-gray-500 dark:text-gray-400">
+                                                                Score: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{tplAnalytics.effectiveness_score.toFixed(0)}</span>
+                                                              </span>
+                                                            )}
                                                           </div>
-                                                        )}
-                                                        <div className={`px-3 py-2.5 border-t ${
-                                                          isSpecial
-                                                            ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/15 dark:to-yellow-900/15 border-amber-200/50 dark:border-amber-800/50'
-                                                            : 'bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/15 border-emerald-200/50 dark:border-emerald-800/50'
-                                                        }`}>
-                                                          {template.components
-                                                            .filter(c => c.type === 'BODY' && c.text)
-                                                            .map((c, i) => {
-                                                              let preview = c.text || '';
-                                                              template.variable_mappings?.forEach(m => {
-                                                                preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
-                                                              });
-                                                              return <p key={i} className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{preview}</p>;
-                                                            })}
-                                                          {template.components?.find(c => c.type === 'BUTTONS')?.buttons?.map((btn, i) => (
-                                                            <div key={i} className="mt-2 px-3 py-1 text-center text-[11px] font-medium text-blue-600 dark:text-blue-400 border-t border-gray-200/50 dark:border-gray-700/50">
-                                                              {btn.text}
-                                                            </div>
-                                                          ))}
-                                                          {!validation.canSend && (
-                                                            <div className="mt-2 p-2 bg-red-100 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg">
-                                                              <p className="text-[10px] text-red-700 dark:text-red-400 font-medium">{validation.reason}</p>
-                                                            </div>
-                                                          )}
                                                         </div>
-                                                      </motion.div>
-                                                    )}
-                                                  </AnimatePresence>
-                                                </div>
-                                              );
-                                            })}
+                                                      )}
+                                                      <div className="px-3 py-2.5 border-t bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/15 border-emerald-200/50 dark:border-emerald-800/50">
+                                                        {template.components
+                                                          .filter(c => c.type === 'BODY' && c.text)
+                                                          .map((c, i) => {
+                                                            let preview = c.text || '';
+                                                            template.variable_mappings?.forEach(m => {
+                                                              preview = preview.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), `[${m.display_name}]`);
+                                                            });
+                                                            return <p key={i} className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{preview}</p>;
+                                                          })}
+                                                      </div>
+                                                    </motion.div>
+                                                  )}
+                                                </AnimatePresence>
+                                              </div>
+                                            );
+                                          })}
 
-                                            {/* Disclaimer */}
-                                            <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-                                              <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
-                                                Selecciona una plantilla para enviar. Haz click en el nombre para ver la vista previa.
-                                              </p>
-                                            </div>
-                                          </>
-                                        );
-                                      })()}
+                                          <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                            <p className="text-[10px] text-blue-700 dark:text-blue-300 leading-relaxed">
+                                              El sistema selecciona automaticamente la mejor plantilla del grupo. La vista previa es solo informativa.
+                                            </p>
+                                          </div>
+                                        </>
+                                      )}
                                     </div>
                                   </motion.div>
                                 )}
@@ -1654,86 +1435,6 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                           );
                         })}
                       </div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* ====== PASO 4: CONFIGURACIÓN DE VARIABLES ====== */}
-              {currentStep === 'configure_variables' && selectedTemplate && (
-                <motion.div
-                  key="configure_variables"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="space-y-6"
-                >
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">{selectedTemplate.name}</p>
-                    {importedProspects.length > 1 && (
-                      <p className="text-xs text-blue-700 dark:text-blue-400">
-                        Se enviará a {importedProspects.length} prospectos
-                      </p>
-                    )}
-                  </div>
-
-                  {selectedTemplate.variable_mappings?.some(m => m.table_name === 'system' && (m.field_name === 'fecha_personalizada' || m.field_name === 'hora_personalizada')) ? (
-                    <div className="space-y-4">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Configurar variables</p>
-                      {selectedTemplate.variable_mappings
-                        .filter(m => m.table_name === 'system' && (m.field_name === 'fecha_personalizada' || m.field_name === 'hora_personalizada'))
-                        .map(mapping => (
-                          <div key={mapping.variable_number}>
-                            <label className="flex items-center space-x-2 text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
-                              {mapping.field_name === 'fecha_personalizada' ? <Calendar className="w-4 h-4 text-gray-400" /> : <Clock className="w-4 h-4 text-gray-400" />}
-                              <span>{mapping.display_name}</span>
-                            </label>
-                            <input
-                              type={mapping.field_name === 'fecha_personalizada' ? 'date' : 'time'}
-                              onChange={(e) => {
-                                let formatted = e.target.value;
-                                if (mapping.field_name === 'fecha_personalizada') {
-                                  formatted = new Date(e.target.value + 'T00:00:00').toLocaleDateString('es-MX', { month: 'long', day: 'numeric' });
-                                } else {
-                                  const [h, m] = e.target.value.split(':');
-                                  const d = new Date(); d.setHours(parseInt(h)); d.setMinutes(parseInt(m));
-                                  formatted = d.toLocaleTimeString('es-MX', { hour: 'numeric', minute: '2-digit', hour12: true });
-                                }
-                                setVariableValues(prev => ({ ...prev, [mapping.variable_number]: formatted }));
-                              }}
-                              className="w-full px-4 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 dark:bg-gray-800/50 dark:text-white"
-                            />
-                          </div>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center gap-3">
-                      <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-                      <p className="text-sm text-emerald-900 dark:text-emerald-300">No requiere configuración adicional</p>
-                    </div>
-                  )}
-
-                  {/* Preview */}
-                  <div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Vista previa</p>
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl">
-                      {selectedTemplate.components
-                        .filter(c => c.type === 'BODY' && c.text)
-                        .map((c, i) => {
-                          let text = c.text || '';
-                          selectedTemplate.variable_mappings?.forEach(m => {
-                            const val = m.table_name === 'system'
-                              ? (variableValues[m.variable_number] || `[${m.display_name}]`)
-                              : `[${m.display_name}]`;
-                            text = text.replace(new RegExp(`\\{\\{${m.variable_number}\\}\\}`, 'g'), val);
-                          });
-                          return <p key={i} className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{text}</p>;
-                        })}
-                    </div>
-                    {selectedTemplate.variable_mappings?.some(m => m.table_name !== 'system') && (
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Los campos entre corchetes se reemplazarán con los datos de cada prospecto.
-                      </p>
                     )}
                   </div>
                 </motion.div>
@@ -1749,7 +1450,7 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
               className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
             >
               <ChevronLeft className="w-4 h-4" />
-              <span>Atrás</span>
+              <span>Atras</span>
             </button>
 
             <button
@@ -1763,8 +1464,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                 <><Loader2 className="w-4 h-4 animate-spin" /><span>Enviando...</span></>
               ) : currentStep === 'permissions' ? (
                 <><Send className="w-4 h-4" /><span>Importar{importableCount > 0 ? ` (${importableCount}/${selectedEntries.length})` : ''}</span></>
-              ) : currentStep === 'configure_variables' ? (
-                <><Send className="w-4 h-4" /><span>Enviar Plantilla{importedProspects.length > 1 ? ` (${importedProspects.length})` : ''}</span></>
+              ) : currentStep === 'select_template' && selectedGroup ? (
+                <><Send className="w-4 h-4" /><span>Enviar Plantilla</span></>
               ) : (
                 <><span>Continuar</span><ChevronRight className="w-4 h-4" /></>
               )}

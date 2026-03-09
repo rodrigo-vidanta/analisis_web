@@ -1032,6 +1032,7 @@ class CoordinacionService {
           coordinacion_codigo: null, // Se puede cargar aparte si es necesario
           coordinacion_nombre: null,
           is_active: user.is_active,
+          role_name: user.role_name,
           email_verified: user.email_verified,
           last_login: user.last_login,
           created_at: user.created_at,

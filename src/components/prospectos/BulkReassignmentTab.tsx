@@ -25,8 +25,8 @@ import {
   Zap, BarChart3, ListChecks, UserX, Calendar
 } from 'lucide-react';
 import { analysisSupabase } from '../../config/analysisSupabase';
-import { supabaseSystemUI } from '../../config/supabaseSystemUI';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { coordinacionService, type Coordinacion, type Ejecutivo } from '../../services/coordinacionService';
 import { dynamicsReasignacionService, type ReasignacionRequest } from '../../services/dynamicsReasignacionService';
 import { permissionsService } from '../../services/permissionsService';
@@ -96,7 +96,11 @@ const MAX_PARALLEL_SLOTS = 10; // Máximo de ejecuciones paralelas que soporta e
 
 export const BulkReassignmentTab: React.FC = () => {
   const { user } = useAuth();
-  
+  const { isSupervisor, isAdmin, isAdminOperativo } = useEffectivePermissions();
+
+  // Coordinaciones del supervisor (para restricción de scope)
+  const [supervisorCoordinacionIds, setSupervisorCoordinacionIds] = useState<string[]>([]);
+
   // Estados de filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -217,6 +221,25 @@ export const BulkReassignmentTab: React.FC = () => {
     loadInitialData();
   }, []);
 
+  // Cargar coordinaciones del supervisor y auto-configurar filtros
+  useEffect(() => {
+    if (!isSupervisor || !user?.id) return;
+    const loadSupervisorCoordinaciones = async () => {
+      try {
+        const coordIds = await permissionsService.getCoordinacionesFilter(user.id);
+        if (coordIds && coordIds.length > 0) {
+          setSupervisorCoordinacionIds(coordIds);
+          // Auto-seleccionar la primera coordinación como filtro y destino
+          setFilterCoordinacion(coordIds[0]);
+          setTargetCoordinacionId(coordIds[0]);
+        }
+      } catch {
+        // Error cargando coordinaciones del supervisor
+      }
+    };
+    loadSupervisorCoordinaciones();
+  }, [isSupervisor, user?.id]);
+
   // Debounce de búsqueda
   useEffect(() => {
     if (searchTimeoutRef.current) {
@@ -236,44 +259,33 @@ export const BulkReassignmentTab: React.FC = () => {
     loadProspectos();
   }, [debouncedSearch, filterCoordinacion, filterEjecutivo, filterEtapa, filterSinAsignar, page, enrichProspectosWithNames]);
 
-  // Cargar ejecutivos y coordinadores del destino cuando cambia coordinación
+  // Cargar ejecutivos del destino desde la lista global (ya cargada por getAllEjecutivos)
+  // Evita queries adicionales que pueden fallar por RLS para supervisores
   useEffect(() => {
-    if (targetCoordinacionId) {
-      const loadTargetEjecutivos = async () => {
-        try {
-          // Cargar TODOS los usuarios de la coordinación (incluye ejecutivos, coordinadores y supervisores)
-          const allUsers = await coordinacionService.getEjecutivosByCoordinacion(targetCoordinacionId);
-          
-          // Obtener IDs de coordinadores desde auth_user_coordinaciones
-          const { data: coordRelations } = await supabaseSystemUI
-            .from('auth_user_coordinaciones')
-            .select('user_id')
-            .eq('coordinacion_id', targetCoordinacionId);
-          
-          const coordinadorIds = new Set(
-            (coordRelations || []).map(r => r.user_id).filter(Boolean)
-          );
-          
-          // Marcar cada usuario según su rol
-          const usersWithFlags = allUsers.map(user => ({
-            ...user,
-            is_coordinator: coordinadorIds.has(user.id) || user.role_name === 'coordinador',
-            is_supervisor: user.role_name === 'supervisor'
-          }));
-          
-          setTargetEjecutivos(usersWithFlags);
-          setTargetEjecutivoId('');
-        } catch (error) {
-          console.error('Error cargando usuarios de coordinación:', error);
-          setTargetEjecutivos([]);
-        }
-      };
-      loadTargetEjecutivos();
-    } else {
+    if (targetCoordinacionId && ejecutivos.length > 0) {
+      // Filtrar usuarios de la coordinación destino desde la lista global
+      let usersForCoord = ejecutivos.filter(e => e.coordinacion_id === targetCoordinacionId);
+
+      // Si es supervisor, asegurar que esté en la lista
+      if (isSupervisor && user?.id && !usersForCoord.find(u => u.id === user.id)) {
+        const selfUser = ejecutivos.find(e => e.id === user.id);
+        if (selfUser) usersForCoord = [...usersForCoord, selfUser];
+      }
+
+      // Marcar cada usuario según su rol
+      const usersWithFlags = usersForCoord.map(u => ({
+        ...u,
+        is_coordinator: u.role_name === 'coordinador',
+        is_supervisor: u.role_name === 'supervisor'
+      }));
+
+      setTargetEjecutivos(usersWithFlags);
+      setTargetEjecutivoId('');
+    } else if (!targetCoordinacionId) {
       setTargetEjecutivos([]);
       setTargetEjecutivoId('');
     }
-  }, [targetCoordinacionId]);
+  }, [targetCoordinacionId, ejecutivos, isSupervisor, user?.id]);
 
   // Protección contra cierre/recarga durante proceso
   useEffect(() => {
@@ -410,10 +422,33 @@ export const BulkReassignmentTab: React.FC = () => {
   }, [user?.id, debouncedSearch, filterCoordinacion, filterEjecutivo, filterEtapa, filterSinAsignar, page, enrichProspectosWithNames]);
 
   // ============================================
+  // CÁLCULOS PRE-SELECCIÓN
+  // ============================================
+
+  // Coordinaciones visibles según rol (supervisores solo ven las suyas)
+  const visibleCoordinaciones = useMemo(() => {
+    if (isSupervisor && supervisorCoordinacionIds.length > 0) {
+      return coordinaciones.filter(c => supervisorCoordinacionIds.includes(c.id));
+    }
+    return coordinaciones;
+  }, [coordinaciones, isSupervisor, supervisorCoordinacionIds]);
+
+  // Verificar si un prospecto es seleccionable (supervisor: requiere id_dynamics)
+  const isProspectoSelectable = useCallback((prospecto: Prospecto): boolean => {
+    if (!isSupervisor) return true;
+    return !!prospecto.id_dynamics;
+  }, [isSupervisor]);
+
+  // ============================================
   // FUNCIONES DE SELECCIÓN
   // ============================================
 
   const handleSelectProspecto = useCallback((id: string, prospecto?: Prospecto) => {
+    // Supervisor: validar que el prospecto tenga id_dynamics
+    if (prospecto && !isProspectoSelectable(prospecto)) {
+      toast.error('Este prospecto no está registrado en CRM y no puede ser reasignado');
+      return;
+    }
     setSelectedIds(prev => {
       const newSet = new Set(prev);
       if (newSet.has(id)) {
@@ -436,11 +471,13 @@ export const BulkReassignmentTab: React.FC = () => {
       }
       return newSet;
     });
-  }, []);
+  }, [isProspectoSelectable]);
 
   // Seleccionar todos los de la página actual
   const handleSelectPage = useCallback(() => {
-    const availableProspectos = prospectos.slice(0, MAX_SELECTION - selectedIds.size);
+    // Filtrar prospectos seleccionables (supervisor: solo con id_dynamics)
+    const selectableProspectos = prospectos.filter(p => isProspectoSelectable(p));
+    const availableProspectos = selectableProspectos.slice(0, MAX_SELECTION - selectedIds.size);
     const availableIds = availableProspectos.map(p => p.id);
     setSelectedIds(prev => {
       const newSet = new Set(prev);
@@ -453,7 +490,7 @@ export const BulkReassignmentTab: React.FC = () => {
       const newProspectos = availableProspectos.filter(p => !existingIds.has(p.id));
       return [...prev, ...newProspectos];
     });
-  }, [prospectos, selectedIds.size]);
+  }, [prospectos, selectedIds.size, isProspectoSelectable]);
 
   // Seleccionar TODOS los resultados de la búsqueda (hasta MAX_SELECTION)
   const [isLoadingAllResults, setIsLoadingAllResults] = useState(false);
@@ -529,8 +566,13 @@ export const BulkReassignmentTab: React.FC = () => {
       if (error) throw error;
       
       // Enriquecer datos
-      const enrichedData = await enrichProspectosWithNames(data || []);
-      
+      let enrichedData = await enrichProspectosWithNames(data || []);
+
+      // Supervisor: filtrar solo prospectos con id_dynamics
+      if (isSupervisor) {
+        enrichedData = enrichedData.filter(p => !!p.id_dynamics);
+      }
+
       // Agregar a la selección (evitando duplicados)
       setSelectedIds(prev => {
         const newSet = new Set(prev);
@@ -552,7 +594,7 @@ export const BulkReassignmentTab: React.FC = () => {
     } finally {
       setIsLoadingAllResults(false);
     }
-  }, [user?.id, totalCount, selectedIds.size, debouncedSearch, filterCoordinacion, filterEjecutivo, filterEtapa, filterSinAsignar, enrichProspectosWithNames]);
+  }, [user?.id, totalCount, selectedIds.size, debouncedSearch, filterCoordinacion, filterEjecutivo, filterEtapa, filterSinAsignar, enrichProspectosWithNames, isSupervisor]);
 
   const handleClearSelection = useCallback(() => {
     setSelectedIds(new Set());
@@ -1293,9 +1335,18 @@ export const BulkReassignmentTab: React.FC = () => {
                 Reasignación Masiva
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Selecciona hasta {MAX_SELECTION} prospectos para reasignar
+                {isSupervisor
+                  ? 'Reasigna prospectos registrados en CRM a ejecutivos de tu coordinación'
+                  : `Selecciona hasta ${MAX_SELECTION} prospectos para reasignar`
+                }
               </p>
             </div>
+            {isSupervisor && (
+              <span className="px-3 py-1 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full flex items-center gap-1">
+                <Shield className="w-3.5 h-3.5" />
+                Modo Supervisor
+              </span>
+            )}
           </div>
           
           <div className="flex items-center gap-4">
@@ -1358,7 +1409,7 @@ export const BulkReassignmentTab: React.FC = () => {
 
             {/* Filtros en grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {/* Coordinación */}
+              {/* Coordinación (supervisor: bloqueado a su coordinación) */}
               <select
                 value={filterCoordinacion}
                 onChange={(e) => {
@@ -1366,10 +1417,11 @@ export const BulkReassignmentTab: React.FC = () => {
                   setFilterEjecutivo('');
                   setPage(0);
                 }}
-                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500"
+                disabled={isSupervisor}
+                className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-sm text-gray-700 dark:text-gray-300 focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500 disabled:opacity-60"
               >
-                <option value="">Todas las coordinaciones</option>
-                {coordinaciones.map(c => (
+                <option value="">{isSupervisor ? 'Mi coordinación' : 'Todas las coordinaciones'}</option>
+                {visibleCoordinaciones.map(c => (
                   <option key={c.id} value={c.id}>{c.nombre}</option>
                 ))}
               </select>
@@ -1462,7 +1514,7 @@ export const BulkReassignmentTab: React.FC = () => {
             </div>
 
             {/* Pestañas del Grid */}
-            <div className="flex border-b border-gray-200 dark:border-gray-700 mt-2">
+            <div className="flex items-center border-b border-gray-200 dark:border-gray-700 mt-2">
               <button
                 onClick={() => setGridTab('results')}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
@@ -1494,6 +1546,17 @@ export const BulkReassignmentTab: React.FC = () => {
                   )}
                 </span>
               </button>
+              {/* Limpiar selección - al lado de las pestañas */}
+              {selectedProspectos.length > 0 && (
+                <button
+                  onClick={handleClearSelection}
+                  disabled={isProcessing}
+                  className="ml-auto mr-2 px-2.5 py-1 rounded-lg text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 flex items-center gap-1"
+                >
+                  <X className="w-3.5 h-3.5" />
+                  Limpiar
+                </button>
+              )}
             </div>
           </div>
 
@@ -1515,17 +1578,20 @@ export const BulkReassignmentTab: React.FC = () => {
                   <div className="space-y-2">
                     {prospectos.map((prospecto) => {
                       const isSelected = selectedIds.has(prospecto.id);
+                      const canSelect = isProspectoSelectable(prospecto);
                       return (
                         <motion.div
                           key={prospecto.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          onClick={() => !isProcessing && handleSelectProspecto(prospecto.id, prospecto)}
+                          onClick={() => !isProcessing && canSelect && handleSelectProspecto(prospecto.id, prospecto)}
                           className={`
-                            p-4 rounded-xl border-2 transition-all cursor-pointer
-                            ${isSelected 
-                              ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-md shadow-violet-500/10' 
-                              : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-300 dark:hover:border-violet-600'
+                            p-4 rounded-xl border-2 transition-all
+                            ${!canSelect
+                              ? 'opacity-60 cursor-not-allowed border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+                              : isSelected
+                                ? 'border-violet-500 bg-violet-50 dark:bg-violet-900/20 shadow-md shadow-violet-500/10 cursor-pointer'
+                                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-violet-300 dark:hover:border-violet-600 cursor-pointer'
                             }
                             ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
                           `}
@@ -1534,12 +1600,14 @@ export const BulkReassignmentTab: React.FC = () => {
                             {/* Checkbox */}
                             <div className={`
                               w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all mt-0.5 flex-shrink-0
-                              ${isSelected 
-                                ? 'bg-violet-500 border-violet-500' 
-                                : 'border-gray-300 dark:border-gray-600'
+                              ${!canSelect
+                                ? 'border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700'
+                                : isSelected
+                                  ? 'bg-violet-500 border-violet-500'
+                                  : 'border-gray-300 dark:border-gray-600'
                               }
                             `}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
+                              {isSelected && canSelect && <Check className="w-3 h-3 text-white" />}
                             </div>
 
                             {/* Avatar */}
@@ -1550,9 +1618,18 @@ export const BulkReassignmentTab: React.FC = () => {
 
                             {/* Info principal */}
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-gray-900 dark:text-white">
-                                {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
-                              </p>
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {prospecto.nombre_completo || prospecto.nombre_whatsapp || 'Sin nombre'}
+                                </p>
+                                {/* Badge: No registrado en CRM */}
+                                {!canSelect && (
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-full whitespace-nowrap flex items-center gap-1">
+                                    <AlertTriangle className="w-3 h-3" />
+                                    No registrado en CRM
+                                  </span>
+                                )}
+                              </div>
                               <div className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {prospecto.whatsapp && (
                                   <PhoneText 
@@ -1771,14 +1848,20 @@ export const BulkReassignmentTab: React.FC = () => {
                 <select
                   value={targetCoordinacionId}
                   onChange={(e) => setTargetCoordinacionId(e.target.value)}
-                  disabled={isProcessing}
+                  disabled={isProcessing || isSupervisor}
                   className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
                 >
                   <option value="">Seleccionar coordinación...</option>
-                  {coordinaciones.map(c => (
+                  {visibleCoordinaciones.map(c => (
                     <option key={c.id} value={c.id}>{c.nombre}</option>
                   ))}
                 </select>
+                {isSupervisor && (
+                  <p className="mt-1 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1">
+                    <Shield className="w-3 h-3" />
+                    Solo puedes reasignar dentro de tu coordinación
+                  </p>
+                )}
               </div>
 
               {/* Ejecutivo destino */}
@@ -1793,19 +1876,19 @@ export const BulkReassignmentTab: React.FC = () => {
                   className="w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 disabled:opacity-50"
                 >
                   <option value="">Seleccionar persona...</option>
-                  
-                  {/* Coordinadores primero (siempre habilitados) */}
-                  {targetEjecutivos.filter(e => e.is_coordinator === true).length > 0 && (
+
+                  {/* Coordinadores: solo visible para admin (supervisores NO pueden reasignar a coordinadores) */}
+                  {!isSupervisor && targetEjecutivos.filter(e => e.is_coordinator === true).length > 0 && (
                     <option disabled className="text-gray-500 font-semibold">── Coordinadores ──</option>
                   )}
-                  {targetEjecutivos
+                  {!isSupervisor && targetEjecutivos
                     .filter(e => e.is_coordinator === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
                         {formatExecutiveDisplayName(e.full_name)} (Coord.)
                       </option>
                     ))}
-                  
+
                   {/* Supervisores activos */}
                   {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length > 0 && (
                     <option disabled className="text-gray-500 font-semibold">── Supervisores ──</option>
@@ -1814,10 +1897,10 @@ export const BulkReassignmentTab: React.FC = () => {
                     .filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true)
                     .map(e => (
                       <option key={e.id} value={e.id}>
-                        {formatExecutiveDisplayName(e.full_name)} (Sup.)
+                        {formatExecutiveDisplayName(e.full_name)} {e.id === user?.id ? '(Yo)' : '(Sup.)'}
                       </option>
                     ))}
-                  
+
                   {/* Ejecutivos activos */}
                   {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length > 0 && (
                     <option disabled className="text-gray-500 font-semibold">── Ejecutivos ──</option>
@@ -1829,12 +1912,12 @@ export const BulkReassignmentTab: React.FC = () => {
                         {formatExecutiveDisplayName(e.full_name)}
                       </option>
                     ))}
-                  
-                  {/* Usuarios inactivos (deshabilitados) */}
-                  {targetEjecutivos.filter(e => !e.is_coordinator && e.is_active !== true).length > 0 && (
+
+                  {/* Usuarios inactivos (deshabilitados) - no mostrar a supervisores */}
+                  {!isSupervisor && targetEjecutivos.filter(e => !e.is_coordinator && e.is_active !== true).length > 0 && (
                     <option disabled className="text-gray-400">── No disponibles ──</option>
                   )}
-                  {targetEjecutivos
+                  {!isSupervisor && targetEjecutivos
                     .filter(e => !e.is_coordinator && e.is_active !== true)
                     .map(e => (
                       <option key={e.id} value={e.id} disabled className="text-gray-400">
@@ -1844,7 +1927,7 @@ export const BulkReassignmentTab: React.FC = () => {
                 </select>
                 {targetCoordinacionId && targetEjecutivos.length > 0 && (
                   <p className="mt-1 text-xs text-gray-400">
-                    {targetEjecutivos.filter(e => e.is_coordinator === true).length} coordinadores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length} supervisores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length} ejecutivos activos
+                    {!isSupervisor && `${targetEjecutivos.filter(e => e.is_coordinator === true).length} coordinadores, `}{targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'supervisor' && e.is_active === true).length} supervisores, {targetEjecutivos.filter(e => !e.is_coordinator && e.role_name === 'ejecutivo' && e.is_active === true).length} ejecutivos activos
                   </p>
                 )}
               </div>

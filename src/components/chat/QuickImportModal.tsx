@@ -88,8 +88,8 @@ export const QuickImportModal: React.FC<QuickImportModalProps> = ({
    * Verifica si el usuario tiene permiso para ver/acceder este prospecto
    */
   const canAccessProspect = (prospect: ExistingProspect): boolean => {
-    // Roles con acceso total: admin, admin operativo, coordinador calidad, operativo
-    if (isAdmin || isAdminOperativo || user?.is_coordinador_calidad || user?.is_operativo) {
+    // Roles con acceso total: solo admin y admin operativo
+    if (isAdmin || isAdminOperativo) {
       return true;
     }
 

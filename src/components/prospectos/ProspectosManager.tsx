@@ -946,7 +946,7 @@ interface ProspectosManagerProps {
 
 const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveChat, onNavigateToNatalia }) => {
   const { user } = useAuth();
-  const { isAdmin, isAdminOperativo, isCoordinador } = useEffectivePermissions();
+  const { isAdmin, isAdminOperativo, isCoordinador, isSupervisor } = useEffectivePermissions();
   
   // ============================================
   // MODO NINJA: Usar usuario efectivo para filtros
@@ -2299,8 +2299,8 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
 
   return (
     <div className="h-full flex flex-col">
-      {/* Pestañas principales - solo visible para admin/admin_operativo/coordinador_calidad */}
-      {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+      {/* Pestañas principales - visible para admin/admin_operativo/coordinador_calidad/supervisor */}
+      {(isAdmin || isAdminOperativo || isCoordinadorCalidad || isSupervisor) && (
         <div className="flex-shrink-0 px-6 pt-4 pb-0 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-1">
             <button
@@ -2329,25 +2329,28 @@ const ProspectosManager: React.FC<ProspectosManagerProps> = ({ onNavigateToLiveC
                 <span>Reasignación Masiva</span>
               </div>
             </button>
-            <button
-              onClick={() => setActiveTab('import')}
-              className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
-                activeTab === 'import'
-                  ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 border-t border-l border-r border-gray-200 dark:border-gray-700 -mb-px'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-800/50'
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                <Phone size={16} />
-                <span>Importación</span>
-              </div>
-            </button>
+            {/* Importación: solo admin/admin_operativo/coordinador_calidad (NO supervisores) */}
+            {(isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+              <button
+                onClick={() => setActiveTab('import')}
+                className={`relative px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all ${
+                  activeTab === 'import'
+                    ? 'bg-white dark:bg-gray-800 text-emerald-600 dark:text-emerald-400 border-t border-l border-r border-gray-200 dark:border-gray-700 -mb-px'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-gray-800/50'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Phone size={16} />
+                  <span>Importación</span>
+                </div>
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* Contenido según pestaña activa */}
-      {activeTab === 'reassignment' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) ? (
+      {activeTab === 'reassignment' && (isAdmin || isAdminOperativo || isCoordinadorCalidad || isSupervisor) ? (
         <div className="flex-1 overflow-hidden">
           <BulkReassignmentTab />
         </div>
