@@ -1,3 +1,18 @@
+## [v2.29.0] - 2026-03-09
+
+**B10.2.0N2.29.0** - 1 feature + 1 fix + 1 mejora
+
+### Other
+- update factory-templates skill + add session handovers (`c51acee`)
+
+### Features
+- add import 10 URLs tutorial + bulk reassignment supervisor tutorial (`8b9539a`)
+
+### Bug Fixes
+- secure coordination validation + group-based template sending + 10 URL limit (`24494aa`)
+
+---
+
 ## [v2.28.0] - 2026-03-09
 
 **B10.2.0N2.28.0** - 1 feature
