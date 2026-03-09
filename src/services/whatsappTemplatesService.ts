@@ -12,6 +12,8 @@ import type {
   TemplateGroup,
   TemplateGroupHealth,
   GroupSendResponse,
+  TemplateHealthData,
+  TemplateAnalyticsData,
 } from '../types/whatsappTemplates';
 import { SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../types/whatsappTemplates';
 import { formatExecutiveDisplayName } from '../utils/nameFormatter';
@@ -37,6 +39,8 @@ export type {
   TemplateGroup,
   TemplateGroupHealth,
   GroupSendResponse,
+  TemplateHealthData,
+  TemplateAnalyticsData,
 } from '../types/whatsappTemplates';
 
 // ============================================
@@ -1991,6 +1995,97 @@ class WhatsAppTemplatesService {
       throw error;
     }
     return (data || []) as TemplateGroupHealth[];
+  }
+
+  /**
+   * Obtener health individual de templates por IDs desde v_template_health
+   */
+  async getTemplateHealthByIds(templateIds: string[]): Promise<Map<string, TemplateHealthData>> {
+    const healthMap = new Map<string, TemplateHealthData>();
+    if (templateIds.length === 0) return healthMap;
+
+    const { data, error } = await analysisSupabase
+      .from('v_template_health')
+      .select('template_id, template_name, category, is_active, quality_paused, sends_6h, sends_24h, sends_7d, delivery_rate_6h, delivery_rate_24h, delivery_rate_7d, failure_rate_6h, failure_rate_24h, failure_rate_7d, read_rate_24h, reply_rate_24h, meta_block_rate_6h, meta_block_rate_24h, health_status, trend, alert_reason, primary_failure_cause, error_breakdown, confidence')
+      .in('template_id', templateIds);
+
+    if (error) {
+      console.error('Error obteniendo health de templates:', error);
+      return healthMap;
+    }
+
+    for (const row of (data || [])) {
+      healthMap.set(row.template_id, {
+        template_id: row.template_id,
+        template_name: row.template_name,
+        category: row.category,
+        is_active: row.is_active,
+        quality_paused: row.quality_paused ?? false,
+        sends_6h: Number(row.sends_6h) || 0,
+        sends_24h: Number(row.sends_24h) || 0,
+        sends_7d: Number(row.sends_7d) || 0,
+        delivery_rate_6h: row.delivery_rate_6h != null ? Number(row.delivery_rate_6h) : null,
+        delivery_rate_24h: row.delivery_rate_24h != null ? Number(row.delivery_rate_24h) : null,
+        delivery_rate_7d: row.delivery_rate_7d != null ? Number(row.delivery_rate_7d) : null,
+        failure_rate_6h: row.failure_rate_6h != null ? Number(row.failure_rate_6h) : null,
+        failure_rate_24h: row.failure_rate_24h != null ? Number(row.failure_rate_24h) : null,
+        failure_rate_7d: row.failure_rate_7d != null ? Number(row.failure_rate_7d) : null,
+        read_rate_24h: row.read_rate_24h != null ? Number(row.read_rate_24h) : null,
+        reply_rate_24h: row.reply_rate_24h != null ? Number(row.reply_rate_24h) : null,
+        meta_block_rate_6h: row.meta_block_rate_6h != null ? Number(row.meta_block_rate_6h) : null,
+        meta_block_rate_24h: row.meta_block_rate_24h != null ? Number(row.meta_block_rate_24h) : null,
+        health_status: row.health_status || 'no_data',
+        trend: row.trend || 'no_data',
+        alert_reason: row.alert_reason,
+        primary_failure_cause: row.primary_failure_cause,
+        error_breakdown: row.error_breakdown,
+        confidence: row.confidence || 'low',
+      });
+    }
+
+    return healthMap;
+  }
+
+  /**
+   * Obtener analytics/engagement de templates por IDs desde v_template_analytics
+   */
+  async getTemplateAnalyticsByIds(templateIds: string[]): Promise<Map<string, TemplateAnalyticsData>> {
+    const analyticsMap = new Map<string, TemplateAnalyticsData>();
+    if (templateIds.length === 0) return analyticsMap;
+
+    const { data, error } = await analysisSupabase
+      .from('v_template_analytics')
+      .select('template_id, template_name, total_sends, total_replies, reply_rate_percent, reply_rate_7d_percent, reply_rate_30d_percent, avg_reply_time_minutes, median_reply_time_minutes, avg_messages_per_reply, sends_last_7d, sends_last_30d, best_send_hour, best_send_day, effectiveness_score, first_send_at, last_send_at')
+      .in('template_id', templateIds);
+
+    if (error) {
+      console.error('Error obteniendo analytics de templates:', error);
+      return analyticsMap;
+    }
+
+    for (const row of (data || [])) {
+      analyticsMap.set(row.template_id, {
+        template_id: row.template_id,
+        template_name: row.template_name,
+        total_sends: Number(row.total_sends) || 0,
+        total_replies: Number(row.total_replies) || 0,
+        reply_rate_percent: row.reply_rate_percent != null ? Number(row.reply_rate_percent) : null,
+        reply_rate_7d_percent: row.reply_rate_7d_percent != null ? Number(row.reply_rate_7d_percent) : null,
+        reply_rate_30d_percent: row.reply_rate_30d_percent != null ? Number(row.reply_rate_30d_percent) : null,
+        avg_reply_time_minutes: row.avg_reply_time_minutes != null ? Number(row.avg_reply_time_minutes) : null,
+        median_reply_time_minutes: row.median_reply_time_minutes != null ? Number(row.median_reply_time_minutes) : null,
+        avg_messages_per_reply: row.avg_messages_per_reply != null ? Number(row.avg_messages_per_reply) : null,
+        sends_last_7d: Number(row.sends_last_7d) || 0,
+        sends_last_30d: Number(row.sends_last_30d) || 0,
+        best_send_hour: row.best_send_hour != null ? Number(row.best_send_hour) : null,
+        best_send_day: row.best_send_day,
+        effectiveness_score: row.effectiveness_score != null ? Number(row.effectiveness_score) : null,
+        first_send_at: row.first_send_at,
+        last_send_at: row.last_send_at,
+      });
+    }
+
+    return analyticsMap;
   }
 
   /**

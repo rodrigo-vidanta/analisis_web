@@ -51,7 +51,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService, type WhatsAppTemplate } from '../../services/whatsappTemplatesService';
 import { SPECIAL_UTILITY_TEMPLATE_NAME, SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../../types/whatsappTemplates';
-import type { TemplateGroupHealth } from '../../types/whatsappTemplates';
+import type { TemplateGroupHealth, TemplateHealthData, TemplateAnalyticsData } from '../../types/whatsappTemplates';
 import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../types/whatsappTemplates';
 import { GroupStatusBadge } from '../shared/GroupStatusBadge';
 import { GroupStarRating, calcGroupRating } from '../shared/GroupStarRating';
@@ -237,7 +237,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
 }) => {
   const { user } = useAuth();
   const { isAdmin, isAdminOperativo, isSupervisor, isCoordinador, isEjecutivo } = useEffectivePermissions();
-  
+  const isAdminUser = isAdmin || isAdminOperativo;
+
   // Wizard state
   const [currentStep, setCurrentStep] = useState<WizardStep>('search');
   
@@ -267,6 +268,10 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
   const [groupTemplatesMap, setGroupTemplatesMap] = useState<Record<string, WhatsAppTemplate[]>>({});
   const [loadingGroupTemplates, setLoadingGroupTemplates] = useState<string | null>(null);
   const [expandedPreviewIdx, setExpandedPreviewIdx] = useState<Record<string, number>>({});
+
+  // Health y analytics por template (desde v_template_health y v_template_analytics)
+  const [templateHealthMap, setTemplateHealthMap] = useState<Record<string, Map<string, TemplateHealthData>>>({});
+  const [templateAnalyticsMap, setTemplateAnalyticsMap] = useState<Record<string, Map<string, TemplateAnalyticsData>>>({});
   
   // Variable state
   const [variableValues, setVariableValues] = useState<Record<number, string>>({});
@@ -700,6 +705,19 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
         const groupTemplates = await whatsappTemplatesService.getTemplatesByGroup(groupId);
         const approved = groupTemplates.filter(t => t.status === 'APPROVED');
         setGroupTemplatesMap(prev => ({ ...prev, [groupId]: approved }));
+
+        // Cargar health y analytics solo para admins (datos detallados por template)
+        if (isAdminUser) {
+          const ids = approved.map(t => t.id);
+          if (ids.length > 0) {
+            const [healthData, analyticsData] = await Promise.all([
+              whatsappTemplatesService.getTemplateHealthByIds(ids),
+              whatsappTemplatesService.getTemplateAnalyticsByIds(ids),
+            ]);
+            setTemplateHealthMap(prev => ({ ...prev, [groupId]: healthData }));
+            setTemplateAnalyticsMap(prev => ({ ...prev, [groupId]: analyticsData }));
+          }
+        }
       } catch {
         toast.error('Error al cargar plantillas del grupo');
       } finally {
@@ -1458,18 +1476,26 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                       ) : (() => {
                                         const allTpls = [...groupNormal, ...groupSpecial].slice(0, 5);
                                         const currentPreviewIdx = expandedPreviewIdx[group.group_id] ?? 0;
+                                        const groupHealthMap = templateHealthMap[group.group_id];
+                                        const groupAnalyticsMap = templateAnalyticsMap[group.group_id];
                                         return (
                                           <>
-                                            {/* Estadisticas */}
-                                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                            {/* Estadisticas del grupo (v_template_group_health) */}
+                                            <div className={`grid ${isAdminUser ? 'grid-cols-3' : 'grid-cols-2'} gap-2 mb-2`}>
                                               <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa respuesta</p>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuesta 24h</p>
                                                 <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_reply_rate_24h)}</p>
                                               </div>
                                               <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa entrega</p>
+                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Entrega 24h</p>
                                                 <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(group.avg_delivery_rate_24h)}</p>
                                               </div>
+                                              {isAdminUser && (
+                                                <div className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                                                  <p className="text-[10px] text-gray-500 dark:text-gray-400">Fallo 24h</p>
+                                                  <p className={`text-sm font-bold ${group.avg_failure_rate_24h && parseFloat(group.avg_failure_rate_24h) > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{formatRate(group.avg_failure_rate_24h)}</p>
+                                                </div>
+                                              )}
                                             </div>
 
                                             {/* Vista previa top 5 */}
@@ -1481,6 +1507,8 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                               const validation = canSendTemplate(template);
                                               const isSelected = selectedTemplate?.id === template.id;
                                               const isSpecial = template.name === SPECIAL_UTILITY_TEMPLATE_NAME;
+                                              const tplHealth = groupHealthMap?.get(template.id);
+                                              const tplAnalytics = groupAnalyticsMap?.get(template.id);
                                               return (
                                                 <div key={template.id} className={`rounded-xl border overflow-hidden transition-all ${
                                                   isSelected
@@ -1505,6 +1533,14 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                                     {isSelected && (
                                                       <CheckCircle className={`w-3.5 h-3.5 flex-shrink-0 ${isSpecial ? 'text-amber-600' : 'text-blue-600'}`} />
                                                     )}
+                                                    {isAdminUser && tplHealth && !isSelected && (
+                                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                                        tplHealth.health_status === 'healthy' ? 'bg-emerald-500' :
+                                                        tplHealth.health_status === 'warning' ? 'bg-yellow-500' :
+                                                        tplHealth.health_status === 'critical' ? 'bg-red-500' :
+                                                        tplHealth.health_status === 'dead' ? 'bg-gray-500' : 'bg-gray-300'
+                                                      }`} />
+                                                    )}
                                                     <span className={`text-xs font-medium flex-1 truncate ${
                                                       isPreviewExpanded
                                                         ? isSpecial ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300'
@@ -1512,6 +1548,16 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                                     }`}>
                                                       {template.name}
                                                     </span>
+                                                    {isAdminUser && tplHealth && (
+                                                      <span className={`text-[9px] flex-shrink-0 ${
+                                                        tplHealth.trend === 'improving' ? 'text-emerald-600 dark:text-emerald-400' :
+                                                        tplHealth.trend === 'degrading' ? 'text-orange-600 dark:text-orange-400' :
+                                                        tplHealth.trend === 'spiraling' ? 'text-red-600 dark:text-red-400' :
+                                                        'text-gray-400'
+                                                      }`}>
+                                                        {tplHealth.trend === 'improving' ? '\u2197' : tplHealth.trend === 'stable' ? '\u2192' : tplHealth.trend === 'degrading' ? '\u2198' : tplHealth.trend === 'spiraling' ? '\u2193\u2193' : ''}
+                                                      </span>
+                                                    )}
                                                     {isSpecial && (
                                                       <span className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 flex-shrink-0">
                                                         UTILIDAD
@@ -1528,6 +1574,37 @@ export const ImportWizardModal: React.FC<ImportWizardModalProps> = ({
                                                         transition={{ duration: 0.2 }}
                                                         className="overflow-hidden"
                                                       >
+                                                        {/* Health + Analytics mini stats por template - solo admins (v_template_health + v_template_analytics) */}
+                                                        {isAdminUser && (tplHealth || tplAnalytics) && (
+                                                          <div className={`px-3 py-2 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30 ${tplHealth?.confidence === 'low' ? 'opacity-60' : ''}`}>
+                                                            <div className="flex items-center gap-3 flex-wrap text-[10px]">
+                                                              {tplHealth && (
+                                                                <>
+                                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                                    Entrega: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.delivery_rate_24h != null ? `${tplHealth.delivery_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                                  </span>
+                                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                                    Fallo: <span className={`font-semibold ${tplHealth.failure_rate_24h != null && tplHealth.failure_rate_24h > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>{tplHealth.failure_rate_24h != null ? `${tplHealth.failure_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                                  </span>
+                                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                                    Resp: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.reply_rate_24h != null ? `${tplHealth.reply_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                                  </span>
+                                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                                    7d: <span className="font-semibold text-gray-700 dark:text-gray-200">{tplHealth.sends_7d}</span>
+                                                                  </span>
+                                                                </>
+                                                              )}
+                                                              {tplAnalytics?.effectiveness_score != null && (
+                                                                <span className="text-gray-500 dark:text-gray-400">
+                                                                  Score: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{tplAnalytics.effectiveness_score.toFixed(0)}</span>
+                                                                </span>
+                                                              )}
+                                                              {tplHealth?.confidence === 'low' && (
+                                                                <span className="text-[9px] text-amber-600 dark:text-amber-400 italic">datos limitados</span>
+                                                              )}
+                                                            </div>
+                                                          </div>
+                                                        )}
                                                         <div className={`px-3 py-2.5 border-t ${
                                                           isSpecial
                                                             ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/15 dark:to-yellow-900/15 border-amber-200/50 dark:border-amber-800/50'

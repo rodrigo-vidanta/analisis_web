@@ -63,6 +63,7 @@ import type {
   EstadoCivil,
   TemplateGroup,
   TemplateGroupHealth,
+  TemplateHealthData,
 } from '../../../types/whatsappTemplates';
 import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../../types/whatsappTemplates';
 import { GroupStatusBadge } from '../../shared/GroupStatusBadge';
@@ -81,15 +82,7 @@ import { TemplateTagsSelector } from './TemplateTagsSelector';
 import { getSignedGcsUrl } from '../../../services/gcsUrlService';
 import { formatExecutiveDisplayName } from '../../../utils/nameFormatter';
 
-// Datos de salud individual por plantilla (de v_template_health)
-interface TemplateHealthData {
-  template_id: string;
-  health_status: 'healthy' | 'warning' | 'critical' | 'no_data';
-  sends_7d: number;
-  failure_rate_24h: number | null;
-  reply_rate_24h: number | null;
-  trend: string | null;
-}
+// TemplateHealthData importado desde types/whatsappTemplates.ts
 
 /**
  * ============================================
@@ -897,24 +890,10 @@ const WhatsAppTemplatesManager: React.FC = () => {
     try {
       const templates = await whatsappTemplatesService.getTemplatesByGroup(group.group_id);
       setGroupTemplates(templates);
-      // Cargar salud individual por plantilla
+      // Cargar salud individual via servicio centralizado (v_template_health)
       const templateIds = templates.map(t => t.id);
-      if (templateIds.length > 0 && analysisSupabase) {
-        const { data: healthData } = await analysisSupabase
-          .from('v_template_health')
-          .select('template_id, health_status, sends_7d, failure_rate_24h, reply_rate_24h, trend')
-          .in('template_id', templateIds);
-        const healthMap = new Map<string, TemplateHealthData>();
-        for (const row of (healthData || [])) {
-          healthMap.set(row.template_id, {
-            template_id: row.template_id,
-            health_status: row.health_status || 'no_data',
-            sends_7d: Number(row.sends_7d) || 0,
-            failure_rate_24h: row.failure_rate_24h != null ? parseFloat(row.failure_rate_24h) : null,
-            reply_rate_24h: row.reply_rate_24h != null ? parseFloat(row.reply_rate_24h) : null,
-            trend: row.trend,
-          });
-        }
+      if (templateIds.length > 0) {
+        const healthMap = await whatsappTemplatesService.getTemplateHealthByIds(templateIds);
         setGroupTemplateHealth(healthMap);
       }
     } catch (error) {

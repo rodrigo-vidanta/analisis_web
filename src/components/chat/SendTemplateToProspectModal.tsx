@@ -17,8 +17,9 @@ import {
   X, Send, Loader2, CheckCircle, Search, Activity, BarChart3
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { whatsappTemplatesService } from '../../services/whatsappTemplatesService';
-import type { TemplateGroupHealth, WhatsAppTemplate, GroupSendResponse } from '../../types/whatsappTemplates';
+import type { TemplateGroupHealth, WhatsAppTemplate, GroupSendResponse, TemplateHealthData, TemplateAnalyticsData } from '../../types/whatsappTemplates';
 import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../types/whatsappTemplates';
 import { GroupStatusBadge } from '../shared/GroupStatusBadge';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
@@ -45,6 +46,8 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
   onSuccess
 }) => {
   const { user } = useAuth();
+  const { isAdmin, isAdminOperativo } = useEffectivePermissions();
+  const isAdminUser = isAdmin || isAdminOperativo;
   const [groups, setGroups] = useState<TemplateGroupHealth[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<TemplateGroupHealth | null>(null);
   const [previewTemplate, setPreviewTemplate] = useState<WhatsAppTemplate | null>(null);
@@ -52,6 +55,10 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [sending, setSending] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Health y analytics del template preview (desde v_template_health y v_template_analytics)
+  const [previewHealth, setPreviewHealth] = useState<TemplateHealthData | null>(null);
+  const [previewAnalytics, setPreviewAnalytics] = useState<TemplateAnalyticsData | null>(null);
 
   // Cargar grupos al abrir
   useEffect(() => {
@@ -84,11 +91,23 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
 
     setSelectedGroup(group);
     setPreviewTemplate(null);
+    setPreviewHealth(null);
+    setPreviewAnalytics(null);
     setLoadingPreview(true);
 
     try {
       const template = await whatsappTemplatesService.getGroupPreviewTemplate(group.group_id);
       setPreviewTemplate(template);
+
+      // Cargar health y analytics solo para admins (datos detallados por template)
+      if (isAdminUser && template) {
+        const [healthMap, analyticsMap] = await Promise.all([
+          whatsappTemplatesService.getTemplateHealthByIds([template.id]),
+          whatsappTemplatesService.getTemplateAnalyticsByIds([template.id]),
+        ]);
+        setPreviewHealth(healthMap.get(template.id) || null);
+        setPreviewAnalytics(analyticsMap.get(template.id) || null);
+      }
     } catch {
       // Preview no es critico
     } finally {
@@ -300,15 +319,65 @@ export const SendTemplateToProspectModal: React.FC<SendTemplateToProspectModalPr
                           </div>
                         )}
 
-                        {/* Stats mini */}
+                        {/* Stats del template - solo admins (v_template_health + v_template_analytics) */}
+                        {isAdminUser && previewHealth && (
+                          <div className={`p-3 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 ${previewHealth.confidence === 'low' ? 'opacity-60' : ''}`}>
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className={`w-2 h-2 rounded-full ${
+                                previewHealth.health_status === 'healthy' ? 'bg-emerald-500' :
+                                previewHealth.health_status === 'warning' ? 'bg-yellow-500' :
+                                previewHealth.health_status === 'critical' ? 'bg-red-500' :
+                                previewHealth.health_status === 'dead' ? 'bg-gray-500' : 'bg-gray-300'
+                              }`} />
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                                Health del Template
+                              </span>
+                              {previewHealth.confidence === 'low' && (
+                                <span className="text-[9px] text-amber-600 dark:text-amber-400 italic ml-auto">datos limitados</span>
+                              )}
+                            </div>
+                            <div className="grid grid-cols-3 gap-2 text-[10px]">
+                              <div>
+                                <p className="text-gray-500 dark:text-gray-400">Entrega 24h</p>
+                                <p className="font-bold text-gray-900 dark:text-white">{previewHealth.delivery_rate_24h != null ? `${previewHealth.delivery_rate_24h.toFixed(1)}%` : '\u2014'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500 dark:text-gray-400">Fallo 24h</p>
+                                <p className={`font-bold ${previewHealth.failure_rate_24h != null && previewHealth.failure_rate_24h > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{previewHealth.failure_rate_24h != null ? `${previewHealth.failure_rate_24h.toFixed(1)}%` : '\u2014'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500 dark:text-gray-400">Respuesta 24h</p>
+                                <p className="font-bold text-gray-900 dark:text-white">{previewHealth.reply_rate_24h != null ? `${previewHealth.reply_rate_24h.toFixed(1)}%` : '\u2014'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500 dark:text-gray-400">Envios 7d</p>
+                                <p className="font-bold text-gray-900 dark:text-white">{previewHealth.sends_7d}</p>
+                              </div>
+                              {previewAnalytics?.effectiveness_score != null && (
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400">Score</p>
+                                  <p className="font-bold text-indigo-600 dark:text-indigo-400">{previewAnalytics.effectiveness_score.toFixed(0)}/100</p>
+                                </div>
+                              )}
+                              {previewAnalytics?.median_reply_time_minutes != null && (
+                                <div>
+                                  <p className="text-gray-500 dark:text-gray-400">Resp. mediana</p>
+                                  <p className="font-bold text-gray-900 dark:text-white">{previewAnalytics.median_reply_time_minutes < 60 ? `${previewAnalytics.median_reply_time_minutes.toFixed(0)}m` : `${(previewAnalytics.median_reply_time_minutes / 60).toFixed(1)}h`}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Stats del grupo (v_template_group_health) */}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                            <p className="text-[10px] text-gray-500">Tasa respuesta</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuesta 24h</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(selectedGroup.avg_reply_rate_24h)}</p>
                           </div>
                           <div className="p-2 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                            <p className="text-[10px] text-gray-500">Envios 7d</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedGroup.total_sends_7d}</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Entrega 24h</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(selectedGroup.avg_delivery_rate_24h)}</p>
                           </div>
                         </div>
                       </>

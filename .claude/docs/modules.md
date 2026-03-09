@@ -29,9 +29,9 @@
 - `MessageBubble.tsx` - Burbuja mensaje
 - `QuickReplies.tsx` - Respuestas rapidas
 - `TemplateSelector.tsx` - Selector plantillas
-- `ReactivateConversationModal.tsx` - Modal reactivacion por grupo (top 5 preview acordeon, star rating, stats simplificadas)
-- `ImportWizardModal.tsx` - Wizard importacion multi-paso (step 3: grupos acordeon con preview top 5)
-- `SendTemplateToProspectModal.tsx` - Envio plantilla por grupo a prospecto
+- `ReactivateConversationModal.tsx` - Modal reactivacion por grupo (top 5 preview acordeon, star rating, stats admin-only desde v_template_health/v_template_analytics)
+- `ImportWizardModal.tsx` - Wizard importacion multi-paso (step 3: grupos acordeon con preview top 5, health per-template admin-only)
+- `SendTemplateToProspectModal.tsx` - Envio plantilla por grupo a prospecto (health per-template admin-only)
 - `ImageCatalogModal.tsx` / `ImageCatalogModalV2.tsx` - Catalogo imagenes
 - `ProspectDetailSidebar.tsx` - Sidebar detalle prospecto
 - `CallDetailModal.tsx` / `CallDetailModalSidebar.tsx` - Detalle llamadas
@@ -126,7 +126,7 @@
 - `logMonitorService.ts` / `logMonitorSecureClient.ts` - Monitor logs
 
 ### WhatsApp (8)
-- `whatsappTemplatesService.ts` - Plantillas
+- `whatsappTemplatesService.ts` - Plantillas (incluye getTemplateHealthByIds/getTemplateAnalyticsByIds para v_template_health/v_template_analytics)
 - `whatsappLabelsService.ts` - Etiquetas
 - `quickRepliesService.ts` - Respuestas rapidas
 - `optimizedConversationsService.ts` - Conversaciones

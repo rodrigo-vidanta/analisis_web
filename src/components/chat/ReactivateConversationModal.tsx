@@ -4,9 +4,10 @@ import { createPortal } from 'react-dom';
 import { X, Send, Search, Loader2, CheckCircle2, AlertTriangle, Calendar, Clock, Ban, TrendingUp, BarChart3, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { whatsappTemplatesService, type TemplateSendLimits } from '../../services/whatsappTemplatesService';
-import type { WhatsAppTemplate, TemplateGroupHealth, GroupSendResponse } from '../../types/whatsappTemplates';
+import type { WhatsAppTemplate, TemplateGroupHealth, GroupSendResponse, TemplateHealthData, TemplateAnalyticsData } from '../../types/whatsappTemplates';
 import { GROUP_STATUS_CONFIG, type TemplateGroupStatus } from '../../types/whatsappTemplates';
 import { useAuth } from '../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 import { GroupStatusBadge } from '../shared/GroupStatusBadge';
 import { GroupStarRating, calcGroupRating } from '../shared/GroupStarRating';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
@@ -142,6 +143,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   prospectoData,
 }) => {
   const { user } = useAuth();
+  const { isAdmin, isAdminOperativo } = useEffectivePermissions();
+  const isAdminUser = isAdmin || isAdminOperativo;
 
   // --- Estado principal ---
   const [groups, setGroups] = useState<TemplateGroupHealth[]>([]);
@@ -158,6 +161,10 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   // --- Limites de envio ---
   const [sendLimits, setSendLimits] = useState<TemplateSendLimits | null>(null);
   const [loadingLimits, setLoadingLimits] = useState(false);
+
+  // --- Health y analytics por template (desde v_template_health y v_template_analytics) ---
+  const [templateHealthMap, setTemplateHealthMap] = useState<Map<string, TemplateHealthData>>(new Map());
+  const [templateAnalyticsMap, setTemplateAnalyticsMap] = useState<Map<string, TemplateAnalyticsData>>(new Map());
 
   const prospectoEtapa = prospectoData?.etapa as string | undefined;
 
@@ -219,6 +226,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
     setPreviewTemplates([]);
     setExpandedPreviewIdx(0);
     setLoadingPreview(true);
+    setTemplateHealthMap(new Map());
+    setTemplateAnalyticsMap(new Map());
 
     try {
       const allTemplates = await whatsappTemplatesService.getTemplatesByGroup(group.group_id);
@@ -226,6 +235,19 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
         .filter(t => t.status === 'APPROVED' && t.is_active)
         .slice(0, 5);
       setPreviewTemplates(approved);
+
+      // Cargar health y analytics solo para admins (datos detallados por template)
+      if (isAdminUser) {
+        const ids = approved.map(t => t.id);
+        if (ids.length > 0) {
+          const [healthData, analyticsData] = await Promise.all([
+            whatsappTemplatesService.getTemplateHealthByIds(ids),
+            whatsappTemplatesService.getTemplateAnalyticsByIds(ids),
+          ]);
+          setTemplateHealthMap(healthData);
+          setTemplateAnalyticsMap(analyticsData);
+        }
+      }
     } catch (error) {
       console.error('Error cargando preview:', error);
     } finally {
@@ -305,6 +327,46 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
   // ============================================
   // HELPERS
   // ============================================
+
+  const getHealthColor = (status: string): string => {
+    switch (status) {
+      case 'healthy': return 'bg-emerald-500';
+      case 'warning': return 'bg-yellow-500';
+      case 'critical': return 'bg-red-500';
+      case 'dead': return 'bg-gray-500';
+      default: return 'bg-gray-300';
+    }
+  };
+
+  const getHealthLabel = (status: string): string => {
+    switch (status) {
+      case 'healthy': return 'Saludable';
+      case 'warning': return 'Advertencia';
+      case 'critical': return 'Critico';
+      case 'dead': return 'Inactivo';
+      default: return 'Sin datos';
+    }
+  };
+
+  const getTrendIcon = (trend: string): string => {
+    switch (trend) {
+      case 'improving': return '\u2197';
+      case 'stable': return '\u2192';
+      case 'degrading': return '\u2198';
+      case 'spiraling': return '\u2193\u2193';
+      default: return '\u2014';
+    }
+  };
+
+  const getTrendColor = (trend: string): string => {
+    switch (trend) {
+      case 'improving': return 'text-emerald-600 dark:text-emerald-400';
+      case 'stable': return 'text-gray-500 dark:text-gray-400';
+      case 'degrading': return 'text-orange-600 dark:text-orange-400';
+      case 'spiraling': return 'text-red-600 dark:text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
 
   const getPreviewBodyText = (template: WhatsAppTemplate): string => {
     const bodyComponent = template.components?.find(c => c.type === 'BODY');
@@ -527,6 +589,8 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                             {previewTemplates.map((tpl, idx) => {
                               const isExpanded = idx === expandedPreviewIdx;
                               const bodyText = getPreviewBodyText(tpl);
+                              const health = templateHealthMap.get(tpl.id);
+                              const analytics = templateAnalyticsMap.get(tpl.id);
                               return (
                                 <div key={tpl.id} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                                   <button
@@ -537,9 +601,17 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                                         : 'bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/80'
                                     }`}
                                   >
+                                    {isAdminUser && health && (
+                                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${getHealthColor(health.health_status)}`} title={getHealthLabel(health.health_status)} />
+                                    )}
                                     <span className={`text-xs font-medium flex-1 truncate ${isExpanded ? 'text-emerald-700 dark:text-emerald-300' : 'text-gray-700 dark:text-gray-300'}`}>
                                       {tpl.name}
                                     </span>
+                                    {isAdminUser && health && (
+                                      <span className={`text-[9px] flex-shrink-0 ${getTrendColor(health.trend)}`}>
+                                        {getTrendIcon(health.trend)}
+                                      </span>
+                                    )}
                                     {isExpanded ? <ChevronUp className="w-3 h-3 text-gray-400 flex-shrink-0" /> : <ChevronDown className="w-3 h-3 text-gray-400 flex-shrink-0" />}
                                   </button>
                                   <AnimatePresence>
@@ -551,6 +623,37 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                                         transition={{ duration: 0.2 }}
                                         className="overflow-hidden"
                                       >
+                                        {/* Health + Analytics mini stats (solo admins) */}
+                                        {isAdminUser && (health || analytics) && (
+                                          <div className={`px-3 py-2 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50 dark:bg-gray-800/30 ${health?.confidence === 'low' ? 'opacity-60' : ''}`}>
+                                            <div className="flex items-center gap-3 flex-wrap text-[10px]">
+                                              {health && (
+                                                <>
+                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                    Entrega: <span className="font-semibold text-gray-700 dark:text-gray-200">{health.delivery_rate_24h != null ? `${health.delivery_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                  </span>
+                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                    Fallo: <span className={`font-semibold ${health.failure_rate_24h != null && health.failure_rate_24h > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-700 dark:text-gray-200'}`}>{health.failure_rate_24h != null ? `${health.failure_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                  </span>
+                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                    Resp: <span className="font-semibold text-gray-700 dark:text-gray-200">{health.reply_rate_24h != null ? `${health.reply_rate_24h.toFixed(1)}%` : '\u2014'}</span>
+                                                  </span>
+                                                  <span className="text-gray-500 dark:text-gray-400">
+                                                    7d: <span className="font-semibold text-gray-700 dark:text-gray-200">{health.sends_7d}</span>
+                                                  </span>
+                                                </>
+                                              )}
+                                              {analytics?.effectiveness_score != null && (
+                                                <span className="text-gray-500 dark:text-gray-400">
+                                                  Score: <span className="font-semibold text-indigo-600 dark:text-indigo-400">{analytics.effectiveness_score.toFixed(0)}</span>
+                                                </span>
+                                              )}
+                                              {health?.confidence === 'low' && (
+                                                <span className="text-[9px] text-amber-600 dark:text-amber-400 italic">datos limitados</span>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )}
                                         <div className="px-4 py-3 bg-gradient-to-br from-emerald-50 to-green-50 dark:from-emerald-900/15 dark:to-green-900/15 border-t border-emerald-200/50 dark:border-emerald-800/50">
                                           <div className="text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
                                             {renderWhatsAppFormattedText(bodyText)}
@@ -582,30 +685,52 @@ export const ReactivateConversationModal: React.FC<ReactivateConversationModalPr
                         )}
                       </div>
 
-                      {/* Estadisticas del grupo */}
+                      {/* Estadisticas del grupo (v_template_group_health) */}
                       <div>
                         <h5 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-                          Estadisticas
+                          Estadisticas del Grupo
                         </h5>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className={`grid ${isAdminUser ? 'grid-cols-3' : 'grid-cols-2'} gap-2`}>
                           <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa respuesta</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Respuesta 24h</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(selectedGroup.avg_reply_rate_24h)}</p>
                           </div>
                           <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
-                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Tasa entrega</p>
+                            <p className="text-[10px] text-gray-500 dark:text-gray-400">Entrega 24h</p>
                             <p className="text-sm font-bold text-gray-900 dark:text-white">{formatRate(selectedGroup.avg_delivery_rate_24h)}</p>
                           </div>
+                          {isAdminUser && (
+                            <>
+                              <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Fallo 24h</p>
+                                <p className={`text-sm font-bold ${selectedGroup.avg_failure_rate_24h && parseFloat(selectedGroup.avg_failure_rate_24h) > 20 ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}`}>{formatRate(selectedGroup.avg_failure_rate_24h)}</p>
+                              </div>
+                              <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Envios 24h</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedGroup.total_sends_24h}</p>
+                              </div>
+                              <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Envios 7d</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedGroup.total_sends_7d}</p>
+                              </div>
+                              <div className="p-2.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700">
+                                <p className="text-[10px] text-gray-500 dark:text-gray-400">Activos</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">{selectedGroup.sendable_count}/{selectedGroup.total_templates}</p>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      {/* Health bar */}
-                      <div>
-                        <h5 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
-                          Salud del Grupo
-                        </h5>
-                        <HealthBar group={selectedGroup} />
-                      </div>
+                      {/* Health bar (solo admins) */}
+                      {isAdminUser && (
+                        <div>
+                          <h5 className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2">
+                            Salud del Grupo
+                          </h5>
+                          <HealthBar group={selectedGroup} />
+                        </div>
+                      )}
                     </div>
 
                     {/* Footer con boton de envio */}

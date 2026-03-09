@@ -673,6 +673,64 @@ export interface TemplateGroupHealth {
   group_status: TemplateGroupStatus;
 }
 
+/** Health status posibles para templates individuales */
+export type TemplateHealthStatus = 'healthy' | 'warning' | 'critical' | 'dead' | 'no_data';
+
+/** Tendencia de health de un template */
+export type TemplateHealthTrend = 'improving' | 'stable' | 'degrading' | 'spiraling' | 'no_data';
+
+/** Nivel de confianza de las metricas */
+export type TemplateHealthConfidence = 'high' | 'medium' | 'low';
+
+/** Health individual por template desde vista v_template_health */
+export interface TemplateHealthData {
+  template_id: string;
+  template_name: string;
+  category: string;
+  is_active: boolean;
+  quality_paused: boolean;
+  sends_6h: number;
+  sends_24h: number;
+  sends_7d: number;
+  delivery_rate_6h: number | null;
+  delivery_rate_24h: number | null;
+  delivery_rate_7d: number | null;
+  failure_rate_6h: number | null;
+  failure_rate_24h: number | null;
+  failure_rate_7d: number | null;
+  read_rate_24h: number | null;
+  reply_rate_24h: number | null;
+  meta_block_rate_6h: number | null;
+  meta_block_rate_24h: number | null;
+  health_status: TemplateHealthStatus;
+  trend: TemplateHealthTrend;
+  alert_reason: string | null;
+  primary_failure_cause: string | null;
+  error_breakdown: Record<string, number> | null;
+  confidence: TemplateHealthConfidence;
+}
+
+/** Analytics/engagement por template desde vista v_template_analytics */
+export interface TemplateAnalyticsData {
+  template_id: string;
+  template_name: string;
+  total_sends: number;
+  total_replies: number;
+  reply_rate_percent: number | null;
+  reply_rate_7d_percent: number | null;
+  reply_rate_30d_percent: number | null;
+  avg_reply_time_minutes: number | null;
+  median_reply_time_minutes: number | null;
+  avg_messages_per_reply: number | null;
+  sends_last_7d: number;
+  sends_last_30d: number;
+  best_send_hour: number | null;
+  best_send_day: string | null;
+  effectiveness_score: number | null;
+  first_send_at: string | null;
+  last_send_at: string | null;
+}
+
 /** Respuesta del webhook de envio por grupo */
 export interface GroupSendResponse {
   success: boolean;
