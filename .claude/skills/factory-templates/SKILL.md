@@ -285,29 +285,46 @@ Estructurar la decision para guiar hacia la respuesta deseada.
 
 Consultar SIEMPRE antes de generar para evitar duplicar tonos/tecnicas.
 
-| Grupo | Templates | Status | Reply Rate 7d | Sends 7d | Proposito | Variables | Excl. Envio |
-|-------|-----------|--------|---------------|----------|-----------|-----------|-------------|
-| Actualizacion de Numero | 8 | mixed | 69.9% | 5,111 | Notificar cambio de WhatsApp (UTILITY) | 0-1 | SI |
-| Reenganche Suave | 6 | healthy | 50% | 198 | Reactivar prospectos frios, tono casual | 0-1 | NO |
-| Retomar Negociacion | 6 (4 activos) | degraded | 25% | 395 | Prospectos con propuesta previa sin cierre | 1-2 | NO |
-| Con Reserva Pendiente | 5 (3 activos) | mixed | 20% | 124 | Certificado o reservacion iniciada | 1-2 | NO |
-| Gancho de Oportunidad | 5 (3 activos) | degraded | 50% | 269 | Hook de escasez/exclusividad, urgencia | 1-2 | NO |
-| Seguimiento Post-Contacto | 5 (2 activos) | mixed | 50% | 49 | Post-llamada, seguimiento genuino (UTILITY) | 1-2 | NO |
-| Seguimiento de Llamada | 5 (3 activos) | healthy | N/A | 35 | Post-intento de llamada fallida | 1-3 | NO |
-| Concierto: Series 2026 | 4 (2 activos) | healthy | N/A | 12 | Combo conciertos 2026 | 1-2 | NO |
-| Concierto: El Buki | 3 (2 activos) | mixed | 0% | 129 | Marco Antonio Solis en Vidanta | 1 | NO |
-| Concierto: Michael Buble | 3 (2 activos) | degraded | N/A | 141 | Michael Buble en Vidanta | 1 | NO |
-| Viaje en Pareja | 3 (2 activos) | healthy | N/A | 3 | Templates segmentados parejas | 1-2 | NO |
-| Pendientes | 1 (0 activos) | blocked | N/A | 0 | Templates sin aprobar / sin Content SID | - | NO |
+| Grupo | Templates | Status | Reply Rate Avg | Top Effectiveness | Sends 7d | Proposito | Variables | Excl. Envio |
+|-------|-----------|--------|----------------|-------------------|----------|-----------|-----------|-------------|
+| Actualizacion de Numero | 8 | mixed | 69.9% | N/A | 5,111 | Notificar cambio de WhatsApp (UTILITY) | 0-1 | SI |
+| Reenganche Suave | 6 | healthy | 50% | N/A | 198 | Reactivar prospectos frios, tono casual | 0-1 | NO |
+| Retomar Negociacion | 6 (4 activos) | degraded | 25% | N/A | 395 | Prospectos con propuesta previa sin cierre | 1-2 | NO |
+| Con Reserva Pendiente | 5 (3 activos) | mixed | 20% | N/A | 124 | Certificado o reservacion iniciada | 1-2 | NO |
+| Gancho de Oportunidad | 16 | healthy | 27.0% | 42.5 (en_3minutos) | 306 | Hook de escasez/exclusividad, urgencia | 0-2 | NO |
+| Seguimiento Post-Contacto | 5 (2 activos) | mixed | 50% | N/A | 49 | Post-llamada, seguimiento genuino (UTILITY) | 1-2 | NO |
+| Seguimiento de Llamada | 5 (3 activos) | healthy | N/A | N/A | 35 | Post-intento de llamada fallida | 1-3 | NO |
+| Concierto: Series 2026 | 4 (2 activos) | healthy | N/A | N/A | 12 | Combo conciertos 2026 | 1-2 | NO |
+| Concierto: El Buki | 3 (2 activos) | mixed | 0% | N/A | 129 | Marco Antonio Solis en Vidanta | 1 | NO |
+| Concierto: Michael Buble | 3 (2 activos) | degraded | N/A | N/A | 141 | Michael Buble en Vidanta | 1 | NO |
+| Viaje en Pareja | 3 (2 activos) | healthy | N/A | N/A | 3 | Templates segmentados parejas | 1-2 | NO |
+| Viaje en Familia | 10 | healthy | 18.1% | 35.0 (familia_contacto_planner) | 30 | Templates segmentados familias | 0 | NO |
+| Pendientes | 1 (0 activos) | blocked | N/A | N/A | 0 | Templates sin aprobar / sin Content SID | - | NO |
 
 ### Prioridades de Generacion
 1. **ALTA**: Reenganche Suave (mas volumen frio, necesita variedad)
-2. **ALTA**: Gancho de Oportunidad (degradado, necesita templates frescos)
+2. **ALTA**: Gancho de Oportunidad (16 templates, top performer 42.5 effectiveness pero muchos con 0%)
 3. **MEDIA**: Retomar Negociacion (degradado, 25% reply rate)
 4. **MEDIA**: Con Reserva Pendiente (20% reply rate, necesita mejores hooks)
-5. **BAJA**: Seguimiento Post-Contacto (funciona bien pero pocos activos)
-6. **BAJA**: Seguimiento de Llamada (funciona bien)
-7. **CREAR**: Grupo nuevo para cold outreach puro (sin nombre, sin variables)
+5. **MEDIA**: Viaje en Familia (10 templates, 18.1% avg reply, necesita mas variedad)
+6. **BAJA**: Seguimiento Post-Contacto (funciona bien pero pocos activos)
+7. **BAJA**: Seguimiento de Llamada (funciona bien)
+
+### Top Performers por Grupo (datos reales - actualizar periodicamente)
+
+**Gancho de Oportunidad:**
+| Template | Reply Rate | Effectiveness | Patron Clave |
+|----------|-----------|---------------|--------------|
+| gancho_curiosidad | 37.50% | 40.8 | Corto (105 chars), misterio puro, "Le cuento?" |
+| en_3minutos | 15.75% | 42.5 | Time constraint, reconoce busy |
+| liberacion_de_disponibilidad | 21.05% | 23.3 | Escasez especifica, "me dieron permiso" |
+| intrigante_y_con_oportunidad | 12.32% | 17.4 | Mayor volumen (885 sends), curiosidad + urgencia |
+
+**Viaje en Familia:**
+| Template | Reply Rate | Effectiveness | Patron Clave |
+|----------|-----------|---------------|--------------|
+| familia_contacto_planner | 25.00% | 35.0 | Reciprocidad, "me especializo en familias" |
+| familia_lujo_accesible | 15.38% | 34.2 | Contraste "inalcanzable → accesible" |
 
 ---
 
@@ -381,6 +398,79 @@ Tambien consultar health del grupo:
 ```sql
 SELECT * FROM v_template_group_health WHERE group_name ILIKE '%NOMBRE_GRUPO%';
 ```
+
+### Paso 2.5: Analisis de Performance (OBLIGATORIO)
+
+**SIEMPRE consultar analytics ANTES de generar.** Los datos de rendimiento real influyen directamente en la generacion.
+
+#### 2.5.1 Consultar analytics de effectiveness y reply rates
+```sql
+SELECT va.template_name, va.reply_rate_percent, va.reply_rate_7d_percent,
+       va.reply_rate_30d_percent, va.effectiveness_score, va.avg_reply_time_minutes,
+       va.median_reply_time_minutes, va.sends_last_7d, va.sends_last_30d,
+       va.best_send_hour, va.best_send_day
+FROM v_template_analytics va
+JOIN whatsapp_templates wt ON wt.id = va.template_id
+JOIN template_groups tg ON tg.id = wt.template_group_id
+WHERE tg.name ILIKE '%NOMBRE_GRUPO%'
+  AND wt.is_deleted = false
+ORDER BY va.effectiveness_score DESC NULLS LAST;
+```
+
+#### 2.5.2 Consultar health y tendencias actuales
+```sql
+SELECT vh.template_name, vh.health_status, vh.trend, vh.reply_rate_24h,
+       vh.delivery_rate_24h, vh.failure_rate_24h, vh.confidence,
+       vh.sends_24h, vh.sends_7d
+FROM v_template_health vh
+JOIN whatsapp_templates wt ON wt.id = vh.template_id
+JOIN template_groups tg ON tg.id = wt.template_group_id
+WHERE tg.name ILIKE '%NOMBRE_GRUPO%'
+  AND wt.is_deleted = false
+ORDER BY vh.health_status, vh.template_name;
+```
+
+#### 2.5.3 Leer body text de TOP performers (effectiveness_score > 0)
+```sql
+SELECT wt.name, wt.components->0->>'text' as body, va.reply_rate_percent,
+       va.effectiveness_score, LENGTH(wt.components->0->>'text') as body_length
+FROM whatsapp_templates wt
+JOIN template_groups tg ON wt.template_group_id = tg.id
+LEFT JOIN v_template_analytics va ON va.template_id = wt.id
+WHERE tg.name ILIKE '%NOMBRE_GRUPO%'
+  AND wt.is_deleted = false
+ORDER BY va.effectiveness_score DESC NULLS LAST;
+```
+
+#### 2.5.4 Analizar patrones ganadores
+Con los datos obtenidos, ANTES de generar, identificar:
+1. **Top 3 performers** por effectiveness_score — leer su body text completo
+2. **Patrones de longitud** — correlacionar chars vs reply_rate (templates cortos suelen ganar)
+3. **CTA ganador** — identificar que tipo de cierre genera mas respuestas ("Le cuento?", "Le interesa?", etc.)
+4. **Tecnicas exitosas** — que tecnicas psicologicas usan los top performers
+5. **Anti-patrones** — que tienen en comun los templates con 0% reply rate
+6. **Tendencias** — templates mejorando vs degradandose (campo trend)
+
+#### 2.5.5 Aplicar insights a la generacion
+Las nuevas plantillas DEBEN:
+- Seguir los patrones de longitud de los top performers (no los templates con 0% reply)
+- Usar CTAs similares a los que generan mas respuestas
+- Evitar estructuras que aparecen en templates con 0% reply
+- Combinar tecnicas nuevas con estructuras probadas
+- Presentar un "Analisis Data-Driven" ANTES de las plantillas mostrando:
+  - Top performers del grupo con reply rates
+  - Patrones identificados
+  - Como se aplicaron a las nuevas plantillas
+
+#### Patrones Historicos Comprobados (actualizar con cada analisis)
+- **Templates < 140 chars** tienen mayor reply rate que templates largos
+- **"Le cuento?"** y **"Le cuento de que se trata?"** son los CTAs con mejor conversion
+- **Curiosity Gap pura** (no revelar detalles) supera otros enfoques en cold outreach
+- **Escasez especifica** ("se libero UN espacio") > escasez generica ("hay oportunidad")
+- **Reconocer al ocupado** ("si me regala 3 minutos") genera respeto y respuesta
+- **Contraste** ("suena inalcanzable, pero...") funciona especialmente para familias
+- **Templates genericos sin hook** (ej: "se acerca un puente perfecto") tienden a 0% reply
+- **Social proof sin personalizar** (ej: "varias familias separaron") tiende a 0% reply
 
 ### Paso 3: Seleccionar tecnicas psicologicas
 - Elegir N tecnicas DISTINTAS de la biblioteca (1 por template)
@@ -471,41 +561,56 @@ Antes de presentar CADA template, verificar:
 
 Cuando se invoca con `analizar grupo "X"`:
 
-### 1. Consultar datos
+### 1. Consultar datos (3 vistas + body text)
 ```sql
--- Health del grupo
+-- 1A. Health del grupo (dashboard)
 SELECT * FROM v_template_group_health WHERE group_name ILIKE '%X%';
 
--- Templates del grupo con body
-SELECT wt.name, wt.status, wt.is_active, wt.category, wt.tags,
-  wt.components->0->>'text' as body
+-- 1B. Analytics por template (effectiveness, reply rates, tiempos, horarios)
+SELECT va.*
+FROM v_template_analytics va
+JOIN whatsapp_templates wt ON wt.id = va.template_id
+JOIN template_groups tg ON tg.id = wt.template_group_id
+WHERE tg.name ILIKE '%X%' AND wt.is_deleted = false
+ORDER BY va.effectiveness_score DESC NULLS LAST;
+
+-- 1C. Health por template (delivery, failure, trend, alerts)
+SELECT vh.*
+FROM v_template_health vh
+JOIN whatsapp_templates wt ON wt.id = vh.template_id
+JOIN template_groups tg ON tg.id = wt.template_group_id
+WHERE tg.name ILIKE '%X%' AND wt.is_deleted = false
+ORDER BY vh.health_status, vh.template_name;
+
+-- 1D. Body text de cada template
+SELECT wt.name, wt.components->0->>'text' as body, wt.category, wt.tags,
+       LENGTH(wt.components->0->>'text') as body_length
 FROM whatsapp_templates wt
 JOIN template_groups tg ON wt.template_group_id = tg.id
 WHERE tg.name ILIKE '%X%' AND COALESCE(wt.is_deleted, false) = false;
-
--- Envios recientes
-SELECT wt.name as template_name, COUNT(*) as sends,
-  COUNT(*) FILTER (WHERE mw.status_mensaje = 'delivered') as delivered,
-  COUNT(*) FILTER (WHERE mw.respondio = true) as replied
-FROM mensajes_whatsapp mw
-JOIN whatsapp_templates wt ON mw.template_name = wt.name
-JOIN template_groups tg ON wt.template_group_id = tg.id
-WHERE tg.name ILIKE '%X%' AND mw.fecha_hora > NOW() - INTERVAL '30 days'
-GROUP BY wt.name;
 ```
 
-### 2. Analizar
-- **Health status**: Verde/Amarillo/Rojo y por que
-- **Reply rate**: Comparar con benchmark (30% = bueno para marketing, 50% = bueno para utility)
-- **Tecnicas usadas**: Identificar que tecnicas psicologicas usa cada template existente
-- **Gaps**: Que tecnicas NO se estan usando y podrian mejorar performance
-- **Concentracion**: Si hay demasiados templates con la misma estructura
+### 2. Analizar con datos reales
+- **Health status**: grupo_status (healthy/mixed/degraded/blocked) y distribucion de templates
+- **Top performers**: Templates con mayor effectiveness_score y reply_rate_percent
+- **Anti-patrones**: Templates con 0% reply rate — analizar POR QUE no funcionan
+- **Reply rate por ventana**: Comparar reply_rate_7d vs reply_rate_30d vs all-time (detectar tendencias)
+- **Delivery health**: failure_rate_24h, trend (improving/stable/degrading/spiraling)
+- **Longitud vs performance**: Correlacionar body_length con reply_rate para el grupo
+- **CTA analysis**: Que tipo de cierre ("Le cuento?", "Le interesa?", "Quiere saber?") genera mas replies
+- **Tecnicas usadas**: Identificar tecnica psicologica de cada template existente
+- **Gaps**: Tecnicas NO usadas que podrian mejorar performance
+- **Mejores horarios**: best_send_hour y best_send_day de top performers
+- **Confidence**: Solo confiar en metricas de templates con confidence "high" (>20 envios/24h)
 - **Variables**: Si el nivel de variables es apropiado para el grupo
 
-### 3. Recomendar
-- Templates especificos con bajo performance para reemplazar
-- Nuevas tecnicas a incorporar
-- Ajustes de tono o estructura
+### 3. Recomendar con evidencia
+- Templates especificos con bajo performance para reemplazar (citar effectiveness_score)
+- Patrones de los top performers que se deben replicar
+- Anti-patrones de templates con 0% reply que se deben evitar
+- Nuevas tecnicas a incorporar basadas en gaps identificados
+- Longitud objetivo basada en correlacion real de datos
+- Mejores horarios de envio para el coordinador
 - Si conviene crear templates nuevos o editar existentes
 
 ---
