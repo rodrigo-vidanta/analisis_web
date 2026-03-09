@@ -1,3 +1,12 @@
+## [v2.28.0] - 2026-03-09
+
+**B10.2.0N2.28.0** - 1 feature
+
+### Features
+- add per-template health stats with admin-only visibility (`3ea56f7`)
+
+---
+
 ## [v2.27.0] - 2026-03-08
 
 **B10.2.0N2.27.0** - 1 feature + Cuando un prospecto llega desde un anuncio **Click + Se detectaron 40 plantillas WhatsApp en estado PEN
