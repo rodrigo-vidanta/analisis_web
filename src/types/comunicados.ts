@@ -128,4 +128,14 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Tutorial: Grupos Inteligentes de Plantillas',
     description: 'Tutorial interactivo sobre el nuevo sistema de envio de plantillas por grupos con seleccion automatica',
   },
+  {
+    component_key: 'bulk-reassignment-supervisor-tutorial',
+    label: 'Tutorial: Reasignación Masiva (Supervisores)',
+    description: 'Tutorial interactivo que explica a supervisores como usar la reasignacion masiva de prospectos, restricciones y limitaciones',
+  },
+  {
+    component_key: 'import-10-urls-tutorial',
+    label: 'Importa hasta 10 Prospectos',
+    description: 'Comunicado animado celebrando el aumento del limite de importacion de 5 a 10 URLs simultaneas',
+  },
 ];
