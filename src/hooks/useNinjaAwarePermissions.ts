@@ -45,7 +45,7 @@ interface NinjaAwarePermissions {
   hasPermission: (permissionName: string) => boolean;
   canAccessModule: (module: string, subModule?: string) => boolean;
   canAccessLiveMonitor: () => boolean;
-  canAccessSubModule: (subModule: 'natalia' | 'pqnc') => boolean;
+  canAccessSubModule: (subModule: 'pqnc') => boolean;
   
   // Helpers de rol
   isEffectiveAdmin: boolean;
@@ -67,12 +67,12 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, {
 }> = {
   admin: {
     modules: ['analisis', 'prospectos', 'live-chat', 'live-monitor', 'admin', 'scheduled-calls', 'campaigns'],
-    subModules: ['natalia', 'pqnc'],
+    subModules: ['pqnc'],
     liveMonitor: true
   },
   developer: {
-    modules: ['analisis', 'live-monitor', 'ai-models'],
-    subModules: ['natalia', 'pqnc'],
+    modules: ['analisis', 'live-monitor'],
+    subModules: ['pqnc'],
     liveMonitor: true
   },
   coordinador: {
@@ -96,19 +96,14 @@ const ROLE_DEFAULT_PERMISSIONS: Record<string, {
     liveMonitor: true
   },
   productor: {
-    modules: ['ai-models'],
+    modules: ['admin'],
     subModules: [],
     liveMonitor: false
   },
   evaluator: {
     modules: ['analisis'],
-    subModules: ['natalia', 'pqnc'],
+    subModules: ['pqnc'],
     liveMonitor: true
-  },
-  direccion: {
-    modules: ['direccion'],
-    subModules: [],
-    liveMonitor: false
   },
   marketing: {
     modules: ['campaigns', 'support'],
@@ -276,7 +271,7 @@ export function useNinjaAwarePermissions(): NinjaAwarePermissions {
   // ============================================
   // VERIFICAR ACCESO A SUBMÓDULO
   // ============================================
-  const canAccessSubModule = useCallback((subModule: 'natalia' | 'pqnc'): boolean => {
+  const canAccessSubModule = useCallback((subModule: 'pqnc'): boolean => {
     // Si NO está en modo ninja, usar auth normal
     if (!isNinjaMode) {
       return auth.canAccessSubModule(subModule);

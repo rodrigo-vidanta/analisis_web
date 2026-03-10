@@ -753,7 +753,7 @@ export interface TemplateHourlyHeatmap {
 }
 
 /** Rango de fecha para analítica */
-export type AnalyticsDateRange = 'week' | 'month' | 'year';
+export type AnalyticsDateRange = '24h' | 'week' | 'month' | '6months' | 'year';
 
 /** Intervalo de agrupación temporal */
 export type AnalyticsInterval = 'day' | 'week' | 'month';
@@ -769,13 +769,22 @@ export interface TemplateAnalyticsRow {
   health_status: TemplateHealthStatus;
   trend: TemplateHealthTrend;
   confidence: TemplateHealthConfidence;
+  // Envíos por ventana temporal
+  sends_24h: number;
   sends_7d: number;
+  sends_last_30d: number;
+  total_sends: number;
+  total_replies: number;
+  // Reply rates por ventana temporal
+  reply_rate_24h: number | null;
+  reply_rate_7d_percent: number | null;
+  reply_rate_30d_percent: number | null;
   reply_rate_percent: number | null;
+  // Health
+  failure_rate_7d: number | null;
   effectiveness_score: number | null;
   best_send_hour: number | null;
   best_send_day: string | null;
-  total_sends: number;
-  total_replies: number;
 }
 
 /** Respuesta del webhook de envio por grupo */

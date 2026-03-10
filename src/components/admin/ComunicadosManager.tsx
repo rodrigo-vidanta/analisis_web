@@ -8,7 +8,7 @@
  * targeting por coordinacion/usuarios/roles, y gestion de tutoriales interactivos.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, Suspense, lazy } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus,
@@ -42,6 +42,7 @@ import {
   ChevronDown,
   Loader2,
   BarChart3,
+  RefreshCw,
 } from 'lucide-react';
 import { comunicadosService } from '../../services/comunicadosService';
 import { coordinacionService } from '../../services/coordinacionService';
@@ -60,6 +61,19 @@ import {
   COMUNICADO_TIPO_COLORS,
   INTERACTIVE_COMUNICADOS,
 } from '../../types/comunicados';
+import ComunicadoCard from '../comunicados/ComunicadoCard';
+
+// Registry de componentes interactivos para vista previa
+const INTERACTIVE_PREVIEW_REGISTRY: Record<string, React.LazyExoticComponent<React.FC<{ onComplete: () => void }>>> = {
+  'utility-template-tutorial': lazy(() => import('../comunicados/tutorials/UtilityTemplateTutorial')),
+  'delivery-checks-tutorial': lazy(() => import('../comunicados/tutorials/DeliveryChecksTutorial')),
+  'undelivered-template-tutorial': lazy(() => import('../comunicados/tutorials/UndeliveredTemplateTutorial')),
+  'notas-internas-admin-tutorial': lazy(() => import('../comunicados/tutorials/NotasInternasAdminTutorial')),
+  'notas-internas-ejecutivo-tutorial': lazy(() => import('../comunicados/tutorials/NotasInternasEjecutivoTutorial')),
+  'template-groups-tutorial': lazy(() => import('../comunicados/tutorials/TemplateGroupsTutorial')),
+  'bulk-reassignment-supervisor-tutorial': lazy(() => import('../comunicados/tutorials/BulkReassignmentSupervisorTutorial')),
+  'import-10-urls-tutorial': lazy(() => import('../comunicados/tutorials/Import10UrlsTutorial')),
+};
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   Info, Sparkles, GraduationCap, Wrench, AlertTriangle, Bell, Shield, Zap,
@@ -93,6 +107,7 @@ const ComunicadosManager: React.FC = () => {
   const [showEditor, setShowEditor] = useState(false);
   const [editingComunicado, setEditingComunicado] = useState<Comunicado | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [previewComunicado, setPreviewComunicado] = useState<Comunicado | null>(null);
 
   // Editor state
   const [editorTitulo, setEditorTitulo] = useState('');
@@ -279,6 +294,20 @@ const ComunicadosManager: React.FC = () => {
     [loadData]
   );
 
+  const handleRedistribute = useCallback(
+    async (id: string, readCount: number) => {
+      const confirmMsg = readCount > 0
+        ? `Se resetearán ${readCount} lecturas. Todos los usuarios volverán a ver este comunicado. ¿Continuar?`
+        : 'Este comunicado se reactivará y todos los usuarios lo verán. ¿Continuar?';
+      if (!window.confirm(confirmMsg)) return;
+      setActionLoading(id);
+      await comunicadosService.redistributeComunicado(id);
+      setActionLoading(null);
+      loadData();
+    },
+    [loadData]
+  );
+
   const getTargetLabel = (c: Comunicado) => {
     switch (c.target_type) {
       case 'todos':
@@ -438,6 +467,24 @@ const ComunicadosManager: React.FC = () => {
                                   <Archive className="w-3.5 h-3.5" />
                                 </button>
                               )}
+                              {c.estado !== 'borrador' && (
+                                <>
+                                  <button
+                                    onClick={() => setPreviewComunicado(c)}
+                                    className="p-1.5 rounded hover:bg-cyan-500/10 text-gray-400 hover:text-cyan-400 transition-colors"
+                                    title="Vista previa"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRedistribute(c.id, c.read_count)}
+                                    className="p-1.5 rounded hover:bg-orange-500/10 text-gray-400 hover:text-orange-400 transition-colors"
+                                    title="Redistribuir"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                               <button
                                 onClick={() => openEditor(c)}
                                 className="p-1.5 rounded hover:bg-blue-500/10 text-gray-400 hover:text-blue-400 transition-colors"
@@ -522,6 +569,24 @@ const ComunicadosManager: React.FC = () => {
                             <Loader2 className="w-4 h-4 text-gray-500 animate-spin" />
                           ) : (
                             <>
+                              {c.estado !== 'borrador' && (
+                                <>
+                                  <button
+                                    onClick={() => setPreviewComunicado(c)}
+                                    className="p-1.5 rounded hover:bg-cyan-500/10 text-gray-400 hover:text-cyan-400 transition-colors"
+                                    title="Vista previa"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleRedistribute(c.id, c.read_count)}
+                                    className="p-1.5 rounded hover:bg-orange-500/10 text-gray-400 hover:text-orange-400 transition-colors"
+                                    title="Redistribuir"
+                                  >
+                                    <RefreshCw className="w-3.5 h-3.5" />
+                                  </button>
+                                </>
+                              )}
                               {c.estado === 'borrador' && (
                                 <button
                                   onClick={() => handlePublish(c.id)}
@@ -552,6 +617,79 @@ const ComunicadosManager: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Preview Modal */}
+      <AnimatePresence>
+        {previewComunicado && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setPreviewComunicado(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-950 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-800 max-h-[90vh] flex flex-col"
+            >
+              {/* Preview Header */}
+              <div className="px-6 py-3 border-b border-gray-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-cyan-400" />
+                  <span className="text-sm font-medium text-gray-300">Vista previa</span>
+                </div>
+                <button
+                  onClick={() => setPreviewComunicado(null)}
+                  className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Preview Content */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {previewComunicado.is_interactive && previewComunicado.component_key ? (
+                  (() => {
+                    const PreviewComponent = INTERACTIVE_PREVIEW_REGISTRY[previewComunicado.component_key];
+                    return PreviewComponent ? (
+                      <Suspense
+                        fallback={
+                          <div className="flex items-center justify-center py-20">
+                            <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
+                          </div>
+                        }
+                      >
+                        <PreviewComponent onComplete={() => setPreviewComunicado(null)} />
+                      </Suspense>
+                    ) : (
+                      <div className="text-center py-10 text-gray-500">
+                        Componente no encontrado: {previewComunicado.component_key}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <ComunicadoCard comunicado={previewComunicado} />
+                )}
+              </div>
+
+              {/* Preview Footer */}
+              {!previewComunicado.is_interactive && (
+                <div className="px-6 py-4 border-t border-gray-800 flex justify-end">
+                  <button
+                    onClick={() => setPreviewComunicado(null)}
+                    className="px-4 py-2 rounded-lg bg-gray-800 hover:bg-gray-700 text-sm text-gray-300 transition-colors"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Editor Modal */}
       <AnimatePresence>

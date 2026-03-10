@@ -83,7 +83,6 @@ export type RoleBase =
   | 'ejecutivo'
   | 'evaluador'
   | 'developer'
-  | 'direccion'
   | 'marketing';
 
 export interface ModuleAction {
@@ -505,59 +504,6 @@ export const MODULE_CATALOG: ModuleDefinition[] = [
         description: 'Eliminar llamada programada',
         defaultRoles: ['admin', 'coordinador', 'ejecutivo'],
         scopeRestricted: true
-      }
-    ]
-  },
-
-  // ========== DIRECCIÓN ==========
-  {
-    id: 'direccion',
-    name: 'Dirección',
-    description: 'Timeline y gestión de actividades para dirección',
-    icon: 'Briefcase',
-    color: 'from-gray-600 to-gray-700',
-    actions: [
-      {
-        id: 'view',
-        name: 'Ver timeline',
-        description: 'Acceder al módulo de dirección',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'create_activity',
-        name: 'Crear actividad',
-        description: 'Crear nuevas actividades',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'edit_activity',
-        name: 'Editar actividad',
-        description: 'Modificar actividades existentes',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'delete_activity',
-        name: 'Eliminar actividad',
-        description: 'Eliminar actividades',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'archive_activity',
-        name: 'Archivar actividad',
-        description: 'Archivar actividades completadas',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'add_subtask',
-        name: 'Añadir subtarea',
-        description: 'Agregar subtareas a actividades',
-        defaultRoles: ['admin', 'direccion']
-      },
-      {
-        id: 'process_with_ai',
-        name: 'Procesar con IA',
-        description: 'Usar IA para estructurar actividades',
-        defaultRoles: ['admin', 'direccion']
       }
     ]
   },

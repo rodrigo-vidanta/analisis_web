@@ -21,16 +21,13 @@ const LiveMonitorKanban = lazy(() => import('./analysis/LiveMonitorKanban'));
 const AdminDashboardTabs = lazy(() => import('./admin/AdminDashboardTabs'));
 const LinearLayout = lazy(() => import('./linear/LinearLayout'));
 const LinearLiveMonitor = lazy(() => import('./linear/LinearLiveMonitor'));
-const AIModelsManager = lazy(() => import('./ai-models/AIModelsManager'));
 const LiveChatModule = lazy(() => import('./chat/LiveChatModule'));
 const ProspectosManager = lazy(() => import('./prospectos/ProspectosManager'));
 const ScheduledCallsManager = lazy(() => import('./scheduled-calls/ScheduledCallsManager'));
 const OperativeDashboard = lazy(() => import('./dashboard/OperativeDashboard').then(m => ({ default: m.OperativeDashboard })));
 const DashboardModule = lazy(() => import('./dashboard/DashboardModule'));
 const CampaignsDashboardTabs = lazy(() => import('./campaigns/CampaignsDashboardTabs'));
-const AnalysisIAComplete = lazy(() => import('./analysis/AnalysisIAComplete'));
 const ChangePasswordModal = lazy(() => import('./auth/ChangePasswordModal'));
-const Timeline = lazy(() => import('./direccion/Timeline'));
 const ForceUpdateModal = lazy(() => import('./shared/ForceUpdateModal'));
 const ComunicadoOverlay = lazy(() => import('./comunicados/ComunicadoOverlay'));
 const LiveCallActivityWidget = lazy(() => import('./live-activity').then(m => ({ default: m.LiveCallActivityWidget })));
@@ -189,16 +186,9 @@ function MainApp() {
       toggleDarkMode();
     }
     
-    // Aplicar tema al documento inmediatamente (excepto módulo direccion)
-    // El módulo direccion maneja su propio tema, así que no aplicamos clase dark aquí
-    if (appMode !== 'direccion') {
-      if (shouldBeDark) {
-        document.documentElement.classList.add('dark');
-      } else {
-        document.documentElement.classList.remove('dark');
-      }
+    if (shouldBeDark) {
+      document.documentElement.classList.add('dark');
     } else {
-      // Asegurar que direccion no tenga clase dark
       document.documentElement.classList.remove('dark');
     }
     
@@ -208,13 +198,6 @@ function MainApp() {
   }, [appMode, darkMode, toggleDarkMode]);
 
   useEffect(() => {
-    // Excluir módulo direccion del sistema de temas global
-    if (appMode === 'direccion') {
-      // Remover clase dark del documento para que direccion maneje su propio tema
-      document.documentElement.classList.remove('dark');
-      return;
-    }
-    
     // Usar localDarkMode para todos los módulos
     const shouldBeDark = localDarkMode;
     
@@ -287,13 +270,6 @@ function MainApp() {
   
   useEffect(() => {
     if (isAuthenticated && user && !hasInitializedRedirect) {
-      // Si el usuario tiene rol direccion, redirigir directamente al timeline y forzar el modo
-      if (user.role_name === 'direccion') {
-        setAppMode('direccion');
-        setHasInitializedRedirect(true);
-        return;
-      }
-      
       // Solo redirigir automáticamente en el login inicial
       const firstModule = getFirstAvailableModule();
       if (firstModule) {
@@ -303,19 +279,7 @@ function MainApp() {
     }
   }, [isAuthenticated, user, hasInitializedRedirect, getFirstAvailableModule, setAppMode, appMode]);
 
-  // Bloquear cambio de módulo para usuarios con rol direccion
-  useEffect(() => {
-    if (user?.role_name === 'direccion' && appMode !== 'direccion') {
-      setAppMode('direccion');
-    }
-  }, [user?.role_name, appMode, setAppMode]);
-
   const handleToggleDarkMode = () => {
-    // Excluir módulo direccion del toggle global
-    if (appMode === 'direccion') {
-      return;
-    }
-    
     // Cambiar estado local y sincronizar globalmente
     const newDarkMode = !localDarkMode;
     setLocalDarkMode(newDarkMode);
@@ -397,14 +361,6 @@ function MainApp() {
   // Función para renderizar contenido según el modo
   const renderContent = () => {
     switch (appMode) {
-      case 'natalia':
-        // Módulo oculto pero código preservado
-        return (
-          <ProtectedRoute requireModule="analisis" requireSubModule="natalia">
-            <AnalysisIAComplete />
-          </ProtectedRoute>
-        );
-        // return null; // Oculto temporalmente
       case 'pqnc':
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="pqnc">
@@ -417,8 +373,6 @@ function MainApp() {
             {isLinearTheme ? <LinearLiveMonitor /> : <LiveMonitorKanban />}
           </ProtectedRoute>
         );
-      case 'ai-models':
-        return <AIModelsManager />;
       case 'live-chat':
         return (
           <ProtectedRoute requireModule="live-chat">
@@ -499,9 +453,6 @@ function MainApp() {
           )
         );
 
-      case 'direccion':
-        // Módulo completamente desacoplado - diseño independiente
-        return <Timeline />;
 
       case 'operative-dashboard':
         return (
@@ -560,21 +511,6 @@ function MainApp() {
   };
 
   const themeClasses = getThemeClasses();
-
-  // Si es módulo dirección, renderizar sin layout (completamente desacoplado)
-  if (appMode === 'direccion') {
-    return (
-      <>
-        <Suspense fallback={<ModuleLoader />}>
-          {renderContent()}
-        </Suspense>
-        <Suspense fallback={null}>
-          <LiveCallActivityWidget />
-          <ComunicadoOverlay />
-        </Suspense>
-      </>
-    );
-  }
 
   // Si el tema Linear está activo, usar layout completamente diferente
   if (isLinearTheme) {

@@ -2316,13 +2316,22 @@ class WhatsAppTemplatesService {
         health_status: health?.health_status || 'no_data',
         trend: health?.trend || 'no_data',
         confidence: health?.confidence || 'low',
+        // Envíos por ventana temporal
+        sends_24h: health?.sends_24h || 0,
         sends_7d: health?.sends_7d || 0,
+        sends_last_30d: analytics?.sends_last_30d || 0,
+        total_sends: analytics?.total_sends || 0,
+        total_replies: analytics?.total_replies || 0,
+        // Reply rates por ventana temporal
+        reply_rate_24h: health?.reply_rate_24h != null ? Number(health.reply_rate_24h) : null,
+        reply_rate_7d_percent: analytics?.reply_rate_7d_percent ?? null,
+        reply_rate_30d_percent: analytics?.reply_rate_30d_percent ?? null,
         reply_rate_percent: analytics?.reply_rate_percent ?? null,
+        // Health
+        failure_rate_7d: health?.failure_rate_7d != null ? Number(health.failure_rate_7d) : null,
         effectiveness_score: analytics?.effectiveness_score ?? null,
         best_send_hour: analytics?.best_send_hour ?? null,
         best_send_day: analytics?.best_send_day ?? null,
-        total_sends: analytics?.total_sends || 0,
-        total_replies: analytics?.total_replies || 0,
       };
     });
   }

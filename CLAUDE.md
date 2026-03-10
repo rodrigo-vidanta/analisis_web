@@ -86,3 +86,5 @@ Para tareas complejas por dominio, usar subagentes con contexto de:
 - `aws-agent.md` - AWS infra: ECS, RDS, S3, CloudFront, Redis, VPC, Route53, costos (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `vapi-agent.md` - VAPI voice AI: llamadas, assistants, phones, tools, analytics, logs, assistant override N8N (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `railway-agent.md` - Railway infra: N8N, PostgreSQL, Redis, microservicios, funciones, volumes, deploys, escalado (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+- `twilio-agent.md` - Twilio: llamadas, phone numbers, TwiML Apps, SIP, conferencias, grabaciones, Voice SDK browser, messaging WhatsApp (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+- `twilio-voice-sdk-agent.md` - Twilio Voice SDK browser: Device, Call, AudioHelper, Access Tokens, React hooks, conference transfers, implementacion VAPI→Client (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)

@@ -540,33 +540,25 @@ class AuthService {
     
     switch (module) {
       case 'analisis':
-        if (role === 'direccion' || role === 'administrador_operativo') return false;
+        if (role === 'administrador_operativo') return false;
         // Supervisores NO tienen acceso a PQNC Humans (solo Live Monitor)
         return ['admin', 'evaluator', 'developer', 'coordinador', 'ejecutivo'].includes(role);
       
       case 'ai-models':
-        if (role === 'direccion') return false;
         return ['productor', 'admin', 'developer'].includes(role);
-      
+
       case 'live-chat':
-        if (role === 'direccion') return false;
         return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
-      
+
       case 'live-monitor':
-        if (role === 'direccion') return false;
         return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
-      
+
       case 'prospectos':
-        if (role === 'direccion') return false;
         return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo', 'evaluator', 'developer'].includes(role);
-      
+
       case 'scheduled-calls':
-        if (role === 'direccion') return false;
         return ['admin', 'administrador_operativo', 'coordinador', 'supervisor', 'ejecutivo'].includes(role);
-      
-      case 'direccion':
-        return ['direccion', 'admin', 'administrador_operativo', 'coordinador', 'ejecutivo'].includes(role);
-      
+
       case 'admin':
         return ['admin', 'administrador_operativo', 'coordinador'].includes(role);
       
@@ -583,7 +575,6 @@ class AuthService {
         return ['admin', 'developer'].includes(role);
 
       default:
-        if (role === 'direccion') return false;
         if (role === 'admin') return true;
         if (role === 'developer') return module !== 'admin';
         
@@ -596,7 +587,7 @@ class AuthService {
     }
   }
 
-  canAccessSubModule(subModule: 'natalia' | 'pqnc'): boolean {
+  canAccessSubModule(subModule: 'pqnc'): boolean {
     if (!this.currentUser) return false;
     if (this.currentUser.role_name === 'admin') return true;
     if (this.currentUser.role_name === 'developer') return false;

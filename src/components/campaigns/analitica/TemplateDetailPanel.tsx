@@ -38,16 +38,14 @@ const HourlyHeatmap: React.FC<{ data: TemplateHourlyHeatmap[] }> = ({ data }) =>
   const getColor = (sends: number, replyRate: number): string => {
     if (sends === 0) return 'bg-gray-100 dark:bg-gray-700/50';
     const intensity = sends / maxSends;
+    // Semáforo: verde (>20%), amarillo (>10%), rojo (<= 10%)
     if (replyRate > 20) {
-      if (intensity > 0.5) return 'bg-emerald-500 dark:bg-emerald-500';
-      return 'bg-emerald-300 dark:bg-emerald-700';
+      return intensity > 0.5 ? 'bg-emerald-500' : 'bg-emerald-300 dark:bg-emerald-700';
     }
     if (replyRate > 10) {
-      if (intensity > 0.5) return 'bg-indigo-500 dark:bg-indigo-500';
-      return 'bg-indigo-300 dark:bg-indigo-700';
+      return intensity > 0.5 ? 'bg-amber-500' : 'bg-amber-300 dark:bg-amber-700';
     }
-    if (intensity > 0.5) return 'bg-indigo-400 dark:bg-indigo-600';
-    return 'bg-indigo-200 dark:bg-indigo-800';
+    return intensity > 0.5 ? 'bg-red-500' : 'bg-red-300 dark:bg-red-700';
   };
 
   return (
@@ -109,16 +107,16 @@ const HourlyHeatmap: React.FC<{ data: TemplateHourlyHeatmap[] }> = ({ data }) =>
           <span className="text-xs text-gray-400">Sin datos</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm bg-indigo-200 dark:bg-indigo-800" />
-          <span className="text-xs text-gray-400">Bajo</span>
+          <div className="w-3 h-3 rounded-sm bg-red-400" />
+          <span className="text-xs text-gray-400">&lt;10%</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm bg-indigo-500" />
-          <span className="text-xs text-gray-400">Alto</span>
+          <div className="w-3 h-3 rounded-sm bg-amber-500" />
+          <span className="text-xs text-gray-400">10-20%</span>
         </div>
         <div className="flex items-center gap-1">
           <div className="w-3 h-3 rounded-sm bg-emerald-500" />
-          <span className="text-xs text-gray-400">&gt;20% resp.</span>
+          <span className="text-xs text-gray-400">&gt;20%</span>
         </div>
       </div>
     </div>

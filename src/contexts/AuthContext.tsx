@@ -27,11 +27,11 @@ interface AuthContextType extends AuthState {
   logout: (backupId?: string) => Promise<void>;
   hasPermission: (permissionName: string) => boolean;
   canAccessModule: (module: string, subModule?: string) => boolean;
-  canAccessSubModule: (subModule: 'natalia' | 'pqnc') => boolean;
+  canAccessSubModule: (subModule: 'pqnc') => boolean;
   canAccessLiveMonitor: () => boolean;
   checkAnalysisPermissions: () => Promise<{natalia: boolean, pqnc: boolean}>;
   getModulePermissions: (module: string) => Permission[];
-  getFirstAvailableModule: () => 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | null;
+  getFirstAvailableModule: () => 'pqnc' | 'live-monitor' | 'admin' | 'live-chat' | 'operative-dashboard' | 'campaigns' | null;
   refreshUser: () => Promise<void>;
   // Indica si el usuario real (no suplantado) es admin
   isRealAdmin: boolean;
@@ -514,7 +514,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Verificar acceso a sub-módulos de análisis usando permisos específicos
-  const canAccessSubModule = (subModule: 'natalia' | 'pqnc'): boolean => {
+  const canAccessSubModule = (subModule: 'pqnc'): boolean => {
     if (!authState.user) return false;
     
     // Admins tienen acceso completo
@@ -693,13 +693,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // Obtener primer módulo disponible para el usuario
-  const getFirstAvailableModule = (): 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'ai-models' | 'live-chat' | 'direccion' | 'operative-dashboard' | 'campaigns' | null => {
+  const getFirstAvailableModule = (): 'pqnc' | 'live-monitor' | 'admin' | 'live-chat' | 'operative-dashboard' | 'campaigns' | null => {
     if (!authState.user) return null;
-
-    // Si el usuario tiene rol direccion, solo puede acceder al módulo direccion
-    if (authState.user.role_name === 'direccion') {
-      return 'direccion';
-    }
 
     // Marketing: solo Campañas y Soporte
     if (authState.user.role_name === 'marketing') {
@@ -714,13 +709,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }
     
-    // AI Models para productor y developer (admin ahora va a operative-dashboard)
+    // Productor y developer: ir a admin
     if (['productor', 'developer'].includes(authState.user.role_name)) {
-      return 'ai-models';
+      return 'admin';
     }
-    
+
     // Priorizar submódulos específicos de análisis
-    if (canAccessModule('analisis') && canAccessSubModule('natalia')) return 'natalia';
     if (canAccessModule('analisis') && canAccessSubModule('pqnc')) return 'pqnc';
     if (canAccessLiveMonitor()) return 'live-monitor';
     

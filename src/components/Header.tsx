@@ -220,10 +220,10 @@ interface HeaderProps {
   progress?: number;
   progressText?: string;
   darkMode: boolean;
-  appMode?: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'direccion' | 'live-chat' | 'ai-models' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns';
+  appMode?: 'pqnc' | 'live-monitor' | 'admin' | 'live-chat' | 'prospectos' | 'scheduled-calls' | 'operative-dashboard' | 'campaigns' | 'dashboard';
   onToggleDarkMode: () => void;
   onReset?: () => void;
-  onModeChange?: (mode: 'natalia' | 'pqnc' | 'live-monitor' | 'admin' | 'direccion' | 'live-chat' | 'ai-models' | 'prospectos' | 'scheduled-calls' | 'analisis' | 'operative-dashboard' | 'campaigns') => void;
+  onModeChange?: (mode: 'pqnc' | 'live-monitor' | 'admin' | 'live-chat' | 'prospectos' | 'scheduled-calls' | 'operative-dashboard' | 'campaigns' | 'dashboard') => void;
   simplified?: boolean;
   onToggleSidebar?: () => void;
 }
@@ -443,17 +443,14 @@ const Header = ({
               <div className="flex items-center gap-3 min-w-0">
                 <div className="min-w-0">
                   <h1 className="text-lg font-medium text-gray-900 dark:text-white capitalize truncate">
-                    {appMode === 'natalia' ? 'Análisis Natalia IA' :
-                     appMode === 'pqnc' ? 'Llamadas PQNC' :
+                    {appMode === 'pqnc' ? 'Llamadas PQNC' :
                      appMode === 'live-monitor' ? 'Llamadas IA' :
                      appMode === 'admin' ? 'Administración' :
                      appMode === 'live-chat' ? 'WhatsApp' :
-                     appMode === 'ai-models' ? 'Modelos LLM' :
                      appMode === 'prospectos' ? 'Prospectos' :
                      appMode === 'scheduled-calls' ? 'Programación' :
                      appMode === 'operative-dashboard' ? 'Inicio' :
                      appMode === 'campaigns' ? 'Campañas' :
-                     appMode === 'direccion' ? 'Mis Tareas' :
                      appMode === 'dashboard' ? 'Dashboard Ejecutivo' : 'PQNC AI Platform'}
                   </h1>
                   {appMode === 'live-monitor' && (
@@ -506,24 +503,9 @@ const Header = ({
                     Programación y seguimiento de llamadas agendadas
                   </p>
                 )}
-                {appMode === 'ai-models' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Gestión avanzada de modelos de IA para voz e imágenes
-                  </p>
-                )}
                 {appMode === 'admin' && (
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                     Administración de plantillas y configuración del sistema
-                  </p>
-                )}
-                {appMode === 'direccion' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Gestión de tareas y asignaciones
-                  </p>
-                )}
-                {appMode === 'natalia' && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Análisis detallado de llamadas con IA Natalia
                   </p>
                 )}
                 {appMode === 'pqnc' && (
@@ -536,23 +518,6 @@ const Header = ({
 
             {/* Controles de usuario */}
             <div className="flex items-center space-x-2 flex-shrink-0">
-              
-              {/* Botón Mis Tareas para roles con acceso */}
-              {canAccessModule('direccion') && (
-                <button
-                  onClick={() => onModeChange?.('direccion')}
-                  className={`relative p-2 rounded-lg transition-all duration-300 group ${
-                    appMode === 'direccion'
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400'
-                  }`}
-                  title="Mis Tareas - Timeline de Actividades"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              )}
               
               {/* v2.2.17: Botón CRM - Visible para Admin y Coordinadores de Calidad */}
               {(isAdmin || isCoordinadorCalidad) && (
@@ -890,23 +855,6 @@ const Header = ({
 
           {/* Controles modernos */}
           <div className="flex items-center space-x-3">
-            {/* Botón Mis Tareas para roles con acceso */}
-            {canAccessModule('direccion') && (
-              <button 
-                onClick={() => onModeChange?.('direccion')}
-                className={`relative px-4 py-2 rounded-lg transition-all duration-300 group text-sm font-medium ${
-                  appMode === 'direccion'
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-600 text-white shadow-md'
-                    : 'bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
-                }`}
-                title="Mis Tareas - Timeline de Actividades"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            )}
-
             {/* Navegación principal */}
             <nav className="flex items-center space-x-1">
               {/* Módulos disponibles */}

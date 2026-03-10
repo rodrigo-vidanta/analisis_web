@@ -54,7 +54,7 @@ public/docs/
 .claude/settings.json
 .claude/agents/
 .claude/docs/vapi/
-.claude/skills/vapi/
+.claude/skills/
 scripts/vapi-cli.cjs
 scripts/uchat-cli.cjs
 scripts/n8n-cli.cjs

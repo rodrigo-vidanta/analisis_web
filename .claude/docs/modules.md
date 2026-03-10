@@ -70,6 +70,10 @@
 - `campanas/` - Editor campanas (A/B testing)
 - `plantillas/` - Plantillas WhatsApp (vista por grupos: GroupCard, GroupTemplatesSubModal, DeleteGroupConfirmationModal)
 - `secuencias/` - Secuencias automaticas
+- `analitica/` - Analitica de plantillas WhatsApp
+  - `TemplateAnalyticsModule.tsx` - Modulo principal: KPIs, filtros (grupo/plantilla + periodo 24h/7d/30d/6m/1a), funnel Plotly (Enviados→Recibidos→Respondidos), timeline global 4 lineas (Recharts), rankings Top 10
+  - `TemplateAnalyticsGrid.tsx` - DataGrid agrupado/colapsable por grupo de plantillas, columnas: envios, tasa resp., tasa fallo, efectividad, estado, tendencia
+  - `TemplateDetailPanel.tsx` - Sidebar detalle: KPIs, timeline individual, heatmap hora×dia (semaforo), errores
 
 ### Dashboard (`src/components/dashboard/`)
 - Dashboards personalizables con widgets

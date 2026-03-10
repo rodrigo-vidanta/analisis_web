@@ -326,6 +326,38 @@ class ComunicadosService {
   }
 
   /**
+   * Redistribuir comunicado: borra lecturas y reactiva.
+   * Los usuarios que ya lo leyeron lo volveran a ver.
+   */
+  async redistributeComunicado(id: string): Promise<boolean> {
+    try {
+      // 1. Borrar todos los registros de lectura
+      const { error: deleteError } = await analysisSupabase
+        .from('comunicado_reads')
+        .delete()
+        .eq('comunicado_id', id);
+
+      if (deleteError) throw deleteError;
+
+      // 2. Resetear read_count y reactivar si estaba archivado
+      const { error: updateError } = await analysisSupabase
+        .from('comunicados')
+        .update({
+          read_count: 0,
+          estado: 'activo' as ComunicadoEstado,
+          published_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+      return true;
+    } catch (error) {
+      console.error('Error redistribuyendo comunicado:', error);
+      return false;
+    }
+  }
+
+  /**
    * Eliminar comunicado
    */
   async deleteComunicado(id: string): Promise<boolean> {

@@ -4,7 +4,6 @@ import UserManagement from './UserManagement'; // ⚠️ DEPRECADO - Solo para c
 import UserManagementV2 from './UserManagementV2'; // ✅ ACTIVO - Versión enterprise en producción
 import SystemPreferences from './SystemPreferences';
 import DatabaseConfiguration from './DatabaseConfiguration';
-import TokenManagement from './TokenManagement';
 import EjecutivosManager from './EjecutivosManager';
 import CoordinacionesManager from './CoordinacionesManager';
 import AdminMessagesModal from './AdminMessagesModal';
@@ -42,7 +41,7 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'tokens' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets' | 'comunicados';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets' | 'comunicados';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -279,15 +278,6 @@ const AdminDashboardTabs: React.FC = () => {
         icon: (
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-          </svg>
-        )
-      },
-      {
-        id: 'tokens' as AdminTab,
-        name: 'Tokens AI',
-        icon: (
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
           </svg>
         )
       },
@@ -645,11 +635,6 @@ const AdminDashboardTabs: React.FC = () => {
                   </div>
                 )}
                 
-                {activeTab === 'tokens' && isAdmin && (
-                  <div className="p-4 sm:p-5 md:p-6 lg:p-8">
-                    <TokenManagement />
-                  </div>
-                )}
 
                 {activeTab === 'ejecutivos' && isCoordinador && (
                   <div className="p-4 sm:p-5 md:p-6 lg:p-8">

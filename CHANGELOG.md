@@ -1,3 +1,12 @@
+## [v2.30.1] - 2026-03-10
+
+**B10.2.0N2.30.1** - 2
+
+### Sesiones de trabajo
+- **2026-03-10-template-groups-audit-gancho-v2**: Los usuarios reportaron que algunas plantillas no encajaban en su grupo asignado. Ejemplo: en "Reenganche Suave" había una plantilla que pregunta por destino, lo cual puede dar la percepción de que no se pone atención al prospecto si ya se había hablado de un destino específico.
+
+---
+
 ## [v2.30.0] - 2026-03-10
 
 **B10.2.0N2.30.0** - 1 feature
