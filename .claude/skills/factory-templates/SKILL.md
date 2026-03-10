@@ -287,18 +287,19 @@ Consultar SIEMPRE antes de generar para evitar duplicar tonos/tecnicas.
 
 | Grupo | Templates | Status | Reply Rate Avg | Top Effectiveness | Sends 7d | Proposito | Variables | Excl. Envio |
 |-------|-----------|--------|----------------|-------------------|----------|-----------|-----------|-------------|
-| Actualizacion de Numero | 8 | mixed | 69.9% | N/A | 5,111 | Notificar cambio de WhatsApp (UTILITY) | 0-1 | SI |
-| Reenganche Suave | 6 | healthy | 50% | N/A | 198 | Reactivar prospectos frios, tono casual | 0-1 | NO |
+| Actualizacion de Numero | 8 | mixed | 69.9% | 60.0 (act_numero_fecha_vacaciones) | 5,111 | Notificar cambio de WhatsApp (UTILITY) | 0-1 | SI |
+| Reenganche Suave | 6 | healthy | 50% | 64.0 (reenganche_vacaciones_nombre) | 198 | Reactivar prospectos frios, tono casual | 0-1 | NO |
 | Retomar Negociacion | 6 (4 activos) | degraded | 25% | N/A | 395 | Prospectos con propuesta previa sin cierre | 1-2 | NO |
-| Con Reserva Pendiente | 5 (3 activos) | mixed | 20% | N/A | 124 | Certificado o reservacion iniciada | 1-2 | NO |
-| Gancho de Oportunidad | 16 | healthy | 27.0% | 42.5 (en_3minutos) | 306 | Hook de escasez/exclusividad, urgencia | 0-2 | NO |
-| Seguimiento Post-Contacto | 5 (2 activos) | mixed | 50% | N/A | 49 | Post-llamada, seguimiento genuino (UTILITY) | 1-2 | NO |
-| Seguimiento de Llamada | 5 (3 activos) | healthy | N/A | N/A | 35 | Post-intento de llamada fallida | 1-3 | NO |
-| Concierto: Series 2026 | 4 (2 activos) | healthy | N/A | N/A | 12 | Combo conciertos 2026 | 1-2 | NO |
-| Concierto: El Buki | 3 (2 activos) | mixed | 0% | N/A | 129 | Marco Antonio Solis en Vidanta | 1 | NO |
-| Concierto: Michael Buble | 3 (2 activos) | degraded | N/A | N/A | 141 | Michael Buble en Vidanta | 1 | NO |
+| Con Reserva Pendiente | 35 | healthy | 42.9% | 42.2 (estancia_pendiente) | 156 | Certificado o reservacion iniciada | 0-1 | NO |
+| Gancho de Oportunidad | 26 | healthy | 27.0% | 42.5 (en_3minutos) | 306 | Hook de escasez/exclusividad, urgencia | 0-2 | NO |
+| Primer Contacto Frio | 15 | new | N/A | N/A | 0 | Primer contacto con prospectos frios, tono premium-accesible | 0 | NO |
+| Seguimiento Post-Contacto | 5 (2 activos) | mixed | 50% | 54.3 (seg_retomar_platica) | 49 | Post-llamada, seguimiento genuino (UTILITY) | 1-2 | NO |
+| Seguimiento de Llamada | 5 (3 activos) | healthy | 48.6 (agendar_llamada_v2) | N/A | 35 | Post-intento de llamada fallida | 1-3 | NO |
+| Concierto: Series 2026 | 4 (2 activos) | healthy | 25.0% | 45.0 (conciertos_formato_unico) | 12 | Combo conciertos 2026 | 1-2 | NO |
+| Concierto: El Buki | 3 (2 activos) | mixed | 27.27% | 44.7 (buki_pregunta_directa) | 129 | Marco Antonio Solis en Vidanta | 1 | NO |
+| Concierto: Michael Buble | 3 (2 activos) | degraded | 18.18% | 40.9 (buble_solo_conocer) | 141 | Michael Buble en Vidanta | 1 | NO |
 | Viaje en Pareja | 3 (2 activos) | healthy | N/A | N/A | 3 | Templates segmentados parejas | 1-2 | NO |
-| Viaje en Familia | 10 | healthy | 18.1% | 35.0 (familia_contacto_planner) | 30 | Templates segmentados familias | 0 | NO |
+| Viaje en Familia | 20 | healthy | 18.1% | 43.6 (familia_contacto_planner) | 30 | Templates segmentados familias | 0 | NO |
 | Pendientes | 1 (0 activos) | blocked | N/A | N/A | 0 | Templates sin aprobar / sin Content SID | - | NO |
 
 ### Prioridades de Generacion
@@ -325,6 +326,15 @@ Consultar SIEMPRE antes de generar para evitar duplicar tonos/tecnicas.
 |----------|-----------|---------------|--------------|
 | familia_contacto_planner | 25.00% | 35.0 | Reciprocidad, "me especializo en familias" |
 | familia_lujo_accesible | 15.38% | 34.2 | Contraste "inalcanzable → accesible" |
+
+**Con Reserva Pendiente (WARM - prospectos con certificado):**
+| Template | Reply Rate | Effectiveness | Patron Clave |
+|----------|-----------|---------------|--------------|
+| estancia_pendiente | 20.37% (↑27.87% 7d) | 42.2 | Largo (363 chars), lista concreta, doble canal, median reply 2.8min |
+| reactivacion_por_outbound | 9.39% (↑18.09% 7d) | 24.9 | "proceso quedo pendiente" + "beneficios exclusivos" |
+| **Insight warm**: Templates largos con pasos concretos superan templates cortos de misterio |
+| **Replies reales**: 40% "Hola", 20% ya con fechas, 10% preguntan costos, 10% piden beneficios |
+| **Mejor hora**: 22h (10 PM) | **Error dominante**: 63049 (24h window, no calidad) |
 
 ---
 
@@ -462,15 +472,86 @@ Las nuevas plantillas DEBEN:
   - Patrones identificados
   - Como se aplicaron a las nuevas plantillas
 
+#### 2.5.6 Analisis de Conversaciones Reales (OBLIGATORIO para grupos warm/hot)
+
+Para grupos donde los prospectos ya conocen Vidanta (Con Reserva Pendiente, Retomar Negociacion, Seguimiento), consultar los threads de conversacion que se generaron a partir de los templates:
+
+```sql
+-- Replies directas a templates del grupo (ultimas 50)
+WITH template_sends AS (
+  SELECT wts.prospecto_id, wts.sent_at as template_sent_at, wt.name as template_name,
+         wts.first_reply_at, wts.reply_count
+  FROM whatsapp_template_sends wts
+  JOIN whatsapp_templates wt ON wt.id = wts.template_id
+  JOIN template_groups tg ON tg.id = wt.template_group_id
+  WHERE tg.name ILIKE '%NOMBRE_GRUPO%'
+    AND wts.first_reply_at IS NOT NULL
+  ORDER BY wts.sent_at DESC
+  LIMIT 50
+)
+SELECT ts.template_name, ts.template_sent_at, ts.reply_count,
+       mw.mensaje, mw.direccion, mw.fecha_hora
+FROM template_sends ts
+JOIN mensajes_whatsapp mw ON mw.prospecto_id = ts.prospecto_id
+  AND mw.fecha_hora > ts.template_sent_at
+  AND mw.fecha_hora < ts.template_sent_at + INTERVAL '24 hours'
+ORDER BY ts.template_sent_at DESC, mw.fecha_hora
+LIMIT 200;
+```
+
+```sql
+-- Error breakdown por template
+SELECT vh.template_name, vh.error_breakdown, vh.primary_failure_cause
+FROM v_template_health vh
+JOIN whatsapp_templates wt ON wt.id = vh.template_id
+JOIN template_groups tg ON tg.id = wt.template_group_id
+WHERE tg.name ILIKE '%NOMBRE_GRUPO%'
+  AND wt.is_deleted = false;
+```
+
+Con las conversaciones, analizar:
+1. **Categorizar respuestas** en tipos:
+   - Engagement simple ("Hola", ".", emoji) — abren chat sin compromiso
+   - Ya tienen decision ("Seria para Cancun, fecha 14 de mayo") — listos para avanzar
+   - Preguntan costos ("me recuerdas con cuanto se reserva?") — interesados con objecion precio
+   - Preguntan beneficios ("cuales beneficios adicionales tienes?") — necesitan mas info
+   - Listos para pagar ("me generes otro link para pagar") — conversion inminente
+   - Piden otro canal ("despues de las seis", "se me complica las llamadas") — prefieren WhatsApp
+   - Declinan amable ("no es momento", "tengo compromisos") — no forzar
+2. **Identificar que piden los prospectos** — si muchos preguntan fechas, el template puede preguntar fechas
+3. **Detectar objeciones recurrentes** — para disenar templates que las prevengan
+4. **Analizar profundidad** — avg_messages_per_reply indica si el template genera conversacion real
+5. **Error codes**: 63049 = ventana 24h expirada (timing, no calidad), 63024 = no WhatsApp, 63016 = error Meta
+
 #### Patrones Historicos Comprobados (actualizar con cada analisis)
-- **Templates < 140 chars** tienen mayor reply rate que templates largos
-- **"Le cuento?"** y **"Le cuento de que se trata?"** son los CTAs con mejor conversion
-- **Curiosity Gap pura** (no revelar detalles) supera otros enfoques en cold outreach
-- **Escasez especifica** ("se libero UN espacio") > escasez generica ("hay oportunidad")
-- **Reconocer al ocupado** ("si me regala 3 minutos") genera respeto y respuesta
-- **Contraste** ("suena inalcanzable, pero...") funciona especialmente para familias
+
+**Cold outreach (prospectos que NO conocen Vidanta):**
+- **"Hola 👋" o "Hola 😊" OBLIGATORIO** — "Hola." (punto, sin emoji) = 0% reply en 14+ templates. El emoji en el saludo es critico
+- **100-155 chars** es el sweet spot para cold (gancho_curiosidad 127c = 36.36%, top cold performer)
+- **"¿Le cuento de qué se trata?"** es el CTA #1 (36.36%). Variantes: "¿Quiere saber cómo?", "¿Me permite contarle?"
+- **"¿Le interesa?"** es el PEOR CTA (3.53% promedio) — NUNCA usar
+- **Curiosity Gap pura** (no revelar detalles) supera otros enfoques (gancho_curiosidad 36.36%)
+- **Escasez especifica CON variables** ("se libero UN espacio") funciona (21.05%), SIN variables = 0%
+- **Reactance ("sin problema", "lo entiendo")** funciona (ultima_oportunidad 14.82%)
+- **Reciprocidad ("le comparto mi contacto")** funciona SI incluye especializacion (familia_contacto_planner 14.29%)
+- **"Vacation Planner"** funciona en cold SOLO si va despues de pregunta/valor, NO como opener (familia_recuerdos 20% vs gancho_planner_experto 0%)
+- **Tono premium-accesible** para Vidanta: profesional mexicano, "usted", ni corporativo ni callejero. Como concierge de hotel 5 estrellas
+- **Genero neutro SIEMPRE** — usar "Vacation Planner" (no "asesor/asesora"), evitar cualquier termino con genero
+- **Mencionar *Vidanta* SIEMPRE** — genera confianza (marca asociada a fraudes si no se identifica), pero NUNCA como opener corporativo "Soy X de Vidanta"
+- **ANTI-PATRONES COMPROBADOS (0% reply):** "No le voy a vender nada", "Entre nos...", "No debería contarle", social proof genérico ("varias familias"), false choice ("playa o montaña"), listar amenidades, "Le cuento un secreto", escasez sin variables ("se liberó/abrió")
 - **Templates genericos sin hook** (ej: "se acerca un puente perfecto") tienden a 0% reply
-- **Social proof sin personalizar** (ej: "varias familias separaron") tiende a 0% reply
+- **CTAs no-estandar** (13.48% promedio) superan CTAs formulaicos
+
+**Warm/hot (prospectos que YA conocen Vidanta o tienen certificado):**
+- **Templates largos pueden ganar**: estancia_pendiente (363 chars) tiene 42.2 effectiveness
+- **Especificidad gana**: mencionar "certificado", "reservacion", "beneficios" concretos
+- **"No quiero que pierda"** es el frame mas efectivo para loss aversion en warm
+- **Ofrecer doble canal** (WhatsApp o llamada) aumenta reply rate
+- **Lista de pasos concretos** (destino, fechas, proceso) ayuda — el prospecto sabe que esperar
+- **Variables nombre+ejecutivo** aumentan conversion en warm (vs sin variables)
+- **Median reply time < 5 min** en warm — estos prospectos responden rapido si el template conecta
+- **avg_messages_per_reply > 4** indica buena profundidad de conversacion
+- **Muchos prospectos YA tienen fechas/destino en mente** — preguntar directamente funciona
 
 ### Paso 3: Seleccionar tecnicas psicologicas
 - Elegir N tecnicas DISTINTAS de la biblioteca (1 por template)
@@ -593,25 +674,37 @@ WHERE tg.name ILIKE '%X%' AND COALESCE(wt.is_deleted, false) = false;
 ### 2. Analizar con datos reales
 - **Health status**: grupo_status (healthy/mixed/degraded/blocked) y distribucion de templates
 - **Top performers**: Templates con mayor effectiveness_score y reply_rate_percent
-- **Anti-patrones**: Templates con 0% reply rate — analizar POR QUE no funcionan
+- **Anti-patrones**: Templates con 0% reply rate — analizar POR QUE no funcionan (body text)
 - **Reply rate por ventana**: Comparar reply_rate_7d vs reply_rate_30d vs all-time (detectar tendencias)
 - **Delivery health**: failure_rate_24h, trend (improving/stable/degrading/spiraling)
-- **Longitud vs performance**: Correlacionar body_length con reply_rate para el grupo
-- **CTA analysis**: Que tipo de cierre ("Le cuento?", "Le interesa?", "Quiere saber?") genera mas replies
+- **Error breakdown**: Revisar error_breakdown y primary_failure_cause (63049=timing, 63024=no WhatsApp, no culpa del template)
+- **Longitud vs performance**: Correlacionar body_length con reply_rate. NOTA: en warm, largo puede ganar
+- **CTA analysis**: Que tipo de cierre genera mas replies por grupo
 - **Tecnicas usadas**: Identificar tecnica psicologica de cada template existente
 - **Gaps**: Tecnicas NO usadas que podrian mejorar performance
 - **Mejores horarios**: best_send_hour y best_send_day de top performers
 - **Confidence**: Solo confiar en metricas de templates con confidence "high" (>20 envios/24h)
 - **Variables**: Si el nivel de variables es apropiado para el grupo
+- **Conversation depth**: avg_messages_per_reply — indica si el template genera conversacion real
+
+### 2.5 Analizar conversaciones reales (WARM/HOT groups)
+Para grupos donde prospectos ya conocen Vidanta, consultar threads reales (query en Paso 2.5.6):
+- **Categorizar replies** en tipos: engagement simple, ya con fechas, preguntan costos, piden beneficios, listos para pagar, piden otro canal, declinan
+- **Porcentaje por tipo** — si 20% ya trae fechas, el template puede preguntar fechas directamente
+- **Objeciones recurrentes** — disenar templates que las prevengan o reconozcan
+- **Canal preferido** — si muchos piden WhatsApp sobre llamada, ofrecer WhatsApp explicitamente
+- **Velocidad de respuesta** — median_reply_time < 5min indica prospectos calientes
 
 ### 3. Recomendar con evidencia
 - Templates especificos con bajo performance para reemplazar (citar effectiveness_score)
-- Patrones de los top performers que se deben replicar
-- Anti-patrones de templates con 0% reply que se deben evitar
+- Patrones de los top performers que se deben replicar (incluyendo longitud ideal por grupo)
+- Anti-patrones de templates con 0% reply que se deben evitar (con body text de ejemplo)
 - Nuevas tecnicas a incorporar basadas en gaps identificados
-- Longitud objetivo basada en correlacion real de datos
+- Longitud objetivo basada en correlacion real: cold < 140 chars, warm puede ser > 200 chars
 - Mejores horarios de envio para el coordinador
+- Insights de conversaciones reales: que preguntan, que objetan, que canal prefieren
 - Si conviene crear templates nuevos o editar existentes
+- Error analysis: si failures son por timing (63049) vs calidad, ajustar estrategia de envio no el template
 
 ---
 

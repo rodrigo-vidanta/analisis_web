@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import WhatsAppTemplatesManager from './plantillas/WhatsAppTemplatesManager';
 import AudienciasManager from './audiencias/AudienciasManager';
 import CampanasManager from './campanas/CampanasManager';
@@ -7,7 +7,9 @@ import SecuenciasManager from './secuencias/SecuenciasManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../hooks/useEffectivePermissions';
 
-type CampaignTab = 'plantillas' | 'audiencias' | 'campanas' | 'bases-datos' | 'secuencias';
+const TemplateAnalyticsModule = lazy(() => import('./analitica/TemplateAnalyticsModule'));
+
+type CampaignTab = 'analitica' | 'plantillas' | 'audiencias' | 'campanas' | 'bases-datos' | 'secuencias';
 
 const CampaignsDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -31,6 +33,15 @@ const CampaignsDashboardTabs: React.FC = () => {
   }
 
   const tabs = [
+    {
+      id: 'analitica' as CampaignTab,
+      name: 'Analítica',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      )
+    },
     {
       id: 'plantillas' as CampaignTab,
       name: 'Plantillas',
@@ -148,6 +159,14 @@ const CampaignsDashboardTabs: React.FC = () => {
           <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900">
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
               <div className="bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden">
+                {activeTab === 'analitica' && (
+                  <div className="p-4 sm:p-5 md:p-6 lg:p-8">
+                    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500" /></div>}>
+                      <TemplateAnalyticsModule />
+                    </Suspense>
+                  </div>
+                )}
+
                 {activeTab === 'plantillas' && (
                   <div className="p-4 sm:p-5 md:p-6 lg:p-8">
                     <WhatsAppTemplatesManager />

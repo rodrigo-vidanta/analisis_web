@@ -115,7 +115,7 @@ export const useTokenExpiryMonitor = () => {
           // Si quedan menos de 5 minutos y no hemos advertido, mostrar warning
           if (timeUntilExpiry < WARNING_THRESHOLD && !hasWarnedRef.current) {
             hasWarnedRef.current = true;
-            toast('Tu sesión está por expirar. Guarda tu trabajo.', {
+            toast.error('Tu sesión está por expirar. Guarda tu trabajo.', {
               duration: 10000,
               icon: '⚠️',
               style: { background: '#fef3c7', color: '#92400e' }

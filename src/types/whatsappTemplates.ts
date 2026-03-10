@@ -731,6 +731,53 @@ export interface TemplateAnalyticsData {
   last_send_at: string | null;
 }
 
+/** Datos de timeline de envíos (RPC get_template_sends_timeline) */
+export interface TemplateSendTimeline {
+  period: string;
+  total_sends: number;
+  total_delivered: number;
+  total_read: number;
+  total_replied: number;
+  total_failed: number;
+  reply_rate: number;
+}
+
+/** Datos de heatmap horario (RPC get_template_hourly_heatmap) */
+export interface TemplateHourlyHeatmap {
+  hour_of_day: number;
+  day_of_week: number;
+  day_name: string;
+  total_sends: number;
+  total_replied: number;
+  reply_rate: number;
+}
+
+/** Rango de fecha para analítica */
+export type AnalyticsDateRange = 'week' | 'month' | 'year';
+
+/** Intervalo de agrupación temporal */
+export type AnalyticsInterval = 'day' | 'week' | 'month';
+
+/** Template con analytics y health combinados para grid analítico */
+export interface TemplateAnalyticsRow {
+  template_id: string;
+  template_name: string;
+  group_name: string;
+  group_id: string;
+  category: string;
+  body_text: string;
+  health_status: TemplateHealthStatus;
+  trend: TemplateHealthTrend;
+  confidence: TemplateHealthConfidence;
+  sends_7d: number;
+  reply_rate_percent: number | null;
+  effectiveness_score: number | null;
+  best_send_hour: number | null;
+  best_send_day: string | null;
+  total_sends: number;
+  total_replies: number;
+}
+
 /** Respuesta del webhook de envio por grupo */
 export interface GroupSendResponse {
   success: boolean;

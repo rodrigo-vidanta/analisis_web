@@ -14,6 +14,10 @@ import type {
   GroupSendResponse,
   TemplateHealthData,
   TemplateAnalyticsData,
+  TemplateSendTimeline,
+  TemplateHourlyHeatmap,
+  TemplateAnalyticsRow,
+  AnalyticsInterval,
 } from '../types/whatsappTemplates';
 import { SPECIAL_UTILITY_TEMPLATE_CONFIG } from '../types/whatsappTemplates';
 import { formatExecutiveDisplayName } from '../utils/nameFormatter';
@@ -2229,6 +2233,161 @@ class WhatsAppTemplatesService {
       }
       throw error;
     }
+  }
+  // ============================================
+  // MÉTODOS DE ANALÍTICA (Módulo de Analítica)
+  // ============================================
+
+  /**
+   * Obtener analytics de TODAS las plantillas (para top 10 y grid).
+   */
+  async getAllTemplateAnalytics(): Promise<TemplateAnalyticsData[]> {
+    const { data, error } = await analysisSupabase
+      .from('v_template_analytics')
+      .select('template_id, template_name, total_sends, total_replies, reply_rate_percent, reply_rate_7d_percent, reply_rate_30d_percent, avg_reply_time_minutes, median_reply_time_minutes, avg_messages_per_reply, sends_last_7d, sends_last_30d, best_send_hour, best_send_day, effectiveness_score, first_send_at, last_send_at')
+      .order('effectiveness_score', { ascending: false, nullsFirst: false });
+
+    if (error) {
+      console.error('Error obteniendo analytics globales:', error);
+      return [];
+    }
+
+    return (data || []).map(row => ({
+      template_id: row.template_id,
+      template_name: row.template_name,
+      total_sends: Number(row.total_sends) || 0,
+      total_replies: Number(row.total_replies) || 0,
+      reply_rate_percent: row.reply_rate_percent != null ? Number(row.reply_rate_percent) : null,
+      reply_rate_7d_percent: row.reply_rate_7d_percent != null ? Number(row.reply_rate_7d_percent) : null,
+      reply_rate_30d_percent: row.reply_rate_30d_percent != null ? Number(row.reply_rate_30d_percent) : null,
+      avg_reply_time_minutes: row.avg_reply_time_minutes != null ? Number(row.avg_reply_time_minutes) : null,
+      median_reply_time_minutes: row.median_reply_time_minutes != null ? Number(row.median_reply_time_minutes) : null,
+      avg_messages_per_reply: row.avg_messages_per_reply != null ? Number(row.avg_messages_per_reply) : null,
+      sends_last_7d: Number(row.sends_last_7d) || 0,
+      sends_last_30d: Number(row.sends_last_30d) || 0,
+      best_send_hour: row.best_send_hour != null ? Number(row.best_send_hour) : null,
+      best_send_day: row.best_send_day,
+      effectiveness_score: row.effectiveness_score != null ? Number(row.effectiveness_score) : null,
+      first_send_at: row.first_send_at,
+      last_send_at: row.last_send_at,
+    }));
+  }
+
+  /**
+   * Obtener filas enriquecidas para el grid analítico (analytics + health + group info).
+   */
+  async getAnalyticsGridData(): Promise<TemplateAnalyticsRow[]> {
+    const [groupsHealth, templates] = await Promise.all([
+      this.getGroupsWithHealth(),
+      analysisSupabase
+        .from('whatsapp_templates')
+        .select('id, name, category, template_group_id, components, is_active')
+        .eq('is_deleted', false)
+        .eq('is_active', true)
+        .order('name')
+        .then(r => r.data || []),
+    ]);
+
+    if (templates.length === 0) return [];
+
+    const templateIds = templates.map(t => t.id);
+    const [healthMap, analyticsMap] = await Promise.all([
+      this.getTemplateHealthByIds(templateIds),
+      this.getTemplateAnalyticsByIds(templateIds),
+    ]);
+
+    const groupMap = new Map(groupsHealth.map(g => [g.group_id, g]));
+
+    return templates.map(t => {
+      const health = healthMap.get(t.id);
+      const analytics = analyticsMap.get(t.id);
+      const group = groupMap.get(t.template_group_id || '');
+      const bodyText = Array.isArray(t.components) && t.components[0]
+        ? (t.components[0] as Record<string, unknown>).text as string || ''
+        : '';
+
+      return {
+        template_id: t.id,
+        template_name: t.name,
+        group_name: group?.group_name || 'Sin grupo',
+        group_id: t.template_group_id || '',
+        category: t.category || 'MARKETING',
+        body_text: bodyText,
+        health_status: health?.health_status || 'no_data',
+        trend: health?.trend || 'no_data',
+        confidence: health?.confidence || 'low',
+        sends_7d: health?.sends_7d || 0,
+        reply_rate_percent: analytics?.reply_rate_percent ?? null,
+        effectiveness_score: analytics?.effectiveness_score ?? null,
+        best_send_hour: analytics?.best_send_hour ?? null,
+        best_send_day: analytics?.best_send_day ?? null,
+        total_sends: analytics?.total_sends || 0,
+        total_replies: analytics?.total_replies || 0,
+      };
+    });
+  }
+
+  /**
+   * Obtener timeline de envíos (RPC get_template_sends_timeline).
+   */
+  async getTemplateSendsTimeline(
+    templateId: string | null,
+    groupId: string | null,
+    startDate: string,
+    endDate: string,
+    interval: AnalyticsInterval
+  ): Promise<TemplateSendTimeline[]> {
+    const { data, error } = await analysisSupabase.rpc('get_template_sends_timeline', {
+      p_template_id: templateId,
+      p_group_id: groupId,
+      p_start_date: startDate,
+      p_end_date: endDate,
+      p_interval: interval,
+    });
+
+    if (error) {
+      console.error('Error obteniendo timeline de envíos:', error);
+      return [];
+    }
+
+    return (data || []).map((row: Record<string, unknown>) => ({
+      period: String(row.period),
+      total_sends: Number(row.total_sends) || 0,
+      total_delivered: Number(row.total_delivered) || 0,
+      total_read: Number(row.total_read) || 0,
+      total_replied: Number(row.total_replied) || 0,
+      total_failed: Number(row.total_failed) || 0,
+      reply_rate: Math.min(Number(row.reply_rate) || 0, 100),
+    }));
+  }
+
+  /**
+   * Obtener heatmap horario (RPC get_template_hourly_heatmap).
+   */
+  async getTemplateHourlyHeatmap(
+    templateId: string,
+    startDate: string,
+    endDate: string
+  ): Promise<TemplateHourlyHeatmap[]> {
+    const { data, error } = await analysisSupabase.rpc('get_template_hourly_heatmap', {
+      p_template_id: templateId,
+      p_start_date: startDate,
+      p_end_date: endDate,
+    });
+
+    if (error) {
+      console.error('Error obteniendo heatmap horario:', error);
+      return [];
+    }
+
+    return (data || []).map((row: Record<string, unknown>) => ({
+      hour_of_day: Number(row.hour_of_day),
+      day_of_week: Number(row.day_of_week),
+      day_name: String(row.day_name),
+      total_sends: Number(row.total_sends) || 0,
+      total_replied: Number(row.total_replied) || 0,
+      reply_rate: Math.min(Number(row.reply_rate) || 0, 100),
+    }));
   }
 }
 
