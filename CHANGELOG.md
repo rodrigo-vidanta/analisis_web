@@ -1,3 +1,12 @@
+## [v2.30.0] - 2026-03-10
+
+**B10.2.0N2.30.0** - 1 feature
+
+### Features
+- add template analytics module + 14 reenganche suave templates (`04f6e41`)
+
+---
+
 ## [v2.29.0] - 2026-03-09
 
 **B10.2.0N2.29.0** - 1 feature + 1 fix + 1 mejora
