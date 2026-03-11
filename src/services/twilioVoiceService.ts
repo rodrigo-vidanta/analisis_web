@@ -210,7 +210,7 @@ class TwilioVoiceService {
       console.log(`${LOG_PREFIX} Initialized and registered successfully`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown initialization error';
-      console.error(`${LOG_PREFIX} Initialization failed:`, err);
+      console.warn(`${LOG_PREFIX} Initialization failed:`, err);
       this.updateState({
         isConnecting: false,
         error: errorMessage,
@@ -347,30 +347,45 @@ class TwilioVoiceService {
 
   private async fetchToken(): Promise<{ token: string; identity: string; ttl: number } | null> {
     try {
-      const { data: { session } } = await supabaseSystemUI.auth.getSession();
+      let { data: { session } } = await supabaseSystemUI.auth.getSession();
       if (!session?.access_token) {
-        console.error(`${LOG_PREFIX} No active session for token fetch`);
+        console.warn(`${LOG_PREFIX} No active session — skipping Twilio init`);
         return null;
       }
 
-      const response = await fetch(TOKEN_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
-        },
-      });
+      const makeRequest = (accessToken: string) =>
+        fetch(TOKEN_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+          },
+        });
+
+      let response = await makeRequest(session.access_token);
+
+      // Si 401, token posiblemente expirado — refrescar sesion y reintentar una vez
+      if (response.status === 401) {
+        console.warn(`${LOG_PREFIX} Token expired, refreshing session...`);
+        const { data: { session: refreshed } } = await supabaseSystemUI.auth.refreshSession();
+        if (refreshed?.access_token) {
+          response = await makeRequest(refreshed.access_token);
+        } else {
+          console.warn(`${LOG_PREFIX} Could not refresh session`);
+          return null;
+        }
+      }
 
       if (!response.ok) {
         const errorBody = await response.text();
-        console.error(`${LOG_PREFIX} Token fetch failed (${response.status}):`, errorBody);
+        console.warn(`${LOG_PREFIX} Token fetch failed (${response.status}):`, errorBody);
         return null;
       }
 
       return await response.json();
     } catch (err) {
-      console.error(`${LOG_PREFIX} Token fetch error:`, err);
+      console.warn(`${LOG_PREFIX} Token fetch error:`, err);
       return null;
     }
   }
