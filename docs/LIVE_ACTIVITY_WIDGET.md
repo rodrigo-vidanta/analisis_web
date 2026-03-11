@@ -1,12 +1,12 @@
 # Live Activity Widget - Monitoreo de Llamadas en Tiempo Real
 
-**Fecha:** 2026-02-13 | **Version:** 1.0.0
+**Fecha:** 2026-03-11 | **Version:** 2.0.0
 
 ---
 
 ## Resumen
 
-Widget flotante en el borde derecho de la pantalla que muestra llamadas VAPI activas en tiempo real. Proporciona cards colapsables, panel expandido con transcripcion en vivo, monitoreo de audio via WebSocket, y transferencia de llamadas. 100% event-driven (0 polling).
+Widget flotante en el borde derecho de la pantalla que muestra llamadas VAPI activas en tiempo real. Proporciona cards colapsables, panel expandido con transcripcion en vivo, monitoreo de audio via WebSocket, transferencia de llamadas VAPI, y **Twilio Voice SDK softphone** para recibir y transferir llamadas VoIP entre miembros del equipo. 100% event-driven (0 polling).
 
 ---
 
@@ -27,6 +27,8 @@ LiveCallActivityWidget (React Portal, z-50)
   |-- MinimizedCallTab (vertical, 48px)
   |-- ExpandedCallPanel (55vw, 2 columnas)
   |-- TransferModal (z-200, compartido con analysis)
+  |-- VoiceSoftphoneModal (draggable, z-90, Twilio Voice SDK)
+  |-- VoiceTransferModal (z-95, team transfer)
 ```
 
 ---
@@ -209,8 +211,69 @@ Persistidas en tabla `user_ui_preferences` via RPCs SECURITY DEFINER.
 - `permissionsService.ts` - Filtros de acceso
 - `userUIPreferencesService.ts` - Persistencia on/off
 
+### VoiceSoftphoneModal (`src/components/live-activity/VoiceSoftphoneModal.tsx`)
+
+Softphone flotante draggable para llamadas Twilio Voice SDK (browser-to-browser).
+
+**Features:**
+- Draggable con framer-motion
+- Controles: Aceptar, Colgar, Mute, Pausar, Transferir
+- Tabs: Observaciones, Datos Prospecto, Chat
+- Auto-minimiza a burbuja con heartbeat animation
+- Boton "Transferir" visible solo cuando hay `parentCallSid`
+
+### VoiceTransferModal (`src/components/live-activity/VoiceTransferModal.tsx`)
+
+Modal para seleccionar destino de transferencia VoIP intra-coordinacion.
+
+**Features:**
+- Lista miembros online agrupados por rol (Coordinadores > Supervisores > Ejecutivos)
+- Avatar con iniciales + dot verde online
+- Click → transferencia via Edge Function `voice-transfer`
+- Validacion server-side de permisos de coordinacion
+
 ### Componente compartido
-- `TransferModal` (`src/components/analysis/TransferModal.tsx`) - Modal de transferencia de llamada (z-200)
+- `TransferModal` (`src/components/analysis/TransferModal.tsx`) - Modal de transferencia de llamada VAPI (z-200)
+
+---
+
+## Twilio Voice SDK
+
+### Servicios
+
+| Servicio | Archivo | Proposito |
+|----------|---------|-----------|
+| `twilioVoiceService` | `src/services/twilioVoiceService.ts` | Singleton Twilio Device, incoming/outgoing calls |
+| `voiceTransferService` | `src/services/voiceTransferService.ts` | Transfer entre team members, Realtime subs |
+| `useTwilioVoice` | `src/hooks/useTwilioVoice.ts` | React hook con reference counting |
+
+### Flujo de Transferencia
+
+```
+1. N8N genera TwiML con <Parameter parentCallSid, coordinacionId>
+2. Ejecutivo recibe llamada en browser (Twilio Voice SDK)
+3. Click "Transferir" → VoiceTransferModal muestra miembros online
+4. Click miembro → Edge Function voice-transfer
+5. Edge Function redirige parentCallSid via Twilio REST API
+6. Nuevo miembro recibe incoming en su browser
+7. Re-transferencias van directo (sin N8N/VAPI)
+```
+
+### BD: `voice_transfers`
+
+Tabla de audit trail + Realtime notifications para transferencias VoIP.
+
+| Campo | Tipo |
+|-------|------|
+| `id` | UUID PK |
+| `parent_call_sid` | TEXT (CallSid Twilio) |
+| `from_user_id` / `to_user_id` | UUID FK auth.users |
+| `status` | pending/ringing/connected/completed/failed/rejected/timeout |
+| `coordinacion_id` | UUID |
+
+### RPC: `get_online_team_members(p_coordinacion_ids UUID[])`
+
+SECURITY DEFINER. Retorna usuarios online de coordinaciones dadas (active_sessions < 2 min).
 
 ---
 
@@ -224,7 +287,11 @@ Persistidas en tabla `user_ui_preferences` via RPCs SECURITY DEFINER.
 | `src/components/live-activity/MinimizedCallTab.tsx` | 148 | Tab vertical minimizado |
 | `src/components/live-activity/ExpandedCallPanel.tsx` | 371 | Panel expandido 2 columnas |
 | `src/stores/liveActivityStore.ts` | 739 | Store Zustand |
-| **Total** | **2,174** | |
+| `src/components/live-activity/VoiceSoftphoneModal.tsx` | ~600 | Softphone draggable |
+| `src/components/live-activity/VoiceTransferModal.tsx` | 287 | Modal transfer team |
+| `src/services/twilioVoiceService.ts` | 526 | Twilio Voice SDK service |
+| `src/services/voiceTransferService.ts` | 191 | Transfer service |
+| `src/hooks/useTwilioVoice.ts` | ~120 | React hook Voice SDK |
 
 ---
 

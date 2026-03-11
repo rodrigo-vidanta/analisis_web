@@ -1,6 +1,6 @@
 # Catalogo de Edge Functions - PQNC QA AI Platform
 
-**Fecha:** 2026-02-13 | **Version:** 2.0.0 | **Total:** 25 funciones activas
+**Fecha:** 2026-03-11 | **Version:** 2.1.0 | **Total:** 27 funciones activas
 
 ---
 
@@ -296,6 +296,25 @@ npx supabase functions logs {nombre} --tail
 
 ---
 
+## Twilio Voice
+
+### `generate-twilio-token`
+- **Tipo:** JWT Generator
+- **Auth:** Bearer JWT (sesion Supabase)
+- **Que hace:** Genera Access Token de Twilio Voice SDK para el browser. El token permite al usuario registrarse como Client y recibir llamadas entrantes.
+- **Identity:** `agent_{userId}` (UUID con guiones reemplazados por `_`)
+- **TTL:** 3600s (1 hora)
+- **Usado por:** `twilioVoiceService.ts`
+
+### `voice-transfer`
+- **Tipo:** Transfer Orchestrator
+- **Auth:** Bearer JWT (sesion Supabase)
+- **Que hace:** Transfiere una llamada activa de un miembro a otro dentro de la misma coordinacion. Valida permisos, construye TwiML, redirige via Twilio REST API, registra en `voice_transfers`.
+- **Validaciones:** Caller y target en misma coordinacion, target online (active_sessions < 5 min)
+- **Usado por:** `voiceTransferService.ts`
+
+---
+
 ## Variables de Entorno (Secrets)
 
 | Secret | Usado por |
@@ -313,6 +332,10 @@ npx supabase functions logs {nombre} --tail
 | `N8N_SEND_IMG_URL` | send-img-proxy |
 | `N8N_MENSAJE_AGENTE_URL` | paraphrase-proxy |
 | `N8N_ERROR_LOG_URL` | error-log-proxy |
+| `TWILIO_ACCOUNT_SID` | generate-twilio-token, voice-transfer |
+| `TWILIO_API_KEY_SID` | generate-twilio-token, voice-transfer |
+| `TWILIO_API_KEY_SECRET` | generate-twilio-token, voice-transfer |
+| `TWILIO_TWIML_APP_SID` | generate-twilio-token |
 
 ---
 
@@ -322,3 +345,4 @@ npx supabase functions logs {nombre} --tail
 |-------|---------|---------|
 | 2026-01-14 | 1.0.0 | Creacion inicial (16 funciones) |
 | 2026-02-13 | 2.0.0 | Reescrito completo: 25 funciones verificadas contra codigo |
+| 2026-03-11 | 2.1.0 | +2 funciones Twilio Voice: generate-twilio-token, voice-transfer |
