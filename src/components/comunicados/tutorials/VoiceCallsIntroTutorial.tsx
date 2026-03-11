@@ -1,16 +1,20 @@
 /**
  * ============================================
- * COMUNICADO INTERACTIVO: LLAMADAS VOICE
+ * COMUNICADO INTERACTIVO: LLAMADAS WHATSAPP
  * ============================================
  *
  * Presentacion animada estilo Apple keynote del sistema
- * de llamadas Voice con Twilio SDK. Usa Remotion Player
+ * de llamadas WhatsApp con Twilio SDK. Usa Remotion Player
  * para animaciones de alta calidad con parallax.
  *
  * Escenas: Intro → WhatsApp → IA → Softphone → Transfer → Outro → Post-credits
- * Audio: /sounds/voice-calls-intro.mp3
- * Duracion: ~30 segundos
+ * Audio: /sounds/voice-calls-intro.mp3 (loop via HTML audio)
+ * Duracion: ~65 segundos
  * Visualizacion obligatoria (sin skip)
+ *
+ * v2: Audio loop, titulo corregido, controles reproductor,
+ *     +5s por escena, burbujas staggered, sin beam IA,
+ *     post-credits fijo
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
@@ -22,28 +26,27 @@ import {
   interpolate,
   spring,
   Sequence,
-  Audio,
 } from 'remotion';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, CheckCircle } from 'lucide-react';
+import { RotateCcw, CheckCircle, Play, Pause } from 'lucide-react';
 
 // ============================================
 // CONSTANTS
 // ============================================
 
 const FPS = 30;
-const TOTAL_FRAMES = 900; // 30s
+const TOTAL_FRAMES = 1950; // ~65s
 const COMP_W = 780;
 const COMP_H = 480;
 
 const SCENES = {
-  INTRO:       { from: 0,   dur: 80 },
-  WHATSAPP:    { from: 80,  dur: 125 },
-  AI:          { from: 205, dur: 115 },
-  SOFTPHONE:   { from: 320, dur: 145 },
-  TRANSFER:    { from: 465, dur: 155 },
-  OUTRO:       { from: 620, dur: 140 },
-  POSTCREDITS: { from: 760, dur: 140 },
+  INTRO:       { from: 0,    dur: 230 },
+  WHATSAPP:    { from: 230,  dur: 275 },
+  AI:          { from: 505,  dur: 265 },
+  SOFTPHONE:   { from: 770,  dur: 295 },
+  TRANSFER:    { from: 1065, dur: 305 },
+  OUTRO:       { from: 1370, dur: 290 },
+  POSTCREDITS: { from: 1660, dur: 290 },
 };
 
 // ============================================
@@ -101,15 +104,16 @@ const IntroScene: React.FC = () => {
 
   const titleScale = spring({ frame: frame - 8, fps, config: { damping: 10, mass: 0.5 } });
   const titleOp = fadeIn(frame, 0, 18);
-  const subtitleOp = fadeIn(frame, 38, 18);
-  const glowScale = interpolate(frame, [0, 50], [0.2, 2], { extrapolateRight: 'clamp' });
-  const glowOp = interpolate(frame, [0, 15, 55, 80], [0, 0.7, 0.5, 0.2], { extrapolateRight: 'clamp' });
+  const whatsappOp = fadeIn(frame, 22, 18);
+  const subtitleOp = fadeIn(frame, 55, 18);
+  const glowScale = interpolate(frame, [0, 60], [0.2, 2], { extrapolateRight: 'clamp' });
+  const glowOp = interpolate(frame, [0, 15, 70, 120], [0, 0.7, 0.5, 0.2], { extrapolateRight: 'clamp' });
 
   // Particles burst
   const particles = Array.from({ length: 12 }, (_, i) => {
     const angle = (i / 12) * Math.PI * 2;
-    const dist = interpolate(frame, [10, 50], [0, 150 + i * 8], { extrapolateRight: 'clamp' });
-    const op = interpolate(frame, [10, 30, 60, 80], [0, 0.8, 0.4, 0], { extrapolateRight: 'clamp' });
+    const dist = interpolate(frame, [10, 60], [0, 150 + i * 8], { extrapolateRight: 'clamp' });
+    const op = interpolate(frame, [10, 30, 80, 120], [0, 0.8, 0.4, 0], { extrapolateRight: 'clamp' });
     return { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist, op, size: 3 + (i % 3) };
   });
 
@@ -118,7 +122,7 @@ const IntroScene: React.FC = () => {
       {/* Central glow */}
       <div style={{
         position: 'absolute', width: 300, height: 300, borderRadius: '50%',
-        background: 'radial-gradient(circle, #06b6d450, transparent 70%)',
+        background: 'radial-gradient(circle, #25D36650, transparent 70%)',
         transform: `scale(${glowScale})`, opacity: glowOp, filter: 'blur(40px)',
       }} />
 
@@ -126,24 +130,36 @@ const IntroScene: React.FC = () => {
       {particles.map((p, i) => (
         <div key={i} style={{
           position: 'absolute', width: p.size, height: p.size, borderRadius: '50%',
-          background: i % 2 === 0 ? '#06b6d4' : '#8b5cf6',
+          background: i % 2 === 0 ? '#25D366' : '#8b5cf6',
           transform: `translate(${p.x}px, ${p.y}px)`, opacity: p.op,
         }} />
       ))}
 
-      {/* Title */}
+      {/* Title: "Llamadas" */}
       <div style={{
         opacity: titleOp, transform: `scale(${titleScale})`,
-        fontSize: 58, fontWeight: 900, color: 'white',
-        letterSpacing: '-0.04em', lineHeight: 1, textAlign: 'center',
-        textShadow: '0 0 60px #06b6d450, 0 4px 20px rgba(0,0,0,0.5)',
+        fontSize: 28, fontWeight: 700, color: '#94a3b8',
+        letterSpacing: '0.18em', textTransform: 'uppercase',
+        textAlign: 'center', lineHeight: 1,
+        textShadow: '0 2px 12px rgba(0,0,0,0.5)',
       }}>
-        LLAMADAS VOICE
+        Llamadas
+      </div>
+
+      {/* Title: "WhatsApp" in green */}
+      <div style={{
+        opacity: whatsappOp, transform: `scale(${titleScale})`,
+        fontSize: 62, fontWeight: 900, color: '#25D366',
+        letterSpacing: '-0.03em', lineHeight: 1, textAlign: 'center',
+        marginTop: 8,
+        textShadow: '0 0 60px #25D36640, 0 4px 20px rgba(0,0,0,0.5)',
+      }}>
+        WhatsApp
       </div>
 
       {/* Subtitle */}
       <div style={{
-        opacity: subtitleOp, marginTop: 22,
+        opacity: subtitleOp, marginTop: 28,
         fontSize: 14, color: '#94a3b8', letterSpacing: '0.18em',
         textTransform: 'uppercase', fontWeight: 600,
       }}>
@@ -163,17 +179,22 @@ const WhatsAppScene: React.FC = () => {
 
   const phoneY = spring({ frame, fps, from: 250, to: 0, config: { damping: 13 } });
   const phoneOp = fadeIn(frame, 0, 15);
-  const callPulse = frame > 40 ? 1 + Math.sin((frame - 40) * 0.2) * 0.12 : 1;
-  const callGlow = frame > 40 ? 8 + Math.sin((frame - 40) * 0.2) * 8 : 0;
-  const callingOp = fadeIn(frame, 70, 12);
-  const labelOp = fadeIn(frame, 90, 15);
 
-  // Cursor animation
-  const cursorOp = fadeIn(frame, 45, 10);
-  const cursorX = interpolate(frame, [45, 62], [60, 0], { extrapolateRight: 'clamp' });
-  const cursorY = interpolate(frame, [45, 62], [40, 0], { extrapolateRight: 'clamp' });
-  const clickRipple = frame > 64 ? fadeIn(frame, 64, 8) : 0;
-  const clickScale = frame > 64 ? interpolate(frame, [64, 72], [0, 3], { extrapolateRight: 'clamp' }) : 0;
+  // Staggered chat bubbles
+  const msg1Op = fadeIn(frame, 25, 18);
+  const msg2Op = fadeIn(frame, 70, 18);
+
+  // Cursor animation (later to give reading time)
+  const cursorOp = fadeIn(frame, 120, 10);
+  const cursorX = interpolate(frame, [120, 140], [60, 0], { extrapolateRight: 'clamp' });
+  const cursorY = interpolate(frame, [120, 140], [40, 0], { extrapolateRight: 'clamp' });
+  const clickRipple = frame > 145 ? fadeIn(frame, 145, 8) : 0;
+  const clickScale = frame > 145 ? interpolate(frame, [145, 153], [0, 3], { extrapolateRight: 'clamp' }) : 0;
+
+  const callPulse = frame > 100 ? 1 + Math.sin((frame - 100) * 0.2) * 0.12 : 1;
+  const callGlow = frame > 100 ? 8 + Math.sin((frame - 100) * 0.2) * 8 : 0;
+  const callingOp = fadeIn(frame, 155, 12);
+  const labelOp = fadeIn(frame, 100, 15);
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -211,13 +232,12 @@ const WhatsAppScene: React.FC = () => {
           <div style={{
             position: 'relative',
             width: 30, height: 30, borderRadius: 15,
-            background: frame > 64 ? '#22c55e' : 'transparent',
+            background: frame > 145 ? '#22c55e' : 'transparent',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             transform: `scale(${callPulse})`,
             boxShadow: `0 0 ${callGlow}px #22c55e80`,
-            transition: 'background 0.2s',
           }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={frame > 64 ? 'white' : '#a7f3d0'} strokeWidth="2.5" strokeLinecap="round">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={frame > 145 ? 'white' : '#a7f3d0'} strokeWidth="2.5" strokeLinecap="round">
               <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
             </svg>
             {/* Cursor */}
@@ -239,9 +259,12 @@ const WhatsAppScene: React.FC = () => {
           </div>
         </div>
 
-        {/* Chat messages */}
+        {/* Chat messages - staggered */}
         <div style={{ padding: '14px 12px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* Message 1: Prospect */}
           <div style={{
+            opacity: msg1Op,
+            transform: `translateY(${interpolate(msg1Op, [0, 1], [8, 0])}px)`,
             background: '#1e3a2f', borderRadius: '2px 10px 10px 10px',
             padding: '8px 12px', maxWidth: '82%', alignSelf: 'flex-start',
           }}>
@@ -250,7 +273,10 @@ const WhatsAppScene: React.FC = () => {
             </div>
             <div style={{ color: '#6ee7b7', fontSize: 9, textAlign: 'right', marginTop: 3 }}>10:30</div>
           </div>
+          {/* Message 2: User */}
           <div style={{
+            opacity: msg2Op,
+            transform: `translateY(${interpolate(msg2Op, [0, 1], [8, 0])}px)`,
             background: '#005c4b', borderRadius: '10px 2px 10px 10px',
             padding: '8px 12px', maxWidth: '78%', alignSelf: 'flex-end',
           }}>
@@ -262,7 +288,7 @@ const WhatsAppScene: React.FC = () => {
         </div>
 
         {/* Calling overlay */}
-        {frame > 68 && (
+        {frame > 150 && (
           <div style={{
             position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.92)',
             display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -273,7 +299,6 @@ const WhatsAppScene: React.FC = () => {
               background: 'linear-gradient(135deg, #22c55e, #16a34a)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               boxShadow: '0 0 30px #22c55e40',
-              animation: frame > 75 ? undefined : undefined,
             }}>
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
                 <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
@@ -288,12 +313,12 @@ const WhatsAppScene: React.FC = () => {
             {/* Ring animation */}
             {[0, 1, 2].map(i => {
               const ringOp = interpolate(
-                (frame - 76 + i * 10) % 30, [0, 15, 30], [0.6, 0.2, 0], { extrapolateRight: 'clamp' }
+                (frame - 160 + i * 10) % 30, [0, 15, 30], [0.6, 0.2, 0], { extrapolateRight: 'clamp' }
               );
               const ringScale = interpolate(
-                (frame - 76 + i * 10) % 30, [0, 30], [1, 2.5], { extrapolateRight: 'clamp' }
+                (frame - 160 + i * 10) % 30, [0, 30], [1, 2.5], { extrapolateRight: 'clamp' }
               );
-              return frame > 76 ? (
+              return frame > 160 ? (
                 <div key={i} style={{
                   position: 'absolute', top: '42%', width: 70, height: 70,
                   borderRadius: '50%', border: '2px solid #22c55e',
@@ -328,15 +353,20 @@ const AIScene: React.FC = () => {
   const avatarScale = spring({ frame: frame - 5, fps, config: { damping: 12 } });
   const avatarOp = fadeIn(frame, 0, 15);
   const waveOp = fadeIn(frame, 15, 12);
-  const speechOp = fadeIn(frame, 45, 15);
-  const beamProgress = interpolate(frame, [70, 100], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const labelOp = fadeIn(frame, 85, 15);
+  const labelOp = fadeIn(frame, 150, 15);
 
   // Waveform bars
   const bars = Array.from({ length: 9 }, (_, i) => {
     const h = frame > 15 ? 8 + Math.abs(Math.sin(frame * 0.25 + i * 0.7)) * 28 : 8;
     return h;
   });
+
+  // Conversation bubbles (staggered)
+  const convMessages = [
+    { text: 'Hola, vi el anuncio de Vidanta y quiero saber mas...', isAI: false, start: 40 },
+    { text: 'Perfecto, dejame verificar tu informacion y te conecto con tu ejecutivo.', isAI: true, start: 80 },
+    { text: 'Transfiriendo con tu ejecutivo asignado...', isAI: true, start: 120 },
+  ];
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -346,19 +376,19 @@ const AIScene: React.FC = () => {
         display: 'flex', flexDirection: 'column', alignItems: 'center',
       }}>
         <div style={{
-          width: 80, height: 80, borderRadius: 40,
+          width: 72, height: 72, borderRadius: 36,
           background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           boxShadow: '0 0 40px #7c3aed40, 0 8px 32px rgba(0,0,0,0.4)',
           border: '3px solid #a855f730',
         }}>
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8">
             <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
             <path d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
           </svg>
         </div>
         <div style={{
-          marginTop: 10, fontSize: 13, fontWeight: 700,
+          marginTop: 8, fontSize: 12, fontWeight: 700,
           color: '#c4b5fd', letterSpacing: '0.08em', textTransform: 'uppercase',
         }}>
           Natalia IA
@@ -368,39 +398,51 @@ const AIScene: React.FC = () => {
       {/* Waveform */}
       <div style={{
         display: 'flex', gap: 5, alignItems: 'center',
-        marginTop: 20, opacity: waveOp, height: 40,
+        marginTop: 14, opacity: waveOp, height: 36,
       }}>
         {bars.map((h, i) => (
           <div key={i} style={{
-            width: 4.5, height: h, borderRadius: 3,
-            background: `linear-gradient(180deg, #a855f7, #7c3aed)`,
+            width: 4, height: h, borderRadius: 3,
+            background: 'linear-gradient(180deg, #a855f7, #7c3aed)',
           }} />
         ))}
       </div>
 
-      {/* Speech bubble */}
+      {/* Conversation bubbles */}
       <div style={{
-        opacity: speechOp, marginTop: 20,
-        background: '#1e1b4b', border: '1px solid #4c1d9550',
-        borderRadius: 12, padding: '10px 18px',
-        maxWidth: 320, textAlign: 'center',
+        marginTop: 18, display: 'flex', flexDirection: 'column', gap: 8,
+        width: 380, maxWidth: '90%',
       }}>
-        <div style={{ color: '#e9d5ff', fontSize: 13, fontWeight: 500, lineHeight: 1.5 }}>
-          &ldquo;Entendido, transfiriendo a tu ejecutivo...&rdquo;
-        </div>
-      </div>
-
-      {/* Transfer beam */}
-      <div style={{
-        position: 'absolute', top: '45%', left: '52%',
-        width: 300, height: 4, overflow: 'hidden',
-        opacity: beamProgress > 0 ? 1 : 0,
-      }}>
-        <div style={{
-          width: `${beamProgress * 100}%`, height: '100%',
-          background: 'linear-gradient(90deg, #8b5cf6, #06b6d4)',
-          borderRadius: 2, boxShadow: '0 0 12px #06b6d460',
-        }} />
+        {convMessages.map((msg, i) => {
+          const msgOp = fadeIn(frame, msg.start, 18);
+          const msgY = interpolate(msgOp, [0, 1], [10, 0]);
+          return (
+            <div key={i} style={{
+              opacity: msgOp,
+              transform: `translateY(${msgY}px)`,
+              alignSelf: msg.isAI ? 'flex-end' : 'flex-start',
+              maxWidth: '85%',
+              background: msg.isAI ? '#1e1b4b' : '#1a2e1a',
+              border: msg.isAI ? '1px solid #4c1d9530' : '1px solid #16a34a30',
+              borderRadius: msg.isAI ? '10px 2px 10px 10px' : '2px 10px 10px 10px',
+              padding: '8px 14px',
+            }}>
+              <div style={{
+                fontSize: 9, fontWeight: 700, marginBottom: 3,
+                color: msg.isAI ? '#a78bfa' : '#6ee7b7',
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+              }}>
+                {msg.isAI ? 'Natalia IA' : 'Prospecto'}
+              </div>
+              <div style={{
+                color: msg.isAI ? '#e9d5ff' : '#d1fae5',
+                fontSize: 12, lineHeight: 1.4, fontWeight: 500,
+              }}>
+                {msg.text}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Label */}
@@ -425,13 +467,13 @@ const SoftphoneScene: React.FC = () => {
 
   const panelX = spring({ frame: frame - 5, fps, from: 400, to: 0, config: { damping: 14 } });
   const panelOp = fadeIn(frame, 0, 15);
-  const infoOp = fadeIn(frame, 20, 12);
-  const acceptPulse = frame > 40 && frame < 75 ? 1 + Math.sin((frame - 40) * 0.25) * 0.08 : 1;
-  const acceptGlow = frame > 40 && frame < 75 ? 6 + Math.sin((frame - 40) * 0.25) * 6 : 0;
-  const isAccepted = frame > 78;
-  const connectedOp = fadeIn(frame, 80, 12);
-  const timerSeconds = isAccepted ? Math.floor((frame - 80) / 30) : 0;
-  const labelOp = fadeIn(frame, 100, 15);
+  const infoOp = fadeIn(frame, 25, 15);
+  const acceptPulse = frame > 55 && frame < 130 ? 1 + Math.sin((frame - 55) * 0.25) * 0.08 : 1;
+  const acceptGlow = frame > 55 && frame < 130 ? 6 + Math.sin((frame - 55) * 0.25) * 6 : 0;
+  const isAccepted = frame > 135;
+  const connectedOp = fadeIn(frame, 140, 15);
+  const timerSeconds = isAccepted ? Math.floor((frame - 140) / 30) : 0;
+  const labelOp = fadeIn(frame, 180, 15);
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -584,30 +626,29 @@ const TransferScene: React.FC = () => {
   ];
 
   const spacing = 200;
-  const startX = (COMP_W - spacing * 2) / 2;
 
-  // Staggered avatar appearance
+  // Staggered avatar appearance (slower)
   const avatarOps = people.map((_, i) =>
-    fadeIn(frame, 5 + i * 15, 15)
+    fadeIn(frame, 8 + i * 25, 18)
   );
   const avatarScales = people.map((_, i) =>
-    spring({ frame: frame - (5 + i * 15), fps, config: { damping: 12 } })
+    spring({ frame: frame - (8 + i * 25), fps, config: { damping: 12 } })
   );
 
-  // Transfer beams
-  const beam1 = interpolate(frame, [60, 85], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
-  const beam2 = interpolate(frame, [100, 125], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  // Transfer beams (later timing)
+  const beam1 = interpolate(frame, [100, 135], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const beam2 = interpolate(frame, [165, 200], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
 
   // Active person glow
-  const active1 = frame > 85 && frame < 100;
-  const active2 = frame > 125;
+  const active1 = frame > 135 && frame < 165;
+  const active2 = frame > 200;
 
   // Label
-  const labelOp = fadeIn(frame, 110, 15);
+  const labelOp = fadeIn(frame, 210, 15);
 
   // Dim source after transfer
-  const dim0 = frame > 85 ? 0.35 : 1;
-  const dim1 = frame > 125 ? 0.35 : 1;
+  const dim0 = frame > 135 ? 0.35 : 1;
+  const dim1 = frame > 200 ? 0.35 : 1;
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -682,7 +723,7 @@ const TransferScene: React.FC = () => {
         {beam1 > 0.9 && (
           <div style={{
             position: 'absolute', top: 22, left: 72 + (spacing - 80) / 2 - 6,
-            fontSize: 14, color: '#06b6d4', opacity: fadeIn(frame, 85, 10),
+            fontSize: 14, color: '#06b6d4', opacity: fadeIn(frame, 135, 10),
           }}>
             →
           </div>
@@ -690,7 +731,7 @@ const TransferScene: React.FC = () => {
         {beam2 > 0.9 && (
           <div style={{
             position: 'absolute', top: 22, left: 72 + spacing + (spacing - 80) / 2 - 6,
-            fontSize: 14, color: '#06b6d4', opacity: fadeIn(frame, 125, 10),
+            fontSize: 14, color: '#06b6d4', opacity: fadeIn(frame, 200, 10),
           }}>
             →
           </div>
@@ -724,9 +765,9 @@ const OutroScene: React.FC = () => {
     { icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z', title: 'Admin sin Limites', desc: 'Transfiere a cualquier usuario online', color: '#f59e0b' },
   ];
 
-  const titleOp = fadeIn(frame, 80, 18);
-  const titleScale = spring({ frame: frame - 82, fps, config: { damping: 10, mass: 0.5 } });
-  const titleGlow = interpolate(frame, [90, 110, 130, 140], [0, 1, 1, 0.6], { extrapolateRight: 'clamp' });
+  const titleOp = fadeIn(frame, 140, 18);
+  const titleScale = spring({ frame: frame - 142, fps, config: { damping: 10, mass: 0.5 } });
+  const titleGlow = interpolate(frame, [150, 180, 250, 290], [0, 1, 1, 0.7], { extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -735,8 +776,8 @@ const OutroScene: React.FC = () => {
         display: 'flex', gap: 16, marginTop: -40,
       }}>
         {features.map((f, i) => {
-          const cardOp = fadeIn(frame, 5 + i * 18, 15);
-          const cardY = spring({ frame: frame - (5 + i * 18), fps, from: 40, to: 0, config: { damping: 14 } });
+          const cardOp = fadeIn(frame, 8 + i * 28, 18);
+          const cardY = spring({ frame: frame - (8 + i * 28), fps, from: 40, to: 0, config: { damping: 14 } });
 
           return (
             <div key={i} style={{
@@ -785,22 +826,25 @@ const OutroScene: React.FC = () => {
 };
 
 // ============================================
-// SCENE 7: POST-CREDITS
+// SCENE 7: POST-CREDITS (fijo, sin fondo negro)
 // ============================================
 
 const PostCreditsScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const comingOp = fadeIn(frame, 25, 18);
-  const titleScale = spring({ frame: frame - 50, fps, config: { damping: 10, mass: 0.5 } });
-  const titleOp = fadeIn(frame, 45, 18);
-  const glowPulse = frame > 60 ? 0.5 + Math.sin((frame - 60) * 0.08) * 0.3 : 0;
-  const rocketY = frame > 55 ? interpolate(frame, [55, 80], [30, 0], { extrapolateRight: 'clamp' }) : 30;
-  const rocketOp = fadeIn(frame, 55, 15);
+  const comingOp = fadeIn(frame, 30, 18);
+  const titleScale = spring({ frame: frame - 55, fps, config: { damping: 10, mass: 0.5 } });
+  const titleOp = fadeIn(frame, 50, 18);
+  const glowPulse = frame > 70 ? 0.5 + Math.sin((frame - 70) * 0.08) * 0.3 : 0;
+  const rocketY = frame > 65 ? interpolate(frame, [65, 90], [30, 0], { extrapolateRight: 'clamp' }) : 30;
+  const rocketOp = fadeIn(frame, 65, 15);
 
   return (
-    <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center', background: '#030308' }}>
+    <AbsoluteFill style={{
+      justifyContent: 'center', alignItems: 'center',
+      background: 'rgba(5,5,16,0.88)',
+    }}>
       {/* Subtle glow */}
       <div style={{
         position: 'absolute', width: 400, height: 400, borderRadius: '50%',
@@ -839,7 +883,7 @@ const PostCreditsScene: React.FC = () => {
 
       {/* Subtitle */}
       <div style={{
-        opacity: fadeIn(frame, 70, 20),
+        opacity: fadeIn(frame, 80, 20),
         fontSize: 13, color: '#9ca3af', marginTop: 20,
         letterSpacing: '0.05em', fontWeight: 500,
       }}>
@@ -850,13 +894,12 @@ const PostCreditsScene: React.FC = () => {
 };
 
 // ============================================
-// MAIN COMPOSITION
+// MAIN COMPOSITION (sin Audio de Remotion)
 // ============================================
 
 const VoiceCallsComposition: React.FC = () => {
   return (
     <AbsoluteFill style={{ background: '#050510', fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-      <Audio src="/sounds/voice-calls-intro.mp3" volume={0.25} />
       <ParallaxBackground />
 
       <Sequence from={SCENES.INTRO.from} durationInFrames={SCENES.INTRO.dur}>
@@ -891,7 +934,7 @@ const VoiceCallsComposition: React.FC = () => {
 };
 
 // ============================================
-// TUTORIAL WRAPPER (Player + controls)
+// TUTORIAL WRAPPER (Player + controles reproductor + audio loop)
 // ============================================
 
 interface VoiceCallsIntroTutorialProps {
@@ -900,10 +943,19 @@ interface VoiceCallsIntroTutorialProps {
 
 const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onComplete }) => {
   const playerRef = useRef<PlayerRef>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [isFinished, setIsFinished] = useState(false);
   const [progress, setProgress] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
   const [needsClick, setNeedsClick] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+
+  // Set audio volume on mount
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = 0.25;
+    }
+  }, []);
 
   // Track playback progress
   useEffect(() => {
@@ -915,6 +967,8 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
         if (currentFrame > 2) setHasStarted(true);
         if (currentFrame >= TOTAL_FRAMES - 3 && !isFinished) {
           setIsFinished(true);
+          playerRef.current.pause();
+          // Audio keeps looping until Finalizar
         }
       }
       raf = requestAnimationFrame(update);
@@ -922,6 +976,13 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
     raf = requestAnimationFrame(update);
     return () => cancelAnimationFrame(raf);
   }, [isFinished]);
+
+  // Start audio when video starts
+  useEffect(() => {
+    if (hasStarted && audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
+  }, [hasStarted]);
 
   // Detect if autoplay was blocked
   useEffect(() => {
@@ -933,19 +994,66 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
 
   const handleStart = useCallback(() => {
     playerRef.current?.play();
+    if (audioRef.current) {
+      audioRef.current.play().catch(() => {});
+    }
     setNeedsClick(false);
     setHasStarted(true);
   }, []);
 
+  const handleTogglePause = useCallback(() => {
+    if (isPaused) {
+      playerRef.current?.play();
+      audioRef.current?.play().catch(() => {});
+    } else {
+      playerRef.current?.pause();
+      audioRef.current?.pause();
+    }
+    setIsPaused(prev => !prev);
+  }, [isPaused]);
+
+  const handleSeek = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const targetFrame = Math.floor(ratio * TOTAL_FRAMES);
+    playerRef.current?.seekTo(targetFrame);
+    setProgress(ratio);
+    if (isFinished) {
+      setIsFinished(false);
+      setIsPaused(false);
+      playerRef.current?.play();
+    }
+  }, [isFinished]);
+
   const handleRepeat = useCallback(() => {
     setIsFinished(false);
     setProgress(0);
+    setIsPaused(false);
     playerRef.current?.seekTo(0);
     playerRef.current?.play();
   }, []);
 
+  const handleFinish = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    onComplete();
+  }, [onComplete]);
+
+  const formatTime = (ratio: number) => {
+    const totalSec = Math.floor((TOTAL_FRAMES / FPS) * ratio);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
   return (
     <div className="space-y-0 -mx-6 -mt-6 -mb-6">
+      {/* Audio loop (HTML, no Remotion) */}
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio ref={audioRef} src="/sounds/voice-calls-intro.mp3" loop preload="auto" />
+
       {/* Player container */}
       <div className="relative overflow-hidden rounded-t-2xl bg-[#050510]">
         <Player
@@ -986,25 +1094,52 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
             </motion.div>
           )}
         </AnimatePresence>
-
-        {/* Progress bar */}
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-800/80">
-          <div
-            className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 transition-[width] duration-100"
-            style={{ width: `${progress * 100}%` }}
-          />
-        </div>
       </div>
 
-      {/* Controls footer */}
-      <div className="bg-gray-950 border-t border-gray-800 px-6 py-4 rounded-b-2xl">
-        <AnimatePresence mode="wait">
-          {isFinished ? (
+      {/* Controls footer - media player style */}
+      <div className="bg-gray-950 border-t border-gray-800 px-5 py-3.5 rounded-b-2xl space-y-3">
+        {/* Media controls: play/pause + seekable progress + time */}
+        <div className="flex items-center gap-3">
+          {/* Play/Pause toggle */}
+          <button
+            onClick={isFinished ? handleRepeat : handleTogglePause}
+            className="w-8 h-8 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors flex items-center justify-center text-gray-300 flex-shrink-0"
+          >
+            {isPaused || isFinished ? (
+              <Play className="w-3.5 h-3.5 ml-0.5" />
+            ) : (
+              <Pause className="w-3.5 h-3.5" />
+            )}
+          </button>
+
+          {/* Seekable progress bar */}
+          <div
+            className="flex-1 h-1.5 bg-gray-800 rounded-full cursor-pointer relative group"
+            onClick={handleSeek}
+          >
+            <div
+              className="h-full bg-gradient-to-r from-cyan-500 to-purple-500 rounded-full relative transition-[width] duration-75"
+              style={{ width: `${Math.min(progress * 100, 100)}%` }}
+            >
+              {/* Seek thumb on hover */}
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-lg shadow-cyan-500/30 scale-0 group-hover:scale-100 transition-transform" />
+            </div>
+          </div>
+
+          {/* Time display */}
+          <span className="text-xs text-gray-500 font-mono tabular-nums whitespace-nowrap flex-shrink-0">
+            {formatTime(progress)} / {formatTime(1)}
+          </span>
+        </div>
+
+        {/* Finished actions */}
+        <AnimatePresence>
+          {isFinished && (
             <motion.div
-              key="finished"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between"
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="flex items-center justify-between pt-1"
             >
               <p className="text-sm text-gray-400">
                 Presentacion finalizada
@@ -1018,30 +1153,13 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
                   Repetir
                 </button>
                 <button
-                  onClick={onComplete}
+                  onClick={handleFinish}
                   className="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 transition-colors text-white text-sm font-medium flex items-center gap-2"
                 >
                   <CheckCircle className="w-4 h-4" />
                   Finalizar
                 </button>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="playing"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex items-center justify-between"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse" />
-                <span className="text-xs text-gray-500 font-medium">
-                  {Math.round(progress * 100)}%
-                </span>
-              </div>
-              <p className="text-xs text-gray-600">
-                Visualizacion obligatoria
-              </p>
             </motion.div>
           )}
         </AnimatePresence>

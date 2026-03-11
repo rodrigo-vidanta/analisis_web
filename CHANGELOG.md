@@ -1,3 +1,9 @@
+## [v2.31.12] - 2026-03-11
+
+**B10.3.0N2.31.12** - fix(comunicado): voice calls animation v2 - audio loop, rename WhatsApp, playback controls, +5s per scene, staggered bubbles
+
+---
+
 ## [v2.31.11] - 2026-03-11
 
 **B10.3.0N2.31.11** - Deploy automatico
