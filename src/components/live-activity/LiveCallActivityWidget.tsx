@@ -30,7 +30,7 @@ import type { TransferCallData } from '../analysis/TransferModal';
 import { useTwilioVoice } from '../../hooks/useTwilioVoice';
 import { VoiceSoftphoneModal } from './VoiceSoftphoneModal';
 import { VoiceTransferModal } from './VoiceTransferModal';
-import { voiceTransferService } from '../../services/voiceTransferService';
+import { voiceTransferService, type WarmTransferData } from '../../services/voiceTransferService';
 import { audioOutputService } from '../../services/audioOutputService';
 import { analysisSupabase } from '../../config/analysisSupabase';
 
@@ -83,8 +83,16 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Estado del modal de transferencia voice (team transfer)
   const [showVoiceTransferModal, setShowVoiceTransferModal] = useState(false);
 
-  // Twilio Voice SDK para recibir llamadas transferidas
-  const shouldInitVoice = !!(user?.id && isWidgetEnabled);
+  // Ref para tracking transfer en progreso (evita que disconnect cierre UI abruptamente)
+  const voiceTransferInProgressRef = useRef(false);
+
+  // Estado de warm transfer (conferencia activa)
+  const [warmTransferData, setWarmTransferData] = useState<WarmTransferData | null>(null);
+
+  // Twilio Voice SDK — siempre inicializar si el usuario tiene acceso
+  // Compute boolean fuera del effect para evitar referencia inestable de canAccessLiveMonitor
+  const hasLiveMonitorAccess = canAccessLiveMonitor();
+  const shouldInitVoice = !!(user?.id && hasLiveMonitorAccess);
   const {
     isRegistered: isVoiceRegistered,
     hasIncomingCall,
@@ -102,6 +110,17 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Vincular llamada entrante de Twilio Voice con CallCard existente o abrir softphone directo
   useEffect(() => {
     if (hasIncomingCall && incomingCallInfo) {
+      // Auto-accept si es reconexion a conferencia (warm transfer en progreso)
+      if (warmTransferData) {
+        console.log('[LiveActivityWidget] Auto-accepting conference reconnection');
+        acceptVoiceCall();
+        // Softphone ya esta abierto, no cerrar
+        if (!showSoftphone) {
+          setShowSoftphone(true);
+        }
+        return;
+      }
+
       const matchingCall = incomingCallInfo.llamadaId
         ? widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId)
         : undefined;
@@ -143,7 +162,7 @@ export const LiveCallActivityWidget: React.FC = () => {
 
       audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
     }
-  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall, showSoftphone]);
+  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall, showSoftphone, warmTransferData, acceptVoiceCall]);
 
   // Cuando la llamada Voice se acepta, transicionar a "active"
   useEffect(() => {
@@ -159,12 +178,39 @@ export const LiveCallActivityWidget: React.FC = () => {
   const { removeCall } = useLiveActivityStore();
   useEffect(() => {
     if (!hasIncomingCall && !hasActiveVoiceCall) {
-      // Cerrar softphone si estaba abierto
-      if (showSoftphone) {
+      // Si warm transfer en progreso, mantener softphone abierto (esperando reconexion a conferencia)
+      if (warmTransferData) {
+        console.log('[LiveActivityWidget] Waiting for conference reconnection...');
+        return;
+      }
+
+      // Si hay transfer en progreso (VoiceTransferModal mostro exito), no cerrar abruptamente
+      if (voiceTransferInProgressRef.current) {
+        voiceTransferInProgressRef.current = false;
+        // Delay para que VoiceTransferModal muestre su mensaje de éxito
+        setTimeout(() => {
+          setShowSoftphone(false);
+          setSoftphoneCallId(null);
+          setSoftphoneCallData(null);
+          setShowVoiceTransferModal(false);
+        }, 2500);
+      } else if (showSoftphone) {
+        // Cerrar softphone si estaba abierto (disconnect normal)
         setShowSoftphone(false);
         setSoftphoneCallId(null);
         setSoftphoneCallData(null);
       }
+
+      // Actualizar voice_transfers status a completed si era una llamada transferida
+      if (incomingCallInfo?.parentCallSid && incomingCallInfo?.transferredBy && user?.id) {
+        voiceTransferService.updateTransferStatus(
+          incomingCallInfo.parentCallSid,
+          user.id,
+          'completed',
+          { completed_at: new Date().toISOString() }
+        );
+      }
+
       const transferCalls = widgetCalls.filter(c => c.voiceTransferStatus && c.voiceTransferStatus !== 'none');
       if (transferCalls.length > 0) {
         transferCalls.forEach(call => {
@@ -178,7 +224,7 @@ export const LiveCallActivityWidget: React.FC = () => {
         });
       }
     }
-  }, [hasIncomingCall, hasActiveVoiceCall, widgetCalls, clearVoiceTransfer, removeCall, showSoftphone]);
+  }, [hasIncomingCall, hasActiveVoiceCall, widgetCalls, clearVoiceTransfer, removeCall, showSoftphone, incomingCallInfo, user?.id, warmTransferData]);
 
   // Recovery: si el componente se re-monta (HMR) y hay llamada activa, re-abrir softphone
   useEffect(() => {
@@ -189,7 +235,7 @@ export const LiveCallActivityWidget: React.FC = () => {
       if (!softphoneCallData && incomingCallInfo.prospectoId && analysisSupabase) {
         analysisSupabase
           .from('prospectos')
-          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score, temperatura_prospecto')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score')
           .eq('id', incomingCallInfo.prospectoId)
           .single()
           .then(({ data }) => {
@@ -211,7 +257,6 @@ export const LiveCallActivityWidget: React.FC = () => {
                 tamano_grupo: data.tamano_grupo ?? undefined,
                 viaja_con: data.viaja_con ?? undefined,
                 score: data.score ?? undefined,
-                temperatura_prospecto: data.temperatura_prospecto ?? undefined,
                 started_at: new Date().toISOString(),
               } as WidgetCallData);
             }
@@ -224,6 +269,17 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Handlers para Voice SDK en CallCard
   const handleAcceptTransfer = useCallback(async () => {
     acceptVoiceCall();
+
+    // Actualizar voice_transfers status a connected si es una llamada transferida
+    if (incomingCallInfo?.parentCallSid && incomingCallInfo?.transferredBy && user?.id) {
+      voiceTransferService.updateTransferStatus(
+        incomingCallInfo.parentCallSid,
+        user.id,
+        'connected',
+        { connected_at: new Date().toISOString() }
+      );
+    }
+
     if (incomingCallInfo?.llamadaId) {
       setSoftphoneCallId(incomingCallInfo.llamadaId);
       setShowSoftphone(true);
@@ -241,7 +297,7 @@ export const LiveCallActivityWidget: React.FC = () => {
         // Cargar datos del prospecto desde BD
         const { data } = await analysisSupabase
           .from('prospectos')
-          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score, temperatura_prospecto')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score')
           .eq('id', incomingCallInfo.prospectoId)
           .single();
 
@@ -276,7 +332,6 @@ export const LiveCallActivityWidget: React.FC = () => {
             ejecutivo_nombre: ejecutivoNombre,
             ejecutivo_id: data.ejecutivo_id ?? undefined,
             score: data.score ?? undefined,
-            temperatura_prospecto: data.temperatura_prospecto ?? undefined,
             started_at: new Date().toISOString(),
             parentCallSid: incomingCallInfo.parentCallSid ?? undefined,
             coordinacionId: incomingCallInfo.coordinacionId ?? undefined,
@@ -314,6 +369,55 @@ export const LiveCallActivityWidget: React.FC = () => {
     }
   }, [softphoneCallData]);
 
+  // Callback cuando VoiceTransferModal inicia una warm transfer exitosa
+  const handleVoiceTransferStarted = useCallback((targetName: string, warmData: WarmTransferData) => {
+    voiceTransferInProgressRef.current = true;
+    setWarmTransferData(warmData);
+    toast.success(`Conectando conferencia con ${targetName}...`, { duration: 3000, position: 'top-right' });
+  }, []);
+
+  // Completar warm transfer: unhold prospecto, caller puede colgar
+  const handleCompleteTransfer = useCallback(async () => {
+    if (!warmTransferData) return;
+
+    const result = await voiceTransferService.completeTransfer({
+      conferenceSid: warmTransferData.conferenceSid,
+      prospectoParticipantSid: warmTransferData.prospectoParticipantSid,
+      transferId: warmTransferData.transferId,
+    });
+
+    if (result.success) {
+      toast.success(`Transferencia completada — ${warmTransferData.targetName} tiene la llamada`, { duration: 3000, position: 'top-right' });
+      setWarmTransferData(null);
+      // Colgar nuestra conexion a la conferencia
+      hangupVoiceCall();
+      setShowSoftphone(false);
+      setSoftphoneCallId(null);
+      setSoftphoneCallData(null);
+    } else {
+      toast.error(result.error || 'Error al completar transferencia', { duration: 3000, position: 'top-right' });
+    }
+  }, [warmTransferData, hangupVoiceCall]);
+
+  // Cancelar warm transfer: remover target, reconectar con prospecto
+  const handleCancelTransfer = useCallback(async () => {
+    if (!warmTransferData) return;
+
+    const result = await voiceTransferService.cancelTransfer({
+      conferenceSid: warmTransferData.conferenceSid,
+      prospectoParticipantSid: warmTransferData.prospectoParticipantSid,
+      transferId: warmTransferData.transferId,
+    });
+
+    if (result.success) {
+      toast('Transferencia cancelada — reconectado con prospecto', { duration: 3000, position: 'top-right', icon: '↩️' });
+      setWarmTransferData(null);
+      // No colgamos — el caller sigue en la conferencia con el prospecto
+    } else {
+      toast.error(result.error || 'Error al cancelar transferencia', { duration: 3000, position: 'top-right' });
+    }
+  }, [warmTransferData]);
+
   // Supervisor/coordinador: "Transferir Aqui" desde CallCard
   const handleTransferHere = useCallback(async (call: WidgetCallData) => {
     if (!call.parentCallSid || !user?.id) return;
@@ -343,16 +447,18 @@ export const LiveCallActivityWidget: React.FC = () => {
   }, [user]);
 
   // Inicializar store cuando el usuario está autenticado
+  // Usar hasLiveMonitorAccess (boolean) en vez de canAccessLiveMonitor (function ref)
+  // para evitar que el effect se re-ejecute en cada render
   useEffect(() => {
-    if (user?.id && user?.role_name && canAccessLiveMonitor()) {
+    if (user?.id && user?.role_name && hasLiveMonitorAccess) {
       initialize(user.id, user.role_name);
     }
-    
+
     return () => {
       cleanup();
       stopAudioMonitoring();
     };
-  }, [user?.id, user?.role_name, canAccessLiveMonitor, initialize, cleanup]);
+  }, [user?.id, user?.role_name, hasLiveMonitorAccess, initialize, cleanup]);
   
   // Polling ELIMINADO - Realtime via RealtimeHub cubre todos los escenarios:
   // - Nueva llamada: INSERT → debouncedLoadActiveCalls() (2s)
@@ -629,8 +735,8 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Mostrar todas las llamadas en el side widget (incluyendo durante llamada VoIP activa)
   const sideWidgetCalls = widgetCalls;
 
-  // No renderizar si no está habilitado o no tiene acceso
-  if (!isWidgetEnabled || !canAccessLiveMonitor() || !user) {
+  // No renderizar si no tiene acceso
+  if (!hasLiveMonitorAccess || !user) {
     return null;
   }
 
@@ -722,10 +828,14 @@ export const LiveCallActivityWidget: React.FC = () => {
         onToggleMute={toggleVoiceMute}
         onHangup={handleHangupVoice}
         onTransfer={handleOpenVoiceTransfer}
-        canTransfer={!!(softphoneCallData?.parentCallSid)}
-        hasIncomingCall={hasIncomingCall}
+        canTransfer={!!(softphoneCallData?.parentCallSid) && !warmTransferData}
+        hasIncomingCall={hasIncomingCall && !warmTransferData}
         onAcceptCall={handleAcceptTransfer}
         onRejectCall={() => { rejectVoiceCall(); setShowSoftphone(false); setSoftphoneCallData(null); }}
+        isInConference={warmTransferData !== null && hasActiveVoiceCall}
+        warmTransferTargetName={warmTransferData?.targetName}
+        onCompleteTransfer={handleCompleteTransfer}
+        onCancelTransfer={handleCancelTransfer}
       />
 
       {/* Voice Transfer Modal - Seleccionar destino de transferencia */}
@@ -740,6 +850,7 @@ export const LiveCallActivityWidget: React.FC = () => {
         fromNumber={softphoneCallData?.whatsapp}
         tipoLlamada="transfer"
         userCoordinacionIds={user?.coordinaciones_ids ?? (user?.coordinacion_id ? [user.coordinacion_id] : [])}
+        onTransferStarted={handleVoiceTransferStarted}
       />
       
       {/* Panel expandido - pegado al borde derecho */}

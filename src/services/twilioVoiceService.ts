@@ -380,7 +380,7 @@ class TwilioVoiceService {
 
     // Device registrado exitosamente en Twilio
     this.device.on('registered', () => {
-      console.log(`${LOG_PREFIX} Device registered`);
+      console.log(`${LOG_PREFIX} ✅ Device registered — ready to receive calls (identity: ${this.state.identity})`);
       this.updateState({ isRegistered: true, error: null });
       this.emit('registered', {});
     });

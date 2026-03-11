@@ -195,6 +195,11 @@ export interface VoiceSoftphoneModalProps {
   hasIncomingCall?: boolean;
   onAcceptCall?: () => void;
   onRejectCall?: () => void;
+  // Warm transfer conference mode
+  isInConference?: boolean;
+  warmTransferTargetName?: string;
+  onCompleteTransfer?: () => void;
+  onCancelTransfer?: () => void;
 }
 
 // ============================================
@@ -214,6 +219,10 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
   hasIncomingCall = false,
   onAcceptCall,
   onRejectCall,
+  isInConference = false,
+  warmTransferTargetName,
+  onCompleteTransfer,
+  onCancelTransfer,
 }) => {
   const [callDuration, setCallDuration] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -590,8 +599,8 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
                     <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isOnHold ? 'bg-amber-400' : 'bg-emerald-400'}`} />
                     <span className={`relative inline-flex rounded-full h-2 w-2 ${isOnHold ? 'bg-amber-500' : 'bg-emerald-500'}`} />
                   </span>
-                  <span className={`text-xs font-semibold ${isOnHold ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {isOnHold ? 'Espera' : 'Activa'}
+                  <span className={`text-xs font-semibold ${isInConference ? 'text-cyan-400' : isOnHold ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {isInConference ? 'Conferencia' : isOnHold ? 'Espera' : 'Activa'}
                   </span>
                 </div>
                 <span className="font-mono text-base font-semibold text-gray-300">{formatDuration(callDuration)}</span>
@@ -643,6 +652,69 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
                   <span className="text-[11px] text-emerald-400 font-semibold">Aceptar</span>
                 </div>
               </div>
+            ) : isInConference ? (
+              /* Conference mode: Completar / Cancelar / Colgar */
+              <div className="space-y-3">
+                {/* Conference indicator */}
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="flex items-center justify-center gap-2 bg-cyan-500/10 border border-cyan-500/20 rounded-xl px-3 py-2"
+                >
+                  <Users className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="text-cyan-300 text-xs font-medium">
+                    En conferencia con <span className="font-bold">{warmTransferTargetName}</span>
+                  </span>
+                  <span className="relative flex h-2 w-2 ml-1">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500" />
+                  </span>
+                </motion.div>
+
+                <p className="text-[11px] text-gray-500 text-center">
+                  El prospecto esta en espera. Briefea al destino y completa la transferencia.
+                </p>
+
+                <div className="flex items-center justify-center gap-4">
+                  {/* Cancelar transferencia */}
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={onCancelTransfer}
+                      className="w-14 h-14 rounded-full bg-gray-700 hover:bg-red-600/80 flex items-center justify-center transition-all shadow-lg text-gray-300 hover:text-white border border-gray-600 hover:border-red-500/50"
+                      title="Cancelar transferencia (reconectar con prospecto)"
+                    >
+                      <X className="w-6 h-6" />
+                    </button>
+                    <span className="text-[11px] text-gray-500">Cancelar</span>
+                  </div>
+
+                  {/* Completar transferencia */}
+                  <div className="flex flex-col items-center gap-1">
+                    <motion.button
+                      onClick={onCompleteTransfer}
+                      animate={{ boxShadow: ['0 0 0 0 rgba(16, 185, 129, 0)', '0 0 0 8px rgba(16, 185, 129, 0.15)', '0 0 0 0 rgba(16, 185, 129, 0)'] }}
+                      transition={{ repeat: Infinity, duration: 2 }}
+                      className="w-[64px] h-[64px] rounded-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center transition-all shadow-xl shadow-emerald-500/40 text-white"
+                      title="Completar transferencia (conectar prospecto con destino)"
+                    >
+                      <CheckCircle2 className="w-7 h-7" />
+                    </motion.button>
+                    <span className="text-[11px] text-emerald-400 font-semibold">Completar</span>
+                  </div>
+
+                  {/* Colgar (emergencia) */}
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={handleHangup}
+                      className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-all shadow-lg shadow-red-500/30 text-white"
+                      title="Colgar llamada"
+                    >
+                      <PhoneOff className="w-6 h-6" />
+                    </button>
+                    <span className="text-[11px] text-red-400">Colgar</span>
+                  </div>
+                </div>
+              </div>
             ) : (
               /* Activa: Mute / Transfer / Colgar */
               <div className="flex items-center justify-center gap-5">
@@ -688,7 +760,7 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
               </div>
             )}
 
-            {isOnHold && (
+            {isOnHold && !isInConference && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}

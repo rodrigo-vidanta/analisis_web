@@ -20,7 +20,7 @@ import {
   CheckCircle2,
   AlertCircle,
 } from 'lucide-react';
-import { voiceTransferService, type TeamMember, type TransferCallParams } from '../../services/voiceTransferService';
+import { voiceTransferService, type TeamMember, type TransferCallParams, type WarmTransferData } from '../../services/voiceTransferService';
 
 // ============================================
 // TYPES
@@ -38,6 +38,8 @@ export interface VoiceTransferModalProps {
   tipoLlamada?: string;
   /** IDs de todas las coordinaciones del usuario actual */
   userCoordinacionIds: string[];
+  /** Callback cuando la transferencia fue iniciada exitosamente (antes del close) */
+  onTransferStarted?: (targetName: string, warmData: WarmTransferData) => void;
 }
 
 // Roles agrupados y su config visual
@@ -79,6 +81,7 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
   fromNumber,
   tipoLlamada,
   userCoordinacionIds,
+  onTransferStarted,
 }) => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -137,10 +140,20 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
     const result = await voiceTransferService.transferCall(params);
 
     if (result.success) {
-      setSuccess(`Transferencia iniciada a ${result.targetName || member.full_name}`);
+      const targetName = result.targetName || member.full_name;
+      setSuccess(`Conectando conferencia con ${targetName}...`);
+      if (result.conferenceSid && result.prospectoParticipantSid) {
+        onTransferStarted?.(targetName, {
+          conferenceName: result.conferenceName ?? '',
+          conferenceSid: result.conferenceSid,
+          prospectoParticipantSid: result.prospectoParticipantSid,
+          transferId: result.transferId ?? '',
+          targetName,
+        });
+      }
       setTimeout(() => {
         onClose();
-      }, 1500);
+      }, 2000);
     } else {
       setError(result.error || 'Error al transferir');
       setIsTransferring(false);

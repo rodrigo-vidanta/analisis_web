@@ -43,6 +43,10 @@ export interface TransferResult {
   targetIdentity?: string;
   targetName?: string;
   error?: string;
+  // Warm transfer conference data
+  conferenceName?: string;
+  conferenceSid?: string;
+  prospectoParticipantSid?: string;
 }
 
 export interface VoiceTransferRecord {
@@ -64,12 +68,21 @@ export interface VoiceTransferRecord {
   completed_at: string | null;
 }
 
+export interface WarmTransferData {
+  conferenceName: string;
+  conferenceSid: string;
+  prospectoParticipantSid: string;
+  transferId: string;
+  targetName: string;
+}
+
 // ============================================
 // CONSTANTES
 // ============================================
 
 const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const TRANSFER_ENDPOINT = `${SUPABASE_URL}/functions/v1/voice-transfer`;
+const TRANSFER_COMPLETE_ENDPOINT = `${SUPABASE_URL}/functions/v1/voice-transfer-complete`;
 const LOG_PREFIX = '[VoiceTransfer]';
 
 // ============================================
@@ -129,9 +142,134 @@ class VoiceTransferService {
         transferId: result.transferId,
         targetIdentity: result.targetIdentity,
         targetName: result.targetName,
+        conferenceName: result.conferenceName,
+        conferenceSid: result.conferenceSid,
+        prospectoParticipantSid: result.prospectoParticipantSid,
       };
     } catch (err) {
       console.error(`${LOG_PREFIX} Transfer error:`, err);
+      return { success: false, error: 'Error de conexion' };
+    }
+  }
+
+  /**
+   * Actualiza el status de un transfer por parentCallSid + toUserId.
+   * Usado cuando el destino acepta o la llamada termina.
+   */
+  async updateTransferStatus(
+    parentCallSid: string,
+    toUserId: string,
+    status: 'connected' | 'completed' | 'failed' | 'rejected' | 'timeout',
+    extraFields?: { connected_at?: string; completed_at?: string }
+  ): Promise<boolean> {
+    try {
+      const updateData: Record<string, unknown> = { status };
+      if (extraFields?.connected_at) updateData.connected_at = extraFields.connected_at;
+      if (extraFields?.completed_at) updateData.completed_at = extraFields.completed_at;
+
+      const { error } = await analysisSupabase
+        .from('voice_transfers')
+        .update(updateData)
+        .eq('parent_call_sid', parentCallSid)
+        .eq('to_user_id', toUserId)
+        .eq('status', status === 'connected' ? 'ringing' : 'connected');
+
+      if (error) {
+        console.error(`${LOG_PREFIX} Error updating transfer status:`, error);
+        return false;
+      }
+
+      console.log(`${LOG_PREFIX} Transfer status updated to ${status}`);
+      return true;
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Error updating transfer status:`, err);
+      return false;
+    }
+  }
+
+  /**
+   * Completa un warm transfer: desactiva hold del prospecto para que hable con el target.
+   * El caller puede colgar despues de completar.
+   */
+  async completeTransfer(params: {
+    conferenceSid: string;
+    prospectoParticipantSid: string;
+    transferId?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabaseSystemUI.auth.getSession();
+      if (!session?.access_token) {
+        return { success: false, error: 'No hay sesion activa' };
+      }
+
+      const response = await fetch(TRANSFER_COMPLETE_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+        },
+        body: JSON.stringify({
+          conferenceSid: params.conferenceSid,
+          prospectoParticipantSid: params.prospectoParticipantSid,
+          action: 'complete',
+          transferId: params.transferId,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        console.error(`${LOG_PREFIX} Complete transfer failed:`, result);
+        return { success: false, error: result.error || 'Error al completar transferencia' };
+      }
+
+      console.log(`${LOG_PREFIX} Transfer completed successfully`);
+      return { success: true };
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Complete transfer error:`, err);
+      return { success: false, error: 'Error de conexion' };
+    }
+  }
+
+  /**
+   * Cancela un warm transfer: remueve al target de la conferencia y reconecta al prospecto.
+   */
+  async cancelTransfer(params: {
+    conferenceSid: string;
+    prospectoParticipantSid: string;
+    transferId?: string;
+  }): Promise<{ success: boolean; error?: string }> {
+    try {
+      const { data: { session } } = await supabaseSystemUI.auth.getSession();
+      if (!session?.access_token) {
+        return { success: false, error: 'No hay sesion activa' };
+      }
+
+      const response = await fetch(TRANSFER_COMPLETE_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+        },
+        body: JSON.stringify({
+          conferenceSid: params.conferenceSid,
+          prospectoParticipantSid: params.prospectoParticipantSid,
+          action: 'cancel',
+          transferId: params.transferId,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        console.error(`${LOG_PREFIX} Cancel transfer failed:`, result);
+        return { success: false, error: result.error || 'Error al cancelar transferencia' };
+      }
+
+      console.log(`${LOG_PREFIX} Transfer cancelled successfully`);
+      return { success: true };
+    } catch (err) {
+      console.error(`${LOG_PREFIX} Cancel transfer error:`, err);
       return { success: false, error: 'Error de conexion' };
     }
   }

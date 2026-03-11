@@ -152,11 +152,10 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
     set({ currentUserId: userId, currentUserRole: roleName, isLoading: true });
     
     try {
-      // Cargar preferencia del widget
-      const isEnabled = await userUIPreferencesService.getLiveActivityWidgetEnabled(userId, roleName);
-      set({ isWidgetEnabled: isEnabled });
-      
-      if (isEnabled) {
+      // Widget siempre habilitado (no hay toggle)
+      set({ isWidgetEnabled: true });
+
+      {
         // Cargar llamadas activas
         await get().loadActiveCalls();
         
@@ -277,7 +276,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       }
     }
     
-    // Limpiar TODO incluyendo userId para prevenir requests después del logout
+    // Limpiar estado (mantener isWidgetEnabled=true para evitar destruir Twilio Device)
     set({
       widgetCalls: [],
       expandedCallId: null,
@@ -288,7 +287,6 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       isLoadingCalls: false,
       currentUserId: null,
       currentUserRole: null,
-      isWidgetEnabled: false
     });
   },
   

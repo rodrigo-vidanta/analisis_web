@@ -224,8 +224,8 @@ const setStoredGain = (key: string, value: number): void => {
 const LiveMonitorKanban: React.FC = () => {
   const { user } = useAuth();
 
-  // Live Activity Widget store
-  const { isWidgetEnabled, toggleWidget } = useLiveActivityStore();
+  // Live Activity Widget store (siempre habilitado)
+  const _liveActivityStore = useLiveActivityStore();
   
   // Marcar notificaciones de Live Monitor como leídas al entrar al módulo
   useNotifications({ currentModule: 'live-monitor' });
@@ -3910,30 +3910,7 @@ const LiveMonitorKanban: React.FC = () => {
       
       <div className="w-full space-y-3 sm:space-y-4">
         
-        {/* Toggle Panel Lateral de Llamadas */}
-        <div className="flex items-center justify-end px-2">
-          <label className="flex items-center gap-3 cursor-pointer group">
-            <span className="text-xs text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">
-              Panel Lateral
-            </span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={isWidgetEnabled}
-                onChange={(e) => toggleWidget(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-10 h-5 bg-gray-300 dark:bg-gray-600 rounded-full peer peer-checked:bg-emerald-500 transition-colors" />
-              <div className="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5" />
-            </div>
-            {isWidgetEnabled && (
-              <span className="flex items-center gap-1 text-xs text-emerald-500">
-                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                Activado
-              </span>
-            )}
-          </label>
-        </div>
+        {/* Panel Lateral siempre activo - toggle eliminado */}
 
         {/* Historial de Llamadas */}
         <div className="corp-card corp-glow w-full">
