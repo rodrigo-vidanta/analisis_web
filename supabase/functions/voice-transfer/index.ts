@@ -142,28 +142,41 @@ serve(async (req: Request): Promise<Response> => {
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-    // 4. Verificar CALLER en coordinacion
-    const { data: callerCoord, error: callerErr } = await serviceSupabase
-      .from('auth_user_coordinaciones')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('coordinacion_id', coordinacionId)
-      .maybeSingle()
+    // 4. Verificar rol del caller (admin bypasses coordinacion checks)
+    const { data: callerRoleCheck } = await serviceSupabase
+      .from('user_profiles_v2')
+      .select('role_name')
+      .eq('id', user.id)
+      .single()
 
-    if (callerErr || !callerCoord) {
-      return jsonResponse({ error: 'No tienes permiso para transferir en esta coordinacion' }, 403)
-    }
+    const isAdmin = callerRoleCheck?.role_name === 'admin'
 
-    // 5. Verificar TARGET en coordinacion
-    const { data: targetCoord, error: targetErr } = await serviceSupabase
-      .from('auth_user_coordinaciones')
-      .select('id')
-      .eq('user_id', targetUserId)
-      .eq('coordinacion_id', coordinacionId)
-      .maybeSingle()
+    if (!isAdmin) {
+      // 4a. Verificar CALLER en coordinacion
+      const { data: callerCoord, error: callerErr } = await serviceSupabase
+        .from('auth_user_coordinaciones')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('coordinacion_id', coordinacionId)
+        .maybeSingle()
 
-    if (targetErr || !targetCoord) {
-      return jsonResponse({ error: 'El usuario destino no pertenece a esta coordinacion' }, 403)
+      if (callerErr || !callerCoord) {
+        return jsonResponse({ error: 'No tienes permiso para transferir en esta coordinacion' }, 403)
+      }
+
+      // 4b. Verificar TARGET en coordinacion
+      const { data: targetCoord, error: targetErr } = await serviceSupabase
+        .from('auth_user_coordinaciones')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('coordinacion_id', coordinacionId)
+        .maybeSingle()
+
+      if (targetErr || !targetCoord) {
+        return jsonResponse({ error: 'El usuario destino no pertenece a esta coordinacion' }, 403)
+      }
+    } else {
+      console.log(`[transfer] Admin bypass — skipping coordinacion checks`)
     }
 
     // 6. Verificar TARGET online

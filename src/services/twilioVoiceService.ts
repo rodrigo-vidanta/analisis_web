@@ -453,9 +453,10 @@ class TwilioVoiceService {
     call.on('disconnect', () => {
       console.log(`${LOG_PREFIX} Call disconnected`);
       const callInfo = this.extractCallInfo(call);
-      // Notificar webhook N8N con datos de la llamada finalizada
-      this.notifyCallEnd(callInfo);
+      const startedAt = this.callStartedAt;
       this.callStartedAt = null;
+      // Notificar webhook N8N con datos de la llamada finalizada (fire-and-forget)
+      this.notifyCallEnd(callInfo, startedAt);
       this.updateState({ activeCall: null, incomingCall: null });
       this.emit('disconnected', {
         callSid: call.parameters?.CallSid,
@@ -492,7 +493,7 @@ class TwilioVoiceService {
    * Notifica al webhook N8N que la llamada terminó.
    * Fire-and-forget: no bloquea el flujo de disconnect.
    */
-  private async notifyCallEnd(callInfo: IncomingCallInfo): Promise<void> {
+  private async notifyCallEnd(callInfo: IncomingCallInfo, startedAt: string | null): Promise<void> {
     if (!callInfo.prospectoId) {
       console.log(`${LOG_PREFIX} Skipping call-end notification — no prospectoId`);
       return;
@@ -516,7 +517,7 @@ class TwilioVoiceService {
         parentCallSid: callInfo.parentCallSid ?? null,
         prospectoId: callInfo.prospectoId,
         llamadaId: callInfo.llamadaId ?? null,
-        callStartedAt: this.callStartedAt,
+        callStartedAt: startedAt,
         callEndedAt: new Date().toISOString(),
       };
 

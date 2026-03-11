@@ -29,6 +29,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID')!
 const TWILIO_API_KEY_SID = Deno.env.get('TWILIO_API_KEY_SID')!
 const TWILIO_API_KEY_SECRET = Deno.env.get('TWILIO_API_KEY_SECRET')!
+const LIVECHAT_AUTH = Deno.env.get('LIVECHAT_AUTH')!
 
 const WEBHOOK_URL = 'https://primary-dev-d75a.up.railway.app/webhook/end-call-whatsapp'
 
@@ -212,33 +213,35 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`[voice-call-end] Sending to webhook:`, JSON.stringify(webhookPayload))
 
-    const webhookResp = await fetch(WEBHOOK_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(webhookPayload),
-    })
-
-    const webhookStatus = webhookResp.status
-    let webhookBody = ''
+    let webhookStatus = 0
     try {
-      webhookBody = await webhookResp.text()
-    } catch {
-      // ignore
+      const webhookResp = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          '2025_livechat_auth': LIVECHAT_AUTH,
+        },
+        body: JSON.stringify(webhookPayload),
+      })
+
+      webhookStatus = webhookResp.status
+      let webhookBody = ''
+      try {
+        webhookBody = await webhookResp.text()
+      } catch {
+        // ignore
+      }
+
+      console.log(`[voice-call-end] Webhook response: ${webhookStatus} — ${webhookBody.substring(0, 200)}`)
+
+      if (!webhookResp.ok) {
+        console.warn(`[voice-call-end] ⚠️ Webhook returned ${webhookStatus} — continuing anyway`)
+      }
+    } catch (webhookErr) {
+      console.warn(`[voice-call-end] ⚠️ Webhook unreachable — continuing anyway:`, webhookErr)
     }
 
-    console.log(`[voice-call-end] Webhook response: ${webhookStatus} — ${webhookBody.substring(0, 200)}`)
-
-    if (!webhookResp.ok) {
-      console.error(`[voice-call-end] ❌ Webhook failed: ${webhookStatus}`)
-      return jsonResponse({
-        success: false,
-        error: 'Webhook failed',
-        webhookStatus,
-        recordingUrl,
-      }, 502)
-    }
-
-    console.log(`[voice-call-end] ✅ Call end data sent successfully`)
+    console.log(`[voice-call-end] ✅ Call end processed`)
 
     return jsonResponse({
       success: true,

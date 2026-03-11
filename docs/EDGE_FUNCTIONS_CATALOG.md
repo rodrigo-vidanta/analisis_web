@@ -307,11 +307,18 @@ npx supabase functions logs {nombre} --tail
 - **Usado por:** `twilioVoiceService.ts`
 
 ### `voice-transfer`
-- **Tipo:** Transfer Orchestrator
+- **Tipo:** Transfer Orchestrator (Cold Transfer)
 - **Auth:** Bearer JWT (sesion Supabase)
-- **Que hace:** Transfiere una llamada activa de un miembro a otro dentro de la misma coordinacion. Valida permisos, construye TwiML, redirige via Twilio REST API, registra en `voice_transfers`.
-- **Validaciones:** Caller y target en misma coordinacion, target online (active_sessions < 5 min)
+- **Que hace:** Transfiere una llamada activa de un miembro a otro dentro de la misma coordinacion. Valida permisos, construye TwiML con `<Dial><Client>` + `<Parameter>` tags, redirige via Twilio REST API, registra en `voice_transfers`. Habilita grabacion con `record="record-from-answer-dual"`.
+- **Validaciones:** Caller y target en misma coordinacion, target online (active_sessions < 2 min). Admin (`role_name = 'admin'`) bypasea validacion de coordinacion.
 - **Usado por:** `voiceTransferService.ts`
+
+### `voice-call-end`
+- **Tipo:** Call End Webhook Proxy
+- **Auth:** Bearer JWT (sesion Supabase)
+- **Que hace:** Al terminar una llamada Voice SDK, obtiene datos del prospecto (id_dynamics, ejecutivo_id), busca grabacion en Twilio REST API (con retry 4x3s), y envia todo al webhook N8N `end-call-whatsapp` con auth `LIVECHAT_AUTH`. Tolerante a fallos del webhook (retorna success incluso si N8N no responde).
+- **Payload al webhook:** `recording_url`, `prospecto_id`, `ejecutivo_id`, `id_dynamics`, `timestamp_inicio`, `timestamp_fin`, `call_sid`, `llamada_id`
+- **Usado por:** `twilioVoiceService.ts`
 
 ---
 
@@ -320,7 +327,7 @@ npx supabase functions logs {nombre} --tail
 | Secret | Usado por |
 |--------|-----------|
 | `ANTHROPIC_API_KEY` | anthropic-proxy |
-| `LIVECHAT_AUTH` | send-message, send-img, send-audio, pause-bot, broadcast, tools, transfer-request, import-contact, error-log |
+| `LIVECHAT_AUTH` | send-message, send-img, send-audio, pause-bot, broadcast, tools, transfer-request, import-contact, error-log, voice-call-end |
 | `DYNAMICS_TOKEN` | dynamics-lead, dynamics-reasignar |
 | `WHATSAPP_TEMPLATES_AUTH` | whatsapp-templates-proxy |
 | `MANUAL_CALL_AUTH` | trigger-manual-proxy |
@@ -332,9 +339,9 @@ npx supabase functions logs {nombre} --tail
 | `N8N_SEND_IMG_URL` | send-img-proxy |
 | `N8N_MENSAJE_AGENTE_URL` | paraphrase-proxy |
 | `N8N_ERROR_LOG_URL` | error-log-proxy |
-| `TWILIO_ACCOUNT_SID` | generate-twilio-token, voice-transfer |
-| `TWILIO_API_KEY_SID` | generate-twilio-token, voice-transfer |
-| `TWILIO_API_KEY_SECRET` | generate-twilio-token, voice-transfer |
+| `TWILIO_ACCOUNT_SID` | generate-twilio-token, voice-transfer, voice-call-end |
+| `TWILIO_API_KEY_SID` | generate-twilio-token, voice-transfer, voice-call-end |
+| `TWILIO_API_KEY_SECRET` | generate-twilio-token, voice-transfer, voice-call-end |
 | `TWILIO_TWIML_APP_SID` | generate-twilio-token |
 
 ---
@@ -346,3 +353,4 @@ npx supabase functions logs {nombre} --tail
 | 2026-01-14 | 1.0.0 | Creacion inicial (16 funciones) |
 | 2026-02-13 | 2.0.0 | Reescrito completo: 25 funciones verificadas contra codigo |
 | 2026-03-11 | 2.1.0 | +2 funciones Twilio Voice: generate-twilio-token, voice-transfer |
+| 2026-03-11 | 2.2.0 | +voice-call-end (webhook N8N), voice-transfer v6 (cold transfer + admin bypass + recording) |
