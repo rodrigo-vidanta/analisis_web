@@ -138,4 +138,9 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Importa hasta 10 Prospectos',
     description: 'Comunicado animado celebrando el aumento del limite de importacion de 5 a 10 URLs simultaneas',
   },
+  {
+    component_key: 'voice-calls-intro',
+    label: 'Llamadas Voice: Presentacion',
+    description: 'Presentacion animada con Remotion del sistema de llamadas Voice con transferencias entre equipo',
+  },
 ];

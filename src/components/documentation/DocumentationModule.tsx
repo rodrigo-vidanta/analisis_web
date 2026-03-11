@@ -129,6 +129,11 @@ const Icons = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
     </svg>
   ),
+  phone: (
+    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+    </svg>
+  ),
 };
 
 // ============================================
@@ -173,12 +178,21 @@ const documentationSections: DocSection[] = [
     ]
   },
   {
-    id: 'chat',
-    title: 'Live Chat',
+    id: 'whatsapp',
+    title: 'WhatsApp',
     icon: Icons.integrations,
     docs: [
       { id: 'roadmap-livechat', name: 'Roadmap Escalabilidad v7.0', path: '/docs/LIVECHAT_ESCALABILITY_ROADMAP.md', description: 'Plan de virtualizacion y escalabilidad para >10k conversaciones' },
       { id: 'whatsapp-labels', name: 'WhatsApp Labels Sistema', path: '/docs/WHATSAPP_LABELS_FINAL_DOCUMENTATION.md', description: 'Sistema de etiquetas WhatsApp' },
+    ]
+  },
+  {
+    id: 'voice-calls',
+    title: 'Llamadas Voice',
+    icon: Icons.phone,
+    docs: [
+      { id: 'voice-transfer-system', name: 'Sistema de Transferencias Voice', path: '/docs/VOICE_TRANSFER_SYSTEM.md', description: 'Twilio Voice SDK, softphone, transferencias frias, grabacion, Edge Functions' },
+      { id: 'live-activity-widget', name: 'Live Activity Widget', path: '/docs/LIVE_ACTIVITY_WIDGET.md', description: 'Widget de llamadas activas, VAPI, audio en vivo, transcripciones' },
     ]
   },
   {
@@ -300,6 +314,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: 'f28a10d', date: '2026-03-11', author: 'Team', message: 'v2.31.11: B10.3.0N2.31.11 - Deploy automatico', isRelease: true },
   { hash: '9f194f6', date: '2026-03-11', author: 'Team', message: 'v2.31.10: B10.3.0N2.31.10 - Deploy automatico', isRelease: true },
   { hash: '89d239c', date: '2026-03-11', author: 'Team', message: 'v2.31.9: B10.3.0N2.31.9 - Deploy automatico', isRelease: true },
   { hash: '53dc1d0', date: '2026-03-11', author: 'Team', message: 'v2.31.8: B10.3.0N2.31.8 - Deploy automatico', isRelease: true },
@@ -587,6 +602,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-146', date: '11/03/2026, 16:02', version: 'B10.3.0N2.31.11', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-599', date: '11/03/2026, 14:22', version: 'B10.3.0N2.31.10', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-441', date: '11/03/2026, 14:17', version: 'B10.3.0N2.31.9', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-317', date: '11/03/2026, 14:05', version: 'B10.3.0N2.31.8', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -819,8 +835,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.31.10', highlight: true },
-  { label: 'Release', value: 'B10.3.0N2.31.10', highlight: false },
+  { label: 'Version', value: 'v2.31.11', highlight: true },
+  { label: 'Release', value: 'B10.3.0N2.31.11', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '11 mar 2026', highlight: false },
 ];
@@ -840,7 +856,7 @@ const removeEmojis = (text: string): string => {
 
 const DocumentationModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'docs' | 'git' | 'aws'>('docs');
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['versioning', 'analysis', 'chat']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['versioning', 'analysis', 'whatsapp', 'voice-calls']));
   const [selectedDoc, setSelectedDoc] = useState<DocFile | null>(documentationSections[0].docs[0]);
   const [docContent, setDocContent] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);

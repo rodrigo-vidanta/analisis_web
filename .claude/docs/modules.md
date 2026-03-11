@@ -83,10 +83,12 @@
 - Panel supervisores y coordinadores
 
 ### Live Activity (`src/components/live-activity/`)
-- `LiveCallActivityWidget.tsx` - Widget actividad llamadas
-- `CallCard.tsx` - Card de llamada activa
-- `ExpandedCallPanel.tsx` - Panel expandido
-- `MinimizedCallTab.tsx` - Tab minimizado
+- `LiveCallActivityWidget.tsx` - Widget actividad llamadas (orquestador principal)
+- `CallCard.tsx` - Card de llamada activa (3 estados: normal, incoming, active)
+- `ExpandedCallPanel.tsx` - Panel expandido con transcripcion
+- `MinimizedCallTab.tsx` - Tab minimizado vertical
+- `VoiceSoftphoneModal.tsx` - Softphone draggable Twilio Voice SDK
+- `VoiceTransferModal.tsx` - Modal transferencia VoIP intra-coordinacion
 
 ### Logos (`src/components/logos/`)
 - Sistema logos dinamicos (Default, Christmas, NewYear, Valentine)
@@ -146,6 +148,10 @@
 - `systemNotificationService.ts` - Sistema
 - `notificationsService.ts` - Wrapper
 - `adminMessagesService.ts` - Mensajes admin
+
+### Voice / Twilio (2)
+- `twilioVoiceService.ts` - Twilio Voice SDK Device, incoming/outgoing, grabacion, call-end notification
+- `voiceTransferService.ts` - Transferencia VoIP entre team members, Realtime subs
 
 ### Integraciones (9)
 - `n8nService.ts` / `n8nProxyService.ts` - N8N
@@ -212,6 +218,7 @@
 | `useTokenExpiryMonitor` | Monitor expiracion token (cada 5 min) |
 | `useVersionCheck` | Verificacion version app |
 | `useVersionHistory` | Historial versiones |
+| `useTwilioVoice` | Twilio Voice SDK con reference counting |
 
 ## Stores Zustand (6) (`src/stores/`)
 
