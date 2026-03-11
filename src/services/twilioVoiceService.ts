@@ -73,6 +73,7 @@ type TwilioVoiceListener = (data: Record<string, unknown>) => void;
 
 const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const TOKEN_ENDPOINT = `${SUPABASE_URL}/functions/v1/generate-twilio-token`;
+const CALL_END_ENDPOINT = `${SUPABASE_URL}/functions/v1/voice-call-end`;
 const LOG_PREFIX = '[TwilioVoice]';
 
 // ============================================
@@ -93,6 +94,7 @@ class TwilioVoiceService {
   private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private consumerCount = 0;
   private initPromise: Promise<void> | null = null;
+  private callStartedAt: string | null = null;
 
   // Hangup activo al cerrar/recargar página
   private boundBeforeUnload = () => {
@@ -445,14 +447,19 @@ class TwilioVoiceService {
   private setupCallEvents(call: Call): void {
     call.on('accept', () => {
       console.log(`${LOG_PREFIX} Call accepted event`);
+      this.callStartedAt = new Date().toISOString();
     });
 
     call.on('disconnect', () => {
       console.log(`${LOG_PREFIX} Call disconnected`);
+      const callInfo = this.extractCallInfo(call);
+      // Notificar webhook N8N con datos de la llamada finalizada
+      this.notifyCallEnd(callInfo);
+      this.callStartedAt = null;
       this.updateState({ activeCall: null, incomingCall: null });
       this.emit('disconnected', {
         callSid: call.parameters?.CallSid,
-        ...this.extractCallInfo(call),
+        ...callInfo,
       });
     });
 
@@ -479,6 +486,61 @@ class TwilioVoiceService {
         callSid: call.parameters?.CallSid,
       });
     });
+  }
+
+  /**
+   * Notifica al webhook N8N que la llamada terminó.
+   * Fire-and-forget: no bloquea el flujo de disconnect.
+   */
+  private async notifyCallEnd(callInfo: IncomingCallInfo): Promise<void> {
+    if (!callInfo.prospectoId) {
+      console.log(`${LOG_PREFIX} Skipping call-end notification — no prospectoId`);
+      return;
+    }
+
+    try {
+      let { data: { session } } = await supabaseSystemUI.auth.getSession();
+      if (!session?.access_token) {
+        console.warn(`${LOG_PREFIX} No session for call-end notification`);
+        return;
+      }
+
+      // Si token expirado, refrescar
+      const tokenExp = JSON.parse(atob(session.access_token.split('.')[1])).exp;
+      if (tokenExp * 1000 < Date.now()) {
+        const { data: { session: refreshed } } = await supabaseSystemUI.auth.refreshSession();
+        if (refreshed) session = refreshed;
+      }
+
+      const payload = {
+        parentCallSid: callInfo.parentCallSid ?? null,
+        prospectoId: callInfo.prospectoId,
+        llamadaId: callInfo.llamadaId ?? null,
+        callStartedAt: this.callStartedAt,
+        callEndedAt: new Date().toISOString(),
+      };
+
+      console.log(`${LOG_PREFIX} Sending call-end notification`, payload);
+
+      const resp = await fetch(CALL_END_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (resp.ok) {
+        const result = await resp.json();
+        console.log(`${LOG_PREFIX} Call-end notification sent`, result);
+      } else {
+        console.warn(`${LOG_PREFIX} Call-end notification failed: ${resp.status}`);
+      }
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Call-end notification error:`, err);
+    }
   }
 
   private async refreshToken(): Promise<void> {

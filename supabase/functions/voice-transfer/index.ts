@@ -1,23 +1,23 @@
 /**
  * ============================================
- * EDGE FUNCTION: VOICE TRANSFER (WARM)
+ * EDGE FUNCTION: VOICE TRANSFER (COLD)
  * ============================================
  *
- * Warm transfer: crea una conferencia Twilio donde el caller
- * puede briefear al target antes de completar la transferencia.
+ * Cold transfer: redirige la llamada del prospecto directamente
+ * al agente destino via Twilio Client SDK en el browser.
  *
  * Flujo:
- * 1. Redirect parentCallSid a conference (prospecto entra)
- * 2. Hold al prospecto (no escucha el briefing)
- * 3. Dial caller de vuelta a conference
- * 4. Dial target a conference
- * 5. Caller y target se briefean
- * 6. Caller llama voice-transfer-complete → unhold prospecto → caller cuelga
+ * 1. Valida JWT y permisos (caller y target en misma coordinacion)
+ * 2. Verifica target online (active_sessions)
+ * 3. Redirect parentCallSid con <Dial><Client>target</Client></Dial>
+ * 4. Agente actual se desconecta, target recibe incoming con datos del prospecto
  *
- * Validaciones:
- * - JWT auth del caller
- * - Caller Y target pertenecen a la misma coordinacion
- * - Target esta online (active_sessions)
+ * El TwiML incluye <Parameter> tags para que el Client SDK del target
+ * reciba toda la info del prospecto y la transferencia.
+ *
+ * Autor: PQNC AI Platform
+ * Creado: 2026-03-10
+ * Actualizado: 2026-03-11 (cold transfer, sin conferencias)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -51,6 +51,15 @@ function sanitizeIdentity(raw: string): string {
   return raw.replace(/-/g, '_').replace(/[^a-zA-Z0-9_]/g, '').substring(0, 121)
 }
 
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
 const twilioAuth = () => btoa(`${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}`)
 const twilioBase = () => `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}`
 
@@ -69,75 +78,6 @@ async function twilioGet(path: string): Promise<Response> {
   return fetch(`${twilioBase()}${path}`, {
     headers: { 'Authorization': `Basic ${twilioAuth()}` },
   })
-}
-
-/**
- * Espera a que el prospecto entre a la conferencia y lo pone en hold.
- * Retorna el participant SID o null si timeout.
- * Polling: 30 intentos x 1s = 30s max (WhatsApp calls tardan mas en procesar TwiML)
- */
-async function holdProspectoInConference(conferenceName: string, maxAttempts = 30): Promise<{ conferenceSid: string; participantSid: string } | null> {
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 1000))
-
-    console.log(`[holdProspecto] Attempt ${i + 1}/${maxAttempts} — conference: ${conferenceName}`)
-
-    // Buscar conferencia activa
-    const confResp = await twilioGet(`/Conferences.json?FriendlyName=${encodeURIComponent(conferenceName)}&Status=in-progress&Limit=1`)
-    if (!confResp.ok) {
-      console.log(`[holdProspecto] Conference list failed: ${confResp.status}`)
-      continue
-    }
-    const confData = await confResp.json()
-    if (!confData.conferences?.length) {
-      // Tambien buscar conferencias "init" (aun no in-progress)
-      const initResp = await twilioGet(`/Conferences.json?FriendlyName=${encodeURIComponent(conferenceName)}&Status=init&Limit=1`)
-      if (initResp.ok) {
-        const initData = await initResp.json()
-        if (initData.conferences?.length) {
-          console.log(`[holdProspecto] Conference found in 'init' status, waiting for in-progress...`)
-        } else {
-          console.log(`[holdProspecto] No conference found yet (neither in-progress nor init)`)
-        }
-      }
-      continue
-    }
-
-    const conferenceSid = confData.conferences[0].sid
-    console.log(`[holdProspecto] Conference in-progress: ${conferenceSid}`)
-
-    // Listar participantes
-    const partResp = await twilioGet(`/Conferences/${conferenceSid}/Participants.json`)
-    if (!partResp.ok) {
-      console.log(`[holdProspecto] Participants list failed: ${partResp.status}`)
-      continue
-    }
-    const partData = await partResp.json()
-    if (!partData.participants?.length) {
-      console.log(`[holdProspecto] Conference exists but no participants yet`)
-      continue
-    }
-
-    const participant = partData.participants[0]
-    const participantSid = participant.call_sid
-    console.log(`[holdProspecto] Participant found: ${participantSid} (status: ${participant.status})`)
-
-    // Poner en hold (sin HoldUrl — Twilio usa musica por defecto)
-    const holdResp = await twilioPost(`/Conferences/${conferenceSid}/Participants/${participantSid}.json`, {
-      Hold: 'true',
-    })
-
-    if (holdResp.ok) {
-      console.log(`[holdProspecto] ✅ Prospecto held successfully (participant: ${participantSid})`)
-      return { conferenceSid, participantSid }
-    }
-
-    const holdErr = await holdResp.text()
-    console.log(`[holdProspecto] Hold failed: ${holdResp.status} — ${holdErr}`)
-  }
-
-  console.error(`[holdProspecto] ❌ Timeout after ${maxAttempts}s — conference never established`)
-  return null
 }
 
 // ============================================
@@ -253,20 +193,17 @@ serve(async (req: Request): Promise<Response> => {
 
     const callerName = callerProfile?.full_name ?? 'Unknown'
     const targetName = targetProfile?.full_name ?? 'Unknown'
-
-    // 8. Crear nombre unico de conferencia
-    const conferenceName = `warm_transfer_${crypto.randomUUID().substring(0, 8)}`
     const callerIdentity = sanitizeIdentity(`agent_${user.id}`)
     const targetIdentity = sanitizeIdentity(`agent_${targetUserId}`)
 
-    console.log(`[transfer] Caller: ${callerName} (${callerIdentity}) → Target: ${targetName} (${targetIdentity})`)
-    console.log(`[transfer] parentCallSid: ${parentCallSid} | conference: ${conferenceName}`)
+    console.log(`[transfer] Cold transfer: ${callerName} (${callerIdentity}) → ${targetName} (${targetIdentity})`)
+    console.log(`[transfer] parentCallSid: ${parentCallSid}`)
 
-    // 9. Verificar estado de la llamada antes de redirigir
+    // 8. Verificar estado de la llamada antes de redirigir
     const callStatusResp = await twilioGet(`/Calls/${parentCallSid}.json`)
     if (callStatusResp.ok) {
       const callData = await callStatusResp.json()
-      console.log(`[transfer] Call status BEFORE redirect: ${callData.status} | direction: ${callData.direction} | to: ${callData.to}`)
+      console.log(`[transfer] Call status: ${callData.status} | direction: ${callData.direction} | to: ${callData.to}`)
       if (callData.status !== 'in-progress') {
         return jsonResponse({
           error: `La llamada no esta activa (status: ${callData.status})`,
@@ -278,94 +215,40 @@ serve(async (req: Request): Promise<Response> => {
       console.warn(`[transfer] Could not check call status: ${callStatusResp.status} — ${errText}`)
     }
 
-    // 10. Redirigir parentCallSid a conferencia
-    // Sin waitUrl — Twilio usa musica de espera por defecto
-    const prospectoTwiml = `<?xml version="1.0" encoding="UTF-8"?>
+    // 9. Cold transfer: redirigir parentCallSid para que timbre al target directamente
+    //    El agente actual (caller) se desconectara automaticamente.
+    //    El target recibe incoming call con todos los datos del prospecto via <Parameter>.
+    const transferTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial>
-    <Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false">${conferenceName}</Conference>
+  <Dial callerId="client:transfer" record="record-from-answer-dual">
+    <Client>
+      <Identity>${targetIdentity}</Identity>
+      <Parameter name="parentCallSid" value="${escapeXml(parentCallSid)}"/>
+      <Parameter name="llamadaId" value="${escapeXml(llamadaCallId)}"/>
+      <Parameter name="prospectoId" value="${escapeXml(prospectoId)}"/>
+      <Parameter name="prospectoNombre" value="${escapeXml(prospectoNombre ?? '')}"/>
+      <Parameter name="fromNumber" value="${escapeXml(fromNumber ?? '')}"/>
+      <Parameter name="tipoLlamada" value="transfer"/>
+      <Parameter name="coordinacionId" value="${escapeXml(coordinacionId)}"/>
+      <Parameter name="transferredBy" value="${escapeXml(callerIdentity)}"/>
+      <Parameter name="transferredByName" value="${escapeXml(callerName)}"/>
+    </Client>
   </Dial>
 </Response>`
 
-    const redirectResp = await twilioPost(`/Calls/${parentCallSid}.json`, { Twiml: prospectoTwiml })
+    console.log(`[transfer] Redirecting parentCallSid to ring ${targetIdentity}`)
+
+    const redirectResp = await twilioPost(`/Calls/${parentCallSid}.json`, { Twiml: transferTwiml })
     const redirectBody = await redirectResp.text()
-    console.log(`[transfer] Redirect response: ${redirectResp.status} — ${redirectBody.substring(0, 300)}`)
 
     if (!redirectResp.ok) {
-      console.error('[transfer] Twilio redirect error:', redirectResp.status, redirectBody)
-      return jsonResponse({ error: 'Error al redirigir llamada a conferencia', details: redirectBody }, 502)
+      console.error(`[transfer] ❌ Twilio redirect error: ${redirectResp.status} — ${redirectBody}`)
+      return jsonResponse({ error: 'Error al redirigir llamada', details: redirectBody }, 502)
     }
 
-    // Verificar estado DESPUES del redirect (dar 1s para que Twilio procese)
-    await new Promise(r => setTimeout(r, 1000))
-    const postRedirectResp = await twilioGet(`/Calls/${parentCallSid}.json`)
-    if (postRedirectResp.ok) {
-      const postData = await postRedirectResp.json()
-      console.log(`[transfer] Call status AFTER redirect: ${postData.status}`)
-    }
+    console.log(`[transfer] ✅ Call redirected successfully — ${targetName} should be ringing`)
 
-    // 11. Esperar a que el prospecto entre y ponerlo en hold
-    const holdResult = await holdProspectoInConference(conferenceName)
-    if (!holdResult) {
-      // Log estado final de la llamada para diagnostico
-      const finalCallResp = await twilioGet(`/Calls/${parentCallSid}.json`)
-      if (finalCallResp.ok) {
-        const finalData = await finalCallResp.json()
-        console.error(`[transfer] ❌ Conference failed. Final call status: ${finalData.status}`)
-      }
-      return jsonResponse({ error: 'No se pudo establecer la conferencia (timeout 30s)' }, 502)
-    }
-
-    const { conferenceSid, participantSid: prospectoParticipantSid } = holdResult
-    console.log(`[transfer] ✅ Conference established: ${conferenceSid} | prospecto held: ${prospectoParticipantSid}`)
-
-    // 12. Dial caller de vuelta a la conferencia
-    const callerTwiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial>
-    <Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${conferenceName}</Conference>
-  </Dial>
-</Response>`
-
-    const callerDialResp = await twilioPost('/Calls.json', {
-      To: `client:${callerIdentity}`,
-      From: `client:warm_transfer`,
-      Twiml: callerTwiml,
-    })
-
-    if (!callerDialResp.ok) {
-      const errText = await callerDialResp.text()
-      console.error(`[transfer] Failed to dial caller back (${callerIdentity}):`, errText)
-      // No es fatal — el caller puede reconectarse manualmente
-    } else {
-      const callerCallData = await callerDialResp.json()
-      console.log(`[transfer] Caller dialed back: ${callerCallData.sid}`)
-    }
-
-    // 13. Dial target a la conferencia
-    const targetTwiml = `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-  <Dial>
-    <Conference startConferenceOnEnter="true" endConferenceOnExit="false" beep="false">${conferenceName}</Conference>
-  </Dial>
-</Response>`
-
-    const targetDialResp = await twilioPost('/Calls.json', {
-      To: `client:${targetIdentity}`,
-      From: `client:warm_transfer`,
-      Twiml: targetTwiml,
-    })
-
-    if (!targetDialResp.ok) {
-      const errText = await targetDialResp.text()
-      console.error(`[transfer] Failed to dial target (${targetIdentity}):`, errText)
-      return jsonResponse({ error: 'Error al conectar al destino', details: errText }, 502)
-    } else {
-      const targetCallData = await targetDialResp.json()
-      console.log(`[transfer] Target dialed: ${targetCallData.sid}`)
-    }
-
-    // 14. Insertar registro en voice_transfers
+    // 10. Insertar registro en voice_transfers
     const { data: transfer } = await serviceSupabase
       .from('voice_transfers')
       .insert({
@@ -385,16 +268,14 @@ serve(async (req: Request): Promise<Response> => {
       .select('id')
       .single()
 
-    console.log(`Warm transfer: ${callerName} -> ${targetName} | conf=${conferenceName}`)
+    console.log(`[transfer] Transfer record created: ${transfer?.id}`)
 
     return jsonResponse({
       success: true,
       transferId: transfer?.id ?? null,
       targetIdentity,
       targetName,
-      conferenceName,
-      conferenceSid,
-      prospectoParticipantSid,
+      transferType: 'cold',
     })
   } catch (error) {
     console.error('Voice transfer error:', error)

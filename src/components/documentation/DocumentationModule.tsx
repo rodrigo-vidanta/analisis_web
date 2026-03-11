@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '710b0ca', date: '2026-03-11', author: 'Team', message: 'v2.31.6: B10.3.0N2.31.6 - Deploy automatico', isRelease: true },
   { hash: '4980092', date: '2026-03-11', author: 'Team', message: 'v2.31.5: B10.3.0N2.31.5 - Deploy automatico', isRelease: true },
   { hash: '453fe6d', date: '2026-03-11', author: 'Team', message: 'v2.31.4: B10.3.0N2.31.4 - Deploy automatico', isRelease: true },
   { hash: 'ee79cc0', date: '2026-03-11', author: 'Team', message: 'v2.31.3: B10.3.0N2.31.3 - Deploy automatico', isRelease: true },
@@ -582,6 +583,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-953', date: '11/03/2026, 13:22', version: 'B10.3.0N2.31.6', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-379', date: '11/03/2026, 12:39', version: 'B10.3.0N2.31.5', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-942', date: '11/03/2026, 12:03', version: 'B10.3.0N2.31.4', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-503', date: '11/03/2026, 11:20', version: 'B10.3.0N2.31.3', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -809,8 +811,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.31.5', highlight: true },
-  { label: 'Release', value: 'B10.3.0N2.31.5', highlight: false },
+  { label: 'Version', value: 'v2.31.6', highlight: true },
+  { label: 'Release', value: 'B10.3.0N2.31.6', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '11 mar 2026', highlight: false },
 ];

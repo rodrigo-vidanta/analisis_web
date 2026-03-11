@@ -114,20 +114,34 @@ class VoiceTransferService {
    */
   async transferCall(params: TransferCallParams): Promise<TransferResult> {
     try {
-      const { data: { session } } = await supabaseSystemUI.auth.getSession();
+      let { data: { session } } = await supabaseSystemUI.auth.getSession();
       if (!session?.access_token) {
         return { success: false, error: 'No hay sesion activa' };
       }
 
-      const response = await fetch(TRANSFER_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
-        },
-        body: JSON.stringify(params),
-      });
+      const makeRequest = (accessToken: string) =>
+        fetch(TRANSFER_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+          },
+          body: JSON.stringify(params),
+        });
+
+      let response = await makeRequest(session.access_token);
+
+      // Si 401, token posiblemente expirado — refrescar y reintentar
+      if (response.status === 401) {
+        console.warn(`${LOG_PREFIX} Token expired, refreshing session...`);
+        const { data: { session: refreshed } } = await supabaseSystemUI.auth.refreshSession();
+        if (refreshed?.access_token) {
+          response = await makeRequest(refreshed.access_token);
+        } else {
+          return { success: false, error: 'Sesion expirada, recarga la pagina' };
+        }
+      }
 
       const result = await response.json();
 
