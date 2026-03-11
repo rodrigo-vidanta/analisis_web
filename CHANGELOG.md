@@ -1,3 +1,22 @@
+## [v2.31.0] - 2026-03-11
+
+**B10.3.0N2.31.0** - 2
+
+### Documentation
+- update Edge Functions catalog and Live Activity Widget docs for voice transfer (`d621064`)
+
+### Other
+- add session handovers for voice transfer and tickets (`133aaef`)
+
+### Bug Fixes
+- null-safe call_result in llamadas table (`20b520c`)
+
+### Features
+- render markdown in ticket descriptions and comments (`7a70a1b`)
+- add Twilio Voice SDK + intra-coordinacion transfer system (`4c13332`)
+
+---
+
 ## [v2.30.1] - 2026-03-10
 
 **B10.2.0N2.30.1** - 2
