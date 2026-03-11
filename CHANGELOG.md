@@ -1,3 +1,12 @@
+## [v2.31.2] - 2026-03-11
+
+**B10.3.0N2.31.2** - 1 fix
+
+### Bug Fixes
+- keep side widget visible during active VoIP call (`0ba6008`)
+
+---
+
 ## [v2.31.1] - 2026-03-11
 
 **B10.3.0N2.31.1** - 2
