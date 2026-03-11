@@ -44,6 +44,7 @@ export interface VoiceTransferModalProps {
 
 // Roles agrupados y su config visual
 const ROLE_GROUPS: { key: string; label: string; icon: React.ReactNode; matches: string[] }[] = [
+  { key: 'admin', label: 'Administradores', icon: <Crown className="w-4 h-4 text-red-400" />, matches: ['admin'] },
   { key: 'coordinador', label: 'Coordinadores', icon: <Crown className="w-4 h-4 text-amber-400" />, matches: ['coordinador'] },
   { key: 'supervisor', label: 'Supervisores', icon: <Shield className="w-4 h-4 text-purple-400" />, matches: ['supervisor'] },
   { key: 'ejecutivo', label: 'Ejecutivos', icon: <User className="w-4 h-4 text-blue-400" />, matches: ['ejecutivo', 'ejecutivo_pisos'] },

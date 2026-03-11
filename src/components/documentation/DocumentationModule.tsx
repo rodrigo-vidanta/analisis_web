@@ -300,6 +300,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '9f194f6', date: '2026-03-11', author: 'Team', message: 'v2.31.10: B10.3.0N2.31.10 - Deploy automatico', isRelease: true },
   { hash: '89d239c', date: '2026-03-11', author: 'Team', message: 'v2.31.9: B10.3.0N2.31.9 - Deploy automatico', isRelease: true },
   { hash: '53dc1d0', date: '2026-03-11', author: 'Team', message: 'v2.31.8: B10.3.0N2.31.8 - Deploy automatico', isRelease: true },
   { hash: '1f45acd', date: '2026-03-11', author: 'Team', message: 'v2.31.7: B10.3.0N2.31.7 - Deploy automatico', isRelease: true },
@@ -586,6 +587,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-599', date: '11/03/2026, 14:22', version: 'B10.3.0N2.31.10', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-441', date: '11/03/2026, 14:17', version: 'B10.3.0N2.31.9', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-317', date: '11/03/2026, 14:05', version: 'B10.3.0N2.31.8', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-790', date: '11/03/2026, 13:54', version: 'B10.3.0N2.31.7', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -817,8 +819,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.31.9', highlight: true },
-  { label: 'Release', value: 'B10.3.0N2.31.9', highlight: false },
+  { label: 'Version', value: 'v2.31.10', highlight: true },
+  { label: 'Release', value: 'B10.3.0N2.31.10', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '11 mar 2026', highlight: false },
 ];
