@@ -344,7 +344,7 @@ export const LiveCallActivityWidget: React.FC = () => {
 
   const handleRejectTransfer = useCallback(() => {
     rejectVoiceCall();
-    toast('Transferencia rechazada', { duration: 2000, position: 'top-right', icon: '📞' });
+    toast.success('Transferencia rechazada', { id: 'voice-transfer-rejected', duration: 2000, position: 'top-right' });
   }, [rejectVoiceCall]);
 
   const handleHangupVoice = useCallback(() => {
@@ -352,7 +352,7 @@ export const LiveCallActivityWidget: React.FC = () => {
     setShowSoftphone(false);
     setSoftphoneCallId(null);
     setSoftphoneCallData(null);
-    toast('Llamada finalizada', { duration: 2000, position: 'top-right', icon: '📞' });
+    toast.success('Llamada finalizada', { id: 'voice-call-ended', duration: 3000, position: 'top-right' });
   }, [hangupVoiceCall]);
 
   // Cerrar softphone sin colgar (minimiza a barra flotante)
@@ -410,7 +410,7 @@ export const LiveCallActivityWidget: React.FC = () => {
     });
 
     if (result.success) {
-      toast('Transferencia cancelada — reconectado con prospecto', { duration: 3000, position: 'top-right', icon: '↩️' });
+      toast.success('Transferencia cancelada — reconectado con prospecto', { id: 'voice-transfer-cancelled', duration: 3000, position: 'top-right' });
       setWarmTransferData(null);
       // No colgamos — el caller sigue en la conferencia con el prospecto
     } else {

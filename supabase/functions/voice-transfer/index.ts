@@ -74,40 +74,69 @@ async function twilioGet(path: string): Promise<Response> {
 /**
  * Espera a que el prospecto entre a la conferencia y lo pone en hold.
  * Retorna el participant SID o null si timeout.
+ * Polling: 30 intentos x 1s = 30s max (WhatsApp calls tardan mas en procesar TwiML)
  */
-async function holdProspectoInConference(conferenceName: string, maxAttempts = 15): Promise<{ conferenceSid: string; participantSid: string } | null> {
+async function holdProspectoInConference(conferenceName: string, maxAttempts = 30): Promise<{ conferenceSid: string; participantSid: string } | null> {
   for (let i = 0; i < maxAttempts; i++) {
-    await new Promise(r => setTimeout(r, 500))
+    await new Promise(r => setTimeout(r, 1000))
+
+    console.log(`[holdProspecto] Attempt ${i + 1}/${maxAttempts} — conference: ${conferenceName}`)
 
     // Buscar conferencia activa
     const confResp = await twilioGet(`/Conferences.json?FriendlyName=${encodeURIComponent(conferenceName)}&Status=in-progress&Limit=1`)
-    if (!confResp.ok) continue
+    if (!confResp.ok) {
+      console.log(`[holdProspecto] Conference list failed: ${confResp.status}`)
+      continue
+    }
     const confData = await confResp.json()
-    if (!confData.conferences?.length) continue
+    if (!confData.conferences?.length) {
+      // Tambien buscar conferencias "init" (aun no in-progress)
+      const initResp = await twilioGet(`/Conferences.json?FriendlyName=${encodeURIComponent(conferenceName)}&Status=init&Limit=1`)
+      if (initResp.ok) {
+        const initData = await initResp.json()
+        if (initData.conferences?.length) {
+          console.log(`[holdProspecto] Conference found in 'init' status, waiting for in-progress...`)
+        } else {
+          console.log(`[holdProspecto] No conference found yet (neither in-progress nor init)`)
+        }
+      }
+      continue
+    }
 
     const conferenceSid = confData.conferences[0].sid
+    console.log(`[holdProspecto] Conference in-progress: ${conferenceSid}`)
 
     // Listar participantes
     const partResp = await twilioGet(`/Conferences/${conferenceSid}/Participants.json`)
-    if (!partResp.ok) continue
+    if (!partResp.ok) {
+      console.log(`[holdProspecto] Participants list failed: ${partResp.status}`)
+      continue
+    }
     const partData = await partResp.json()
-    if (!partData.participants?.length) continue
+    if (!partData.participants?.length) {
+      console.log(`[holdProspecto] Conference exists but no participants yet`)
+      continue
+    }
 
     const participant = partData.participants[0]
     const participantSid = participant.call_sid
+    console.log(`[holdProspecto] Participant found: ${participantSid} (status: ${participant.status})`)
 
-    // Poner en hold
+    // Poner en hold (sin HoldUrl — Twilio usa musica por defecto)
     const holdResp = await twilioPost(`/Conferences/${conferenceSid}/Participants/${participantSid}.json`, {
       Hold: 'true',
-      HoldUrl: 'http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient',
     })
 
     if (holdResp.ok) {
-      console.log(`Prospecto held in conference ${conferenceName} (participant: ${participantSid})`)
+      console.log(`[holdProspecto] ✅ Prospecto held successfully (participant: ${participantSid})`)
       return { conferenceSid, participantSid }
     }
+
+    const holdErr = await holdResp.text()
+    console.log(`[holdProspecto] Hold failed: ${holdResp.status} — ${holdErr}`)
   }
 
+  console.error(`[holdProspecto] ❌ Timeout after ${maxAttempts}s — conference never established`)
   return null
 }
 
@@ -230,32 +259,67 @@ serve(async (req: Request): Promise<Response> => {
     const callerIdentity = sanitizeIdentity(`agent_${user.id}`)
     const targetIdentity = sanitizeIdentity(`agent_${targetUserId}`)
 
-    // 9. Redirigir parentCallSid a conferencia
-    // startConferenceOnEnter=true para que la conferencia se cree inmediatamente
+    console.log(`[transfer] Caller: ${callerName} (${callerIdentity}) → Target: ${targetName} (${targetIdentity})`)
+    console.log(`[transfer] parentCallSid: ${parentCallSid} | conference: ${conferenceName}`)
+
+    // 9. Verificar estado de la llamada antes de redirigir
+    const callStatusResp = await twilioGet(`/Calls/${parentCallSid}.json`)
+    if (callStatusResp.ok) {
+      const callData = await callStatusResp.json()
+      console.log(`[transfer] Call status BEFORE redirect: ${callData.status} | direction: ${callData.direction} | to: ${callData.to}`)
+      if (callData.status !== 'in-progress') {
+        return jsonResponse({
+          error: `La llamada no esta activa (status: ${callData.status})`,
+          callStatus: callData.status,
+        }, 409)
+      }
+    } else {
+      const errText = await callStatusResp.text()
+      console.warn(`[transfer] Could not check call status: ${callStatusResp.status} — ${errText}`)
+    }
+
+    // 10. Redirigir parentCallSid a conferencia
+    // Sin waitUrl — Twilio usa musica de espera por defecto
     const prospectoTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial>
-    <Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false" waitUrl="http://twimlets.com/holdmusic?Bucket=com.twilio.music.ambient">${conferenceName}</Conference>
+    <Conference startConferenceOnEnter="true" endConferenceOnExit="true" beep="false">${conferenceName}</Conference>
   </Dial>
 </Response>`
 
     const redirectResp = await twilioPost(`/Calls/${parentCallSid}.json`, { Twiml: prospectoTwiml })
+    const redirectBody = await redirectResp.text()
+    console.log(`[transfer] Redirect response: ${redirectResp.status} — ${redirectBody.substring(0, 300)}`)
+
     if (!redirectResp.ok) {
-      const errText = await redirectResp.text()
-      console.error('Twilio redirect error:', redirectResp.status, errText)
-      return jsonResponse({ error: 'Error al redirigir llamada a conferencia', details: errText }, 502)
+      console.error('[transfer] Twilio redirect error:', redirectResp.status, redirectBody)
+      return jsonResponse({ error: 'Error al redirigir llamada a conferencia', details: redirectBody }, 502)
     }
 
-    // 10. Esperar a que el prospecto entre y ponerlo en hold
+    // Verificar estado DESPUES del redirect (dar 1s para que Twilio procese)
+    await new Promise(r => setTimeout(r, 1000))
+    const postRedirectResp = await twilioGet(`/Calls/${parentCallSid}.json`)
+    if (postRedirectResp.ok) {
+      const postData = await postRedirectResp.json()
+      console.log(`[transfer] Call status AFTER redirect: ${postData.status}`)
+    }
+
+    // 11. Esperar a que el prospecto entre y ponerlo en hold
     const holdResult = await holdProspectoInConference(conferenceName)
     if (!holdResult) {
-      console.error('Failed to hold prospecto in conference')
-      return jsonResponse({ error: 'No se pudo establecer la conferencia' }, 502)
+      // Log estado final de la llamada para diagnostico
+      const finalCallResp = await twilioGet(`/Calls/${parentCallSid}.json`)
+      if (finalCallResp.ok) {
+        const finalData = await finalCallResp.json()
+        console.error(`[transfer] ❌ Conference failed. Final call status: ${finalData.status}`)
+      }
+      return jsonResponse({ error: 'No se pudo establecer la conferencia (timeout 30s)' }, 502)
     }
 
     const { conferenceSid, participantSid: prospectoParticipantSid } = holdResult
+    console.log(`[transfer] ✅ Conference established: ${conferenceSid} | prospecto held: ${prospectoParticipantSid}`)
 
-    // 11. Dial caller de vuelta a la conferencia
+    // 12. Dial caller de vuelta a la conferencia
     const callerTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial>
@@ -265,17 +329,20 @@ serve(async (req: Request): Promise<Response> => {
 
     const callerDialResp = await twilioPost('/Calls.json', {
       To: `client:${callerIdentity}`,
-      From: TWILIO_ACCOUNT_SID,
+      From: `client:warm_transfer`,
       Twiml: callerTwiml,
     })
 
     if (!callerDialResp.ok) {
       const errText = await callerDialResp.text()
-      console.error('Failed to dial caller back:', errText)
+      console.error(`[transfer] Failed to dial caller back (${callerIdentity}):`, errText)
       // No es fatal — el caller puede reconectarse manualmente
+    } else {
+      const callerCallData = await callerDialResp.json()
+      console.log(`[transfer] Caller dialed back: ${callerCallData.sid}`)
     }
 
-    // 12. Dial target a la conferencia
+    // 13. Dial target a la conferencia
     const targetTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Dial>
@@ -285,17 +352,20 @@ serve(async (req: Request): Promise<Response> => {
 
     const targetDialResp = await twilioPost('/Calls.json', {
       To: `client:${targetIdentity}`,
-      From: TWILIO_ACCOUNT_SID,
+      From: `client:warm_transfer`,
       Twiml: targetTwiml,
     })
 
     if (!targetDialResp.ok) {
       const errText = await targetDialResp.text()
-      console.error('Failed to dial target:', errText)
+      console.error(`[transfer] Failed to dial target (${targetIdentity}):`, errText)
       return jsonResponse({ error: 'Error al conectar al destino', details: errText }, 502)
+    } else {
+      const targetCallData = await targetDialResp.json()
+      console.log(`[transfer] Target dialed: ${targetCallData.sid}`)
     }
 
-    // 13. Insertar registro en voice_transfers
+    // 14. Insertar registro en voice_transfers
     const { data: transfer } = await serviceSupabase
       .from('voice_transfers')
       .insert({

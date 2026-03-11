@@ -384,49 +384,13 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
             
           } else if (coordinacionesFilter && coordinacionesFilter.length > 0) {
             // ============================================
-            // COORDINADOR/SUPERVISOR: Ve llamadas de prospectos
-            // en sus coordinaciones asignadas
+            // COORDINADOR/SUPERVISOR: Ve llamadas de sus coordinaciones
+            // Filtro directo por coordinacion_id de la llamada (viene del view)
             // ============================================
-            
-            try {
-              // Obtener IDs de prospectos en las coordinaciones del usuario
-              const { data: prospectosCoordinacion, error: prospectosError } = await analysisSupabase
-                .from('prospectos')
-                .select('id')
-                .in('coordinacion_id', coordinacionesFilter);
-              
-              // ✅ FIX 1: VALIDACIÓN ESTRICTA - Si hay error, NO mostrar NADA (seguridad primero)
-              if (prospectosError) {
-                // 42501 = sesión expirada/logout en progreso → limpiar silenciosamente
-                if (prospectosError.code !== '42501') {
-                  console.error('[LiveActivityStore] Error obteniendo prospectos por coordinación:', prospectosError);
-                  console.warn('[LiveActivityStore] Por seguridad, no se mostrarán llamadas hasta resolver el error');
-                }
-                set({ widgetCalls: [], isLoadingCalls: false });
-                return;
-              }
-              
-              // ✅ FIX 1: VALIDACIÓN ESTRICTA - Si no hay prospectos, no hay llamadas que mostrar
-              if (!prospectosCoordinacion || prospectosCoordinacion.length === 0) {
-                console.warn('[LiveActivityStore] No hay prospectos en las coordinaciones del usuario:', coordinacionesFilter);
-                set({ widgetCalls: [], isLoadingCalls: false });
-                return;
-              }
-              
-              const prospectosIds = new Set(prospectosCoordinacion.map(p => p.id));
-              
-              // Filtrar llamadas: solo las de prospectos en sus coordinaciones
-              activeCalls = activeCalls.filter(call => 
-                call.prospecto_id && prospectosIds.has(call.prospecto_id)
-              );
-              
-              // Filtrado silencioso - log removido para limpieza de consola
-            } catch (err) {
-              console.error('[LiveActivityStore] Excepción crítica filtrando por coordinación:', err);
-              // ✅ FIX 1: En caso de excepción, NO mostrar NADA (seguridad primero)
-              set({ widgetCalls: [], isLoadingCalls: false });
-              return;
-            }
+            const coordSet = new Set(coordinacionesFilter);
+            activeCalls = activeCalls.filter(call =>
+              call.coordinacion_id && coordSet.has(call.coordinacion_id)
+            );
           }
         }
       }
