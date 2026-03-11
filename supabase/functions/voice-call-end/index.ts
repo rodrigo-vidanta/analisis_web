@@ -76,8 +76,8 @@ async function getRecordingUrl(callSid: string, maxAttempts = 4, delayMs = 3000)
     const data = await resp.json()
     if (data.recordings?.length > 0) {
       const rec = data.recordings[0]
-      // URL directa al MP3 de la grabacion
-      const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${rec.sid}.mp3`
+      // URL con Basic Auth embebida para que N8N pueda descargar sin config adicional
+      const recordingUrl = `https://${TWILIO_API_KEY_SID}:${TWILIO_API_KEY_SECRET}@api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Recordings/${rec.sid}.mp3`
       console.log(`[voice-call-end] ✅ Recording found: ${rec.sid} (${rec.duration}s)`)
       return recordingUrl
     }

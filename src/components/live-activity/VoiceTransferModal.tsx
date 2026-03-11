@@ -105,7 +105,10 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
       setIsLoading(true);
       setError(null);
       try {
-        const coordIds = userCoordinacionIds.length > 0 ? userCoordinacionIds : [coordinacionId];
+        // Filtrar strings vacios para evitar error UUID en RPC
+        const rawIds = userCoordinacionIds.length > 0 ? userCoordinacionIds : [coordinacionId];
+        const coordIds = rawIds.filter(id => id && id.trim() !== '');
+        // Admin sin coordinaciones: pasar array vacio — el RPC detecta admin y retorna todos
         const data = await voiceTransferService.getOnlineTeamMembers(coordIds);
         setMembers(data);
         if (data.length === 0) {

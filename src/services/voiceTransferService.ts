@@ -95,8 +95,7 @@ class VoiceTransferService {
    * Usa RPC get_online_team_members (SECURITY DEFINER).
    */
   async getOnlineTeamMembers(coordinacionIds: string[]): Promise<TeamMember[]> {
-    if (!coordinacionIds.length) return [];
-
+    // Admin puede tener 0 coordinaciones — el RPC detecta admin y retorna todos
     const { data, error } = await analysisSupabase
       .rpc('get_online_team_members', { p_coordinacion_ids: coordinacionIds });
 
