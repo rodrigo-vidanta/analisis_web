@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketService, type SupportTicket, type TicketComment, type TicketHistory, type TicketStatus, type TicketPriority } from '../../services/ticketService';
 import toast from 'react-hot-toast';
@@ -604,9 +605,21 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                       {/* Descripción */}
                       <div className="p-4 bg-gray-50 dark:bg-gray-700/30 rounded-2xl">
                         <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Descripción</h4>
-                        <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
-                          {selectedTicket.description}
-                        </p>
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                          <ReactMarkdown
+                            components={{
+                              p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                              strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                              em: ({ children }) => <em className="italic">{children}</em>,
+                              ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                              ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                              li: ({ children }) => <li className="text-sm">{children}</li>,
+                              br: () => <br />,
+                            }}
+                          >
+                            {selectedTicket.description.replace(/\\n/g, '\n').replace(/\n/g, '  \n')}
+                          </ReactMarkdown>
+                        </div>
                       </div>
 
                       {/* Información del Log (si viene de log) */}
@@ -723,7 +736,21 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                                   </div>
                                   <span className="text-xs text-gray-400">{formatDate(comment.created_at)}</span>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">{comment.content}</p>
+                                <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-600 dark:text-gray-400">
+                                  <ReactMarkdown
+                                    components={{
+                                      p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                                      strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                                      em: ({ children }) => <em className="italic">{children}</em>,
+                                      ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                                      ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                                      li: ({ children }) => <li className="text-sm">{children}</li>,
+                                      br: () => <br />,
+                                    }}
+                                  >
+                                    {comment.content.replace(/\\n/g, '\n').replace(/\n/g, '  \n')}
+                                  </ReactMarkdown>
+                                </div>
                               </div>
                             ))
                           )}

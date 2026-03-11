@@ -6,6 +6,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
 import { ticketService, type SupportTicket, type TicketComment, type TicketStatus } from '../../services/ticketService';
 import toast from 'react-hot-toast';
@@ -369,7 +370,21 @@ const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTick
                       <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Descripción</span>
                     </div>
                     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-700 mb-6">
-                      <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedTicket.description}</p>
+                      <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-700 dark:text-gray-300">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                            ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                            li: ({ children }) => <li className="text-sm">{children}</li>,
+                            br: () => <br />,
+                          }}
+                        >
+                          {selectedTicket.description.replace(/\\n/g, '\n').replace(/\n/g, '  \n')}
+                        </ReactMarkdown>
+                      </div>
                     </div>
 
                     {/* Screenshot */}
@@ -405,7 +420,21 @@ const MyTicketsModal: React.FC<MyTicketsModalProps> = ({ isOpen, onClose, onTick
                               </span>
                               <span className="text-[10px] text-gray-400">{formatDate(c.created_at)}</span>
                             </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">{c.content}</p>
+                            <div className="prose prose-sm dark:prose-invert max-w-none text-sm text-gray-600 dark:text-gray-400">
+                              <ReactMarkdown
+                                components={{
+                                  p: ({ children }) => <p className="mb-2 last:mb-0 whitespace-pre-wrap">{children}</p>,
+                                  strong: ({ children }) => <strong className="font-semibold text-gray-900 dark:text-white">{children}</strong>,
+                                  em: ({ children }) => <em className="italic">{children}</em>,
+                                  ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                                  ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                                  li: ({ children }) => <li className="text-sm">{children}</li>,
+                                  br: () => <br />,
+                                }}
+                              >
+                                {c.content.replace(/\\n/g, '\n').replace(/\n/g, '  \n')}
+                              </ReactMarkdown>
+                            </div>
                           </div>
                         ))
                       )}
