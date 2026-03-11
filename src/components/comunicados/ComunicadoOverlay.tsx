@@ -68,7 +68,7 @@ const ComunicadoOverlay: React.FC = () => {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="bg-gray-950 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-800 max-h-[90vh] flex flex-col"
+            className={`bg-gray-950 rounded-2xl shadow-2xl w-full overflow-hidden border border-gray-800 max-h-[90vh] flex flex-col ${isInteractive ? 'max-w-5xl' : 'max-w-2xl'}`}
           >
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">

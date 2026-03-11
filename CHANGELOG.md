@@ -1,3 +1,9 @@
+## [v2.31.14] - 2026-03-11
+
+**B10.3.0N2.31.14** - fix(comunicado): voice calls animation v3 - narration voiceover synced, scene timing aligned to STT timestamps
+
+---
+
 ## [v2.31.13] - 2026-03-11
 
 **B10.3.0N2.31.13** - fix(comunicado): fix PlayerRef type import for Vite dev compatibility

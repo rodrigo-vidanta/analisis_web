@@ -36,18 +36,20 @@ import { RotateCcw, CheckCircle, Play, Pause } from 'lucide-react';
 // ============================================
 
 const FPS = 30;
-const TOTAL_FRAMES = 1950; // ~65s
-const COMP_W = 780;
-const COMP_H = 480;
+const TOTAL_FRAMES = 1740; // ~58s (synced with narration)
+const COMP_W = 1060;
+const COMP_H = 650;
 
+// Scene durations synced to narration timestamps (STT-aligned)
+// Narration: 0→3.11→11.96→19.54→29.36→39.25→49.90→56.34s
 const SCENES = {
-  INTRO:       { from: 0,    dur: 230 },
-  WHATSAPP:    { from: 230,  dur: 275 },
-  AI:          { from: 505,  dur: 265 },
-  SOFTPHONE:   { from: 770,  dur: 295 },
-  TRANSFER:    { from: 1065, dur: 305 },
-  OUTRO:       { from: 1370, dur: 290 },
-  POSTCREDITS: { from: 1660, dur: 290 },
+  INTRO:       { from: 0,    dur: 93 },    // 0-3.1s "Presentamos... Llamadas WhatsApp"
+  WHATSAPP:    { from: 93,   dur: 266 },   // 3.1-11.97s "Ahora cuando un prospecto..."
+  AI:          { from: 359,  dur: 228 },   // 11.97-19.57s "Nuestra IA recibe la llamada..."
+  SOFTPHONE:   { from: 587,  dur: 295 },   // 19.57-29.4s "Tu contestas desde tu navegador..."
+  TRANSFER:    { from: 882,  dur: 297 },   // 29.4-39.3s "Y si necesitas apoyo, transfiere..."
+  OUTRO:       { from: 1179, dur: 320 },   // 39.3-49.97s "Contesta... Disponible ahora"
+  POSTCREDITS: { from: 1499, dur: 241 },   // 49.97-58s "Proximamente... plataforma"
 };
 
 // ============================================
@@ -103,18 +105,18 @@ const IntroScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const titleScale = spring({ frame: frame - 8, fps, config: { damping: 10, mass: 0.5 } });
-  const titleOp = fadeIn(frame, 0, 18);
-  const whatsappOp = fadeIn(frame, 22, 18);
-  const subtitleOp = fadeIn(frame, 55, 18);
-  const glowScale = interpolate(frame, [0, 60], [0.2, 2], { extrapolateRight: 'clamp' });
-  const glowOp = interpolate(frame, [0, 15, 70, 120], [0, 0.7, 0.5, 0.2], { extrapolateRight: 'clamp' });
+  const titleScale = spring({ frame: frame - 5, fps, config: { damping: 10, mass: 0.5 } });
+  const titleOp = fadeIn(frame, 0, 12);
+  const whatsappOp = fadeIn(frame, 12, 12);
+  const subtitleOp = fadeIn(frame, 30, 12);
+  const glowScale = interpolate(frame, [0, 40], [0.2, 2], { extrapolateRight: 'clamp' });
+  const glowOp = interpolate(frame, [0, 10, 50, 80], [0, 0.7, 0.5, 0.2], { extrapolateRight: 'clamp' });
 
   // Particles burst
   const particles = Array.from({ length: 12 }, (_, i) => {
     const angle = (i / 12) * Math.PI * 2;
-    const dist = interpolate(frame, [10, 60], [0, 150 + i * 8], { extrapolateRight: 'clamp' });
-    const op = interpolate(frame, [10, 30, 80, 120], [0, 0.8, 0.4, 0], { extrapolateRight: 'clamp' });
+    const dist = interpolate(frame, [5, 40], [0, 150 + i * 8], { extrapolateRight: 'clamp' });
+    const op = interpolate(frame, [5, 20, 55, 80], [0, 0.8, 0.4, 0], { extrapolateRight: 'clamp' });
     return { x: Math.cos(angle) * dist, y: Math.sin(angle) * dist, op, size: 3 + (i % 3) };
   });
 
@@ -270,7 +272,7 @@ const WhatsAppScene: React.FC = () => {
             padding: '8px 12px', maxWidth: '82%', alignSelf: 'flex-start',
           }}>
             <div style={{ color: '#e2e8f0', fontSize: 11, lineHeight: 1.4 }}>
-              Hola, vi el anuncio de Vidanta y estoy interesado...
+              Hola, les puedo llamar para que me expliquen mejor?
             </div>
             <div style={{ color: '#6ee7b7', fontSize: 9, textAlign: 'right', marginTop: 3 }}>10:30</div>
           </div>
@@ -282,7 +284,7 @@ const WhatsAppScene: React.FC = () => {
             padding: '8px 12px', maxWidth: '78%', alignSelf: 'flex-end',
           }}>
             <div style={{ color: 'white', fontSize: 11, lineHeight: 1.4 }}>
-              Con gusto le ayudo. Le puedo llamar?
+              Claro! Puede llamarnos directo por WhatsApp
             </div>
             <div style={{ color: '#a7f3d0', fontSize: 9, textAlign: 'right', marginTop: 3 }}>10:31</div>
           </div>
@@ -295,15 +297,36 @@ const WhatsAppScene: React.FC = () => {
             display: 'flex', flexDirection: 'column', alignItems: 'center',
             justifyContent: 'center', opacity: callingOp, zIndex: 5,
           }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: 32,
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 30px #22c55e40',
-            }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
-                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
-              </svg>
+            {/* Phone icon + rings container */}
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: 32,
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 30px #22c55e40',
+                position: 'relative', zIndex: 2,
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2">
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z" />
+                </svg>
+              </div>
+              {/* Ring animation - centered on icon */}
+              {[0, 1, 2].map(i => {
+                const ringOp = interpolate(
+                  (frame - 160 + i * 10) % 30, [0, 15, 30], [0.6, 0.2, 0], { extrapolateRight: 'clamp' }
+                );
+                const ringScale = interpolate(
+                  (frame - 160 + i * 10) % 30, [0, 30], [1, 2.5], { extrapolateRight: 'clamp' }
+                );
+                return frame > 160 ? (
+                  <div key={i} style={{
+                    position: 'absolute', width: 64, height: 64,
+                    borderRadius: '50%', border: '2px solid #22c55e',
+                    opacity: ringOp, transform: `scale(${ringScale})`,
+                    zIndex: 1,
+                  }} />
+                ) : null;
+              })}
             </div>
             <div style={{ color: 'white', fontSize: 15, fontWeight: 600, marginTop: 14 }}>
               Llamando...
@@ -311,22 +334,6 @@ const WhatsAppScene: React.FC = () => {
             <div style={{ color: '#22c55e', fontSize: 12, marginTop: 6 }}>
               +52 322 487 0413
             </div>
-            {/* Ring animation */}
-            {[0, 1, 2].map(i => {
-              const ringOp = interpolate(
-                (frame - 160 + i * 10) % 30, [0, 15, 30], [0.6, 0.2, 0], { extrapolateRight: 'clamp' }
-              );
-              const ringScale = interpolate(
-                (frame - 160 + i * 10) % 30, [0, 30], [1, 2.5], { extrapolateRight: 'clamp' }
-              );
-              return frame > 160 ? (
-                <div key={i} style={{
-                  position: 'absolute', top: '42%', width: 70, height: 70,
-                  borderRadius: '50%', border: '2px solid #22c55e',
-                  opacity: ringOp, transform: `scale(${ringScale})`,
-                }} />
-              ) : null;
-            })}
           </div>
         )}
       </div>
@@ -364,8 +371,8 @@ const AIScene: React.FC = () => {
 
   // Conversation bubbles (staggered)
   const convMessages = [
-    { text: 'Hola, vi el anuncio de Vidanta y quiero saber mas...', isAI: false, start: 40 },
-    { text: 'Perfecto, dejame verificar tu informacion y te conecto con tu ejecutivo.', isAI: true, start: 80 },
+    { text: 'Hola, quiero informacion sobre los certificados vacacionales...', isAI: false, start: 40 },
+    { text: 'Con gusto te ayudo. Dejame verificar tu informacion y te conecto con tu ejecutivo.', isAI: true, start: 80 },
     { text: 'Transfiriendo con tu ejecutivo asignado...', isAI: true, start: 120 },
   ];
 
@@ -761,14 +768,14 @@ const OutroScene: React.FC = () => {
   const { fps } = useVideoConfig();
 
   const features = [
-    { icon: 'M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0-11V3', title: 'Grabacion Dual', desc: 'Ejecutivo y prospecto en canales separados', color: '#06b6d4' },
-    { icon: 'M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z', title: 'Permisos por Rol', desc: 'Cada rol ve solo su coordinacion', color: '#8b5cf6' },
-    { icon: 'M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z', title: 'Admin sin Limites', desc: 'Transfiere a cualquier usuario online', color: '#f59e0b' },
+    { icon: 'M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3m0 0a8.997 8.997 0 017.843 4.582M12 3a8.997 8.997 0 00-7.843 4.582m15.686 0A11.953 11.953 0 0112 10.5c-2.998 0-5.74-1.1-7.843-2.918m15.686 0A8.959 8.959 0 0121 12c0 .778-.099 1.533-.284 2.253m0 0A17.919 17.919 0 0112 16.5c-3.162 0-6.133-.815-8.716-2.247m0 0A9.015 9.015 0 013 12c0-1.605.42-3.113 1.157-4.418', title: 'Contesta desde tu navegador', desc: 'Sin apps ni telefonos adicionales. Solo necesitas tu navegador web', color: '#06b6d4' },
+    { icon: 'M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5', title: 'Transfiere con un click', desc: 'Pasa la llamada a tu supervisor o companero al instante', color: '#8b5cf6' },
+    { icon: 'M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z', title: 'Grabacion automatica', desc: 'Cada llamada se graba automaticamente para tu respaldo', color: '#f59e0b' },
   ];
 
-  const titleOp = fadeIn(frame, 140, 18);
-  const titleScale = spring({ frame: frame - 142, fps, config: { damping: 10, mass: 0.5 } });
-  const titleGlow = interpolate(frame, [150, 180, 250, 290], [0, 1, 1, 0.7], { extrapolateRight: 'clamp' });
+  const titleOp = fadeIn(frame, 260, 18);
+  const titleScale = spring({ frame: frame - 262, fps, config: { damping: 10, mass: 0.5 } });
+  const titleGlow = interpolate(frame, [268, 285, 300, 315], [0, 1, 1, 0.7], { extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill style={{ justifyContent: 'center', alignItems: 'center' }}>
@@ -777,8 +784,11 @@ const OutroScene: React.FC = () => {
         display: 'flex', gap: 16, marginTop: -40,
       }}>
         {features.map((f, i) => {
-          const cardOp = fadeIn(frame, 8 + i * 28, 18);
-          const cardY = spring({ frame: frame - (8 + i * 28), fps, from: 40, to: 0, config: { damping: 14 } });
+          // Stagger synced to narration: "Contesta"~f20, "Transfiere"~f100, "Graba"~f145
+          const cardStarts = [20, 100, 145];
+          const cardStart = cardStarts[i] ?? 20;
+          const cardOp = fadeIn(frame, cardStart, 18);
+          const cardY = spring({ frame: frame - cardStart, fps, from: 40, to: 0, config: { damping: 14 } });
 
           return (
             <div key={i} style={{
@@ -944,18 +954,17 @@ interface VoiceCallsIntroTutorialProps {
 
 const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onComplete }) => {
   const playerRef = useRef<PlayerRef>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
+  const musicRef = useRef<HTMLAudioElement>(null);
+  const narrationRef = useRef<HTMLAudioElement>(null);
   const [isFinished, setIsFinished] = useState(false);
   const [progress, setProgress] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
-  const [needsClick, setNeedsClick] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Set audio volume on mount
+  // Set audio volumes on mount
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.volume = 0.25;
-    }
+    if (musicRef.current) musicRef.current.volume = 0.15;
+    if (narrationRef.current) narrationRef.current.volume = 0.85;
   }, []);
 
   // Track playback progress
@@ -965,50 +974,54 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
       if (playerRef.current) {
         const currentFrame = playerRef.current.getCurrentFrame();
         setProgress(currentFrame / TOTAL_FRAMES);
-        if (currentFrame > 2) setHasStarted(true);
+
+        // Sync narration with video timeline
+        if (hasStarted && narrationRef.current) {
+          const videoTime = currentFrame / FPS;
+          const narrationTime = narrationRef.current.currentTime;
+          // Re-sync if drift > 0.3s
+          if (Math.abs(videoTime - narrationTime) > 0.3 && !narrationRef.current.paused) {
+            narrationRef.current.currentTime = videoTime;
+          }
+        }
+
         if (currentFrame >= TOTAL_FRAMES - 3 && !isFinished) {
           setIsFinished(true);
           playerRef.current.pause();
-          // Audio keeps looping until Finalizar
+          narrationRef.current?.pause();
+          // Background music keeps looping until Finalizar
         }
       }
       raf = requestAnimationFrame(update);
     };
     raf = requestAnimationFrame(update);
     return () => cancelAnimationFrame(raf);
-  }, [isFinished]);
+  }, [isFinished, hasStarted]);
 
-  // Start audio when video starts
-  useEffect(() => {
-    if (hasStarted && audioRef.current) {
-      audioRef.current.play().catch(() => {});
-    }
-  }, [hasStarted]);
-
-  // Detect if autoplay was blocked
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!hasStarted) setNeedsClick(true);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [hasStarted]);
-
+  // Start video + music + narration on user click
   const handleStart = useCallback(() => {
     playerRef.current?.play();
-    if (audioRef.current) {
-      audioRef.current.play().catch(() => {});
+    if (musicRef.current) {
+      musicRef.current.volume = 0.15;
+      musicRef.current.play().catch(() => {});
     }
-    setNeedsClick(false);
+    if (narrationRef.current) {
+      narrationRef.current.volume = 0.85;
+      narrationRef.current.currentTime = 0;
+      narrationRef.current.play().catch(() => {});
+    }
     setHasStarted(true);
   }, []);
 
   const handleTogglePause = useCallback(() => {
     if (isPaused) {
       playerRef.current?.play();
-      audioRef.current?.play().catch(() => {});
+      musicRef.current?.play().catch(() => {});
+      narrationRef.current?.play().catch(() => {});
     } else {
       playerRef.current?.pause();
-      audioRef.current?.pause();
+      musicRef.current?.pause();
+      narrationRef.current?.pause();
     }
     setIsPaused(prev => !prev);
   }, [isPaused]);
@@ -1019,10 +1032,15 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
     const targetFrame = Math.floor(ratio * TOTAL_FRAMES);
     playerRef.current?.seekTo(targetFrame);
     setProgress(ratio);
+    // Sync narration to seek position
+    if (narrationRef.current) {
+      narrationRef.current.currentTime = targetFrame / FPS;
+    }
     if (isFinished) {
       setIsFinished(false);
       setIsPaused(false);
       playerRef.current?.play();
+      narrationRef.current?.play().catch(() => {});
     }
   }, [isFinished]);
 
@@ -1032,12 +1050,20 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
     setIsPaused(false);
     playerRef.current?.seekTo(0);
     playerRef.current?.play();
+    if (narrationRef.current) {
+      narrationRef.current.currentTime = 0;
+      narrationRef.current.play().catch(() => {});
+    }
   }, []);
 
   const handleFinish = useCallback(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+    if (musicRef.current) {
+      musicRef.current.pause();
+      musicRef.current.currentTime = 0;
+    }
+    if (narrationRef.current) {
+      narrationRef.current.pause();
+      narrationRef.current.currentTime = 0;
     }
     onComplete();
   }, [onComplete]);
@@ -1051,9 +1077,11 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
 
   return (
     <div className="space-y-0 -mx-6 -mt-6 -mb-6">
-      {/* Audio loop (HTML, no Remotion) */}
+      {/* Background music (loop) + Narration (single play, synced to timeline) */}
       {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
-      <audio ref={audioRef} src="/sounds/voice-calls-intro.mp3" loop preload="auto" />
+      <audio ref={musicRef} src="/sounds/voice-calls-intro.mp3" loop preload="auto" />
+      {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+      <audio ref={narrationRef} src="/sounds/vo-narration.mp3" preload="auto" />
 
       {/* Player container */}
       <div className="relative overflow-hidden rounded-t-2xl bg-[#050510]">
@@ -1065,7 +1093,7 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
           compositionHeight={COMP_H}
           fps={FPS}
           controls={false}
-          autoPlay
+          autoPlay={false}
           clickToPlay={false}
           style={{
             width: '100%',
@@ -1073,9 +1101,9 @@ const VoiceCallsIntroTutorial: React.FC<VoiceCallsIntroTutorialProps> = ({ onCom
           }}
         />
 
-        {/* Autoplay blocked: show play button */}
+        {/* Play button overlay - always shown until user clicks */}
         <AnimatePresence>
-          {needsClick && !hasStarted && (
+          {!hasStarted && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
