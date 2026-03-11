@@ -185,19 +185,8 @@ serve(async (req: Request): Promise<Response> => {
       recordingUrl = await getRecordingUrl(parentCallSid)
     }
 
-    // Fallback: buscar en audio_ruta_bucket de llamadas_ventas (grabacion VAPI)
-    if (!recordingUrl && llamadaId) {
-      const { data: llamadaAudio } = await serviceSupabase
-        .from('llamadas_ventas')
-        .select('audio_ruta_bucket')
-        .eq('call_id', llamadaId)
-        .single()
-
-      if (llamadaAudio?.audio_ruta_bucket) {
-        recordingUrl = llamadaAudio.audio_ruta_bucket
-        console.log(`[voice-call-end] Using VAPI recording as fallback`)
-      }
-    }
+    // NOTA: No usar fallback VAPI (audio_ruta_bucket) — queremos solo la grabacion
+    // de la llamada ejecutivo↔prospecto, no la conversacion con la IA.
 
     // 7. Enviar al webhook N8N
     const webhookPayload = {

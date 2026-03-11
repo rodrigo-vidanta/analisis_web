@@ -74,6 +74,8 @@ type TwilioVoiceListener = (data: Record<string, unknown>) => void;
 const SUPABASE_URL = import.meta.env.VITE_ANALYSIS_SUPABASE_URL || 'https://glsmifhkoaifvaegsozd.supabase.co';
 const TOKEN_ENDPOINT = `${SUPABASE_URL}/functions/v1/generate-twilio-token`;
 const CALL_END_ENDPOINT = `${SUPABASE_URL}/functions/v1/voice-call-end`;
+const START_RECORDING_ENDPOINT = `${SUPABASE_URL}/functions/v1/voice-start-recording`;
+const MIN_CALL_DURATION_MS = 5000; // No enviar webhook si llamada duro menos de 5s
 const LOG_PREFIX = '[TwilioVoice]';
 
 // ============================================
@@ -448,6 +450,11 @@ class TwilioVoiceService {
     call.on('accept', () => {
       console.log(`${LOG_PREFIX} Call accepted event`);
       this.callStartedAt = new Date().toISOString();
+      // Iniciar grabacion Twilio para la llamada ejecutivo↔prospecto
+      const callInfo = this.extractCallInfo(call);
+      if (callInfo.parentCallSid) {
+        this.startRecording(callInfo.parentCallSid);
+      }
     });
 
     call.on('disconnect', () => {
@@ -499,6 +506,15 @@ class TwilioVoiceService {
       return;
     }
 
+    // Filtrar llamadas muy cortas (transfers/desconexiones rapidas)
+    if (startedAt) {
+      const durationMs = Date.now() - new Date(startedAt).getTime();
+      if (durationMs < MIN_CALL_DURATION_MS) {
+        console.log(`${LOG_PREFIX} Skipping call-end notification — duration ${durationMs}ms < ${MIN_CALL_DURATION_MS}ms`);
+        return;
+      }
+    }
+
     try {
       let { data: { session } } = await supabaseSystemUI.auth.getSession();
       if (!session?.access_token) {
@@ -541,6 +557,45 @@ class TwilioVoiceService {
       }
     } catch (err) {
       console.warn(`${LOG_PREFIX} Call-end notification error:`, err);
+    }
+  }
+
+  /**
+   * Inicia grabacion Twilio en el parentCallSid via Edge Function.
+   * Fire-and-forget: no bloquea el flujo de accept.
+   */
+  private async startRecording(parentCallSid: string): Promise<void> {
+    try {
+      let { data: { session } } = await supabaseSystemUI.auth.getSession();
+      if (!session?.access_token) return;
+
+      // Si token expirado, refrescar
+      const tokenExp = JSON.parse(atob(session.access_token.split('.')[1])).exp;
+      if (tokenExp * 1000 < Date.now()) {
+        const { data: { session: refreshed } } = await supabaseSystemUI.auth.refreshSession();
+        if (refreshed) session = refreshed;
+      }
+
+      console.log(`${LOG_PREFIX} Starting recording for ${parentCallSid}`);
+
+      const resp = await fetch(START_RECORDING_ENDPOINT, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '',
+        },
+        body: JSON.stringify({ parentCallSid }),
+      });
+
+      if (resp.ok) {
+        const result = await resp.json();
+        console.log(`${LOG_PREFIX} Recording started:`, result);
+      } else {
+        console.warn(`${LOG_PREFIX} Start recording failed: ${resp.status}`);
+      }
+    } catch (err) {
+      console.warn(`${LOG_PREFIX} Start recording error:`, err);
     }
   }
 
