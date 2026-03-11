@@ -1,3 +1,9 @@
+## [v2.31.13] - 2026-03-11
+
+**B10.3.0N2.31.13** - fix(comunicado): fix PlayerRef type import for Vite dev compatibility
+
+---
+
 ## [v2.31.12] - 2026-03-11
 
 **B10.3.0N2.31.12** - fix(comunicado): voice calls animation v2 - audio loop, rename WhatsApp, playback controls, +5s per scene, staggered bubbles

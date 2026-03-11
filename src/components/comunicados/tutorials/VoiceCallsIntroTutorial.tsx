@@ -18,7 +18,8 @@
  */
 
 import React, { useRef, useState, useEffect, useCallback } from 'react';
-import { Player, PlayerRef } from '@remotion/player';
+import { Player } from '@remotion/player';
+import type { PlayerRef } from '@remotion/player';
 import {
   AbsoluteFill,
   useCurrentFrame,
