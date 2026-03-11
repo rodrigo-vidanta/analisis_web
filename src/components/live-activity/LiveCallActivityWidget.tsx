@@ -626,10 +626,8 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Softphone: visible siempre que haya llamada VoIP activa con datos
   const softphoneIsOpen = (showSoftphone || hasActiveVoiceCall) && softphoneCallData !== null;
 
-  // Durante llamada VoIP activa, solo mostrar side widget para llamadas entrantes
-  const sideWidgetCalls = hasActiveVoiceCall
-    ? widgetCalls.filter(c => c.voiceTransferStatus === 'incoming')
-    : widgetCalls;
+  // Mostrar todas las llamadas en el side widget (incluyendo durante llamada VoIP activa)
+  const sideWidgetCalls = widgetCalls;
 
   // No renderizar si no está habilitado o no tiene acceso
   if (!isWidgetEnabled || !canAccessLiveMonitor() || !user) {
