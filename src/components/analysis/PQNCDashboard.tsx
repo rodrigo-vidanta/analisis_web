@@ -1684,8 +1684,8 @@ const PQNCDashboard: React.FC = () => {
                             call.call_result === 'numero_equivocado' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
                             call.call_result === 'no_califica' ? 'bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-400' :
                             'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                          }`} title={call.call_result.replace('_', ' ')}>
-                            {call.call_result.replace('_', ' ')}
+                          }`} title={(call.call_result ?? 'pendiente').replace('_', ' ')}>
+                            {(call.call_result ?? 'pendiente').replace('_', ' ')}
                           </span>
                         </div>
                       </td>
