@@ -192,6 +192,9 @@ export interface VoiceSoftphoneModalProps {
   onHangup: () => void;
   onTransfer?: () => void;
   canTransfer?: boolean;
+  hasIncomingCall?: boolean;
+  onAcceptCall?: () => void;
+  onRejectCall?: () => void;
 }
 
 // ============================================
@@ -208,6 +211,9 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
   onHangup,
   onTransfer,
   canTransfer = false,
+  hasIncomingCall = false,
+  onAcceptCall,
+  onRejectCall,
 }) => {
   const [callDuration, setCallDuration] = useState(0);
   const [isMinimized, setIsMinimized] = useState(false);
@@ -454,18 +460,35 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
             </span>
           )}
 
-          <button
-            onClick={(e) => { e.stopPropagation(); handleToggleMute(); }}
-            className={`p-2 rounded-xl transition-all ${
-              isMuted ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
-            }`}
-          >
-            {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-          </button>
-
-          <button onClick={(e) => { e.stopPropagation(); handleHangup(); }} className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition-all">
-            <PhoneOff className="w-4 h-4" />
-          </button>
+          {hasIncomingCall && onAcceptCall ? (
+            <>
+              <button onClick={(e) => { e.stopPropagation(); onRejectCall?.(); }} className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition-all">
+                <PhoneOff className="w-4 h-4" />
+              </button>
+              <motion.button
+                onClick={(e) => { e.stopPropagation(); onAcceptCall(); }}
+                animate={{ scale: [1, 1.1, 1] }}
+                transition={{ repeat: Infinity, duration: 1.2 }}
+                className="p-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all"
+              >
+                <Phone className="w-4 h-4" />
+              </motion.button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggleMute(); }}
+                className={`p-2 rounded-xl transition-all ${
+                  isMuted ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'
+                }`}
+              >
+                {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+              <button onClick={(e) => { e.stopPropagation(); handleHangup(); }} className="p-2 bg-red-600 hover:bg-red-500 text-white rounded-xl transition-all">
+                <PhoneOff className="w-4 h-4" />
+              </button>
+            </>
+          )}
 
           <button onClick={(e) => { e.stopPropagation(); setIsMinimized(false); }} className="p-2 bg-gray-700 hover:bg-gray-600 text-white rounded-xl transition-all" title="Expandir">
             <Maximize2 className="w-4 h-4" />
@@ -596,47 +619,74 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
 
           {/* ---- CONTROLES (siempre visibles) ---- */}
           <div className="px-6 py-3 border-b border-gray-800/60">
-            <div className="flex items-center justify-center gap-5">
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  onClick={handleToggleMute}
-                  className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
-                    isMuted
-                      ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/30 text-white ring-2 ring-amber-400/40'
-                      : 'bg-gray-700 hover:bg-gray-600 shadow-gray-700/30 text-white'
-                  }`}
-                  title={isMuted ? 'Quitar espera' : 'Pausar (musica de espera)'}
-                >
-                  {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                </button>
-                <span className={`text-[11px] ${isMuted ? 'text-amber-400 font-semibold' : 'text-gray-500'}`}>
-                  {isMuted ? 'En espera' : 'Pausar'}
-                </span>
-              </div>
-
-              {canTransfer && onTransfer && (
+            {hasIncomingCall && onAcceptCall ? (
+              /* Incoming: Aceptar / Rechazar */
+              <div className="flex items-center justify-center gap-8">
                 <div className="flex flex-col items-center gap-1">
                   <button
-                    onClick={onTransfer}
-                    className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 text-white"
-                    title="Transferir llamada"
+                    onClick={onRejectCall}
+                    className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-all shadow-xl shadow-red-500/40 text-white"
                   >
-                    <ArrowRightLeft className="w-6 h-6" />
+                    <PhoneOff className="w-7 h-7" />
                   </button>
-                  <span className="text-[11px] text-blue-400">Transferir</span>
+                  <span className="text-[11px] text-red-400">Rechazar</span>
                 </div>
-              )}
-
-              <div className="flex flex-col items-center gap-1">
-                <button
-                  onClick={handleHangup}
-                  className="w-[64px] h-[64px] rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-all shadow-xl shadow-red-500/40 hover:shadow-red-500/60 text-white"
-                >
-                  <PhoneOff className="w-7 h-7" />
-                </button>
-                <span className="text-[11px] text-red-400">Colgar</span>
+                <div className="flex flex-col items-center gap-1">
+                  <motion.button
+                    onClick={onAcceptCall}
+                    animate={{ scale: [1, 1.08, 1] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                    className="w-16 h-16 rounded-full bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center transition-all shadow-xl shadow-emerald-500/40 text-white"
+                  >
+                    <Phone className="w-7 h-7" />
+                  </motion.button>
+                  <span className="text-[11px] text-emerald-400 font-semibold">Aceptar</span>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Activa: Mute / Transfer / Colgar */
+              <div className="flex items-center justify-center gap-5">
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleToggleMute}
+                    className={`w-14 h-14 rounded-full flex items-center justify-center transition-all shadow-lg ${
+                      isMuted
+                        ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/30 text-white ring-2 ring-amber-400/40'
+                        : 'bg-gray-700 hover:bg-gray-600 shadow-gray-700/30 text-white'
+                    }`}
+                    title={isMuted ? 'Quitar espera' : 'Pausar (musica de espera)'}
+                  >
+                    {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                  </button>
+                  <span className={`text-[11px] ${isMuted ? 'text-amber-400 font-semibold' : 'text-gray-500'}`}>
+                    {isMuted ? 'En espera' : 'Pausar'}
+                  </span>
+                </div>
+
+                {canTransfer && onTransfer && (
+                  <div className="flex flex-col items-center gap-1">
+                    <button
+                      onClick={onTransfer}
+                      className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-500 flex items-center justify-center transition-all shadow-lg shadow-blue-500/30 text-white"
+                      title="Transferir llamada"
+                    >
+                      <ArrowRightLeft className="w-6 h-6" />
+                    </button>
+                    <span className="text-[11px] text-blue-400">Transferir</span>
+                  </div>
+                )}
+
+                <div className="flex flex-col items-center gap-1">
+                  <button
+                    onClick={handleHangup}
+                    className="w-[64px] h-[64px] rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-all shadow-xl shadow-red-500/40 hover:shadow-red-500/60 text-white"
+                  >
+                    <PhoneOff className="w-7 h-7" />
+                  </button>
+                  <span className="text-[11px] text-red-400">Colgar</span>
+                </div>
+              </div>
+            )}
 
             {isOnHold && (
               <motion.div

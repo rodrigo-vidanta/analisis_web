@@ -99,19 +99,51 @@ export const LiveCallActivityWidget: React.FC = () => {
 
   const { setVoiceTransfer, clearVoiceTransfer } = useLiveActivityStore();
 
-  // Vincular llamada entrante de Twilio Voice con CallCard existente
+  // Vincular llamada entrante de Twilio Voice con CallCard existente o abrir softphone directo
   useEffect(() => {
-    if (hasIncomingCall && incomingCallInfo?.llamadaId) {
-      const matchingCall = widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId);
+    if (hasIncomingCall && incomingCallInfo) {
+      const matchingCall = incomingCallInfo.llamadaId
+        ? widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId)
+        : undefined;
+
       if (matchingCall && matchingCall.voiceTransferStatus !== 'incoming') {
+        // Tiene CallCard en el widget — vincular
         setVoiceTransfer(matchingCall.call_id, 'incoming', incomingCallInfo.callSid ?? undefined);
         if (minimizedCallIds.has(matchingCall.call_id)) {
           restoreCall(matchingCall.call_id);
         }
-        audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
       }
+
+      // Siempre abrir softphone para que el usuario pueda aceptar/rechazar
+      if (!showSoftphone) {
+        setSoftphoneCallId(incomingCallInfo.llamadaId ?? incomingCallInfo.callSid ?? 'incoming');
+        setSoftphoneCallData({
+          call_id: incomingCallInfo.llamadaId ?? incomingCallInfo.callSid ?? 'incoming',
+          call_status: 'activa',
+          prospecto_id: incomingCallInfo.prospectoId ?? '',
+          nombre_completo: incomingCallInfo.prospectoNombre ?? 'Llamada entrante',
+          nombre_whatsapp: incomingCallInfo.prospectoNombre ?? 'Llamada entrante',
+          whatsapp: incomingCallInfo.fromNumber ?? '',
+          started_at: new Date().toISOString(),
+          parentCallSid: incomingCallInfo.parentCallSid ?? undefined,
+          coordinacionId: incomingCallInfo.coordinacionId ?? undefined,
+          ...(matchingCall ? {
+            email: matchingCall.email,
+            ciudad_residencia: matchingCall.ciudad_residencia,
+            etapa: matchingCall.etapa,
+            observaciones: matchingCall.observaciones,
+            ejecutivo_nombre: matchingCall.ejecutivo_nombre,
+            ejecutivo_id: matchingCall.ejecutivo_id,
+            score: matchingCall.score,
+            temperatura_prospecto: matchingCall.temperatura_prospecto,
+          } : {}),
+        } as WidgetCallData);
+        setShowSoftphone(true);
+      }
+
+      audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
     }
-  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall]);
+  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall, showSoftphone]);
 
   // Cuando la llamada Voice se acepta, transicionar a "active"
   useEffect(() => {
@@ -693,6 +725,9 @@ export const LiveCallActivityWidget: React.FC = () => {
         onHangup={handleHangupVoice}
         onTransfer={handleOpenVoiceTransfer}
         canTransfer={!!(softphoneCallData?.parentCallSid)}
+        hasIncomingCall={hasIncomingCall}
+        onAcceptCall={handleAcceptTransfer}
+        onRejectCall={() => { rejectVoiceCall(); setShowSoftphone(false); setSoftphoneCallData(null); }}
       />
 
       {/* Voice Transfer Modal - Seleccionar destino de transferencia */}
