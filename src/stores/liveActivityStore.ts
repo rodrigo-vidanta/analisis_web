@@ -33,6 +33,9 @@ export interface TranscriptEntry {
 }
 
 // Tipo extendido para llamadas del widget
+// Estado de transferencia Voice SDK en una llamada
+export type VoiceTransferStatus = 'none' | 'incoming' | 'active' | 'disconnected';
+
 export interface WidgetCallData extends LiveCallData {
   checkpoint_venta_actual?: string;
   composicion_familiar_numero?: number;
@@ -51,6 +54,14 @@ export interface WidgetCallData extends LiveCallData {
   // Nombre del ejecutivo asignado al prospecto
   ejecutivo_nombre?: string;
   ejecutivo_id?: string;
+  // Voice SDK transfer state (transicion de CallCard)
+  voiceTransferStatus?: VoiceTransferStatus;
+  voiceTransferCallSid?: string;
+  // Team transfer fields
+  parentCallSid?: string;
+  currentHolderId?: string;
+  currentHolderName?: string;
+  coordinacionId?: string;
 }
 
 interface LiveActivityState {
@@ -105,6 +116,9 @@ interface LiveActivityState {
   markCallNotified: (callId: string) => void;
   hasCallBeenNotified: (callId: string) => boolean;
   loadActiveCalls: () => Promise<void>;
+  // Voice SDK transfer actions
+  setVoiceTransfer: (callId: string, status: VoiceTransferStatus, callSid?: string) => void;
+  clearVoiceTransfer: (callId: string) => void;
 }
 
 const playNotificationSound = () => {
@@ -605,14 +619,20 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
    */
   removeCall: (callId: string) => {
     set(state => {
+      // No remover si tiene voice transfer activo (WhatsApp→Client SDK)
+      const call = state.widgetCalls.find(c => c.call_id === callId);
+      if (call?.voiceTransferStatus && call.voiceTransferStatus !== 'none' && call.voiceTransferStatus !== 'disconnected') {
+        return state;
+      }
+
       const newCalls = state.widgetCalls.filter(c => c.call_id !== callId);
-      
+
       // Si la llamada removida estaba expandida, colapsar
       const newExpandedId = state.expandedCallId === callId ? null : state.expandedCallId;
-      
+
       // Limpiar transcripción
       const { [callId]: _, ...restTranscriptions } = state.liveTranscriptions;
-      
+
       return {
         widgetCalls: newCalls,
         expandedCallId: newExpandedId,
@@ -717,5 +737,32 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
    */
   hasCallBeenNotified: (callId: string) => {
     return get().notifiedCallIds.has(callId);
+  },
+
+  /**
+   * Establece el estado de transferencia Voice SDK para una llamada.
+   * Vincula una llamada entrante de Twilio Client con su CallCard existente.
+   */
+  setVoiceTransfer: (callId: string, status: VoiceTransferStatus, callSid?: string) => {
+    set(state => ({
+      widgetCalls: state.widgetCalls.map(call =>
+        call.call_id === callId
+          ? { ...call, voiceTransferStatus: status, voiceTransferCallSid: callSid }
+          : call
+      )
+    }));
+  },
+
+  /**
+   * Limpia el estado de transferencia Voice SDK.
+   */
+  clearVoiceTransfer: (callId: string) => {
+    set(state => ({
+      widgetCalls: state.widgetCalls.map(call =>
+        call.call_id === callId
+          ? { ...call, voiceTransferStatus: 'none' as VoiceTransferStatus, voiceTransferCallSid: undefined }
+          : call
+      )
+    }));
   }
 }));

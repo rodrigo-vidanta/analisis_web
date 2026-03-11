@@ -27,6 +27,12 @@ import { ExpandedCallPanel } from './ExpandedCallPanel';
 import { MinimizedCallTab } from './MinimizedCallTab';
 import { TransferModal } from '../analysis/TransferModal';
 import type { TransferCallData } from '../analysis/TransferModal';
+import { useTwilioVoice } from '../../hooks/useTwilioVoice';
+import { VoiceSoftphoneModal } from './VoiceSoftphoneModal';
+import { VoiceTransferModal } from './VoiceTransferModal';
+import { voiceTransferService } from '../../services/voiceTransferService';
+import { audioOutputService } from '../../services/audioOutputService';
+import { analysisSupabase } from '../../config/analysisSupabase';
 
 // Tiempo para auto-minimizar llamadas si el usuario no interactúa (10 segundos)
 const AUTO_MINIMIZE_DELAY_MS = 10000;
@@ -68,7 +74,242 @@ export const LiveCallActivityWidget: React.FC = () => {
   // Estado del modal de transferencia
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [transferCall, setTransferCall] = useState<TransferCallData | null>(null);
-  
+
+  // Estado del softphone modal (llamada VoIP activa)
+  const [showSoftphone, setShowSoftphone] = useState(false);
+  const [softphoneCallId, setSoftphoneCallId] = useState<string | null>(null);
+  const [softphoneCallData, setSoftphoneCallData] = useState<WidgetCallData | null>(null);
+
+  // Estado del modal de transferencia voice (team transfer)
+  const [showVoiceTransferModal, setShowVoiceTransferModal] = useState(false);
+
+  // Twilio Voice SDK para recibir llamadas transferidas
+  const shouldInitVoice = !!(user?.id && isWidgetEnabled);
+  const {
+    isRegistered: isVoiceRegistered,
+    hasIncomingCall,
+    hasActiveCall: hasActiveVoiceCall,
+    incomingCallInfo,
+    isMuted: isVoiceMuted,
+    acceptCall: acceptVoiceCall,
+    rejectCall: rejectVoiceCall,
+    hangup: hangupVoiceCall,
+    toggleMute: toggleVoiceMute,
+  } = useTwilioVoice(shouldInitVoice);
+
+  const { setVoiceTransfer, clearVoiceTransfer } = useLiveActivityStore();
+
+  // Vincular llamada entrante de Twilio Voice con CallCard existente
+  useEffect(() => {
+    if (hasIncomingCall && incomingCallInfo?.llamadaId) {
+      const matchingCall = widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId);
+      if (matchingCall && matchingCall.voiceTransferStatus !== 'incoming') {
+        setVoiceTransfer(matchingCall.call_id, 'incoming', incomingCallInfo.callSid ?? undefined);
+        if (minimizedCallIds.has(matchingCall.call_id)) {
+          restoreCall(matchingCall.call_id);
+        }
+        audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
+      }
+    }
+  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall]);
+
+  // Cuando la llamada Voice se acepta, transicionar a "active"
+  useEffect(() => {
+    if (hasActiveVoiceCall && incomingCallInfo?.llamadaId) {
+      const matchingCall = widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId);
+      if (matchingCall && matchingCall.voiceTransferStatus !== 'active') {
+        setVoiceTransfer(incomingCallInfo.llamadaId, 'active', incomingCallInfo.callSid ?? undefined);
+      }
+    }
+  }, [hasActiveVoiceCall, incomingCallInfo, widgetCalls, setVoiceTransfer]);
+
+  // Cuando la llamada Voice se desconecta, limpiar y permitir remoción
+  const { removeCall } = useLiveActivityStore();
+  useEffect(() => {
+    if (!hasIncomingCall && !hasActiveVoiceCall) {
+      // Cerrar softphone si estaba abierto
+      if (showSoftphone) {
+        setShowSoftphone(false);
+        setSoftphoneCallId(null);
+        setSoftphoneCallData(null);
+      }
+      const transferCalls = widgetCalls.filter(c => c.voiceTransferStatus && c.voiceTransferStatus !== 'none');
+      if (transferCalls.length > 0) {
+        transferCalls.forEach(call => {
+          clearVoiceTransfer(call.call_id);
+          // Si la llamada VAPI ya terminó, removerla tras un breve delay
+          if (call.call_status !== 'activa') {
+            setTimeout(() => {
+              removeCall(call.call_id);
+            }, 2000);
+          }
+        });
+      }
+    }
+  }, [hasIncomingCall, hasActiveVoiceCall, widgetCalls, clearVoiceTransfer, removeCall, showSoftphone]);
+
+  // Recovery: si el componente se re-monta (HMR) y hay llamada activa, re-abrir softphone
+  useEffect(() => {
+    if (hasActiveVoiceCall && !showSoftphone && incomingCallInfo) {
+      setSoftphoneCallId(incomingCallInfo.llamadaId);
+      setShowSoftphone(true);
+      // Recargar datos del prospecto si no los tenemos
+      if (!softphoneCallData && incomingCallInfo.prospectoId && analysisSupabase) {
+        analysisSupabase
+          .from('prospectos')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score, temperatura_prospecto')
+          .eq('id', incomingCallInfo.prospectoId)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              setSoftphoneCallData({
+                call_id: incomingCallInfo.llamadaId ?? '',
+                call_status: 'activa',
+                prospecto_id: data.id,
+                nombre_completo: data.nombre_completo,
+                nombre_whatsapp: data.nombre_whatsapp ?? 'Sin nombre',
+                whatsapp: data.whatsapp ?? '',
+                email: data.email ?? undefined,
+                ciudad_residencia: data.ciudad_residencia ?? undefined,
+                etapa: data.etapa ?? undefined,
+                observaciones: data.observaciones ?? undefined,
+                estado_civil: data.estado_civil ?? undefined,
+                edad: data.edad ?? undefined,
+                destino_preferencia: data.destino_preferencia ?? undefined,
+                tamano_grupo: data.tamano_grupo ?? undefined,
+                viaja_con: data.viaja_con ?? undefined,
+                score: data.score ?? undefined,
+                temperatura_prospecto: data.temperatura_prospecto ?? undefined,
+                started_at: new Date().toISOString(),
+              } as WidgetCallData);
+            }
+          });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasActiveVoiceCall]);
+
+  // Handlers para Voice SDK en CallCard
+  const handleAcceptTransfer = useCallback(async () => {
+    acceptVoiceCall();
+    if (incomingCallInfo?.llamadaId) {
+      setSoftphoneCallId(incomingCallInfo.llamadaId);
+      setShowSoftphone(true);
+      clearVoiceTransfer(incomingCallInfo.llamadaId);
+
+      // Intentar obtener call data del widget primero
+      const existingCall = widgetCalls.find(c => c.call_id === incomingCallInfo.llamadaId);
+      if (existingCall) {
+        setSoftphoneCallData({
+          ...existingCall,
+          parentCallSid: incomingCallInfo.parentCallSid ?? existingCall.parentCallSid,
+          coordinacionId: incomingCallInfo.coordinacionId ?? existingCall.coordinacionId,
+        });
+      } else if (incomingCallInfo.prospectoId && analysisSupabase) {
+        // Cargar datos del prospecto desde BD
+        const { data } = await analysisSupabase
+          .from('prospectos')
+          .select('id, nombre_completo, nombre_whatsapp, whatsapp, telefono_principal, email, ciudad_residencia, etapa, observaciones, estado_civil, edad, destino_preferencia, tamano_grupo, viaja_con, ejecutivo_id, score, temperatura_prospecto')
+          .eq('id', incomingCallInfo.prospectoId)
+          .single();
+
+        if (data) {
+          // Obtener nombre del ejecutivo
+          let ejecutivoNombre: string | undefined;
+          if (data.ejecutivo_id && analysisSupabase) {
+            const { data: perfil } = await analysisSupabase
+              .from('user_profiles_v2')
+              .select('full_name')
+              .eq('id', data.ejecutivo_id)
+              .single();
+            ejecutivoNombre = perfil?.full_name ?? undefined;
+          }
+
+          setSoftphoneCallData({
+            call_id: incomingCallInfo.llamadaId ?? '',
+            call_status: 'activa',
+            prospecto_id: data.id,
+            nombre_completo: data.nombre_completo,
+            nombre_whatsapp: data.nombre_whatsapp ?? 'Sin nombre',
+            whatsapp: data.whatsapp ?? '',
+            email: data.email ?? undefined,
+            ciudad_residencia: data.ciudad_residencia ?? undefined,
+            etapa: data.etapa ?? undefined,
+            observaciones: data.observaciones ?? undefined,
+            estado_civil: data.estado_civil ?? undefined,
+            edad: data.edad ?? undefined,
+            destino_preferencia: data.destino_preferencia ?? undefined,
+            tamano_grupo: data.tamano_grupo ?? undefined,
+            viaja_con: data.viaja_con ?? undefined,
+            ejecutivo_nombre: ejecutivoNombre,
+            ejecutivo_id: data.ejecutivo_id ?? undefined,
+            score: data.score ?? undefined,
+            temperatura_prospecto: data.temperatura_prospecto ?? undefined,
+            started_at: new Date().toISOString(),
+            parentCallSid: incomingCallInfo.parentCallSid ?? undefined,
+            coordinacionId: incomingCallInfo.coordinacionId ?? undefined,
+          } as WidgetCallData);
+        }
+      }
+    }
+    toast.success('Llamada conectada', { duration: 2000, position: 'top-right' });
+  }, [acceptVoiceCall, incomingCallInfo, clearVoiceTransfer, widgetCalls]);
+
+  const handleRejectTransfer = useCallback(() => {
+    rejectVoiceCall();
+    toast('Transferencia rechazada', { duration: 2000, position: 'top-right', icon: '📞' });
+  }, [rejectVoiceCall]);
+
+  const handleHangupVoice = useCallback(() => {
+    hangupVoiceCall();
+    setShowSoftphone(false);
+    setSoftphoneCallId(null);
+    setSoftphoneCallData(null);
+    toast('Llamada finalizada', { duration: 2000, position: 'top-right', icon: '📞' });
+  }, [hangupVoiceCall]);
+
+  // Cerrar softphone sin colgar (minimiza a barra flotante)
+  const handleCloseSoftphone = useCallback(() => {
+    setShowSoftphone(false);
+    setSoftphoneCallId(null);
+    setSoftphoneCallData(null);
+  }, []);
+
+  // Abrir modal de transferencia voice (team transfer) desde softphone
+  const handleOpenVoiceTransfer = useCallback(() => {
+    if (softphoneCallData?.parentCallSid) {
+      setShowVoiceTransferModal(true);
+    }
+  }, [softphoneCallData]);
+
+  // Supervisor/coordinador: "Transferir Aqui" desde CallCard
+  const handleTransferHere = useCallback(async (call: WidgetCallData) => {
+    if (!call.parentCallSid || !user?.id) return;
+
+    const coordId = call.coordinacionId || user.coordinacion_id || '';
+    if (!coordId) {
+      toast.error('No se pudo determinar la coordinacion', { duration: 3000, position: 'top-right' });
+      return;
+    }
+
+    const result = await voiceTransferService.transferCall({
+      parentCallSid: call.parentCallSid,
+      targetUserId: user.id,
+      coordinacionId: coordId,
+      llamadaCallId: call.call_id,
+      prospectoId: call.prospecto_id ?? '',
+      prospectoNombre: call.nombre_completo ?? call.nombre_whatsapp,
+      fromNumber: call.whatsapp,
+      tipoLlamada: 'transfer',
+    });
+
+    if (result.success) {
+      toast.success(`Transferencia solicitada`, { duration: 2000, position: 'top-right' });
+    } else {
+      toast.error(result.error || 'Error al transferir', { duration: 3000, position: 'top-right' });
+    }
+  }, [user]);
+
   // Inicializar store cuando el usuario está autenticado
   useEffect(() => {
     if (user?.id && user?.role_name && canAccessLiveMonitor()) {
@@ -124,12 +365,16 @@ export const LiveCallActivityWidget: React.FC = () => {
         const isPermanent = state.permanentOpenCallIds.has(call.call_id);
         const isExpanded = state.expandedCallId === call.call_id;
         
+        // No auto-minimizar llamadas con transferencia voice incoming
+        const hasVoiceTransfer = call.voiceTransferStatus === 'incoming' || call.voiceTransferStatus === 'active';
+
         // Auto-minimizar si:
         // - Han pasado más de 10 segundos
         // - No está minimizada
         // - No está marcada como permanente
         // - No está expandida
-        if (elapsed >= AUTO_MINIMIZE_DELAY_MS && !isMinimized && !isPermanent && !isExpanded) {
+        // - No tiene transferencia voice activa
+        if (elapsed >= AUTO_MINIMIZE_DELAY_MS && !isMinimized && !isPermanent && !isExpanded && !hasVoiceTransfer) {
           minimizeCall(call.call_id);
         }
       });
@@ -346,23 +591,31 @@ export const LiveCallActivityWidget: React.FC = () => {
     });
   }, []);
   
+  // Softphone: visible siempre que haya llamada VoIP activa con datos
+  const softphoneIsOpen = (showSoftphone || hasActiveVoiceCall) && softphoneCallData !== null;
+
+  // Durante llamada VoIP activa, solo mostrar side widget para llamadas entrantes
+  const sideWidgetCalls = hasActiveVoiceCall
+    ? widgetCalls.filter(c => c.voiceTransferStatus === 'incoming')
+    : widgetCalls;
+
   // No renderizar si no está habilitado o no tiene acceso
   if (!isWidgetEnabled || !canAccessLiveMonitor() || !user) {
     return null;
   }
-  
+
   // No renderizar si no está visible
   if (!isWidgetVisible) {
     return null;
   }
-  
-  // No renderizar si no hay llamadas
-  if (widgetCalls.length === 0 && !isLoading) {
+
+  // No renderizar si no hay nada que mostrar
+  if (widgetCalls.length === 0 && !isLoading && !softphoneIsOpen) {
     return null;
   }
   
-  const expandedCall = expandedCallId 
-    ? widgetCalls.find(c => c.call_id === expandedCallId) 
+  const expandedCall = expandedCallId
+    ? sideWidgetCalls.find(c => c.call_id === expandedCallId)
     : null;
   
   // Parsear transcripción correctamente
@@ -427,6 +680,33 @@ export const LiveCallActivityWidget: React.FC = () => {
         call={transferCall}
         onTransferSuccess={handleTransferSuccess}
         zIndex={200}
+      />
+
+      {/* Softphone Modal - Llamada VoIP activa */}
+      <VoiceSoftphoneModal
+        isOpen={softphoneIsOpen}
+        onClose={handleCloseSoftphone}
+        call={softphoneCallData ?? (softphoneCallId ? widgetCalls.find(c => c.call_id === softphoneCallId) ?? null : null)}
+        isWhatsAppCall={true}
+        isMuted={isVoiceMuted}
+        onToggleMute={toggleVoiceMute}
+        onHangup={handleHangupVoice}
+        onTransfer={handleOpenVoiceTransfer}
+        canTransfer={!!(softphoneCallData?.parentCallSid)}
+      />
+
+      {/* Voice Transfer Modal - Seleccionar destino de transferencia */}
+      <VoiceTransferModal
+        isOpen={showVoiceTransferModal}
+        onClose={() => setShowVoiceTransferModal(false)}
+        parentCallSid={softphoneCallData?.parentCallSid ?? ''}
+        coordinacionId={softphoneCallData?.coordinacionId ?? user?.coordinacion_id ?? ''}
+        llamadaCallId={softphoneCallData?.call_id ?? ''}
+        prospectoId={softphoneCallData?.prospecto_id ?? ''}
+        prospectoNombre={softphoneCallData?.nombre_completo ?? softphoneCallData?.nombre_whatsapp}
+        fromNumber={softphoneCallData?.whatsapp}
+        tipoLlamada="transfer"
+        userCoordinacionIds={user?.coordinaciones_ids ?? (user?.coordinacion_id ? [user.coordinacion_id] : [])}
       />
       
       {/* Panel expandido - pegado al borde derecho */}
@@ -516,7 +796,7 @@ export const LiveCallActivityWidget: React.FC = () => {
             {/* Renderizar todas las llamadas en orden, ya sea como Card o como Tab minimizado */}
             <div className="flex flex-col items-end gap-3 pointer-events-none">
               <AnimatePresence mode="popLayout">
-                {widgetCalls.slice(0, 10).map((call) => {
+                {sideWidgetCalls.slice(0, 10).map((call) => {
                   const isMinimized = minimizedCallIds.has(call.call_id);
                   
                   return (
@@ -543,6 +823,22 @@ export const LiveCallActivityWidget: React.FC = () => {
                           onStopListening={stopAudioMonitoring}
                           onTransfer={() => handleTransfer(call)}
                           onMinimize={() => handleMinimize(call.call_id)}
+                          onAcceptTransfer={handleAcceptTransfer}
+                          onRejectTransfer={handleRejectTransfer}
+                          onHangupVoice={handleHangupVoice}
+                          onToggleMute={toggleVoiceMute}
+                          isVoiceMuted={isVoiceMuted}
+                          canTransferHere={
+                            !!(call.currentHolderId && call.currentHolderId !== user?.id && call.parentCallSid
+                              && (user?.role_name === 'supervisor' || user?.role_name === 'coordinador'))
+                          }
+                          canOnlyListen={
+                            !!(call.currentHolderId && call.currentHolderId !== user?.id
+                              && user?.role_name === 'ejecutivo'
+                              && (call.currentHolderName))  // holder is supervisor/coord
+                          }
+                          onTransferHere={() => handleTransferHere(call)}
+                          currentHolderName={call.currentHolderName}
                         />
                       )}
                     </motion.div>
@@ -551,7 +847,7 @@ export const LiveCallActivityWidget: React.FC = () => {
               </AnimatePresence>
               
               {/* Indicador de más llamadas */}
-              {widgetCalls.length > 10 && (
+              {sideWidgetCalls.length > 10 && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
