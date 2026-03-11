@@ -1,3 +1,12 @@
+## [v2.31.1] - 2026-03-11
+
+**B10.3.0N2.31.1** - 2
+
+### Bug Fixes
+- show softphone for incoming calls without matching widget card (`67ec4f0`)
+
+---
+
 ## [v2.31.0] - 2026-03-11
 
 **B10.3.0N2.31.0** - 2
