@@ -314,6 +314,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '735424e', date: '2026-03-12', author: 'Team', message: 'v2.32.1: B10.3.0N2.32.1 - Deploy automatico', isRelease: true },
   { hash: '0faf163', date: '2026-03-12', author: 'Team', message: 'v2.32.0: B10.3.0N2.32.0 - 1 feature', isRelease: true },
   { hash: 'e958814', date: '2026-03-11', author: 'Team', message: 'v2.31.14: B10.3.0N2.31.14 - fix(comunicado): voice calls animation v3 - narration voiceover synced, scene...', isRelease: true },
   { hash: '27ef991', date: '2026-03-11', author: 'Team', message: 'v2.31.13: B10.3.0N2.31.13 - fix(comunicado): fix PlayerRef type import for Vite dev compatibility', isRelease: true },
@@ -606,6 +607,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-159', date: '12/03/2026, 17:34', version: 'B10.3.0N2.32.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-713', date: '12/03/2026, 12:53', version: 'B10.3.0N2.32.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-572', date: '11/03/2026, 17:36', version: 'B10.3.0N2.31.14', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-985', date: '11/03/2026, 16:24', version: 'B10.3.0N2.31.13', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -843,8 +845,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.32.0', highlight: true },
-  { label: 'Release', value: 'B10.3.0N2.32.0', highlight: false },
+  { label: 'Version', value: 'v2.32.1', highlight: true },
+  { label: 'Release', value: 'B10.3.0N2.32.1', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '12 mar 2026', highlight: false },
 ];

@@ -10,6 +10,8 @@ Sistema completo de llamadas VoIP y transferencias frias (cold transfer) que per
 
 **Capacidades principales:**
 - Recepcion de llamadas WhatsApp transferidas desde VAPI al browser del ejecutivo
+- Recepcion de llamadas PSTN transferidas via numero puente con cascada de fallback
+- Notificaciones nativas del sistema (Windows/Mac) para llamadas entrantes con click-to-answer
 - Softphone completo en el browser (aceptar, colgar, mute, pausar)
 - Transferencia fria entre miembros de la misma coordinacion
 - Admin puede transferir a cualquier usuario online (sin restriccion de coordinacion)
@@ -72,9 +74,11 @@ WhatsApp Prospecto
 | | Cards | `CallCard.tsx` |
 | **Store** | Estado global | `src/stores/liveActivityStore.ts` |
 | **BD** | Transferencias | tabla `voice_transfers` |
+| | Bridge context | tabla `bridge_transfer_context` |
 | | Online status | tabla `active_sessions` |
 | | RPC | `get_online_team_members()` |
 | **N8N** | Workflow VAPI | `qpk8xsMI50IWltFV` |
+| | Bridge Voice URL | `q5kespj4S6iwn0pJ` |
 | | Webhook fin | `end-call-whatsapp` |
 
 ---
@@ -299,6 +303,7 @@ Singleton que gestiona el Twilio Voice SDK Device en el browser.
 - Registrar Device para recibir llamadas entrantes
 - Manejar eventos: incoming, accept, disconnect, error
 - Extraer metadata de llamada (customParameters)
+- Mostrar notificaciones nativas del sistema (Web Notification API)
 - Fire-and-forget: iniciar grabacion al aceptar
 - Fire-and-forget: notificar call-end al colgar
 
@@ -325,13 +330,39 @@ interface IncomingCallInfo {
 }
 ```
 
+**Notificaciones del Sistema (Web Notification API):**
+
+Al recibir una llamada entrante, el servicio muestra una notificacion nativa del OS (Windows Toast / Mac Notification Center):
+- Solicita permiso al inicializar el Device
+- Muestra tipo de llamada (PSTN / WhatsApp / Transferencia) + nombre del prospecto
+- `requireInteraction: true` — persiste hasta que el usuario interactue
+- Click en notificacion: `window.focus()` + acepta la llamada automaticamente
+- Auto-cierra si la llamada se cancela, desconecta, rechaza o acepta por otro medio
+
+```typescript
+private showIncomingCallNotification(call: Call): void {
+  const notification = new Notification(`${typeLabel} entrante`, {
+    body: nombre,
+    icon: '/favicon.ico',
+    tag: 'incoming-call',
+    requireInteraction: true,
+  });
+  notification.onclick = () => {
+    window.focus();
+    this.acceptIncomingCall();
+    notification.close();
+  };
+}
+```
+
 **Ciclo de vida de una llamada:**
 
 ```
 1. Device registrado → escuchando
-2. incoming event → extractCallInfo() → callback
+2. incoming event → extractCallInfo() → showIncomingCallNotification() → callback
 3. call.accept() → callStartedAt = now
                   → startRecording(parentCallSid) [fire-and-forget]
+                  → dismissNotification()
 4. Llamada activa → softphone visible
 5. call.disconnect() → durationMs = now - callStartedAt
                      → if durationMs >= 5000: notifyCallEnd() [fire-and-forget]
@@ -512,22 +543,35 @@ CREATE TABLE voice_transfers (
 **Tipo:** SECURITY DEFINER
 **Proposito:** Retorna usuarios online de las coordinaciones solicitadas.
 
-**Logica:**
-1. Detecta si el caller es admin via `auth.uid()` → `user_profiles_v2.role_name`
-2. **Admin path:** Retorna TODOS los usuarios online sin filtro de coordinacion
+**Logica (3 ramas):**
+1. **`auth.uid()` IS NULL (N8N/Postgres directo):** Retorna miembros online de las coordinaciones solicitadas + admins online (sin filtro coordinacion)
+2. **Admin path (`auth.uid()` presente, rol admin):** Retorna TODOS los usuarios online sin filtro de coordinacion
 3. **Non-admin path:** Filtra por `auth_user_coordinaciones` intersectando con `p_coordinacion_ids`
 
 **Filtros:**
 - `active_sessions.last_activity > NOW() - '2 min'` (online)
 - `is_operativo = true` (solo operativos)
-- Excluye al caller (no transferir a si mismo)
+- Excluye al caller (no transferir a si mismo) — solo cuando `auth.uid()` NO es NULL
 
 **Retorna:**
 ```sql
-(user_id UUID, full_name TEXT, role_name TEXT, coordinacion_ids UUID[])
+(user_id UUID, full_name TEXT, role_name VARCHAR, coordinacion_ids UUID[])
 ```
 
-**Seguridad admin:**
+**Rama NULL (N8N via Postgres directo):**
+```sql
+IF auth.uid() IS NULL THEN
+  -- Retorna miembros online de la coordinacion (sin self-exclusion)
+  RETURN QUERY SELECT ... WHERE coordinacion = ANY(p_coordinacion_ids);
+  -- Tambien retorna admins online (sin filtro de coordinacion)
+  RETURN QUERY SELECT ... WHERE role_name = 'admin' AND is_active AND last_activity > NOW() - '2 min';
+  RETURN;
+END IF;
+```
+
+**Bug corregido (2026-03-12):** Antes, `AND up.id != auth.uid()` con `auth.uid() = NULL` evaluaba a NULL (falsy), filtrando TODOS los resultados. La rama NULL resuelve esto.
+
+**Seguridad admin (PostgREST):**
 ```sql
 DECLARE v_is_admin BOOLEAN := false;
 BEGIN
@@ -683,8 +727,10 @@ Workflow principal de VAPI que maneja la IA conversacional Natalia. Cuando VAPI 
 
 ```
                                     +--- [WhatsApp] ---> Prepare WhatsApp Transfer ---> Twilio REST redirect
-Busqueda_did ---> Es WhatsApp? -----+
-                                    +--- [PSTN] ---> Ejecuta_transfer (original)
+Busqueda_did ---> Is WhatsApp? -----+
+                                    +--- [PSTN] ---> Get Team Members ---> Build Bridge Context
+                                                      → Insert Context → Transfer to Bridge (+523223080074)
+                                                      (si nadie online → +528002233444 directo)
 ```
 
 **Nodo "Prepare WhatsApp Transfer":**
@@ -724,12 +770,16 @@ Recibe datos de fin de llamada desde Edge Function `voice-call-end`:
 ### Identity Format
 
 ```
-agent_{userId_sin_guiones}
+agent_{userId_con_underscores}
 ```
 
 - UUID: `e8ced62c-3fd0-4328-b61a-a59ebea2e877`
-- Identity: `agent_e8ced62c3fd04328b61aa59ebea2e877`
+- Identity: `agent_e8ced62c_3fd0_4328_b61a_a59ebea2e877`
+- Transformacion: `uuid.replace(/-/g, '_')` (guiones → underscores, NO eliminados)
 - Regex valido: `[a-zA-Z0-9_]` max 121 chars
+- Debe coincidir con `sanitizeIdentity()` en `generate-twilio-token`
+
+**Bug corregido (2026-03-12):** N8N Build Bridge Context usaba `replace(/-/g, '')` (eliminaba guiones) produciendo `agent_27c2cc8422df...`. El Device registraba `agent_27c2cc84_22df_...`. El mismatch causaba que todos los targets dieran `no-answer`.
 
 ### API Keys
 
@@ -766,6 +816,7 @@ Autenticacion via API Key (NO Auth Token):
 | v2.31.8 | 2026-03-11 | voice-start-recording + anti-duplicado + sin fallback VAPI |
 | v2.31.9 | 2026-03-11 | Admin transfer all users + UUID fix + recording auth URL |
 | v2.31.10 | 2026-03-11 | Admin group en transfer modal |
+| v2.31.15+ | 2026-03-12 | PSTN Bridge Transfer con cascada + badge pstn_bridge |
 
 ### RPC
 
@@ -773,6 +824,7 @@ Autenticacion via API Key (NO Auth Token):
 |---------|-------|---------|
 | get_online_team_members | 2026-03-10 | Creacion, SECURITY DEFINER |
 | get_online_team_members | 2026-03-11 | Admin bypass: retorna todos los usuarios online |
+| get_online_team_members | 2026-03-12 | Rama NULL auth.uid() para N8N + admins sin filtro coordinacion |
 
 ---
 
@@ -810,6 +862,26 @@ Autenticacion via API Key (NO Auth Token):
 **Problema:** Edge Function POSTing sin auth header → 403
 **Solucion:** Agregar header `2025_livechat_auth` con valor del secret `LIVECHAT_AUTH`
 
+### 9. Llamadas PSTN caen al redirigir via Twilio REST API
+**Problema:** VAPI usa SIP trunk. Redirigir el `parentCallSid` via Twilio REST API mata la sesion SIP (VAPI envia BYE)
+**Solucion:** Bridge transfer via numero puente `+523223080074`. VAPI transfiere nativamente (SIP REFER), el puente sirve TwiML con cascada de `<Dial><Client>` targets
+
+### 10. get_online_team_members retorna vacio desde N8N
+**Problema:** N8N conecta via Postgres directo (no PostgREST), `auth.uid()` es NULL → `up.id != NULL` evalua a NULL (falsy), filtrando todos los resultados
+**Solucion:** Agregar rama `IF auth.uid() IS NULL` con queries separadas sin self-exclusion + admins sin filtro coordinacion
+
+### 11. Admins no aparecen en cascada bridge
+**Problema:** Admin no tiene coordinacion asignada → filtrado por JOIN con coordinaciones
+**Solucion:** Segunda query en rama NULL que retorna admins online sin filtro de coordinacion, + prioridad 0 en Build Bridge Context
+
+### 12. Formato numero impide lookup de contexto bridge
+**Problema:** N8N guarda `5213333243333` (formato WhatsApp 521) pero Twilio envia `+523333243333` (E.164 +52)
+**Solucion:** Normalizar ultimos 10 digitos: `RIGHT(REGEXP_REPLACE(..., '[^0-9]'), 10)`
+
+### 13. Identity mismatch en cascada bridge
+**Problema:** Build Bridge Context usaba `replace(/-/g, '')` (elimina guiones) pero `generate-twilio-token` usa `replace(/-/g, '_')` (guiones→underscores). Ningún Device matcheaba → 17 targets con `no-answer`
+**Solucion:** Cambiar a `replace(/-/g, '_')` en ambos Build Bridge Context nodes (implicito y explicito)
+
 ---
 
 ## Inventario de Archivos
@@ -820,7 +892,7 @@ Autenticacion via API Key (NO Auth Token):
 | `supabase/functions/voice-transfer/index.ts` | 298 | Cold transfer entre agentes |
 | `supabase/functions/voice-start-recording/index.ts` | 126 | Iniciar grabacion Twilio |
 | `supabase/functions/voice-call-end/index.ts` | 245 | Proxy fin de llamada a N8N |
-| `src/services/twilioVoiceService.ts` | 526 | Twilio Device + call management |
+| `src/services/twilioVoiceService.ts` | ~570 | Twilio Device + call management + notificaciones sistema |
 | `src/services/voiceTransferService.ts` | 191 | Transfer service + Realtime |
 | `src/hooks/useTwilioVoice.ts` | ~120 | React hook con reference counting |
 | `src/components/live-activity/VoiceSoftphoneModal.tsx` | ~600 | Softphone draggable |
@@ -831,6 +903,195 @@ Autenticacion via API Key (NO Auth Token):
 
 ---
 
+## PSTN Bridge Transfer (Cascada)
+
+**Fecha:** 2026-03-12 | **Estado:** Produccion Activa
+
+### Problema
+
+Las llamadas PSTN (outbound: VAPI llama al prospecto por telefono) pasan por el SIP trunk de VAPI. Cuando N8N intenta redirigir el `parentCallSid` via Twilio REST API, la sesion SIP muere — VAPI interpreta el redirect como BYE y la llamada cae. Las llamadas WhatsApp funcionan porque son Twilio nativo (sin SIP).
+
+### Solucion: Numero Puente
+
+Usar `+523223080074` como **puente**. N8N le dice a VAPI que transfiera nativamente al numero puente. VAPI hace la transferencia limpia (SIP REFER), se desconecta, y el prospecto queda en una llamada Twilio nativa. El puente sirve TwiML dinamico que conecta al ejecutivo via browser.
+
+### Diagrama de Flujo
+
+```
+PROSPECTO              VAPI                 BRIDGE (+523223080074)              BROWSER(S)
+    |                   |                          |                              |
+    |<-- VAPI llama -->|                          |                              |
+    |                   |-- tool: transfer ------->| N8N                          |
+    |                   |                          | 1. get_online_team_members() |
+    |                   |                          | 2. Ordena cascada targets    |
+    |                   |                          | 3. INSERT bridge_context     |
+    |                   |<- dest: +523223080074 ---|                              |
+    |                   |== TRANSFER NATIVO ======>|                              |
+    |                   X  (VAPI se desconecta)    |                              |
+    |                                              |                              |
+    |                                              |-- Voice URL (attempt=0) --->|
+    |                                              |<- TwiML: <Dial><Client> ----|  Ejecutivo
+    |                                              |=========== RING 25s =======>|
+    |                                              |              no contesta     |
+    |                                              |-- action URL (attempt=1) -->|
+    |                                              |<- TwiML: <Dial><Client> ----|  Supervisor
+    |                                              |=========== RING 25s =======>|
+    |                                              |              ACEPTA!         |
+    |<===================== CONECTADOS =========================================>|
+```
+
+### Cascada de Prioridad
+
+| Orden | Rol | Criterio |
+|-------|-----|----------|
+| 0 | Admin | Siempre puede contestar cualquier llamada (sin filtro coordinacion) |
+| 1 | Ejecutivo asignado | Si esta online |
+| 2 | Supervisores | Online en la coordinacion |
+| 3 | Coordinadores | Online en la coordinacion |
+| 4 | Otros ejecutivos | Online en la coordinacion |
+| 5 | Linea 800 | `+528002233444` (fallback final) |
+
+Cada target tiene **25 segundos** para contestar. Si no contesta, Twilio llama el `action` URL del `<Dial>` y el webhook retorna TwiML con el siguiente target.
+
+### Tabla: bridge_transfer_context
+
+Tabla efimera que conecta la preparacion de la transferencia en N8N con el webhook del puente. TTL de 5 minutos.
+
+```sql
+CREATE TABLE bridge_transfer_context (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  from_number TEXT NOT NULL,              -- Lookup: numero del prospecto
+  targets JSONB NOT NULL DEFAULT '[]',    -- Cascada ordenada por prioridad
+  current_attempt INT NOT NULL DEFAULT 0,
+  prospecto_id UUID,
+  prospecto_nombre TEXT,
+  llamada_call_id TEXT,
+  coordinacion_id UUID,
+  ejecutivo_id UUID,
+  from_number_display TEXT,
+  status TEXT NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'ringing', 'connected', 'exhausted', 'expired')),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  connected_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '5 minutes')
+);
+```
+
+**Formato targets JSONB:**
+```json
+[
+  { "identity": "agent_abc123", "name": "Karla Arellano", "role": "ejecutivo", "reason": "assigned" },
+  { "identity": "agent_def456", "name": "Maria Lopez", "role": "supervisor", "reason": "supervisor_online" },
+  { "identity": "agent_ghi789", "name": "Pedro Ruiz", "role": "coordinador", "reason": "coordinator_online" }
+]
+```
+
+### N8N Workflows
+
+#### Bridge Transfer Voice URL [PROD] (`q5kespj4S6iwn0pJ`)
+
+Workflow nuevo con 2 webhooks que sirven TwiML dinamico al numero puente.
+
+| Webhook | URL | Proposito |
+|---------|-----|-----------|
+| Voice URL | `POST /webhook/bridge-voice-url` | Twilio llama al recibir llamada en el puente. Busca contexto y sirve TwiML para target[0] |
+| Cascade | `POST /webhook/bridge-cascade` | Twilio llama cuando `<Dial>` termina sin conexion. Avanza al siguiente target |
+
+**TwiML generado (por cada target):**
+```xml
+<Response>
+  <Dial timeout="25"
+        callerId="{from_number_display}"
+        record="record-from-answer-dual"
+        action="https://primary-dev-d75a.up.railway.app/webhook/bridge-cascade?contextId={id}&attempt={N}">
+    <Client>
+      <Identity>{targets[N].identity}</Identity>
+      <Parameter name="llamadaId" value="{llamada_call_id}"/>
+      <Parameter name="prospectoId" value="{prospecto_id}"/>
+      <Parameter name="prospectoNombre" value="{prospecto_nombre}"/>
+      <Parameter name="tipoLlamada" value="pstn_bridge"/>
+      <Parameter name="fromNumber" value="{from_number}"/>
+      <Parameter name="coordinacionId" value="{coordinacion_id}"/>
+      <Parameter name="parentCallSid" value="{bridge_CallSid}"/>
+    </Client>
+  </Dial>
+</Response>
+```
+
+**TwiML final (todos agotados):**
+```xml
+<Response>
+  <Dial timeout="30">
+    <Number>+528002233444</Number>
+  </Dial>
+</Response>
+```
+
+**Normalizacion de numero en Lookup Context:**
+```sql
+RIGHT(REGEXP_REPLACE(from_number, '[^0-9]', '', 'g'), 10) =
+RIGHT(REGEXP_REPLACE('{{ From }}', '[^0-9]', '', 'g'), 10)
+```
+Resuelve mismatch entre formato WhatsApp (`521XXXXXXXXXX`) y E.164 (`+52XXXXXXXXXX`) comparando solo los ultimos 10 digitos.
+
+**Patron COALESCE:** N8N Postgres nodes retornan 0 items en queries vacios, lo que rompe nodos downstream. Solucion: `SELECT COALESCE((SELECT row_to_json(t)::text FROM (...) t), '{"status":"not_found"}') as context_json`
+
+#### VAPI-Natalia_transfer_tool [PROD] (`qpk8xsMI50IWltFV`)
+
+Workflow existente modificado. Bifurcacion por `tipo_llamada`:
+
+```
+Es Browser Transfer? True
+  → Is WhatsApp?
+    → True  → [path existente: Twilio REST redirect]
+    → False → Get Team Members → Build Bridge Context → Insert Context → Transfer to Bridge (+523223080074)
+Es Browser Transfer? False
+  → Ejecuta_transfer (+528002233444)
+```
+
+10 nodos nuevos (5 por path implicito + 5 por path explicito):
+- `Is WhatsApp?` — IF: `tipo_llamada == 'inbound_whatsapp'`
+- `Get Team Members` — Postgres: `get_online_team_members()`
+- `Build Bridge Context` — Code: construye cascada + INSERT SQL
+- `Insert Bridge Context` — Postgres: ejecuta INSERT
+- `Transfer to Bridge` — HTTP POST a VAPI controlUrl con `dest: +523223080074`
+
+### Twilio: Numero Puente
+
+| Campo | Valor |
+|-------|-------|
+| Numero | `+523223080074` |
+| SID | `PNc65c54045567873f3272bdac5e5a6270` |
+| Voice URL | `https://primary-dev-d75a.up.railway.app/webhook/bridge-voice-url` |
+| VoiceMethod | POST |
+
+### Frontend: Badge pstn_bridge
+
+`VoiceSoftphoneModal.tsx` soporta `tipoLlamada === 'pstn_bridge'`:
+- **Barra minimizada:** Badge naranja "PSTN"
+- **Vista expandida:** Badge naranja "PSTN Bridge" con icono Phone
+
+### Edge Cases
+
+| Escenario | Comportamiento |
+|-----------|---------------|
+| Nadie online | N8N responde a VAPI con `dest: +528002233444` directo |
+| Context lookup falla | Webhook puente retorna TwiML fallback (linea 800) |
+| Ejecutivo no contesta (25s) | Cascada al siguiente target |
+| Ningun target contesta | Ultimo action URL → `<Number>+528002233444</Number>` |
+| 2 transfers simultaneos | Cada uno crea su context row. Lookup por from_number + pending |
+| Re-transfer post-puente | Funciona — llamada es Twilio nativo |
+| Target contesta | `DialCallStatus=completed` → no-op |
+
+### Rollback
+
+1. Revertir Voice URL de +523223080074 al twimlet voicemail
+2. Revertir `Transfer to Bridge` en N8N para usar `target_phone` directo
+3. `DROP TABLE bridge_transfer_context`
+4. Badge frontend es cosmetico, no afecta funcionalidad
+
+---
+
 ## Futuro (Roadmap)
 
 | Feature | Descripcion | Prioridad |
@@ -838,6 +1099,5 @@ Autenticacion via API Key (NO Auth Token):
 | Warm Transfer | Conferencia 3 vias antes de transferir (briefing) | Media |
 | Coach/Whisper | Supervisor escucha/susurra durante llamada | Media |
 | Cross-coordinacion | Admin/CALIDAD transfiere entre coordinaciones | Baja |
-| Queue/Fallback | Cola cuando target ocupado, siguiente agente | Baja |
 | Analytics | Dashboard de frecuencia, tiempo, exito por coordinacion | Baja |
 | Outbound | Ejecutivo inicia llamada desde el browser | Planificado |

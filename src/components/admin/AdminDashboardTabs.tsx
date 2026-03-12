@@ -15,12 +15,13 @@ import AWSManager from '../aws/AWSManager';
 import DynamicsCRMManager from './DynamicsCRMManager';
 import AdminTicketsPanel from '../support/AdminTicketsPanel';
 import ComunicadosManager from './ComunicadosManager';
+import PresetMessagesManager from './PresetMessagesManager';
 import { useAuth } from '../../contexts/AuthContext';
 import { permissionsService } from '../../services/permissionsService';
 import { adminMessagesService } from '../../services/adminMessagesService';
 import { groupsService } from '../../services/groupsService';
 import { ticketService } from '../../services/ticketService';
-import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy, Megaphone } from 'lucide-react';
+import { Mail, Clock, Pin, PinOff, ChevronLeft, ChevronRight, Menu, FileText, Cloud, BookOpen, GitCompare, LifeBuoy, Megaphone, BookText } from 'lucide-react';
 
 // ============================================
 // FEATURE FLAG: NUEVO MÓDULO DE USUARIOS
@@ -41,7 +42,7 @@ const USE_NEW_USER_MANAGEMENT = true;
 // Key para localStorage
 const SIDEBAR_PINNED_KEY = 'admin_sidebar_pinned';
 
-type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets' | 'comunicados';
+type AdminTab = 'usuarios' | 'preferencias' | 'configuracion-db' | 'api-tokens' | 'ejecutivos' | 'coordinaciones' | 'horarios' | 'logs' | 'aws' | 'dynamics' | 'documentacion' | 'tickets' | 'comunicados' | 'predefinidos';
 
 const AdminDashboardTabs: React.FC = () => {
   const { user } = useAuth();
@@ -337,6 +338,14 @@ const AdminDashboardTabs: React.FC = () => {
         badge: ticketNotificationCount
       }
     ] : []),
+    // Tab de Mensajes Predefinidos - visible para admin, admin operativo y coordinadores de calidad
+    ...((isAdmin || isAdminOperativo || isCoordinadorCalidad) ? [
+      {
+        id: 'predefinidos' as AdminTab,
+        name: 'Predefinidos',
+        icon: <BookText className="w-5 h-5" />
+      }
+    ] : []),
     // Tab de Comunicados - solo admin
     ...(isAdmin ? [
       {
@@ -612,7 +621,7 @@ const AdminDashboardTabs: React.FC = () => {
           )}
 
           {/* Otros módulos con scroll */}
-          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' || activeTab === 'tickets' || activeTab === 'comunicados' ? 'hidden' : ''}`}>
+          <div className={`flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 ${(activeTab === 'usuarios' && USE_NEW_USER_MANAGEMENT) || activeTab === 'api-tokens' || activeTab === 'logs' || activeTab === 'aws' || activeTab === 'dynamics' || activeTab === 'documentacion' || activeTab === 'tickets' || activeTab === 'comunicados' || activeTab === 'predefinidos' ? 'hidden' : ''}`}>
             
             {/* Otros módulos mantienen el contenedor con padding */}
             <div className="w-full max-w-[98%] 2xl:max-w-[96%] mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-10 py-6 lg:py-8">
@@ -702,6 +711,15 @@ const AdminDashboardTabs: React.FC = () => {
                 <AdminTicketsPanel
                   onNotificationCountChange={setTicketNotificationCount}
                 />
+              </div>
+            </div>
+          )}
+
+          {/* Mensajes Predefinidos - Admin, Admin Operativo, Coordinadores de Calidad */}
+          {activeTab === 'predefinidos' && (isAdmin || isAdminOperativo || isCoordinadorCalidad) && (
+            <div className="flex-1 relative">
+              <div className="absolute inset-0 overflow-auto">
+                <PresetMessagesManager />
               </div>
             </div>
           )}

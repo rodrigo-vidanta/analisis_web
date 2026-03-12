@@ -97,6 +97,7 @@ class TwilioVoiceService {
   private consumerCount = 0;
   private initPromise: Promise<void> | null = null;
   private callStartedAt: string | null = null;
+  private activeNotification: Notification | null = null;
 
   // Hangup activo al cerrar/recargar página
   private boundBeforeUnload = () => {
@@ -211,6 +212,9 @@ class TwilioVoiceService {
       // 6. Colgar llamada activa si el usuario cierra/recarga la pagina
       window.addEventListener('beforeunload', this.boundBeforeUnload);
 
+      // 7. Solicitar permisos de notificacion del sistema
+      this.requestNotificationPermission();
+
       console.log(`${LOG_PREFIX} Initialized and registered successfully`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown initialization error';
@@ -229,6 +233,7 @@ class TwilioVoiceService {
    */
   async destroy(): Promise<void> {
     window.removeEventListener('beforeunload', this.boundBeforeUnload);
+    this.dismissNotification();
 
     if (this.tokenRefreshTimer) {
       clearTimeout(this.tokenRefreshTimer);
@@ -420,6 +425,9 @@ class TwilioVoiceService {
 
       // Configurar eventos de la llamada
       this.setupCallEvents(call);
+
+      // Mostrar notificacion del sistema
+      this.showIncomingCallNotification(call);
 
       this.updateState({ incomingCall: call });
       this.emit('incoming', {
@@ -622,6 +630,66 @@ class TwilioVoiceService {
     this.tokenRefreshTimer = setTimeout(() => {
       this.refreshToken();
     }, refreshMs);
+  }
+
+  /**
+   * Solicita permisos de notificacion del sistema (Windows/Mac).
+   * Se llama una vez al inicializar el Device.
+   */
+  private requestNotificationPermission(): void {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(perm => {
+        console.log(`${LOG_PREFIX} Notification permission: ${perm}`);
+      });
+    }
+  }
+
+  /**
+   * Muestra notificacion nativa del sistema al recibir llamada entrante.
+   * Click en la notificacion = aceptar llamada + focus en browser.
+   */
+  private showIncomingCallNotification(call: Call): void {
+    // Cerrar notificacion anterior si existe
+    this.dismissNotification();
+
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    const info = this.extractCallInfo(call);
+    const nombre = info.prospectoNombre || info.fromNumber || 'Desconocido';
+    const tipo = info.tipoLlamada;
+    const typeLabel = tipo === 'pstn_bridge' ? 'PSTN' :
+                      tipo === 'inbound_whatsapp' ? 'WhatsApp' :
+                      tipo === 'transfer' ? 'Transferencia' : 'Llamada';
+
+    const notification = new Notification(`${typeLabel} entrante`, {
+      body: nombre + (info.fromNumber && info.prospectoNombre ? ` \u2022 ${info.fromNumber}` : ''),
+      icon: '/favicon.ico',
+      tag: 'incoming-call',
+      requireInteraction: true,
+    });
+
+    notification.onclick = () => {
+      window.focus();
+      this.acceptIncomingCall();
+      notification.close();
+    };
+
+    // Auto-cerrar cuando la llamada se resuelve
+    const dismiss = () => this.dismissNotification();
+    call.on('cancel', dismiss);
+    call.on('disconnect', dismiss);
+    call.on('reject', dismiss);
+    call.on('accept', dismiss);
+
+    this.activeNotification = notification;
+  }
+
+  private dismissNotification(): void {
+    if (this.activeNotification) {
+      this.activeNotification.close();
+      this.activeNotification = null;
+    }
   }
 
   private updateState(updates: Partial<TwilioVoiceState>): void {

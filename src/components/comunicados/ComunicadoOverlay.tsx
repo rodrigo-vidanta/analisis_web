@@ -28,6 +28,7 @@ const INTERACTIVE_REGISTRY: Record<string, React.LazyExoticComponent<React.FC<{ 
   'bulk-reassignment-supervisor-tutorial': lazy(() => import('./tutorials/BulkReassignmentSupervisorTutorial')),
   'import-10-urls-tutorial': lazy(() => import('./tutorials/Import10UrlsTutorial')),
   'voice-calls-intro': lazy(() => import('./tutorials/VoiceCallsIntroTutorial')),
+  'preset-messages-tutorial': lazy(() => import('./tutorials/PresetMessagesTutorial')),
 };
 
 const ComunicadoOverlay: React.FC = () => {

@@ -143,4 +143,9 @@ export const INTERACTIVE_COMUNICADOS: InteractiveComunicado[] = [
     label: 'Llamadas Voice: Presentacion',
     description: 'Presentacion animada con Remotion del sistema de llamadas Voice con transferencias entre equipo',
   },
+  {
+    component_key: 'preset-messages-tutorial',
+    label: 'Tutorial: Mensajes Predefinidos',
+    description: 'Tutorial interactivo que explica el nuevo boton de mensajes predefinidos en el modulo WhatsApp',
+  },
 ];

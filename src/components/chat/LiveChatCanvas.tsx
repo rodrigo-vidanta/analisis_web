@@ -110,7 +110,8 @@ import { canStartCall, canPauseBot, canToggleAttentionRequired, getRestrictionMe
 import { realtimeHub, realtimeHubSystemUI } from '../../services/realtimeHub';
 import { renderWhatsAppFormattedText } from '../../utils/whatsappTextFormatter';
 import { notasInternasService } from '../../services/notasInternasService';
-import { StickyNote } from 'lucide-react';
+import { StickyNote, BookText } from 'lucide-react';
+import PresetMessagesModal from './PresetMessagesModal';
 
 // Utilidades de log (silenciar en producción)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -1310,6 +1311,9 @@ const LiveChatCanvas: React.FC = () => {
   
   // Estado para modal de llamada
   const [showCallModal, setShowCallModal] = useState(false);
+
+  // Estado para modal de mensajes predefinidos
+  const [showPresetMessages, setShowPresetMessages] = useState(false);
   
   // Estado para modal de datos CRM
   const [showCRMDataModal, setShowCRMDataModal] = useState(false);
@@ -9969,6 +9973,16 @@ const LiveChatCanvas: React.FC = () => {
                 <Paperclip className="w-5 h-5" />
               </button>
 
+              {/* Botón Predefinidos */}
+              <button
+                onClick={() => setShowPresetMessages(true)}
+                className="p-3 text-gray-500 hover:text-emerald-500 hover:bg-emerald-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                title="Mensajes predefinidos"
+                style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <BookText className="w-5 h-5" />
+              </button>
+
               {/* Botón Llamada */}
               {(() => {
                 const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
@@ -10211,6 +10225,15 @@ const LiveChatCanvas: React.FC = () => {
         </div>
       )}
       
+      {/* Modal de Mensajes Predefinidos */}
+      <PresetMessagesModal
+        isOpen={showPresetMessages}
+        onClose={() => setShowPresetMessages(false)}
+        onSend={(message) => {
+          sendMessageWithText(message);
+        }}
+      />
+
       {/* Modal de Multimedia V3 - Con sidebar, selección múltiple y cache IndexedDB */}
       <MediaSelectorModal
         isOpen={showImageCatalog}

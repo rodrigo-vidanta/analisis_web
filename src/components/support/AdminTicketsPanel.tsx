@@ -8,7 +8,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../../contexts/AuthContext';
-import { ticketService, type SupportTicket, type TicketComment, type TicketHistory, type TicketStatus, type TicketPriority } from '../../services/ticketService';
+import { ticketService, REQUIREMENT_CATEGORIES, type SupportTicket, type TicketComment, type TicketHistory, type TicketStatus, type TicketPriority, type RequirementCategory } from '../../services/ticketService';
 import toast from 'react-hot-toast';
 
 // Configuración de estados
@@ -621,6 +621,65 @@ const AdminTicketsPanel: React.FC<AdminTicketsPanelProps> = ({ className, onNoti
                           </ReactMarkdown>
                         </div>
                       </div>
+
+                      {/* Detalle del Requerimiento */}
+                      {selectedTicket.type === 'requerimiento' && (
+                        <div className="p-4 bg-gradient-to-br from-violet-50 to-blue-50 dark:from-violet-900/10 dark:to-blue-900/10 rounded-2xl border-2 border-violet-200 dark:border-violet-800">
+                          <div className="flex items-center gap-2 mb-4">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center">
+                              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                              </svg>
+                            </div>
+                            <h4 className="text-xs font-semibold text-violet-700 dark:text-violet-300 uppercase tracking-wider">
+                              Detalle del Requerimiento
+                            </h4>
+                          </div>
+
+                          {/* Categoría y Subcategoría */}
+                          <div className="grid grid-cols-2 gap-3 mb-4">
+                            <div className="p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl">
+                              <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-wider">Categoría</span>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white mt-1">
+                                {selectedTicket.category && (REQUIREMENT_CATEGORIES[selectedTicket.category as RequirementCategory]?.label || selectedTicket.category)}
+                              </p>
+                            </div>
+                            <div className="p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl">
+                              <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-wider">Subcategoría</span>
+                              <p className="text-sm font-medium text-gray-800 dark:text-white mt-1">
+                                {(() => {
+                                  if (!selectedTicket.category || !selectedTicket.subcategory) return selectedTicket.subcategory || '—';
+                                  const cat = REQUIREMENT_CATEGORIES[selectedTicket.category as RequirementCategory];
+                                  const sub = cat?.subcategories.find(s => s.value === selectedTicket.subcategory);
+                                  return sub?.label || selectedTicket.subcategory;
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Respuestas del formulario con labels legibles */}
+                          {selectedTicket.form_data && Object.keys(selectedTicket.form_data).length > 0 && (
+                            <div className="space-y-3">
+                              {Object.entries(selectedTicket.form_data).map(([key, value]) => {
+                                // Buscar label legible desde REQUIREMENT_CATEGORIES
+                                let label = key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                                if (selectedTicket.category && selectedTicket.subcategory) {
+                                  const cat = REQUIREMENT_CATEGORIES[selectedTicket.category as RequirementCategory];
+                                  const sub = cat?.subcategories.find(s => s.value === selectedTicket.subcategory);
+                                  const question = sub?.questions?.find(q => q.field === key);
+                                  if (question) label = question.label;
+                                }
+                                return (
+                                  <div key={key} className="p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl">
+                                    <span className="text-[10px] font-bold text-violet-500 dark:text-violet-400 uppercase tracking-wider">{label}</span>
+                                    <p className="text-sm text-gray-700 dark:text-gray-300 mt-1 whitespace-pre-wrap">{String(value)}</p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Información del Log (si viene de log) */}
                       {selectedTicket.log_id && selectedTicket.form_data?.source === 'log_monitor' && (

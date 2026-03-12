@@ -248,8 +248,9 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
   // Determinar tipo de llamada para badges/labels
   const tipoLlamada = tipoLlamadaProp ?? call?.tipo_llamada ?? null;
   const isOutboundTransfer = tipoLlamada === 'outbound_transfer';
+  const isPstnBridge = tipoLlamada === 'pstn_bridge';
   const isTransfer = tipoLlamada === 'transfer';
-  const isInboundWhatsApp = tipoLlamada === 'inbound_whatsapp' || (isWhatsAppCall && !isOutboundTransfer);
+  const isInboundWhatsApp = tipoLlamada === 'inbound_whatsapp' || (isWhatsAppCall && !isOutboundTransfer && !isPstnBridge);
 
   const formatMsgDate = (dateStr: string) => {
     try {
@@ -467,6 +468,8 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
 
           {isOutboundTransfer ? (
             <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-bold">OUT</span>
+          ) : isPstnBridge ? (
+            <span className="bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded text-[10px] font-bold">PSTN</span>
           ) : isTransfer ? (
             <span className="bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded text-[10px] font-bold">TRF</span>
           ) : isInboundWhatsApp ? (
@@ -559,6 +562,11 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
                   <span className="inline-flex items-center gap-1 bg-blue-500/15 border border-blue-500/30 text-blue-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
                     <Phone className="w-3 h-3" />
                     Outbound
+                  </span>
+                ) : isPstnBridge ? (
+                  <span className="inline-flex items-center gap-1 bg-orange-500/15 border border-orange-500/30 text-orange-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                    <Phone className="w-3 h-3" />
+                    PSTN Bridge
                   </span>
                 ) : isTransfer ? (
                   <span className="inline-flex items-center gap-1 bg-purple-500/15 border border-purple-500/30 text-purple-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
