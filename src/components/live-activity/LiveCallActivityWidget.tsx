@@ -146,6 +146,7 @@ export const LiveCallActivityWidget: React.FC = () => {
           started_at: new Date().toISOString(),
           parentCallSid: incomingCallInfo.parentCallSid ?? undefined,
           coordinacionId: incomingCallInfo.coordinacionId ?? undefined,
+          tipo_llamada: incomingCallInfo.tipoLlamada ?? undefined,
           ...(matchingCall ? {
             email: matchingCall.email,
             ciudad_residencia: matchingCall.ciudad_residencia,
@@ -823,7 +824,7 @@ export const LiveCallActivityWidget: React.FC = () => {
         isOpen={softphoneIsOpen}
         onClose={handleCloseSoftphone}
         call={softphoneCallData ?? (softphoneCallId ? widgetCalls.find(c => c.call_id === softphoneCallId) ?? null : null)}
-        isWhatsAppCall={true}
+        tipoLlamada={softphoneCallData?.tipo_llamada ?? incomingCallInfo?.tipoLlamada ?? null}
         isMuted={isVoiceMuted}
         onToggleMute={toggleVoiceMute}
         onHangup={handleHangupVoice}

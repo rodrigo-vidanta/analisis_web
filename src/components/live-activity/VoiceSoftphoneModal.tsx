@@ -186,7 +186,9 @@ export interface VoiceSoftphoneModalProps {
   isOpen: boolean;
   onClose: () => void;
   call: WidgetCallData | null;
+  /** @deprecated Use tipoLlamada instead */
   isWhatsAppCall?: boolean;
+  tipoLlamada?: string | null;
   isMuted: boolean;
   onToggleMute: () => void;
   onHangup: () => void;
@@ -211,6 +213,7 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
   onClose,
   call,
   isWhatsAppCall = true,
+  tipoLlamada: tipoLlamadaProp,
   isMuted,
   onToggleMute,
   onHangup,
@@ -241,6 +244,12 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
 
   const parsedObs = useMemo(() => parseObservaciones(call?.observaciones), [call?.observaciones]);
   const prospectName = call?.nombre_completo || call?.nombre_whatsapp || 'Prospecto';
+
+  // Determinar tipo de llamada para badges/labels
+  const tipoLlamada = tipoLlamadaProp ?? call?.tipo_llamada ?? null;
+  const isOutboundTransfer = tipoLlamada === 'outbound_transfer';
+  const isTransfer = tipoLlamada === 'transfer';
+  const isInboundWhatsApp = tipoLlamada === 'inbound_whatsapp' || (isWhatsAppCall && !isOutboundTransfer);
 
   const formatMsgDate = (dateStr: string) => {
     try {
@@ -456,9 +465,13 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
             <span className={`relative inline-flex rounded-full h-3 w-3 ${isOnHold ? 'bg-amber-500' : 'bg-emerald-500'}`} />
           </span>
 
-          {isWhatsAppCall && (
+          {isOutboundTransfer ? (
+            <span className="bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded text-[10px] font-bold">OUT</span>
+          ) : isTransfer ? (
+            <span className="bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded text-[10px] font-bold">TRF</span>
+          ) : isInboundWhatsApp ? (
             <span className="bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded text-[10px] font-bold">WA</span>
-          )}
+          ) : null}
 
           <span className="text-white font-medium text-sm max-w-[140px] truncate">{prospectName}</span>
           <span className="text-gray-400 font-mono text-sm">{formatDuration(callDuration)}</span>
@@ -542,12 +555,22 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <GripVertical className="w-4 h-4 text-gray-600" />
-                {isWhatsAppCall && (
+                {isOutboundTransfer ? (
+                  <span className="inline-flex items-center gap-1 bg-blue-500/15 border border-blue-500/30 text-blue-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                    <Phone className="w-3 h-3" />
+                    Outbound
+                  </span>
+                ) : isTransfer ? (
+                  <span className="inline-flex items-center gap-1 bg-purple-500/15 border border-purple-500/30 text-purple-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
+                    <ArrowRightLeft className="w-3 h-3" />
+                    Transferencia
+                  </span>
+                ) : isInboundWhatsApp ? (
                   <span className="inline-flex items-center gap-1 bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-2 py-0.5 rounded-md text-[10px] font-semibold">
                     <MessageSquare className="w-3 h-3" />
                     WhatsApp
                   </span>
-                )}
+                ) : null}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
