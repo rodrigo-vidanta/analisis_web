@@ -1,11 +1,11 @@
 /**
  * APP VERSION - Versión de la aplicación
  * 
- * Actualizado: 2026-03-11
+ * Actualizado: 2026-03-12
  * Cambios: SECURITY UPGRADE - RLS restrictivo + SECURITY INVOKER (3 fases)
  */
 
-export const APP_VERSION = 'B10.3.0N2.31.14';
+export const APP_VERSION = 'B10.3.0N2.32.0';
 
 /**
  * CHANGELOG v2.5.74 (2026-02-02)

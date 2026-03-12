@@ -1,3 +1,12 @@
+## [v2.32.0] - 2026-03-12
+
+**B10.3.0N2.32.0** - 1 feature
+
+### Features
+- dynamic call type badges + outbound transfer browser support (`88f59e3`)
+
+---
+
 ## [v2.31.14] - 2026-03-11
 
 **B10.3.0N2.31.14** - fix(comunicado): voice calls animation v3 - narration voiceover synced, scene timing aligned to STT timestamps
