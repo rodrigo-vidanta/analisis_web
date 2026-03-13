@@ -141,6 +141,115 @@ whileTap={{ scale: 0.98 }}
 >
 ```
 
+### Softphone / Modal Flotante Design Pattern
+
+Patron para modales tipo softphone (VoIP calls, dialers). Referencia: `VoiceSoftphoneModal.tsx`, `OutboundDialerModal.tsx`.
+
+#### Container
+
+```
+w-[420px] max-h-[85vh] bg-gray-900/98 backdrop-blur-xl border border-gray-700/60 rounded-3xl shadow-2xl shadow-black/50
+```
+
+- Position: absolute con drag constraints (Framer Motion `useDragControls`)
+- Z-index: backdrop `z-[89]`, modal `z-[90]`, minimized `z-[100]`
+- Render via `createPortal` al `document.body`
+
+#### Header (drag handle)
+
+- Gradient contextual por estado:
+  - Activo: `bg-gradient-to-b from-emerald-900/40 to-transparent`
+  - Hold: `bg-gradient-to-b from-amber-900/40 to-transparent`
+  - Idle/Pre-call: `bg-gradient-to-b from-blue-900/30 to-transparent`
+- Iconos control: `GripVertical` (drag) + badge + `Minimize2` / `X` (cerrar)
+- Avatar: `w-12 h-12 rounded-full bg-gradient-to-br from-emerald-500 to-cyan-600 shadow-lg`
+- Status: pulsing dot `animate-ping` + label + timer `font-mono text-base font-semibold`
+
+#### Control Buttons
+
+```
+Standard:       w-14 h-14 rounded-full shadow-lg
+Primary action: w-[64px] h-[64px] shadow-xl (e.g. colgar)
+Labels:         text-[11px] below each button
+```
+
+Colores por funcion:
+
+| Funcion | Color |
+|---------|-------|
+| Default | `gray-700` |
+| Mute/Hold | `amber-600` |
+| Transfer | `blue-600` |
+| Conference | `cyan-600/30` |
+| Hangup | `red-600` |
+| Accept | `emerald-600` |
+
+#### Tabs
+
+- Active: `border-b-2 border-emerald-500`
+- Inactive: `border-b-2 border-transparent`
+- Transition entre tabs: `initial={{ opacity: 0, x: -10 }}` slide
+- Badge dot: `w-1.5 h-1.5 rounded-full bg-emerald-500`
+
+#### Minimized Bar
+
+- Heartbeat animation: `animate={{ scale: [1, 1.08, 1], opacity: [0.5, 0.2, 0.5] }}`
+- Border color por estado:
+  - Activo: `border-emerald-500/40`
+  - Hold: `border-amber-500/40`
+- Compact controls: `p-2 rounded-xl`
+- Z-index elevado: `z-[100]`
+
+#### InfoRow Pattern
+
+```tsx
+// Layout para filas de informacion del contacto
+<div className="flex items-center gap-2.5 py-1.5">
+  <Icon className="w-3.5 h-3.5 text-gray-500" />
+  <span className="text-[10px] text-gray-600 uppercase tracking-wider">Label</span>
+  <span className="text-sm text-gray-300 truncate">Value</span>
+</div>
+```
+
+#### ObsSection Pattern
+
+Tarjetas coloreadas para secciones de observaciones:
+
+```
+Base: rounded-xl p-3 border
+```
+
+| Seccion | bg | border | text |
+|---------|-----|--------|------|
+| Insight | `yellow-900/20` | `yellow-700/30` | `yellow-200` |
+| Situacion | `blue-900/20` | `blue-700/30` | `blue-200` |
+| Objeciones | `amber-900/20` | `amber-700/30` | `amber-200` |
+| Accion | `emerald-900/20` | `emerald-700/30` | `emerald-200` |
+| Pendientes | `purple-900/20` | `purple-700/30` | `purple-200` |
+
+#### Glassmorphism Dropup Menu
+
+```
+Container: bg-gray-900/85 backdrop-blur-2xl backdrop-saturate-150 border border-gray-700/50
+Shadow:    shadow-[0_8px_40px_rgba(0,0,0,0.55)]
+Backdrop:  bg-black/20 backdrop-blur-[2px]
+```
+
+- Items: staggered entrance `delay: 0.05 / 0.1 / 0.15`, hover `bg-white/[0.06]`
+- Icon containers: `w-9 h-9 rounded-xl` con bg/border color-coded + hover glow
+
+#### Sound Design (Web Audio API)
+
+| Sonido | Frecuencias | Duracion | Volumen |
+|--------|-------------|----------|---------|
+| DTMF | Dual-frequency matrix | 120ms | 0.06 |
+| Ringing | 440 + 480Hz | 0.5s bursts, 4s interval | 0.08 |
+| Connected chime | C5 -> E5 ascending | Short | 0.07 |
+| Hangup | 480 -> 300Hz descending | Short | 0.06 |
+| Hold music | C major chord (130-523Hz) + LFO tremolo | Continuous loop | 0.12 |
+
+Todos los sonidos usan `OscillatorNode` + `GainNode` con ramp transitions para evitar clicks.
+
 ### Botones
 
 ```tsx

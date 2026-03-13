@@ -86,8 +86,8 @@ interface PonderacionConfig {
 interface DetailedCallViewProps {
   call: CallRecord;
   transcript: SegmentRecord[];
-  ponderacionConfig: PonderacionConfig;
-  enabledWidgets: DashboardWidget[];
+  ponderacionConfig?: PonderacionConfig;
+  enabledWidgets?: DashboardWidget[];
   onClose: () => void;
   // RETROALIMENTACIÓN: Callback para notificar cambios al componente padre
   onFeedbackChange?: (callId: string, feedbackData: FeedbackData | null) => void;
@@ -139,7 +139,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
     loadExistingFeedback();
   }, [call.id]);
 
-  const scorePonderado = call.quality_score; // Simplified for now
+  const scorePonderado = call.quality_score ?? 0; // Null-safe
   
   // Removed debugging logs for security
 
@@ -437,7 +437,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
       'cierre': 'from-emerald-200 to-emerald-300 dark:from-emerald-600 dark:to-emerald-700',
       'despedida': 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700'
     };
-    return colors[etapa.toLowerCase()] || 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700';
+    return colors[(etapa || '').toLowerCase()] || 'from-gray-200 to-gray-300 dark:from-gray-600 dark:to-gray-700';
   };
 
   // Función para toggle de segmentos
@@ -653,7 +653,7 @@ const DetailedCallView: React.FC<DetailedCallViewProps> = ({
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
                             <span className="text-sm font-medium text-gray-900 dark:text-white">
-                              Segmento {segment.segment_index} • {segment.etapa_script.replace('_', ' ').toUpperCase()}
+                              Segmento {segment.segment_index} • {(segment.etapa_script || 'sin_etapa').replace('_', ' ').toUpperCase()}
                             </span>
                           </div>
                           <span className="text-xs px-2 py-1 bg-gray-900 bg-opacity-20 dark:bg-white dark:bg-opacity-20 text-gray-900 dark:text-white rounded-full">

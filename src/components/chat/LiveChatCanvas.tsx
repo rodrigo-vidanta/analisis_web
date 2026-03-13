@@ -96,6 +96,7 @@ import { useAppStore } from '../../stores/appStore';
 import { etapasService } from '../../services/etapasService';
 import { coordinacionService } from '../../services/coordinacionService';
 import { ManualCallModal } from '../shared/ManualCallModal';
+import { OutboundDialerModal } from '../live-activity/OutboundDialerModal';
 import BotPauseButton from './BotPauseButton';
 import { Avatar } from '../shared/Avatar';
 import { ReactivateConversationModal } from './ReactivateConversationModal';
@@ -1311,6 +1312,9 @@ const LiveChatCanvas: React.FC = () => {
   
   // Estado para modal de llamada
   const [showCallModal, setShowCallModal] = useState(false);
+  const [showCallDropup, setShowCallDropup] = useState(false);
+  const [showOutboundDialer, setShowOutboundDialer] = useState(false);
+  const [outboundCallType, setOutboundCallType] = useState<'whatsapp' | 'telefonica'>('telefonica');
 
   // Estado para modal de mensajes predefinidos
   const [showPresetMessages, setShowPresetMessages] = useState(false);
@@ -10028,14 +10032,13 @@ const LiveChatCanvas: React.FC = () => {
                 <BookText className="w-5 h-5" />
               </button>
 
-              {/* Botón Llamada */}
+              {/* Botón Llamada con Dropup */}
               {(() => {
                 const prospectId = selectedConversation.prospecto_id || selectedConversation.id;
                 const prospectoData = prospectId ? prospectosDataRef.current.get(prospectId) : null;
                 const canCall = canStartCall(prospectoData?.etapa_id, prospectoData?.etapa, user?.role_name);
-                
+
                 if (!canCall) {
-                  // Botón deshabilitado con tooltip explicativo
                   return (
                     <div className="relative group">
                       <button
@@ -10051,16 +10054,164 @@ const LiveChatCanvas: React.FC = () => {
                     </div>
                   );
                 }
-                
+
                 return (
-                  <button
-                    onClick={() => setShowCallModal(true)}
-                    className="p-3 text-gray-500 hover:text-green-500 hover:bg-green-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                    title="Iniciar llamada"
-                    style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Phone className="w-5 h-5" />
-                  </button>
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowCallDropup(prev => !prev)}
+                      className={`p-3 rounded-xl transition-all duration-200 ${
+                        showCallDropup
+                          ? 'text-emerald-400 bg-emerald-500/10 ring-1 ring-emerald-500/30'
+                          : 'text-gray-500 hover:text-green-500 hover:bg-green-50 dark:hover:bg-gray-700'
+                      }`}
+                      title="Opciones de llamada"
+                      style={{ height: '44px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    >
+                      <Phone className="w-5 h-5" />
+                    </button>
+
+                    {/* Dropup glassmorphism menu */}
+                    <AnimatePresence>
+                      {showCallDropup && (
+                        <>
+                          {/* Backdrop with blur */}
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.15 }}
+                            className="fixed inset-0 z-[60] bg-black/20 backdrop-blur-[2px]"
+                            onClick={() => setShowCallDropup(false)}
+                          />
+                          <motion.div
+                            initial={{ opacity: 0, y: 12, scale: 0.9, filter: 'blur(4px)' }}
+                            animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+                            exit={{ opacity: 0, y: 8, scale: 0.95, filter: 'blur(4px)' }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-[61] w-[230px]"
+                          >
+                            {/* Glass container — dark enough to read over chat text */}
+                            <div className="relative rounded-2xl overflow-hidden
+                                            bg-gray-900/85
+                                            backdrop-blur-2xl backdrop-saturate-150
+                                            border border-gray-700/50
+                                            shadow-[0_8px_40px_rgba(0,0,0,0.55),0_0_0_1px_rgba(255,255,255,0.04)_inset]">
+
+                              {/* Subtle gradient overlay */}
+                              <div className="absolute inset-0 bg-gradient-to-b from-white/[0.04] to-transparent pointer-events-none rounded-2xl" />
+
+                              {/* Options */}
+                              <div className="relative py-1.5">
+                                {/* Llamada WhatsApp */}
+                                <motion.button
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: 0.05 }}
+                                  onClick={() => {
+                                    setShowCallDropup(false);
+                                    setOutboundCallType('whatsapp');
+                                    setShowOutboundDialer(true);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 flex items-center gap-3
+                                             hover:bg-white/[0.06] active:bg-white/[0.10]
+                                             transition-colors duration-150 text-left group/item"
+                                >
+                                  <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/20
+                                                  flex items-center justify-center flex-shrink-0
+                                                  group-hover/item:bg-emerald-500/25 group-hover/item:border-emerald-500/30
+                                                  group-hover/item:shadow-[0_0_12px_rgba(16,185,129,0.15)]
+                                                  transition-all duration-200">
+                                    <Phone className="w-4 h-4 text-emerald-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-medium text-gray-200 group-hover/item:text-white transition-colors">
+                                      Llamada WhatsApp
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 group-hover/item:text-gray-400 transition-colors leading-tight">
+                                      Llamada directa por WhatsApp
+                                    </p>
+                                  </div>
+                                </motion.button>
+
+                                {/* Separator */}
+                                <div className="mx-3.5 border-t border-gray-700/40" />
+
+                                {/* Llamada IA */}
+                                <motion.button
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: 0.1 }}
+                                  onClick={() => {
+                                    setShowCallDropup(false);
+                                    setShowCallModal(true);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 flex items-center gap-3
+                                             hover:bg-white/[0.06] active:bg-white/[0.10]
+                                             transition-colors duration-150 text-left group/item"
+                                >
+                                  <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/20
+                                                  flex items-center justify-center flex-shrink-0
+                                                  group-hover/item:bg-violet-500/25 group-hover/item:border-violet-500/30
+                                                  group-hover/item:shadow-[0_0_12px_rgba(139,92,246,0.15)]
+                                                  transition-all duration-200">
+                                    <Bot className="w-4 h-4 text-violet-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-medium text-gray-200 group-hover/item:text-white transition-colors">
+                                      Llamada IA
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 group-hover/item:text-gray-400 transition-colors leading-tight">
+                                      Programar llamada con asistente IA
+                                    </p>
+                                  </div>
+                                </motion.button>
+
+                                {/* Separator */}
+                                <div className="mx-3.5 border-t border-gray-700/40" />
+
+                                {/* Llamada Telefonica */}
+                                <motion.button
+                                  initial={{ opacity: 0, x: -10 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  transition={{ delay: 0.15 }}
+                                  onClick={() => {
+                                    setShowCallDropup(false);
+                                    setOutboundCallType('telefonica');
+                                    setShowOutboundDialer(true);
+                                  }}
+                                  className="w-full px-3.5 py-2.5 flex items-center gap-3
+                                             hover:bg-white/[0.06] active:bg-white/[0.10]
+                                             transition-colors duration-150 text-left group/item"
+                                >
+                                  <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/20
+                                                  flex items-center justify-center flex-shrink-0
+                                                  group-hover/item:bg-blue-500/25 group-hover/item:border-blue-500/30
+                                                  group-hover/item:shadow-[0_0_12px_rgba(59,130,246,0.15)]
+                                                  transition-all duration-200">
+                                    <PhoneCall className="w-4 h-4 text-blue-400" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[13px] font-medium text-gray-200 group-hover/item:text-white transition-colors">
+                                      Llamada Telefonica
+                                    </p>
+                                    <p className="text-[10px] text-gray-500 group-hover/item:text-gray-400 transition-colors leading-tight">
+                                      Marcacion manual directa
+                                    </p>
+                                  </div>
+                                </motion.button>
+                              </div>
+                            </div>
+
+                            {/* Arrow */}
+                            <div className="flex justify-center -mt-[1px]">
+                              <div className="w-3 h-3 rotate-45 bg-gray-900/85 border-r border-b border-gray-700/50
+                                              shadow-[4px_4px_8px_rgba(0,0,0,0.3)]" />
+                            </div>
+                          </motion.div>
+                        </>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 );
               })()}
 
@@ -10372,6 +10523,20 @@ const LiveChatCanvas: React.FC = () => {
           onSuccess={() => {
             // Recargar mensajes para mostrar la llamada programada
             loadMessagesAndBlocks(selectedConversation.id, selectedConversation.prospecto_id);
+          }}
+        />
+      )}
+
+      {/* Modal de Marcacion Saliente */}
+      {selectedConversation && (
+        <OutboundDialerModal
+          isOpen={showOutboundDialer}
+          onClose={() => setShowOutboundDialer(false)}
+          callType={outboundCallType}
+          preSelectedProspecto={{
+            id: selectedConversation.prospecto_id,
+            nombre: selectedConversation.customer_name || selectedConversation.nombre_contacto || '',
+            telefono: selectedConversation.customer_phone || selectedConversation.numero_telefono || '',
           }}
         />
       )}

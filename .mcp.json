@@ -8,6 +8,11 @@
         "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}",
         "SUPABASE_PROJECT_REF": "glsmifhkoaifvaegsozd"
       }
+    },
+    "claude-mem": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/Users/darigsamuelrosalesrobledo/.claude/plugins/cache/thedotmack/claude-mem/10.5.2/scripts/mcp-server.cjs"]
     }
   }
 }

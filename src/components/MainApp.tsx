@@ -31,6 +31,8 @@ const ChangePasswordModal = lazy(() => import('./auth/ChangePasswordModal'));
 const ForceUpdateModal = lazy(() => import('./shared/ForceUpdateModal'));
 const ComunicadoOverlay = lazy(() => import('./comunicados/ComunicadoOverlay'));
 const LiveCallActivityWidget = lazy(() => import('./live-activity').then(m => ({ default: m.LiveCallActivityWidget })));
+const FloatingDialerButton = lazy(() => import('./live-activity/FloatingDialerButton'));
+const OutboundDialerModal = lazy(() => import('./live-activity/OutboundDialerModal'));
 
 // Fallback spinner para Suspense
 const ModuleLoader = () => (
@@ -74,6 +76,7 @@ function MainApp() {
   } = useAppStore();
   const [localDarkMode, setLocalDarkMode] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false); // Por defecto abierto
+  const [showOutboundDialer, setShowOutboundDialer] = useState(false);
   
   // Permisos efectivos (rol base + grupos asignados)
   const { isAdmin, isMarketing } = useEffectivePermissions();
@@ -361,6 +364,12 @@ function MainApp() {
   // Función para renderizar contenido según el modo
   const renderContent = () => {
     switch (appMode) {
+      case 'natalia':
+        return (
+          <ProtectedRoute requireModule="analisis">
+            <AnalysisDashboard forceMode="natalia" />
+          </ProtectedRoute>
+        );
       case 'pqnc':
         return (
           <ProtectedRoute requireModule="analisis" requireSubModule="pqnc">
@@ -530,6 +539,8 @@ function MainApp() {
         <Suspense fallback={null}>
           <LiveCallActivityWidget />
           <ComunicadoOverlay />
+          <FloatingDialerButton appMode={appMode} onClick={() => setShowOutboundDialer(true)} />
+          <OutboundDialerModal isOpen={showOutboundDialer} onClose={() => setShowOutboundDialer(false)} />
         </Suspense>
       </div>
     );
@@ -591,6 +602,8 @@ function MainApp() {
       <Suspense fallback={null}>
         <LiveCallActivityWidget />
         <ComunicadoOverlay />
+        <FloatingDialerButton appMode={appMode} onClick={() => setShowOutboundDialer(true)} />
+        <OutboundDialerModal isOpen={showOutboundDialer} onClose={() => setShowOutboundDialer(false)} />
       </Suspense>
 
       {/* Modal de actualización forzada - Máxima prioridad */}

@@ -25,8 +25,8 @@ export const MinimizedCallTab: React.FC<MinimizedCallTabProps> = ({
   const displayName = useMemo(() => {
     const name = call.nombre_completo || call.nombre_whatsapp || 'Prospecto';
     // Obtener iniciales o primeras 2-3 letras
-    const parts = name.split(' ');
-    if (parts.length >= 2) {
+    const parts = name.split(' ').filter(Boolean);
+    if (parts.length >= 2 && parts[0].length > 0 && parts[1].length > 0) {
       return parts[0][0] + parts[1][0];
     }
     return name.substring(0, 2).toUpperCase();
@@ -119,7 +119,7 @@ export const MinimizedCallTab: React.FC<MinimizedCallTabProps> = ({
         {/* Duración vertical */}
         <div className="flex flex-col items-center gap-0.5">
           <Clock className="w-3.5 h-3.5 text-gray-500" />
-          <span className="text-[10px] text-gray-400 font-mono writing-mode-vertical">
+          <span className="text-[10px] text-gray-400 font-mono" style={{ writingMode: 'vertical-rl' }}>
             {duration}
           </span>
         </div>

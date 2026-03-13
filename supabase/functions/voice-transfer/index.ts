@@ -3,21 +3,21 @@
  * EDGE FUNCTION: VOICE TRANSFER (COLD)
  * ============================================
  *
- * Cold transfer: redirige la llamada del prospecto directamente
- * al agente destino via Twilio Client SDK en el browser.
+ * Cold transfer con cascada: redirige la llamada del prospecto al agente
+ * destino via Twilio Client SDK. Si no contesta (25s), cascadea
+ * automaticamente al siguiente target via bridge-cascade webhook.
  *
  * Flujo:
  * 1. Valida JWT y permisos (caller y target en misma coordinacion)
  * 2. Verifica target online (active_sessions)
- * 3. Redirect parentCallSid con <Dial><Client>target</Client></Dial>
- * 4. Agente actual se desconecta, target recibe incoming con datos del prospecto
- *
- * El TwiML incluye <Parameter> tags para que el Client SDK del target
- * reciba toda la info del prospecto y la transferencia.
+ * 3. Obtiene TODOS los team members online para cascada
+ * 4. Inserta bridge_transfer_context con targets ordenados
+ * 5. Redirect parentCallSid con <Dial action="bridge-cascade"><Client>target</Client></Dial>
+ * 6. Si target no contesta → Twilio llama action URL → siguiente target
  *
  * Autor: PQNC AI Platform
  * Creado: 2026-03-10
- * Actualizado: 2026-03-11 (cold transfer, sin conferencias)
+ * Actualizado: 2026-03-13 (cascada WhatsApp via bridge_transfer_context)
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -33,6 +33,7 @@ const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!
 const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID')!
 const TWILIO_API_KEY_SID = Deno.env.get('TWILIO_API_KEY_SID')!
 const TWILIO_API_KEY_SECRET = Deno.env.get('TWILIO_API_KEY_SECRET')!
+const CASCADE_WEBHOOK_URL = Deno.env.get('CASCADE_WEBHOOK_URL') ?? 'https://primary-dev-d75a.up.railway.app/webhook/bridge-cascade'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -212,7 +213,71 @@ serve(async (req: Request): Promise<Response> => {
     console.log(`[transfer] Cold transfer: ${callerName} (${callerIdentity}) → ${targetName} (${targetIdentity})`)
     console.log(`[transfer] parentCallSid: ${parentCallSid}`)
 
-    // 8. Verificar estado de la llamada antes de redirigir
+    // 8. Build cascade targets — selected target first, then others by priority
+    const cascadeTargets: Array<{ identity: string; name: string; role: string; reason: string }> = []
+
+    // 8a. Get ALL online team members for cascade fallback
+    const coordIds = coordinacionId ? [coordinacionId] : []
+    const { data: allMembers } = await serviceSupabase.rpc('get_online_team_members', {
+      p_coordinacion_ids: coordIds,
+    })
+
+    // 8b. Target seleccionado siempre primero
+    cascadeTargets.push({
+      identity: targetIdentity,
+      name: targetName,
+      role: targetProfile?.full_name ? 'selected' : 'unknown',
+      reason: 'selected',
+    })
+
+    if (allMembers && allMembers.length > 0) {
+      const usedIds = new Set([targetUserId, user.id]) // Excluir target (ya está) y caller
+
+      // Prioridad: admin → supervisor → coordinador → ejecutivo
+      const priorityOrder = ['admin', 'supervisor', 'coordinador', 'ejecutivo', 'ejecutivo_pisos']
+      for (const role of priorityOrder) {
+        for (const m of allMembers) {
+          if (usedIds.has(m.user_id)) continue
+          if (m.role_name !== role) continue
+          usedIds.add(m.user_id)
+          cascadeTargets.push({
+            identity: sanitizeIdentity(`agent_${m.user_id}`),
+            name: m.full_name ?? 'Unknown',
+            role: m.role_name,
+            reason: `${role}_online`,
+          })
+        }
+      }
+    }
+
+    console.log(`[transfer] Cascade targets: ${cascadeTargets.length} (${cascadeTargets.map(t => t.name).join(', ')})`)
+
+    // 8c. Insert bridge_transfer_context for cascade
+    let contextId: string | null = null
+    if (cascadeTargets.length > 1) {
+      const { data: ctx } = await serviceSupabase
+        .from('bridge_transfer_context')
+        .insert({
+          from_number: fromNumber ?? '',
+          targets: cascadeTargets,
+          current_attempt: 0,
+          prospecto_id: prospectoId,
+          prospecto_nombre: prospectoNombre ?? null,
+          llamada_call_id: llamadaCallId,
+          coordinacion_id: coordinacionId || null,
+          ejecutivo_id: targetUserId,
+          from_number_display: fromNumber ?? '',
+          status: 'ringing',
+          origin: 'whatsapp',
+        })
+        .select('id')
+        .single()
+
+      contextId = ctx?.id ?? null
+      console.log(`[transfer] Bridge context created: ${contextId} with ${cascadeTargets.length} targets`)
+    }
+
+    // 9. Verificar estado de la llamada antes de redirigir
     const callStatusResp = await twilioGet(`/Calls/${parentCallSid}.json`)
     if (callStatusResp.ok) {
       const callData = await callStatusResp.json()
@@ -228,12 +293,16 @@ serve(async (req: Request): Promise<Response> => {
       console.warn(`[transfer] Could not check call status: ${callStatusResp.status} — ${errText}`)
     }
 
-    // 9. Cold transfer: redirigir parentCallSid para que timbre al target directamente
-    //    El agente actual (caller) se desconectara automaticamente.
-    //    El target recibe incoming call con todos los datos del prospecto via <Parameter>.
+    // 10. Cold transfer con cascada: redirigir parentCallSid para que timbre al target directamente
+    //    Si target no contesta en 25s y hay contexto cascade, Twilio llama action URL
+    //    que sirve TwiML con el siguiente target automaticamente.
+    const actionAttr = contextId
+      ? ` timeout="25" action="${escapeXml(`${CASCADE_WEBHOOK_URL}?contextId=${contextId}&attempt=0`)}"`
+      : ''
+
     const transferTwiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Dial callerId="client:transfer" record="record-from-answer-dual">
+  <Dial callerId="client:transfer" record="record-from-answer-dual"${actionAttr}>
     <Client>
       <Identity>${targetIdentity}</Identity>
       <Parameter name="parentCallSid" value="${escapeXml(parentCallSid)}"/>
@@ -261,7 +330,7 @@ serve(async (req: Request): Promise<Response> => {
 
     console.log(`[transfer] ✅ Call redirected successfully — ${targetName} should be ringing`)
 
-    // 10. Insertar registro en voice_transfers
+    // 11. Insertar registro en voice_transfers
     const { data: transfer } = await serviceSupabase
       .from('voice_transfers')
       .insert({

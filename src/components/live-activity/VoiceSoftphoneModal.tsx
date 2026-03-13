@@ -242,6 +242,7 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
   const [msgsLoaded, setMsgsLoaded] = useState(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
+  const eqHeights = useMemo(() => [1, 2, 3, 4, 5].map(() => 6 + Math.random() * 6), []);
   const parsedObs = useMemo(() => parseObservaciones(call?.observaciones), [call?.observaciones]);
   const prospectName = call?.nombre_completo || call?.nombre_whatsapp || 'Prospecto';
 
@@ -380,7 +381,8 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
     if (!isOpen || isMinimized || !call) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement;
+      if (panelRef.current && !panelRef.current.contains(target) && !target.closest('[data-voice-modal]')) {
         setIsMinimized(true);
       }
     };
@@ -396,7 +398,7 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
     };
   }, [isOpen, isMinimized, call]);
 
-  // Cambio de ventana, resize, o blur = colapsar a burbuja
+  // Cambio de ventana o blur = colapsar a burbuja
   useEffect(() => {
     if (!isOpen || isMinimized || !call) return;
 
@@ -406,14 +408,25 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
       if (document.hidden) goToBubble();
     };
 
+    let blurTimeout: ReturnType<typeof setTimeout> | null = null;
+    const handleBlur = () => {
+      blurTimeout = setTimeout(() => {
+        if (!document.hasFocus()) setIsMinimized(true);
+      }, 200);
+    };
+    const handleFocus = () => {
+      if (blurTimeout) { clearTimeout(blurTimeout); blurTimeout = null; }
+    };
+
     document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('blur', goToBubble);
-    window.addEventListener('resize', goToBubble);
+    window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('blur', goToBubble);
-      window.removeEventListener('resize', goToBubble);
+      window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
+      if (blurTimeout) clearTimeout(blurTimeout);
     };
   }, [isOpen, isMinimized, call]);
 
@@ -757,7 +770,7 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
                         ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-500/30 text-white ring-2 ring-amber-400/40'
                         : 'bg-gray-700 hover:bg-gray-600 shadow-gray-700/30 text-white'
                     }`}
-                    title={isMuted ? 'Quitar espera' : 'Pausar (musica de espera)'}
+                    title={isMuted ? 'Reanudar llamada' : 'Pausar llamada'}
                   >
                     {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
                   </button>
@@ -781,6 +794,16 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
 
                 <div className="flex flex-col items-center gap-1">
                   <button
+                    className="w-14 h-14 rounded-full bg-cyan-600/30 hover:bg-cyan-600/50 flex items-center justify-center transition-all shadow-lg shadow-cyan-500/10 text-cyan-300 hover:text-white"
+                    title="Conferencia (proximamente)"
+                  >
+                    <Users className="w-6 h-6" />
+                  </button>
+                  <span className="text-[11px] text-cyan-400">Conferencia</span>
+                </div>
+
+                <div className="flex flex-col items-center gap-1">
+                  <button
                     onClick={handleHangup}
                     className="w-[64px] h-[64px] rounded-full bg-red-600 hover:bg-red-500 flex items-center justify-center transition-all shadow-xl shadow-red-500/40 hover:shadow-red-500/60 text-white"
                   >
@@ -798,13 +821,13 @@ export const VoiceSoftphoneModal: React.FC<VoiceSoftphoneModalProps> = ({
                 className="mt-2 flex items-center justify-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-xl px-3 py-2"
               >
                 <Music className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                <span className="text-amber-300 text-xs font-medium">Musica de espera activa</span>
+                <span className="text-amber-300 text-xs font-medium">En espera — mic silenciado</span>
                 <div className="flex items-end gap-0.5 h-3.5 ml-1">
-                  {[1, 2, 3, 4, 5].map(i => (
+                  {[1, 2, 3, 4, 5].map((i, idx) => (
                     <motion.div
                       key={i}
                       className="w-0.5 bg-amber-400/60 rounded-full"
-                      animate={{ height: ['3px', `${6 + Math.random() * 6}px`, '3px'] }}
+                      animate={{ height: ['3px', `${eqHeights[idx]}px`, '3px'] }}
                       transition={{ duration: 0.6 + i * 0.1, repeat: Infinity, ease: 'easeInOut' }}
                     />
                   ))}

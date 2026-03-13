@@ -127,6 +127,10 @@ const playNotificationSound = () => {
   });
 };
 
+// Module-level timers so cleanup() can access them (Bug 8 fix)
+let loadActiveCallsTimeout: ReturnType<typeof setTimeout> | null = null;
+let removalTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
 export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
   // Estado inicial
   widgetCalls: [],
@@ -161,10 +165,8 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         
         // Configurar suscripción realtime via RealtimeHub (1 canal compartido)
         // Debounce para loadActiveCalls - evitar múltiples refetch simultáneos
-        let loadActiveCallsTimeout: ReturnType<typeof setTimeout> | null = null;
+        // loadActiveCallsTimeout and removalTimers are module-level (see above)
         const LOAD_DEBOUNCE_MS = 2000;
-        // Timers de remoción con grace period (evitan flicker)
-        const removalTimers = new Map<string, ReturnType<typeof setTimeout>>();
         const REMOVAL_GRACE_MS = 5000; // 5s para confirmar que la llamada realmente terminó
 
         const debouncedLoadActiveCalls = () => {
@@ -275,7 +277,15 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         // Ignorar errores al desuscribirse
       }
     }
-    
+
+    // Limpiar timers de módulo (Bug 8 fix)
+    if (loadActiveCallsTimeout) {
+      clearTimeout(loadActiveCallsTimeout);
+      loadActiveCallsTimeout = null;
+    }
+    removalTimers.forEach(timer => clearTimeout(timer));
+    removalTimers.clear();
+
     // Limpiar estado (mantener isWidgetEnabled=true para evitar destruir Twilio Device)
     set({
       widgetCalls: [],
@@ -524,7 +534,27 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
         }
       }
       
-      set({ widgetCalls: activeCalls });
+      // Bug 2 fix: Merge voice transfer state from existing widgetCalls
+      // loadActiveCalls replaces the array wholesale, which would destroy
+      // voiceTransferStatus/voiceTransferCallSid set on existing calls.
+      const currentCalls = get().widgetCalls;
+      const transferStateMap = new Map<string, { voiceTransferStatus?: VoiceTransferStatus; voiceTransferCallSid?: string; currentHolderId?: string; currentHolderName?: string }>();
+      currentCalls.forEach(c => {
+        if (c.voiceTransferStatus && c.voiceTransferStatus !== 'none') {
+          transferStateMap.set(c.call_id, {
+            voiceTransferStatus: c.voiceTransferStatus,
+            voiceTransferCallSid: c.voiceTransferCallSid,
+            currentHolderId: c.currentHolderId,
+            currentHolderName: c.currentHolderName,
+          });
+        }
+      });
+      const mergedCalls = activeCalls.map(call => {
+        const existing = transferStateMap.get(call.call_id);
+        return existing ? { ...call, ...existing } : call;
+      });
+
+      set({ widgetCalls: mergedCalls });
     } catch (error) {
       // 42501 = permission denied → sesión expirada/logout en progreso, limpiar silenciosamente
       const pgError = error as { code?: string };
@@ -595,10 +625,23 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
       // Limpiar transcripción
       const { [callId]: _, ...restTranscriptions } = state.liveTranscriptions;
 
+      // Bug 5 fix: Clean up minimizedCallIds and permanentOpenCallIds
+      const newMinimized = new Set(state.minimizedCallIds);
+      newMinimized.delete(callId);
+      const newPermanent = new Set(state.permanentOpenCallIds);
+      newPermanent.delete(callId);
+
+      // Bug 6 fix: Clean up notifiedCallIds to prevent unbounded growth
+      const newNotified = new Set(state.notifiedCallIds);
+      newNotified.delete(callId);
+
       return {
         widgetCalls: newCalls,
         expandedCallId: newExpandedId,
-        liveTranscriptions: restTranscriptions
+        liveTranscriptions: restTranscriptions,
+        minimizedCallIds: newMinimized,
+        permanentOpenCallIds: newPermanent,
+        notifiedCallIds: newNotified,
       };
     });
   },

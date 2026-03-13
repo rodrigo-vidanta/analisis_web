@@ -91,6 +91,25 @@ const LOG_PREFIX = '[VoiceTransfer]';
 
 class VoiceTransferService {
   /**
+   * Helper: fetch con retry automatico en 401 (token expirado).
+   * Refresca la sesion Supabase y reintenta una vez.
+   */
+  private async fetchWithAuthRetry(url: string, options: RequestInit): Promise<Response> {
+    let response = await fetch(url, options);
+
+    if (response.status === 401) {
+      console.warn(`${LOG_PREFIX} Token expired, refreshing session...`);
+      const { data: { session: refreshed } } = await supabaseSystemUI.auth.refreshSession();
+      if (refreshed?.access_token) {
+        const headers = { ...(options.headers as Record<string, string>), 'Authorization': `Bearer ${refreshed.access_token}` };
+        response = await fetch(url, { ...options, headers });
+      }
+    }
+
+    return response;
+  }
+
+  /**
    * Obtiene miembros online del equipo en las coordinaciones dadas.
    * Usa RPC get_online_team_members (SECURITY DEFINER).
    */
@@ -180,12 +199,13 @@ class VoiceTransferService {
       if (extraFields?.connected_at) updateData.connected_at = extraFields.connected_at;
       if (extraFields?.completed_at) updateData.completed_at = extraFields.completed_at;
 
+      const previousStatuses = status === 'connected' ? ['ringing'] : ['ringing', 'connected'];
       const { error } = await analysisSupabase
         .from('voice_transfers')
         .update(updateData)
         .eq('parent_call_sid', parentCallSid)
         .eq('to_user_id', toUserId)
-        .eq('status', status === 'connected' ? 'ringing' : 'connected');
+        .in('status', previousStatuses);
 
       if (error) {
         console.error(`${LOG_PREFIX} Error updating transfer status:`, error);
@@ -215,7 +235,7 @@ class VoiceTransferService {
         return { success: false, error: 'No hay sesion activa' };
       }
 
-      const response = await fetch(TRANSFER_COMPLETE_ENDPOINT, {
+      const response = await this.fetchWithAuthRetry(TRANSFER_COMPLETE_ENDPOINT, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,
@@ -258,7 +278,7 @@ class VoiceTransferService {
         return { success: false, error: 'No hay sesion activa' };
       }
 
-      const response = await fetch(TRANSFER_COMPLETE_ENDPOINT, {
+      const response = await this.fetchWithAuthRetry(TRANSFER_COMPLETE_ENDPOINT, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${session.access_token}`,

@@ -47,6 +47,9 @@ ALTER VIEW nombre_vista SET (security_invoker = true);
 - `etapas` - Catalogo de etapas dinamicas
 - `llamadas_ventas` - Registro de llamadas
 - `llamadas_programadas` - Llamadas programadas (VAPI/N8N)
+- `voice_transfers` - Transferencias VoIP (audit trail). RLS: SELECT/UPDATE own, INSERT own
+- `transfer_requests` - Solicitudes transfer entre equipo (Realtime)
+- `bridge_transfer_context` - Contexto efimero para PSTN bridge cascade (service_role only)
 - `crm_data` - Datos sincronizados de Dynamics CRM
 - `destinos` / `resorts` - Catalogos de destinos
 
@@ -151,6 +154,7 @@ ALTER VIEW nombre_vista SET (security_invoker = true);
 | `get_active_call_prospect_ids` | INVOKER | IDs prospectos en llamada |
 | `get_distinct_ejecutivo_ids` | INVOKER | IDs ejecutivos unicos |
 | `user_can_see_prospecto` | INVOKER | Validacion acceso prospecto |
+| `get_online_team_members` | SECURITY DEFINER | Usuarios online por coordinacion (admin bypass, NULL auth.uid() para N8N) |
 
 ## Triggers Importantes
 

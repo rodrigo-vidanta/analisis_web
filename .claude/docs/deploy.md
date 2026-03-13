@@ -71,6 +71,12 @@ npx supabase functions list --project-ref glsmifhkoaifvaegsozd
 | Desarrollo | localhost:5173 | `.env.local` |
 | Produccion | ai.vidavacations.com | `.env.production` |
 
+## Railway (N8N)
+
+- Build: nixpacks con `npm install` (NO `npm ci` — cross-version npm compatibility)
+- Config: `nixpacks.json` en root
+- **LECCION:** `npm ci` es strict sobre formato de lock file. Si local usa npm 11 y Railway usa npm 10, dependencias opcionales anidadas pueden faltar → usar `npm install`
+
 ## AWS
 
 - Region: us-west-2

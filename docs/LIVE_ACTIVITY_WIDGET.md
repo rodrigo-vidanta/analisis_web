@@ -271,6 +271,11 @@ Tabla de audit trail + Realtime notifications para transferencias VoIP.
 | `status` | pending/ringing/connected/completed/failed/rejected/timeout |
 | `coordinacion_id` | UUID |
 
+**RLS Policies:**
+- SELECT: authenticated (own transfers)
+- UPDATE: `from_user_id OR to_user_id = auth.uid()` (actualizar status)
+- INSERT: `from_user_id = auth.uid()` (crear transferencia)
+
 ### RPC: `get_online_team_members(p_coordinacion_ids UUID[])`
 
 SECURITY DEFINER. Retorna usuarios online de coordinaciones dadas (active_sessions < 2 min).

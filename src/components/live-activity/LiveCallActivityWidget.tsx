@@ -496,15 +496,15 @@ export const LiveCallActivityWidget: React.FC = () => {
       const currentTime = Date.now();
       const state = useLiveActivityStore.getState();
       
-      widgetCalls.forEach(call => {
+      useLiveActivityStore.getState().widgetCalls.forEach(call => {
         const appearanceTime = callAppearanceTimesRef.current.get(call.call_id);
         if (!appearanceTime) return;
-        
+
         const elapsed = currentTime - appearanceTime;
         const isMinimized = state.minimizedCallIds.has(call.call_id);
         const isPermanent = state.permanentOpenCallIds.has(call.call_id);
         const isExpanded = state.expandedCallId === call.call_id;
-        
+
         // No auto-minimizar llamadas con transferencia voice incoming
         const hasVoiceTransfer = call.voiceTransferStatus === 'incoming' || call.voiceTransferStatus === 'active';
 
@@ -661,7 +661,14 @@ export const LiveCallActivityWidget: React.FC = () => {
     setIsListening(false);
     setListeningCallId(null);
   }, []);
-  
+
+  // Cleanup AudioContext when listened call is removed from widgetCalls
+  useEffect(() => {
+    if (listeningCallId && !widgetCalls.find(c => c.call_id === listeningCallId)) {
+      stopAudioMonitoring();
+    }
+  }, [listeningCallId, widgetCalls, stopAudioMonitoring]);
+
   // Handlers
   const handleExpand = useCallback((callId: string) => {
     expandCall(callId);

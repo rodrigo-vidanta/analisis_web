@@ -43,6 +43,7 @@ export interface ProxyRequest {
   order?: string;
   limit?: number;
   single?: boolean;
+  maybeSingle?: boolean;
 }
 
 export interface ProxyResponse<T = unknown> {
@@ -112,6 +113,7 @@ export const pqncQaProxy = {
       order?: string;
       limit?: number;
       single?: boolean;
+      maybeSingle?: boolean;
     } = {}
   ): Promise<ProxyResponse<T>> {
     return executeProxy<T>({

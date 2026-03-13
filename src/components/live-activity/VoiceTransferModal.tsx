@@ -133,36 +133,43 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
     setTransferTarget(member.user_id);
     setError(null);
 
-    const params: TransferCallParams = {
-      parentCallSid,
-      targetUserId: member.user_id,
-      coordinacionId,
-      llamadaCallId,
-      prospectoId,
-      prospectoNombre,
-      fromNumber,
-      tipoLlamada,
-    };
+    try {
+      const params: TransferCallParams = {
+        parentCallSid,
+        targetUserId: member.user_id,
+        coordinacionId,
+        llamadaCallId,
+        prospectoId,
+        prospectoNombre,
+        fromNumber,
+        tipoLlamada,
+      };
 
-    const result = await voiceTransferService.transferCall(params);
+      const result = await voiceTransferService.transferCall(params);
 
-    if (result.success) {
-      const targetName = result.targetName || member.full_name;
-      setSuccess(`Conectando conferencia con ${targetName}...`);
-      if (result.conferenceSid && result.prospectoParticipantSid) {
-        onTransferStarted?.(targetName, {
-          conferenceName: result.conferenceName ?? '',
-          conferenceSid: result.conferenceSid,
-          prospectoParticipantSid: result.prospectoParticipantSid,
-          transferId: result.transferId ?? '',
-          targetName,
-        });
+      if (result.success) {
+        const targetName = result.targetName || member.full_name;
+        setSuccess(`Conectando conferencia con ${targetName}...`);
+        if (result.conferenceSid && result.prospectoParticipantSid) {
+          onTransferStarted?.(targetName, {
+            conferenceName: result.conferenceName ?? '',
+            conferenceSid: result.conferenceSid,
+            prospectoParticipantSid: result.prospectoParticipantSid,
+            transferId: result.transferId ?? '',
+            targetName,
+          });
+        }
+        setTimeout(() => {
+          onClose();
+        }, 2000);
+      } else {
+        setError(result.error || 'Error al transferir');
+        setIsTransferring(false);
+        setTransferTarget(null);
       }
-      setTimeout(() => {
-        onClose();
-      }, 2000);
-    } else {
-      setError(result.error || 'Error al transferir');
+    } catch (err) {
+      console.error('[VoiceTransferModal] Transfer error:', err);
+      setError('Error al iniciar transferencia. Intenta de nuevo.');
       setIsTransferring(false);
       setTransferTarget(null);
     }
@@ -191,7 +198,8 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         className="fixed inset-0 z-[95] bg-black/50 backdrop-blur-sm flex items-center justify-center"
-        onClick={onClose}
+        data-voice-modal
+        onClick={isTransferring ? undefined : onClose}
       >
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -209,8 +217,8 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
                 <h3 className="text-base font-bold text-white">Transferir Llamada</h3>
               </div>
               <button
-                onClick={onClose}
-                className="p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg transition-all"
+                onClick={isTransferring ? undefined : onClose}
+                className={`p-1.5 hover:bg-gray-800 text-gray-400 hover:text-white rounded-lg transition-all ${isTransferring ? 'cursor-not-allowed opacity-50' : ''}`}
               >
                 <X className="w-4 h-4" />
               </button>

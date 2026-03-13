@@ -190,11 +190,11 @@ export const CallCard: React.FC<CallCardProps> = ({
       }}
       onClick={onExpand}
       className={`
-        relative w-80 bg-gray-900/98 backdrop-blur-xl
+        relative w-80 bg-gray-900/95 backdrop-blur-xl
         border-l border-t border-b border-gray-600/50
         rounded-l-2xl shadow-2xl cursor-pointer overflow-hidden
         hover:border-l-blue-500/70 hover:border-t-blue-500/50 hover:border-b-blue-500/50
-        hover:shadow-blue-500/10 hover:shadow-3xl
+        hover:shadow-blue-500/10 hover:shadow-2xl
         transition-all duration-300
         ${isExpanded ? 'ring-2 ring-blue-500 ring-offset-0' : ''}
         ${isIncoming ? 'ring-2 ring-amber-500/60 ring-offset-0' : ''}

@@ -15,6 +15,12 @@
 - Workflows marcados con [PROD] son criticos
 - Operaciones alto riesgo: DELETE workflows, DEACTIVATE, eliminar ejecuciones
 
+### Workflows Voice Transfer
+- `qpk8xsMI50IWltFV` - VAPI-Natalia_transfer_tool [PROD]: Transfer WhatsApp + PSTN con admin ring simultaneo
+- `q5kespj4S6iwn0pJ` - Bridge Transfer Voice URL: Webhook puente PSTN con cascada TwiML
+- **Merge nodes**: Usar modo "append" para esperar inputs paralelos. `.first().json` en vez de `.item.json` post-Merge
+- **LOBBY prompt** (nodo "Sanitizar y estructurar body-prompt"): Detecta solicitud explicita de transfer + senales positivas → bias hacia transferir
+
 ### Uso en Codigo
 ```typescript
 import { n8nProxyService } from '@/services/n8nProxyService';

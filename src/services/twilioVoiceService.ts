@@ -96,14 +96,20 @@ class TwilioVoiceService {
   private tokenRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private consumerCount = 0;
   private initPromise: Promise<void> | null = null;
-  private callStartedAt: string | null = null;
+  private callStartedAtMap = new Map<string, string>();
   private activeNotification: Notification | null = null;
 
   // Hangup activo al cerrar/recargar página
   private boundBeforeUnload = () => {
     if (this.state.activeCall) {
       console.log(`${LOG_PREFIX} Page unloading - disconnecting active call`);
-      this.state.activeCall.disconnect();
+      const call = this.state.activeCall;
+      const callInfo = this.extractCallInfo(call);
+      const callSid = call.parameters?.CallSid;
+      const startedAt = callSid ? this.callStartedAtMap.get(callSid) ?? null : null;
+      // Use notifyCallEndSync with keepalive fetch to survive page unload
+      this.notifyCallEndBeacon(callInfo, startedAt);
+      call.disconnect();
     }
   };
 
@@ -457,7 +463,10 @@ class TwilioVoiceService {
   private setupCallEvents(call: Call): void {
     call.on('accept', () => {
       console.log(`${LOG_PREFIX} Call accepted event`);
-      this.callStartedAt = new Date().toISOString();
+      const callSid = call.parameters?.CallSid;
+      if (callSid) {
+        this.callStartedAtMap.set(callSid, new Date().toISOString());
+      }
       // Iniciar grabacion Twilio para la llamada ejecutivo↔prospecto
       const callInfo = this.extractCallInfo(call);
       if (callInfo.parentCallSid) {
@@ -468,11 +477,17 @@ class TwilioVoiceService {
     call.on('disconnect', () => {
       console.log(`${LOG_PREFIX} Call disconnected`);
       const callInfo = this.extractCallInfo(call);
-      const startedAt = this.callStartedAt;
-      this.callStartedAt = null;
+      const callSid = call.parameters?.CallSid;
+      const startedAt = callSid ? this.callStartedAtMap.get(callSid) ?? null : null;
+      if (callSid) {
+        this.callStartedAtMap.delete(callSid);
+      }
       // Notificar webhook N8N con datos de la llamada finalizada (fire-and-forget)
       this.notifyCallEnd(callInfo, startedAt);
-      this.updateState({ activeCall: null, incomingCall: null });
+      this.updateState({
+        activeCall: this.state.activeCall === call ? null : this.state.activeCall,
+        incomingCall: this.state.incomingCall === call ? null : this.state.incomingCall,
+      });
       this.emit('disconnected', {
         callSid: call.parameters?.CallSid,
         ...callInfo,
@@ -569,6 +584,54 @@ class TwilioVoiceService {
   }
 
   /**
+   * Synchronous call-end notification for beforeunload.
+   * Uses fetch with keepalive:true to survive page navigation.
+   * Falls back to navigator.sendBeacon (no auth headers) as last resort.
+   */
+  private notifyCallEndBeacon(callInfo: IncomingCallInfo, startedAt: string | null): void {
+    if (!callInfo.prospectoId) return;
+
+    if (startedAt) {
+      const durationMs = Date.now() - new Date(startedAt).getTime();
+      if (durationMs < MIN_CALL_DURATION_MS) return;
+    }
+
+    const payload = JSON.stringify({
+      parentCallSid: callInfo.parentCallSid ?? null,
+      prospectoId: callInfo.prospectoId,
+      llamadaId: callInfo.llamadaId ?? null,
+      callStartedAt: startedAt,
+      callEndedAt: new Date().toISOString(),
+    });
+
+    // Try fetch with keepalive (supports custom headers, survives page unload)
+    try {
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY || '';
+      // Use cached session token if available (no async calls in beforeunload)
+      const sessionStr = localStorage.getItem('sb-glsmifhkoaifvaegsozd-auth-token');
+      const accessToken = sessionStr ? JSON.parse(sessionStr)?.access_token : null;
+      if (accessToken) {
+        fetch(CALL_END_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+            'apikey': anonKey,
+          },
+          body: payload,
+          keepalive: true,
+        });
+        return;
+      }
+    } catch {
+      // Fall through to sendBeacon
+    }
+
+    // Fallback: sendBeacon (no auth headers, but at least the data arrives)
+    navigator.sendBeacon?.(CALL_END_ENDPOINT, new Blob([payload], { type: 'application/json' }));
+  }
+
+  /**
    * Inicia grabacion Twilio en el parentCallSid via Edge Function.
    * Fire-and-forget: no bloquea el flujo de accept.
    */
@@ -607,7 +670,7 @@ class TwilioVoiceService {
     }
   }
 
-  private async refreshToken(): Promise<void> {
+  private async refreshToken(retryCount = 0): Promise<void> {
     try {
       const tokenData = await this.fetchToken();
       if (tokenData && this.device) {
@@ -616,7 +679,12 @@ class TwilioVoiceService {
         console.log(`${LOG_PREFIX} Token refreshed successfully`);
       }
     } catch (err) {
-      console.error(`${LOG_PREFIX} Token refresh failed:`, err);
+      console.error(`${LOG_PREFIX} Token refresh failed (attempt ${retryCount + 1}/3):`, err);
+      if (retryCount < 2) {
+        setTimeout(() => this.refreshToken(retryCount + 1), 5000);
+      } else {
+        this.emit('error', { message: 'Token refresh failed after 3 attempts' });
+      }
     }
   }
 

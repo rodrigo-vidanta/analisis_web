@@ -73,6 +73,30 @@ Consultar SOLO cuando se necesite contexto especifico del dominio:
 - Vistas seguras: `user_profiles_v2` (sin password_hash)
 - Pre-commit: verificar que NO se incluyan `.env*`, `.supabase/`, credenciales
 
+## Memoria Persistente (claude-mem MCP)
+
+MCP `claude-mem` proporciona memoria cross-session via localhost:37777. Usar para recordar decisiones, bugs, y contexto de sesiones anteriores.
+
+**Workflow 3-layer (obligatorio):**
+1. `search(query, project="pqnc-qa-ai-platform")` → indice con IDs (~50-100 tokens/resultado)
+2. `timeline(anchor=ID)` → contexto cronologico alrededor del resultado
+3. `get_observations(ids=[...])` → detalles completos SOLO de IDs filtrados
+
+**Cuándo usar:**
+- Al inicio de tareas complejas: buscar si ya se trabajo en algo similar
+- Cuando el usuario pregunte "como hicimos X?" o "ya resolvimos esto?"
+- Antes de modificar sistemas criticos (voice, transfers, templates): verificar decisiones previas
+- Skills `/mem-search`, `/smart-explore` disponibles para busquedas rapidas
+
+**Cuándo NO usar:**
+- Para tareas simples o aisladas que no requieren contexto historico
+- NUNCA fetch full details sin filtrar primero (ahorra 10x tokens)
+
+**Code search (tree-sitter):**
+- `smart_search(query)` → busqueda AST estructural
+- `smart_outline(file_path)` → outline de archivo (mas barato que leer completo)
+- `smart_unfold(file_path, symbol_name)` → expandir funcion/clase especifica
+
 ## Agentes Especializados (.claude/agents/)
 
 Para tareas complejas por dominio, usar subagentes con contexto de:
@@ -88,3 +112,39 @@ Para tareas complejas por dominio, usar subagentes con contexto de:
 - `railway-agent.md` - Railway infra: N8N, PostgreSQL, Redis, microservicios, funciones, volumes, deploys, escalado (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `twilio-agent.md` - Twilio: llamadas, phone numbers, TwiML Apps, SIP, conferencias, grabaciones, Voice SDK browser, messaging WhatsApp (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
 - `twilio-voice-sdk-agent.md` - Twilio Voice SDK browser: Device, Call, AudioHelper, Access Tokens, React hooks, conference transfers, implementacion VAPI→Client (LECTURA LIBRE, ESCRITURA CON AUTORIZACION)
+
+<claude-mem-context>
+<!-- Auto-injected: actividad reciente del proyecto. Para detalles usar search → timeline → get_observations -->
+<!-- Ultima actualizacion: 2026-03-13 -->
+
+### Actividad reciente (Mar 7-13, 2026)
+
+**Voice Transfer System (Mar 10-13)**
+- #1569: Transfer status updates solo implementado para warm transfers, no cold
+- #1568: voice-transfer crea tracking record pero falta mecanismo de status update
+- #1341: Cold transfer usa Twilio Client redirect con TwiML parameters
+- #1054: VoiceSoftphoneModal implementa warm transfer conference UI
+- #1107: generate-twilio-token Edge Function usa JWT + Jose library
+- #973: WhatsApp transfer usa dual-client failover pattern
+- #1563: Transfer detection prompt architecture en n8n workflow
+
+**WhatsApp Templates / Factory (Mar 7-10)**
+- #478: Data-driven cold outreach patterns actualizados en template factory
+- #468: Vidanta brand communication guidelines establecidos
+- #376: Message content analysis - winning vs failing template patterns
+- #186: Generados 10 soft re-engagement templates con triggers psicologicos
+- #763: Script de creacion gancho-oportunidad-v2
+
+**N8N Workflows (Mar 12)**
+- #1563: Transfer detection prompt en workflow qpk8xsMI50IWltFV
+- #1536: Livechat send workflow code analysis
+- #1464: N8N workflow configurations documentadas
+
+**VAPI Integration (Mar 11-12)**
+- #1207, #1205, #1384, #1275: JSON sanitization para campo observaciones en VAPI
+
+**UI Fixes (Mar 10)**
+- #927: parseObservaciones mejorado para Markdown y caracteres acentuados
+- #836: Fix line breaks en ticket interface
+- #833: Line break issue en AdminTicketsPanel
+</claude-mem-context>

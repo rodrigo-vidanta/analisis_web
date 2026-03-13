@@ -79,6 +79,23 @@ export const ExpandedCallPanel: React.FC<ExpandedCallPanelProps> = ({
 }) => {
   const transcriptRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  // Live duration timer
+  const [liveDuration, setLiveDuration] = useState(0);
+
+  useEffect(() => {
+    if (!call.fecha_llamada || call.call_status !== 'activa') {
+      setLiveDuration(call.duracion_segundos || 0);
+      return;
+    }
+    const startTime = new Date(call.fecha_llamada).getTime();
+    const updateDuration = () => {
+      setLiveDuration(Math.floor((Date.now() - startTime) / 1000));
+    };
+    updateDuration();
+    const interval = setInterval(updateDuration, 1000);
+    return () => clearInterval(interval);
+  }, [call.fecha_llamada, call.call_status, call.duracion_segundos]);
   
   // Asegurar que transcription siempre sea un array
   const safeTranscription = Array.isArray(transcription) ? transcription : [];
@@ -138,7 +155,7 @@ export const ExpandedCallPanel: React.FC<ExpandedCallPanelProps> = ({
 
   return (
     <div
-      className="w-full h-full bg-gray-900/98 backdrop-blur-xl border-l border-t border-b border-gray-600/50 rounded-l-2xl shadow-2xl flex flex-col overflow-hidden"
+      className="w-full h-full bg-gray-900/95 backdrop-blur-xl border-l border-t border-b border-gray-600/50 rounded-l-2xl shadow-2xl flex flex-col overflow-hidden"
       style={{
         borderRight: 'none',
         borderTopRightRadius: 0,
@@ -176,7 +193,7 @@ export const ExpandedCallPanel: React.FC<ExpandedCallPanelProps> = ({
               <span>En llamada</span>
               <span className="text-gray-600">|</span>
               <Clock className="w-3 h-3" />
-              <span>{formatDuration(call.duracion_segundos)}</span>
+              <span>{formatDuration(liveDuration)}</span>
             </div>
           </div>
           
@@ -301,8 +318,8 @@ export const ExpandedCallPanel: React.FC<ExpandedCallPanelProps> = ({
                   key={idx}
                   className={`text-sm rounded-lg p-3 ${
                     entry.role === 'assistant' 
-                      ? 'bg-blue-500/10 border-l-3 border-blue-500 text-blue-100 ml-4' 
-                      : 'bg-green-500/10 border-l-3 border-green-500 text-green-100 mr-4'
+                      ? 'bg-blue-500/10 border-l-2 border-blue-500 text-blue-100 ml-4' 
+                      : 'bg-green-500/10 border-l-2 border-green-500 text-green-100 mr-4'
                   }`}
                 >
                   <div className="text-[10px] text-gray-500 mb-1 font-medium">

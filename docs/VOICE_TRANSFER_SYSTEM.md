@@ -817,6 +817,7 @@ Autenticacion via API Key (NO Auth Token):
 | v2.31.9 | 2026-03-11 | Admin transfer all users + UUID fix + recording auth URL |
 | v2.31.10 | 2026-03-11 | Admin group en transfer modal |
 | v2.31.15+ | 2026-03-12 | PSTN Bridge Transfer con cascada + badge pstn_bridge |
+| v2.32.3 | 2026-03-13 | Fix React Error #321 (notification onclick setState), Fix #185 (minimizeCall Set loop), RLS UPDATE/INSERT policies voice_transfers |
 
 ### RPC
 
@@ -881,6 +882,22 @@ Autenticacion via API Key (NO Auth Token):
 ### 13. Identity mismatch en cascada bridge
 **Problema:** Build Bridge Context usaba `replace(/-/g, '')` (elimina guiones) pero `generate-twilio-token` usa `replace(/-/g, '_')` (guiones→underscores). Ningún Device matcheaba → 17 targets con `no-answer`
 **Solucion:** Cambiar a `replace(/-/g, '_')` en ambos Build Bridge Context nodes (implicito y explicito)
+
+### 14. React Error #321 — Invalid Hook Call en notification onclick
+**Problema:** `notification.onclick` (Browser Notification API) llamaba `acceptIncomingCall()` → `setState()` fuera del event system de React
+**Solucion:** `setTimeout(() => this.acceptIncomingCall(), 0)` — diferir al siguiente tick
+
+### 15. React Error #185 — Maximum Update Depth en minimizeCall
+**Problema:** `minimizeCall()` creaba nueva referencia de Set cada segundo (auto-minimize interval). `minimizedCallIds` en Effect dependency array → re-renders infinitos
+**Solucion:** Early return guard en `minimizeCall()` si callId ya presente + remover `minimizedCallIds`/`showSoftphone` de Effect deps
+
+### 16. voice_transfers records stuck en "ringing"
+**Problema:** Solo existia SELECT RLS policy. UPDATE/INSERT silenciosamente fallaban → registros nunca se actualizaban
+**Solucion:** Agregar UPDATE policy (`from_user_id OR to_user_id = auth.uid()`) + INSERT policy (`from_user_id = auth.uid()`)
+
+### 17. N8N paired items error en Merge node
+**Problema:** Dos nodos conectados al mismo input index (0) no garantiza que ambos completen. `.item.json` usa paired item resolution que se rompe con multiples inputs
+**Solucion:** Merge node con inputs separados (0 y 1, modo "append") + cambiar `.item.json` a `.first().json`
 
 ---
 
@@ -1096,6 +1113,7 @@ Es Browser Transfer? False
 
 | Feature | Descripcion | Prioridad |
 |---------|-------------|-----------|
+| WhatsApp Cascade | TwiML cascade con action URL para fallback automatico (como PSTN bridge) | Alta |
 | Warm Transfer | Conferencia 3 vias antes de transferir (briefing) | Media |
 | Coach/Whisper | Supervisor escucha/susurra durante llamada | Media |
 | Cross-coordinacion | Admin/CALIDAD transfiere entre coordinaciones | Baja |

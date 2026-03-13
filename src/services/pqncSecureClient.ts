@@ -213,6 +213,7 @@ class PqncQueryBuilder<T = unknown> {
             filters: Object.keys(this.filters).length > 0 ? this.filters : undefined,
             order: orderStr,
             limit: this.limitCount || (this.rangeEnd !== null ? this.rangeEnd - (this.rangeStart || 0) + 1 : undefined),
+            offset: this.rangeStart || undefined,
             single: this.singleResult,
             count: this.countOption || undefined,
             head: this.headOnly || undefined,

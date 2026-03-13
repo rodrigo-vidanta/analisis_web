@@ -168,11 +168,12 @@ class FeedbackService {
     try {
       const result = await pqncQaProxy.select('call_feedback', {
         select: 'id,call_id,feedback_text,feedback_summary,created_by,updated_by,created_at,updated_at,view_count,helpful_votes',
-        filters: { 
+        filters: {
           call_id: callId,
           is_active: true
         },
-        single: true
+        maybeSingle: true,
+        limit: 1
       });
       
       if (result.error) {

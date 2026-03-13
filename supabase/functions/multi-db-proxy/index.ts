@@ -61,6 +61,7 @@ interface ProxyRequest {
   filters?: Record<string, unknown>;
   order?: string;
   limit?: number;
+  offset?: number;
   single?: boolean;
   maybeSingle?: boolean; // Nuevo: permite 0 o 1 resultado
   count?: 'exact'; // Para obtener conteo de registros
@@ -139,7 +140,7 @@ Deno.serve(async (req) => {
 
     // Parsear body
     const body: ProxyRequest = await req.json();
-    const { database, operation, table, select, data, filters, order, limit, single, maybeSingle, count, head } = body;
+    const { database, operation, table, select, data, filters, order, limit, offset, single, maybeSingle, count, head } = body;
 
     // Validar database
     if (!database || !DB_URLS[database]) {
@@ -220,6 +221,7 @@ Deno.serve(async (req) => {
                 case 'ilike': query = query.ilike(key, filterObj.value as string); break;
                 case 'in': query = query.in(key, filterObj.value as unknown[]); break;
                 case 'is': query = query.is(key, filterObj.value); break;
+                case 'not': query = query.not(key, 'is', filterObj.value); break;
               }
             } else {
               // Filtro simple: { column: value } => eq
@@ -234,8 +236,10 @@ Deno.serve(async (req) => {
           query = query.order(column, { ascending: direction !== 'desc' });
         }
         
-        // Límite
-        if (limit) {
+        // Paginación con offset (range) o solo límite
+        if (offset && limit) {
+          query = query.range(offset, offset + limit - 1);
+        } else if (limit) {
           query = query.limit(limit);
         }
         
