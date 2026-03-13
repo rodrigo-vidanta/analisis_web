@@ -5,7 +5,7 @@
       "nixPkgs": ["nodejs_22"]
     },
     "install": {
-      "cmds": ["npm ci"]
+      "cmds": ["npm install"]
     },
     "build": {
       "cmds": ["npm run build"]
