@@ -1,3 +1,15 @@
+## [v2.32.2] - 2026-03-13
+
+**B10.3.0N2.32.2** - 1 fix + 1 mejora
+
+### Other
+- trigger Railway rebuild with synced package-lock.json (`30cea7c`)
+
+### Bug Fixes
+- sync package-lock.json with package.json (source-map@0.6.1) (`911c14e`)
+
+---
+
 ## [v2.32.1] - 2026-03-12
 
 **B10.3.0N2.32.1** - Deploy automatico

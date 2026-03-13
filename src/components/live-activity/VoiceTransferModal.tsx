@@ -19,6 +19,7 @@ import {
   User,
   CheckCircle2,
   AlertCircle,
+  Search,
 } from 'lucide-react';
 import { voiceTransferService, type TeamMember, type TransferCallParams, type WarmTransferData } from '../../services/voiceTransferService';
 
@@ -90,6 +91,7 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
   const [transferTarget, setTransferTarget] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Cargar miembros online al abrir
   useEffect(() => {
@@ -99,6 +101,7 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
       setSuccess(null);
       setTransferTarget(null);
       setIsTransferring(false);
+      setSearchQuery('');
       return;
     }
 
@@ -165,10 +168,18 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
     }
   };
 
-  // Agrupar miembros por rol
+  // Filtrar por búsqueda y agrupar por rol
+  const normalizedQuery = searchQuery.toLowerCase().trim();
+  const filteredMembers = normalizedQuery
+    ? members.filter(m =>
+        m.full_name.toLowerCase().includes(normalizedQuery) ||
+        m.role_name.toLowerCase().includes(normalizedQuery)
+      )
+    : members;
+
   const grouped = ROLE_GROUPS.map(group => ({
     ...group,
-    members: members.filter(m => getRoleGroup(m.role_name) === group.key),
+    members: filteredMembers.filter(m => getRoleGroup(m.role_name) === group.key),
   })).filter(g => g.members.length > 0);
 
   if (!isOpen) return null;
@@ -208,6 +219,20 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
               <p className="text-xs text-gray-500 mt-1">
                 Prospecto: <span className="text-gray-400">{prospectoNombre}</span>
               </p>
+            )}
+            {/* Search */}
+            {!isLoading && !success && members.length > 0 && (
+              <div className="relative mt-2.5">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-8 pr-3 py-1.5 bg-gray-800/60 border border-gray-700/40 rounded-lg text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  autoFocus
+                />
+              </div>
             )}
           </div>
 
@@ -283,6 +308,13 @@ export const VoiceTransferModal: React.FC<VoiceTransferModalProps> = ({
                     </div>
                   </div>
                 ))}
+
+                {members.length > 0 && grouped.length === 0 && normalizedQuery && (
+                  <div className="flex flex-col items-center justify-center py-6">
+                    <Search className="w-8 h-8 text-gray-700 mb-2" />
+                    <p className="text-sm text-gray-500">Sin resultados para &ldquo;{searchQuery}&rdquo;</p>
+                  </div>
+                )}
 
                 {members.length === 0 && !isLoading && !error && (
                   <div className="flex flex-col items-center justify-center py-10">
