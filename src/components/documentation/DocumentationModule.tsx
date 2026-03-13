@@ -314,6 +314,7 @@ const documentationSections: DocSection[] = [
 // ============================================
 
 const gitCommits: GitCommit[] = [
+  { hash: '1e76129', date: '2026-03-13', author: 'Team', message: 'v2.33.0: B10.4.0N2.33.0 - 1 feature + 2 fixes', isRelease: true },
   { hash: '39397e7', date: '2026-03-13', author: 'Team', message: 'v2.32.3: B10.3.0N2.32.3 - 1 fix', isRelease: true },
   { hash: '0e8927e', date: '2026-03-13', author: 'Team', message: 'v2.32.2: B10.3.0N2.32.2 - 1 fix + 1 mejora', isRelease: true },
   { hash: '735424e', date: '2026-03-12', author: 'Team', message: 'v2.32.1: B10.3.0N2.32.1 - Deploy automatico', isRelease: true },
@@ -609,6 +610,7 @@ const gitCommits: GitCommit[] = [
 // ============================================
 
 const awsDeployments: AWSDeployment[] = [
+  { id: 'deploy-547', date: '13/03/2026, 17:48', version: 'B10.4.0N2.33.0', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-430', date: '13/03/2026, 12:16', version: 'B10.3.0N2.32.3', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-975', date: '12/03/2026, 18:18', version: 'B10.3.0N2.32.2', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
   { id: 'deploy-159', date: '12/03/2026, 17:34', version: 'B10.3.0N2.32.1', status: 'success', duration: '25s', triggeredBy: 'Samuel Rosales', environment: 'Production' },
@@ -849,8 +851,8 @@ const awsDeployments: AWSDeployment[] = [
 // ============================================
 
 const stats = [
-  { label: 'Version', value: 'v2.32.3', highlight: true },
-  { label: 'Release', value: 'B10.3.0N2.32.3', highlight: false },
+  { label: 'Version', value: 'v2.33.0', highlight: true },
+  { label: 'Release', value: 'B10.4.0N2.33.0', highlight: false },
   { label: 'Documentos', value: '32', highlight: true },
   { label: 'Ultima actualizacion', value: '13 mar 2026', highlight: false },
 ];

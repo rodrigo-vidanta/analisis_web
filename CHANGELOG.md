@@ -1,3 +1,16 @@
+## [v2.33.0] - 2026-03-13
+
+**B10.4.0N2.33.0** - 1 feature + 2 fixes
+
+### Features
+- outbound dialer, llamadas AI dashboard, voice transfer fixes, admin ring (`4afea54`)
+
+### Bug Fixes
+- paginate PostgREST queries exceeding max_rows=1000 server limit (`a0c85e6`)
+- persist email changes when editing users via admin panel (`35f904e`)
+
+---
+
 ## [v2.32.3] - 2026-03-13
 
 **B10.3.0N2.32.3** - 1 fix

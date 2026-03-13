@@ -5,7 +5,7 @@
  * Cambios: SECURITY UPGRADE - RLS restrictivo + SECURITY INVOKER (3 fases)
  */
 
-export const APP_VERSION = 'B10.3.0N2.32.3';
+export const APP_VERSION = 'B10.4.0N2.33.0';
 
 /**
  * CHANGELOG v2.5.74 (2026-02-02)
