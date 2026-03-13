@@ -1,3 +1,12 @@
+## [v2.32.3] - 2026-03-13
+
+**B10.3.0N2.32.3** - 1 fix
+
+### Bug Fixes
+- use npm install instead of npm ci for cross-version compatibility (`e893323`)
+
+---
+
 ## [v2.32.2] - 2026-03-13
 
 **B10.3.0N2.32.2** - 1 fix + 1 mejora

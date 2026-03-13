@@ -50,6 +50,7 @@ export interface DashboardConversation {
   llamada_activa_id: string | null;
   tiene_llamada_activa: boolean;
   bloqueado_whatsapp: boolean;
+  whatsapp_invalido: boolean;
 }
 
 // Interfaz para datos complementarios (de System UI)
@@ -252,6 +253,7 @@ class OptimizedConversationsService {
         etapa: conv.etapa,
         etapa_id: conv.etapa_id,
         bloqueado_whatsapp: conv.bloqueado_whatsapp || false,
+        whatsapp_invalido: conv.whatsapp_invalido || false,
       });
     });
 

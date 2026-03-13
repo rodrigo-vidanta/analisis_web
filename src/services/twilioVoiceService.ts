@@ -671,7 +671,8 @@ class TwilioVoiceService {
 
     notification.onclick = () => {
       window.focus();
-      this.acceptIncomingCall();
+      // Defer acceptIncomingCall to avoid calling setState outside React's event system (Error #321)
+      setTimeout(() => this.acceptIncomingCall(), 0);
       notification.close();
     };
 

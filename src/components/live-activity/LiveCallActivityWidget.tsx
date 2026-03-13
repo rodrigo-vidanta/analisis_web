@@ -159,11 +159,12 @@ export const LiveCallActivityWidget: React.FC = () => {
           } : {}),
         } as WidgetCallData);
         setShowSoftphone(true);
+        audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
       }
 
-      audioOutputService.playOnAllDevices('/sounds/notification.mp3', 1.0).catch(() => {});
     }
-  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, minimizedCallIds, restoreCall, showSoftphone, warmTransferData, acceptVoiceCall]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasIncomingCall, incomingCallInfo, widgetCalls, setVoiceTransfer, restoreCall, warmTransferData, acceptVoiceCall]);
 
   // Cuando la llamada Voice se acepta, transicionar a "active"
   useEffect(() => {

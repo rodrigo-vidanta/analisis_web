@@ -622,6 +622,7 @@ export const useLiveActivityStore = create<LiveActivityState>((set, get) => ({
    */
   minimizeCall: (callId: string) => {
     const state = get();
+    if (state.minimizedCallIds.has(callId)) return;
     const newMinimized = new Set(state.minimizedCallIds);
     newMinimized.add(callId);
     set({ minimizedCallIds: newMinimized });

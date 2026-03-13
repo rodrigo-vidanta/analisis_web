@@ -1607,6 +1607,7 @@ const LiveChatCanvas: React.FC = () => {
     etapa?: string | null;
     etapa_id?: string | null; // ✅ AGREGADO: FK a tabla etapas
     bloqueado_whatsapp?: boolean; // true si prospecto bloqueó nuestro número WhatsApp
+    whatsapp_invalido?: boolean; // true si número no tiene WhatsApp activo o es inválido
     whatsapp_provider?: string; // 'uchat' | 'twilio'
   }>>(new Map());
 
@@ -1820,19 +1821,20 @@ const LiveChatCanvas: React.FC = () => {
         .catch(() => {});
     }
 
-    // 2. Auto-desbloqueo: si el prospecto nos envía un mensaje, ya no está bloqueado
+    // 2. Auto-desbloqueo: si el prospecto nos envía un mensaje, ya no está bloqueado/inválido
     if (newMessagePayload.rol === 'Prospecto') {
       const pDataForUnblock = prospectosDataRef.current.get(targetProspectoId);
-      if (pDataForUnblock?.bloqueado_whatsapp) {
+      if (pDataForUnblock?.bloqueado_whatsapp || pDataForUnblock?.whatsapp_invalido) {
         // Actualizar cache local inmediatamente
         prospectosDataRef.current.set(targetProspectoId, {
           ...pDataForUnblock,
           bloqueado_whatsapp: false,
+          whatsapp_invalido: false,
         });
         // Actualizar BD en background
         analysisSupabase
           .from('prospectos')
-          .update({ bloqueado_whatsapp: false })
+          .update({ bloqueado_whatsapp: false, whatsapp_invalido: false })
           .eq('id', targetProspectoId)
           .then(() => {})
           .catch(() => {});
@@ -1897,7 +1899,7 @@ const LiveChatCanvas: React.FC = () => {
           // Si no está en cache O tiene datos parciales (sin nombre), cargar desde BD
           const { data: prospecto } = await analysisSupabase
             .from('prospectos')
-            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics, bloqueado_whatsapp, whatsapp_provider')
+            .select('id, nombre_completo, nombre_whatsapp, whatsapp, etapa_id, coordinacion_id, ejecutivo_id, id_uchat, id_dynamics, bloqueado_whatsapp, whatsapp_invalido, whatsapp_provider')
             .eq('id', targetProspectoId)
             .maybeSingle();
 
@@ -2581,6 +2583,7 @@ const LiveChatCanvas: React.FC = () => {
                 etapa: updatedProspecto.etapa || null,
                 etapa_id: updatedProspecto.etapa_id || null,
                 bloqueado_whatsapp: updatedProspecto.bloqueado_whatsapp ?? existingCacheData?.bloqueado_whatsapp ?? false,
+                whatsapp_invalido: updatedProspecto.whatsapp_invalido ?? existingCacheData?.whatsapp_invalido ?? false,
                 // Incluir campos de nombre/contacto del payload Realtime (payload.new tiene row completa)
                 nombre_completo: updatedProspecto.nombre_completo || existingCacheData?.nombre_completo || null,
                 nombre_whatsapp: updatedProspecto.nombre_whatsapp || existingCacheData?.nombre_whatsapp || null,
@@ -2764,16 +2767,20 @@ const LiveChatCanvas: React.FC = () => {
               });
             }
             
-            // ✅ REALTIME bloqueado_whatsapp: Actualizar cache cuando cambia
+            // ✅ REALTIME bloqueado_whatsapp / whatsapp_invalido: Actualizar cache cuando cambia
             const bloqueadoChanged = currentCached
               ? currentCached.bloqueado_whatsapp !== updatedProspecto.bloqueado_whatsapp
               : updatedProspecto.bloqueado_whatsapp === true;
-            if (bloqueadoChanged) {
+            const invalidoChanged = currentCached
+              ? currentCached.whatsapp_invalido !== updatedProspecto.whatsapp_invalido
+              : updatedProspecto.whatsapp_invalido === true;
+            if (bloqueadoChanged || invalidoChanged) {
               const prospectoData = prospectosDataRef.current.get(prospectoId);
               if (prospectoData) {
                 prospectosDataRef.current.set(prospectoId, {
                   ...prospectoData,
-                  bloqueado_whatsapp: updatedProspecto.bloqueado_whatsapp ?? false
+                  bloqueado_whatsapp: updatedProspecto.bloqueado_whatsapp ?? false,
+                  whatsapp_invalido: updatedProspecto.whatsapp_invalido ?? false
                 });
               }
               // Forzar re-render si la conversación seleccionada cambió
@@ -4385,6 +4392,7 @@ const LiveChatCanvas: React.FC = () => {
         etapa?: string | null;
         etapa_id?: string | null;
         bloqueado_whatsapp?: boolean;
+        whatsapp_invalido?: boolean;
         whatsapp_provider?: string;
       }>> => {
         const resultMap = new Map<string, {
@@ -4401,6 +4409,7 @@ const LiveChatCanvas: React.FC = () => {
           etapa?: string | null;
           etapa_id?: string | null;
           bloqueado_whatsapp?: boolean;
+          whatsapp_invalido?: boolean;
           whatsapp_provider?: string;
         }>();
         
@@ -4410,7 +4419,7 @@ const LiveChatCanvas: React.FC = () => {
           try {
             const { data, error } = await analysisSupabase
               .from('prospectos')
-              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id, bloqueado_whatsapp, whatsapp_provider')
+              .select('id, coordinacion_id, ejecutivo_id, id_dynamics, nombre_completo, nombre_whatsapp, titulo, email, whatsapp, requiere_atencion_humana, motivo_handoff, etapa, etapa_id, bloqueado_whatsapp, whatsapp_invalido, whatsapp_provider')
               .in('id', batch);
             
             if (error) {
@@ -4457,6 +4466,7 @@ const LiveChatCanvas: React.FC = () => {
                 etapa: p.etapa || null,
                 etapa_id: p.etapa_id || null,
                 bloqueado_whatsapp: p.bloqueado_whatsapp || false,
+                whatsapp_invalido: p.whatsapp_invalido || false,
                 whatsapp_provider: p.whatsapp_provider || 'uchat',
               });
               if (p.coordinacion_id) coordinacionIds.add(p.coordinacion_id);
@@ -8740,20 +8750,29 @@ const LiveChatCanvas: React.FC = () => {
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {selectedConversation.customer_name}
                       </h3>
-                      {/* Badge de prospecto bloqueado en WhatsApp */}
+                      {/* Badge de prospecto bloqueado o número inválido en WhatsApp */}
                       {(() => {
                         const pId = selectedConversation.prospecto_id || selectedConversation.id;
                         const pData = pId ? prospectosDataRef.current.get(pId) : null;
-                        if (!pData?.bloqueado_whatsapp) return null;
-                        return (
+                        if (pData?.bloqueado_whatsapp) return (
                           <span
                             className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 flex-shrink-0"
-                            title="Este prospecto ha bloqueado nuestro n\u00famero de WhatsApp. Los mensajes no se entregar\u00e1n hasta que nos desbloquee."
+                            title="Este prospecto ha bloqueado nuestro número de WhatsApp. Los mensajes no se entregarán hasta que nos desbloquee."
                           >
                             <ShieldAlert className="w-3 h-3" />
                             Bloqueado
                           </span>
                         );
+                        if (pData?.whatsapp_invalido) return (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 flex-shrink-0"
+                            title="Este número no tiene WhatsApp activo o es inválido. Los mensajes no se entregarán."
+                          >
+                            <PhoneOff className="w-3 h-3" />
+                            Número inválido
+                          </span>
+                        );
+                        return null;
                       })()}
                     </div>
                     {/* Segunda línea: Coordinación + Ejecutivo + Teléfono | ID */}
@@ -9814,12 +9833,14 @@ const LiveChatCanvas: React.FC = () => {
                 minHeight: '80px'
               }}
             >
-            {/* CONTACTO BLOQUEADO POR WHATSAPP - No mostrar reactivar */}
+            {/* CONTACTO BLOQUEADO O NÚMERO INVÁLIDO - No mostrar reactivar */}
             {(() => {
               const blkId = selectedConversation?.prospecto_id || selectedConversation?.id;
               const blkData = blkId ? prospectosDataRef.current.get(blkId) : null;
-              return blkData?.bloqueado_whatsapp;
-            })() ? (
+              if (blkData?.bloqueado_whatsapp) return 'bloqueado';
+              if (blkData?.whatsapp_invalido) return 'invalido';
+              return null;
+            })() === 'bloqueado' ? (
               <div className="flex items-center justify-center h-full bg-gradient-to-r from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-950/30 rounded-xl border border-red-200 dark:border-red-800/50 px-4 py-6">
                 <div className="flex items-center space-x-3 text-red-800 dark:text-red-200 w-full">
                   <ShieldAlert className="w-6 h-6 flex-shrink-0 text-red-500 dark:text-red-400" />
@@ -9829,6 +9850,24 @@ const LiveChatCanvas: React.FC = () => {
                     </p>
                     <p className="text-xs opacity-80 mt-0.5">
                       Este prospecto ha bloqueado nuestro número de WhatsApp. No es posible enviar mensajes ni plantillas hasta que nos desbloquee.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ) : (() => {
+              const invId = selectedConversation?.prospecto_id || selectedConversation?.id;
+              const invData = invId ? prospectosDataRef.current.get(invId) : null;
+              return invData?.whatsapp_invalido;
+            })() ? (
+              <div className="flex items-center justify-center h-full bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-950/30 rounded-xl border border-amber-200 dark:border-amber-800/50 px-4 py-6">
+                <div className="flex items-center space-x-3 text-amber-800 dark:text-amber-200 w-full">
+                  <PhoneOff className="w-6 h-6 flex-shrink-0 text-amber-500 dark:text-amber-400" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold">
+                      Número sin WhatsApp activo
+                    </p>
+                    <p className="text-xs opacity-80 mt-0.5">
+                      Este número no tiene WhatsApp activo o es inválido. No es posible enviar mensajes ni plantillas.
                     </p>
                   </div>
                 </div>
@@ -9950,17 +9989,23 @@ const LiveChatCanvas: React.FC = () => {
             ) : (
               // VENTANA ACTIVA - Mostrar input normal
             <div className="flex flex-col gap-1">
-              {/* Banner de prospecto bloqueado en WhatsApp */}
+              {/* Banner de prospecto bloqueado o número inválido en WhatsApp */}
               {(() => {
                 const bId = selectedConversation?.prospecto_id || selectedConversation?.id;
                 const bData = bId ? prospectosDataRef.current.get(bId) : null;
-                if (!bData?.bloqueado_whatsapp) return null;
-                return (
+                if (bData?.bloqueado_whatsapp) return (
                   <div className="flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300 text-xs">
                     <ShieldAlert className="w-3.5 h-3.5 flex-shrink-0" />
                     <span>Prospecto bloqueó nuestro número. Los mensajes probablemente no se entregarán.</span>
                   </div>
                 );
+                if (bData?.whatsapp_invalido) return (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-700 dark:text-amber-300 text-xs">
+                    <PhoneOff className="w-3.5 h-3.5 flex-shrink-0" />
+                    <span>Número sin WhatsApp activo. Los mensajes no se entregarán.</span>
+                  </div>
+                );
+                return null;
               })()}
             <div className="flex items-center space-x-2">
               {/* Botón Adjuntar */}
