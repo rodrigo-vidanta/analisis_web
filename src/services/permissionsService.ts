@@ -979,7 +979,7 @@ class PermissionsService {
       if (!query || typeof query !== 'object') {
         console.error('❌ [applyProspectFilters] Query original inválida:', query);
         const { analysisSupabase } = await import('../config/analysisSupabase');
-        return analysisSupabase.from('prospectos').select('*');
+        return analysisSupabase.from('prospectos').select('*').limit(1000);
       }
 
       // Verificar primero si es coordinador de Calidad (tiene acceso completo)
@@ -1051,7 +1051,7 @@ class PermissionsService {
       if (!query || typeof query !== 'object') {
         console.error('❌ [applyProspectFilters] Query inválida después de aplicar filtros:', query);
         const { analysisSupabase } = await import('../config/analysisSupabase');
-        return analysisSupabase.from('prospectos').select('*');
+        return analysisSupabase.from('prospectos').select('*').limit(1000);
       }
 
       return query;
@@ -1059,7 +1059,7 @@ class PermissionsService {
       console.error('Error aplicando filtros de prospectos:', error);
       // En caso de error, retornar query de fallback
       const { analysisSupabase } = await import('../config/analysisSupabase');
-      return analysisSupabase.from('prospectos').select('*');
+      return analysisSupabase.from('prospectos').select('*').limit(1000);
     }
   }
 

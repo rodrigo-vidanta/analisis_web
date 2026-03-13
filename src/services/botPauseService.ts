@@ -324,16 +324,29 @@ class BotPauseService {
 
     try {
       const now = new Date().toISOString();
-      const { data, error } = await this.client
-        .from('bot_pause_status')
-        .select('*')
-        .eq('is_paused', true)
-        .gt('paused_until', now);
+      const PAGE_SIZE = 1000;
+      const allPauses: BotPauseStatus[] = [];
+      let from = 0;
+      let hasMore = true;
 
-      if (error) {
-        return [];
+      while (hasMore) {
+        const { data, error } = await this.client
+          .from('bot_pause_status')
+          .select('*')
+          .eq('is_paused', true)
+          .gt('paused_until', now)
+          .range(from, from + PAGE_SIZE - 1);
+
+        if (error || !data) {
+          break;
+        }
+
+        allPauses.push(...(data as BotPauseStatus[]));
+        hasMore = data.length === PAGE_SIZE;
+        from += PAGE_SIZE;
       }
-      return (data || []) as BotPauseStatus[];
+
+      return allPauses;
     } catch (error) {
       return [];
     }

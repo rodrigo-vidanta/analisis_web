@@ -194,7 +194,8 @@ class LiveMonitorService {
         .from('llamadas_ventas')
         .select('call_id, call_status, duracion_segundos, audio_ruta_bucket, fecha_llamada, datos_llamada, monitor_url')
         .eq('call_status', 'activa')
-        .order('fecha_llamada', { ascending: false });
+        .order('fecha_llamada', { ascending: false })
+        .limit(500);
 
       if (error || !calls) {
         console.warn('⚠️ No se pudieron obtener llamadas para auto-corrección:', error);

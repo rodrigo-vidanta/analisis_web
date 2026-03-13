@@ -1,3 +1,6 @@
+# Diagnosticos de tickets (local, no commiteable)
+diagnostics/
+
 # Logs
 logs
 *.log

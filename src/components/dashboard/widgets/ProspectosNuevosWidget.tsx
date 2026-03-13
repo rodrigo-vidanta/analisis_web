@@ -491,21 +491,19 @@ export const ProspectosNuevosWidget: React.FC<ProspectosNuevosWidgetProps> = ({ 
     try {
       setLoading(true);
       
-      // Obtener TODOS los prospectos asignados al usuario (sin límite)
-      // Incluir el campo observaciones
+      // Obtener prospectos que requieren atención humana (filtro server-side)
       const data = await prospectsService.searchProspects(
-        { limit: 1000 }, // Obtener muchos para filtrar
+        { limit: 1000, requiere_atencion_humana: true },
         userId
       );
-      
+
       if (!data || data.length === 0) {
         setProspectos([]);
         prospectosListRef.current = [];
         return;
       }
-      
-      // Filtrar SOLO los que requieren atención humana (sin límite)
-      let requierenAtencion = data.filter(p => p.requiere_atencion_humana === true);
+
+      let requierenAtencion = data;
 
       // CRÍTICO: Filtro adicional en el cliente para asegurar que solo se muestren prospectos
       // de la coordinación correcta (usando coordinacion_id directamente de la tabla prospectos)

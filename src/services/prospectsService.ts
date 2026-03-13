@@ -439,6 +439,7 @@ class ProspectsService {
     etapa_id?: string;
     ciudad?: string;
     limit?: number;
+    requiere_atencion_humana?: boolean;
   }, userId?: string): Promise<Prospect[]> {
     try {
       let query = analysisSupabase
@@ -481,6 +482,10 @@ class ProspectsService {
 
       if (criteria.ciudad) {
         query = query.ilike('ciudad_residencia', `%${criteria.ciudad}%`);
+      }
+
+      if (criteria.requiere_atencion_humana !== undefined) {
+        query = query.eq('requiere_atencion_humana', criteria.requiere_atencion_humana);
       }
 
       // Aplicar filtros de permisos si hay userId (incluye lógica de backup)
