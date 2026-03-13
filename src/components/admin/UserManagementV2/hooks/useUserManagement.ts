@@ -1054,11 +1054,40 @@ export function useUserManagement(): UseUserManagementReturn {
         }
       }
 
+      const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
+      const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
+
+      // 4a. Actualizar email si cambió (operación separada en Supabase Auth)
+      if (filteredUpdates.email) {
+        const existingUser = users.find(u => u.id === userId);
+        if (existingUser && existingUser.email !== filteredUpdates.email) {
+          console.log('Actualizando email del usuario:', filteredUpdates.email);
+          const emailResponse = await fetch(`${edgeFunctionsUrl}/functions/v1/auth-admin-proxy`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${anonKey}`,
+            },
+            body: JSON.stringify({
+              operation: 'updateUserEmail',
+              params: {
+                userId,
+                email: filteredUpdates.email
+              }
+            })
+          });
+
+          const emailResult = await emailResponse.json();
+          if (!emailResponse.ok || !emailResult.success) {
+            console.error('Error actualizando email:', emailResult.error);
+            throw new Error(emailResult.error || 'Error al actualizar email del usuario');
+          }
+        }
+      }
+
+      // 4b. Actualizar metadatos en auth.users
       if (Object.keys(metadataUpdates).length > 0) {
         console.log('Actualizando auth.users metadata con campos:', metadataUpdates);
-
-        const edgeFunctionsUrl = import.meta.env.VITE_EDGE_FUNCTIONS_URL;
-        const anonKey = import.meta.env.VITE_ANALYSIS_SUPABASE_ANON_KEY;
 
         // REGLA DE NEGOCIO: Si no tiene id_dynamics, no puede ser operativo
         if (metadataUpdates.is_operativo === true && !metadataUpdates.id_dynamics) {
